@@ -1,0 +1,26 @@
+let version = "0.0.0"
+
+let _debug =
+  ref false
+
+let debug = function () ->
+  !_debug
+
+let _author = ref "author"
+
+let author = function () -> !_author
+
+let _project_name = ref "project-name"
+
+let project_name = function () -> !_project_name
+
+(* --skip-dt-strat*)
+type detection_strategies = 
+| NONE (* no violation detection*)
+| LIFETIME (* if not specified, ghost onstratup and ghost ondestroy will be erased *)
+| SESSION (* ensure protocol order is fullfiled*)
+| METADATA (* allow metadata based contract*)
+| ALL
+
+let _keep_ghost = ref false
+let keep_ghost = function () -> !_keep_ghost

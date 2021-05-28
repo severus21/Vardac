@@ -1,0 +1,7 @@
+(test
+ (name main)
+ (deps
+  (glob_files data/*.spec)
+  (glob_files examples/kvs/*.spec)
+ )
+ (libraries compspec.core compspec.frontend ounit2))

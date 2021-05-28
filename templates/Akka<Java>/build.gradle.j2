@@ -1,0 +1,73 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import com.github.jengelman.gradle.plugins.shadow.transformers.AppendingTransformer
+
+plugins {
+    id 'java'
+    id "com.github.johnrengelman.shadow" version "6.1.0"
+}
+
+group 'com.bmartin'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+def versions = [
+        AkkaVersion: "2.6.13",
+        ScalaBinary: "2.13"
+]
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.0'
+//    testRuntimeOnly 'org.slf4j:slf4j-simple:1.7.28'
+
+    implementation group: "commons-cli", name: "commons-cli", version: "1.4"
+    implementation "ch.qos.logback:logback-classic:1.2.3"
+    implementation "org.slf4j:slf4j-api:1.7.28"
+    implementation group: 'com.typesafe.akka', name: "akka-actor-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+    implementation group: 'com.typesafe.akka', name: "akka-cluster-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+    implementation group: 'com.typesafe.akka', name: "akka-cluster-sharding-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+//    implementation group: 'eu.antidotedb', name: 'antidote-java-client', version: '0.3.1'
+
+    implementation platform(group: 'com.typesafe.akka', name: "akka-bom_${versions.ScalaBinary}", version: "${versions.AkkaVersion}")
+//    implementation group: 'com.typesafe.akka', name: "akka-discovery_2.13", version: "2.6.13"
+    implementation group: 'com.typesafe.akka', name: "akka-serialization-jackson_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+    implementation group: 'com.typesafe.akka', name: "akka-persistence-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+    implementation group: 'com.typesafe.akka', name: "akka-persistence-query_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+//    implementation group: 'com.lightbend.akka', name: "akka-projection-core_${versions.ScalaBinary}", version: "1.1.0"
+//    implementation group: 'com.lightbend.akka', name: "akka-projection-eventsourced_${versions.ScalaBinary}", version: "1.1.0"
+    testImplementation group: 'com.typesafe.akka', name: "akka-persistence-testkit_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+    testImplementation group: 'com.typesafe.akka', name: "akka-actor-testkit-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+
+    // http
+    implementation platform("com.typesafe.akka:akka-http-bom_${versions.ScalaBinary}:10.2.4")
+    implementation "com.typesafe.akka:akka-stream_${versions.ScalaBinary}:${versions.AkkaVersion}"
+    implementation "com.typesafe.akka:akka-http_${versions.ScalaBinary}"
+    implementation "com.typesafe.akka:akka-http-jackson_${versions.ScalaBinary}"
+
+    // interactive console
+    implementation "org.jline:jline:3.20.0"
+}
+
+test {
+    useJUnitPlatform()
+}
+
+/*
+    FAT jar tasks
+ */
+task jarMain(type: ShadowJar) {
+    archiveBaseName.set('kvsServer')
+    archiveClassifier.set('')
+    archiveVersion.set('')
+    configurations = [project.configurations.compileClasspath]
+    manifest {
+        attributes('Main-Class': 'com.{{author}}.{{project_name}}.MainServer')
+    }
+    transform(AppendingTransformer) {
+        resource = 'reference.conf'
+    }
+    with jar
+}

@@ -1,0 +1,7 @@
+(library
+    (name akka)
+    (public_name compspec.codegen.plugins.akka)
+    (preprocess (pps ppx_deriving.show ppx_import ppx_fields_conv))
+    (modules :standard)
+    (libraries fieldslib ounit2 yaml "yaml.unix" "rresult" "fileutils" process compspec.core)
+)

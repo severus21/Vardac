@@ -1,0 +1,7 @@
+(library
+    (name java)
+    (public_name compspec.codegen.plugins.java)
+    (preprocess (pps ppx_deriving.show ppx_import))
+    (modules :standard)
+    (libraries ounit2 akka)
+)

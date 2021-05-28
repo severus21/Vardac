@@ -1,0 +1,6 @@
+(library
+    (name plugins)
+    (public_name compspec.codegen.plugins)
+    (modules :standard)
+    (libraries ounit2 easy_logging core dynlink akka java jingoo)
+)

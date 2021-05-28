@@ -1,0 +1,16 @@
+
+;; Constructing the lexer, parser, and executable.
+
+(ocamllex Lexer)
+(menhir
+  (flags (-lg 1 -la 1 --explain))
+  (modules Parser)
+)
+
+(library
+    (name frontend)
+    (public_name compspec.frontend)
+    (preprocess (pps ppx_deriving.show ppx_import ppx_fields_conv))
+    (modules :standard)
+    (libraries fieldslib ounit2 yaml "yaml.unix" "rresult" "fileutils" process core)
+)

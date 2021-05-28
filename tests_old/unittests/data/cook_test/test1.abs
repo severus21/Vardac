@@ -1,0 +1,31 @@
+let x1 = 5 + 6 
+let x2 = "coucou" 
+let x3 = 0.1 
+let x4 = []
+let x5 = [1]
+let x6 = [1;2;3]
+
+(* TODO add application with multiple arguments *)
+(* NB: placedefinition outside, yml file (+update dyn) automatically load into the env*)
+grp grp1 = dc1 (* TODO trouver un formalisme pour lier grouper à place et des combinateur de groupe et de place *)
+(* TODO add combiner let grp3 @ dc2 | dc1 *)
+
+abstraction my_abstraction = 
+    (* States *)
+    state x = 100
+    state transient y = "ee"
+
+    (* encapsulation *)
+    abstraction absy = end
+    abstraction absx = end
+    abstraction absz = end
+
+    (* structural def*)
+    tie txy = absx -> absy
+    tie tzy = absz <-> absy
+    
+    disproperty replication_correctness = placeof(x) == placeof(y) (* compiled to type obligatoire unit -> bool *) 
+    disproperty correctness = sqrt(x) == 10 (* and replication_correctness TODO define priority and lparen*) 
+
+implem impx @ grp1  : my_abstraction = dummy (* TODO native or load a binary with commands, ports, ...*)
+
