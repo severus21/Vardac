@@ -402,7 +402,7 @@ and cook_method0 cenv place : S._method0 -> cookenv * T._method0 = function
         ret_type = cmtype cenv m.ret_type;
         name;
         args;
-        contract_opt = None; (*TODO*)
+        contract_opt = None; (* Pairing between contract and method0 is done during a next pass, see. Core.PartialEval.ml *)
         abstract_impl = match m.abstract_impl with
                             | {place=_;value=S.EmptyStmt} -> None
                             | stmt -> Some (snd(cstmt inner_cenv stmt))

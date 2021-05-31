@@ -28,12 +28,14 @@ let general_fenv = ref (fresh_fenv())
 
 (* XXXX *)
 
-type items_grps = { methods: S.method0 list; 
-                    states: S.state list; 
-                    nested: S.component_dcl list; 
-                    ports: S.port list;
-                    typedefs: (S.variable * S.main_type option) list;
-                    others: S.term list}
+type items_grps = { 
+    methods: S.method0 list; 
+    states: S.state list; 
+    nested: S.component_dcl list; 
+    ports: S.port list;
+    typedefs: (S.variable * S.main_type option) list;
+    others: S.term list
+}
 
 let fresh_items_grp () = { 
     methods     = [];
@@ -41,11 +43,12 @@ let fresh_items_grp () = {
     nested      = [];
     ports       = [];
     typedefs    = [];
-    others      = [];}
+    others      = [];
+}
 
 let group_cdcl_by (citems:  S.component_item list) : items_grps =
     let dispatch grp (citem: S.component_item) = match citem.value with
-        | S.Contract _ -> Core.Error.error citem.place "Contract is not yet supported in Akka plg"
+        | S.Contract _ -> raise (Core.Error.DeadbranchError  "Contract term should have been remove from AST by the cook pass and binded to a method")
         | S.Include _ -> Core.Error.error citem.place "Include is not yet supported in Akka plg"
         | S.Method  m-> {grp with methods=m::grp.methods}
         | S.State f-> {grp with states=f::grp.states}
@@ -209,7 +212,7 @@ and finish_expr place : S._expr -> T.expr = function
     | S.VarExpr x -> T.VarExpr x
     | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
     | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
-    | S.LambdaExpr (x, stmt) -> failwith "Lambda is not yet supported" 
+    | S.LambdaExpr (x, stmt) -> T.LambdaExpr ([x], fstmt stmt) 
     | S.LitExpr lit -> T.LitExpr (fliteral lit)
     | S.UnopExpr (op, e) -> T.UnopExpr (op, fexpr e)
 
@@ -300,27 +303,146 @@ and finish_param place : S._param -> (T.ctype * T.variable) = function
 | mt, x -> Option.get (fst(fmtype mt)), x
 and fparam : S.param -> (T.ctype * T.variable) = function p -> finish_param p.place p.value
 
-and finish_method place actor_name : S._method0 -> T.method0 = function
-    | S.CustomMethod m0 ->  
-        assert( m0.contract_opt = None);
 
+and finish_contract place (method0 : T.method0) (contract : S._contract) : T.method0 list =
+    (* Inner logic of the method *)
+    let inner_name = Atom.fresh ((Atom.hint contract.method_name)^"_inner") in
+    let inner_method = { method0 with name = inner_name; vis = T.Private } in
+
+    (* Pre binders *)
+    let with_params = List.map (function (x,y,_) -> finish_param place (x,y)) contract.pre_binders in
+    let with_stmts : S._stmt list = List.map (function (x,y,z) -> S.LetExpr (x,y,z)) contract.pre_binders in 
+    let with_stmts : T.stmt list = List.map (finish_stmt place) with_stmts in
+    (*let with_body : T.stmt = T.BlockStmt with_stmts in*)
+
+    (* Pre-condition *)
+    let ensures_methods, ensures_stmts = match contract.ensures with
+    | None -> [], [] 
+    | Some ensures_expr -> begin
+        let ensures_name    = Atom.fresh ((Atom.hint contract.method_name)^"_ensures") in
+        let ensures_params  = method0.args @ with_params in
+
+        let ensures_method : T.method0 = {
+            vis             = T.Private;
+            ret_type        = T.Atomic "bool";
+            name            = ensures_name;
+            body            = T.ExpressionStmt (fexpr ensures_expr);
+            args            = ensures_params;
+            is_constructor  = false
+        } in
+
+        [ensures_method], [ T.IfStmt (
+            T.UnopExpr ( 
+                IR.Not,
+                T.CallExpr ( 
+                    T.VarExpr ensures_name, 
+                    List.map (function param -> T.VarExpr (snd param)) ensures_params 
+                )
+            ),
+            T.ExpressionStmt (T.AssertExpr (T.LitExpr (T.BoolLit false))), (*TODO refine*)
+            None
+        ) ]
+    end in 
+
+    (* Post-condition *)
+    let returns_methods, returns_stmts = match contract.returns with
+    | None -> [], [
+        T.ReturnStmt ( T.CallExpr (
+            T.VarExpr inner_name,
+            List.map (function param -> T.VarExpr (snd param)) method0.args
+        ))
+    ] 
+    | Some returns_expr -> begin
+        let returns_name    = Atom.fresh ((Atom.hint contract.method_name)^"_returns") in
+        let ret_type_param  = (method0.ret_type, Atom.fresh "res") in 
+        let returns_params  = ret_type_param :: method0.args @ with_params in
+
+        let returns_method  : T.method0 = {
+            vis             = T.Private;
+            ret_type        = T.Atomic "bool";
+            name            = returns_name;
+            body            = T.ExpressionStmt (T.CallExpr(
+                fexpr returns_expr,
+                [T.VarExpr (snd ret_type_param)]
+            ));
+            args            = returns_params;
+            is_constructor  = false
+        } in
+
+        [returns_method], [ 
+            T.LetStmt (
+                method0.ret_type,
+                (snd ret_type_param),
+                Some (T.CallExpr (
+                    T.VarExpr inner_name,
+                    List.map (function param -> T.VarExpr (snd param)) method0.args
+                ))
+            );
+            T.IfStmt (
+                T.UnopExpr ( 
+                    IR.Not,
+                    T.CallExpr ( 
+                        T.VarExpr returns_name, 
+                        List.map (function param -> T.VarExpr (snd param)) returns_params 
+                    )
+                ),
+                T.ExpressionStmt (T.AssertExpr (T.LitExpr (T.BoolLit false))), (*TODO refine*)
+                None
+            );
+            T.ReturnStmt (T.VarExpr (snd ret_type_param))
+        ]
+    end in
+
+    let main_stmts =
+        with_stmts @
+        ensures_stmts @
+        returns_stmts
+    in
+
+    let main_method : T.method0 = {
+        vis             = method0.vis;
+        ret_type        = method0.ret_type;
+        name            = method0.name;
+        body            = T.BlockStmt main_stmts;
+        args            = method0.args;
+        is_constructor  = method0.is_constructor 
+    } in 
+
+    let methods =
+        [inner_method] @
+        ensures_methods @
+        returns_methods @
+        [main_method]
+    in
+
+    methods
+and fcontract actor_name (method0 : T.method0) : S.contract -> T.method0 list = function m -> finish_contract m.place method0 m.value
+    
+and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._method0 -> T.method0 list = function
+    | S.CustomMethod m0 ->  
         let body = match m0.abstract_impl with
             | None -> T.ContinueStmt (*TODO TODO failwith "loading method from external sources is not yet supported"*) (* abstract method, implementation should be loaded from external sources*)
             | Some stmt -> fstmt stmt (* implem de reference -> generate code*)
         in
 
-        { 
+        let new_method : T.method0 = { 
             vis             = T.Public; 
             ret_type        = Option.get (fst (fmtype m0.ret_type));
             name            = m0.name;
             args            = (List.map fparam m0.args);
             body            = body; 
-            is_constructor  = false
-        }
-    | S.OnStartup m0 -> let m = fmethod actor_name m0 in  
-        { m with name = actor_name ; is_constructor = true }
+            is_constructor  = is_constructor 
+        } in
+
+        begin
+            match m0.contract_opt with
+            | None -> [new_method]
+            | Some contract -> fcontract actor_name new_method contract 
+        end
+
+    | S.OnStartup m0 -> finish_method m0.place actor_name ~is_constructor:true m0.value   
     | S.OnDestroy _ -> failwith "onstart and ondestroy are not yet supported"
-and fmethod actor_name : S.method0 -> T.method0 = function m -> finish_method m.place actor_name m.value
+and fmethod actor_name : S.method0 -> T.method0 list = function m -> finish_method m.place actor_name m.value
 
 
 and finish_component_dcl place : S._component_dcl -> T.actor list = function
@@ -388,7 +510,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         T.CallExpr(T.VarExpr (Atom.fresh_builtin "build"), [T.LitExpr T.EmptyLit]))
     in
 
-    let receiver : T.method0= {
+    let receiver : T.method0 = {
         args            = [];
         body            = T.ReturnStmt receiver_expr;
         name            = Atom.fresh_builtin "createReceive";
@@ -398,7 +520,8 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     } in
     
     (* building methods *)
-    let methods = List.map (fmethod name) grp_items.methods in 
+    let methods = List.flatten (List.map (fmethod name) grp_items.methods) in 
+    
 
     (* Sumup *)
     [{   
@@ -411,6 +534,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     }]
 end 
 | S.ComponentAssign _ -> failwith "Component expr are not yet supported" 
+
 and fcdcl  : S.component_dcl -> T.actor list = function cdcl -> finish_component_dcl cdcl.place cdcl.value 
 
 (********************** Manipulating component structure *********************)

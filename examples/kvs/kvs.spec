@@ -52,6 +52,10 @@ component Client() {
 
     Result<void, error> put(k k, v v);
 
+    contract put 
+    ensures this.tx_id > 0
+    returns res -> 10 > 0 
+
     (*contract put
     ensures this.tx_id > 0*)
     (* Pattern matching no supported in cook and in Java

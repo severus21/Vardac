@@ -1,8 +1,11 @@
 open Core
 open Core.AstUtils
 open Jingoo
+open Easy_logging
 
 let name = "Akka<Java>"
+let logger = Logging.make_logger ("_1_ compspec.plg."^name) Debug [];;
+
 module Rt = Akka
 module Lg = Java
 
@@ -83,6 +86,7 @@ and finish_expr : S.expr -> T.expr = function
             ((T.VarExpr (Atom.fresh_builtin "getSystem")),
             [T.LiteralExpr T.EmptyLit])
         ))
+    | S.LambdaExpr (variables, stmt) -> T.LambdaExpr (variables, finish_stmt stmt)
     | S.LitExpr lit -> LiteralExpr (finish_literal lit)
     | S.Spawn {context; actor_expr} -> T.AppExpr (finish_expr context, [finish_expr actor_expr])
     | S.This -> T.ThisExpr

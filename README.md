@@ -69,14 +69,3 @@ Start a compiler with the compiled jar
 ```
 docker-compose up
 ```
-
-
-### Ocaml tools
-* https://github.com/LexiFi/landmarks A simple profiling library
-* https://github.com/LexiFi/dead_code_analyzer
-* https://caml.inria.fr/pub/docs/manual-ocaml/parsing.html + https://github.com/lucasaiu/ocaml/blob/master/parsing/parsetree.mli
-* You may think that .cmo is library, but it's not.
-    .cmo is bytecode object file. It's like .class in Java.
-    .cma is bytecode library. It's produce by archiving some .cmo into .cma
-    .cmx is produced by ocamlopt (the native-code compiler). Main output files of ocamlopt is .o but ocamlopt also produce it.
-* https://caml.inria.fr/pub/docs/manual-ocaml/lex.html#string-literal

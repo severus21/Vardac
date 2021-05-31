@@ -50,7 +50,7 @@ and expr =
     | AssignExpr of expr * assign_operator * expr (* target value*)
     | BinaryExpr of expr * binop * expr
     | LiteralExpr of literal
-    | LambdaExpr of parameter list * expr 
+    | LambdaExpr of variable list * stmt 
     | ThisExpr
     | UnaryExpr of unop * expr
     | VarExpr of variable

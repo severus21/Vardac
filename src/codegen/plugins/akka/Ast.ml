@@ -35,11 +35,14 @@ and literal =
     | IntLit of int
     | StringLit of string
 
+and parameter = ctype * variable
+
 and expr =                  
     | AccessExpr of expr * expr
     | AssertExpr of expr 
     | BinopExpr of expr * binop * expr 
     | CallExpr of expr * expr list
+    | LambdaExpr of variable list * stmt 
     | LitExpr of literal
     | This
     | UnopExpr of unop * expr         

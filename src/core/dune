@@ -4,7 +4,7 @@
 (library
     (name core)
     (public_name compspec.core)
-    (preprocess (pps ppx_deriving.show ppx_import))
+    (preprocess (pps ppx_deriving.show ppx_import ppx_fields_conv))
     (modules :standard)
-    (libraries ounit2 yaml easy_logging "yaml.unix" "rresult" "fileutils" process)
+    (libraries fieldslib ounit2 yaml easy_logging "yaml.unix" "rresult" "fileutils" process)
 )

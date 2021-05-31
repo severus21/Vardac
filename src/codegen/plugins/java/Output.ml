@@ -13,10 +13,19 @@ let builtin_eval =
     BuiltinMap.find (Atom.value x) translation
   with Not_found ->Atom.value x
 
-let output_var out (x:Atom.atom)=
+let join (separator:string) output_elt out= function 
+    | [] -> ()
+    | [y] -> output_elt out y;
+    | y::ys -> begin
+        output_elt out y;    
+        List.iter (function y -> fprintf out "%s%a" separator output_elt y) ys   
+    end
+
+let rec output_var out (x:Atom.atom)=
   if Atom.builtin x then fprintf out "%s" (builtin_eval x)
   else
     fprintf out "%s%d" (Atom.hint x) (Atom.identity x)
+and output_vars out: variable list -> unit = join " , " output_var out
 
 let output_capitalize_var out (x:Atom.atom)=
   if Atom.builtin x then fprintf out "%s" (String.capitalize_ascii (builtin_eval x))
@@ -66,7 +75,7 @@ and output_expr out : expr -> unit = function
     | AssignExpr (e1, op, e2) -> fprintf out "%a %a %a" output_expr e1 output_assignop op output_expr e2
     | BinaryExpr (e1, op, e2) -> fprintf out "%a %a %a" output_expr e1 output_binop op output_expr e2
     | LiteralExpr lit -> output_literal out lit
-    | LambdaExpr (params, e) -> fprintf out " %a -> %a" output_args params output_expr e
+    | LambdaExpr (variables, stmt) -> fprintf out "( (%a) -> { %a } )" output_vars variables output_stmt stmt
     | ThisExpr -> fprintf out "this";
     | UnaryExpr (op, e) -> fprintf out "%a %a" output_unop op output_expr e
     | VarExpr x -> output_var out x             
@@ -101,13 +110,7 @@ and output_visibility out: visibility -> unit = function
 
 and output_arg out (jt, var): unit =
     fprintf out "%a %a" output_jtype jt output_var var
-and output_args out: (jtype * variable) list -> unit = function
-    | [] -> ()
-    | [y] -> output_arg out y;
-    | y::ys -> begin
-        output_arg out y;    
-        List.iter (function y -> fprintf out " , "; output_arg out y) ys   
-    end
+and output_args out: (jtype * variable) list -> unit = join " , " output_arg out  
 
 and output_body out : body -> unit = function 
     | ClassOrInterfaceDeclaration cl -> 
@@ -130,13 +133,7 @@ and output_body out : body -> unit = function
 and output_jmodule out : jmodule -> unit = function
     | ImportDirective str -> fprintf out "import %s;"str 
 
-and output_type_params out : jtype list -> unit = function
-    | [] -> ()
-    | [jt] -> output_jtype out jt;
-    | jt::jts -> begin
-        output_jtype out jt;    
-        List.iter (function jt -> fprintf out " , %a" output_jtype jt) jts   
-    end
+and output_type_params out : jtype list -> unit = join " , " output_jtype out   
 
 and output_jtype out : jtype -> unit = function
     | ClassOrInterfaceType (x, []) ->  output_var out x    
