@@ -42,6 +42,12 @@ and body =
         parameters: parameter list;
         body: stmt 
     } (*GADT stmt of type blockstatemtn*)
+    | FieldDeclaration of { 
+        annotations: annotation list;
+        type0: jtype;
+        name: variable;
+        body: expr option 
+    }
 and comments = Core.IR._comments
 and expr = 
     | AccessExpr of expr * expr (*e1.e2*)

@@ -160,6 +160,12 @@ let output_program build_dir items : unit =
     let out = open_out (FilePath.make_filename (build_dir @ ["main.java"])) in
     let out = formatter_of_out_channel out in (* TODO propagate the change from Prtinf to format to all *)
 
+    (* Add imports*)
+    (* TODO define imports outside this function,   *)
+    let items = [
+        JModule (ImportDirective "com.lg4dc.protocol.*");
+    ]@ items in
+
     (* Configure formatter *)
     pp_set_margin out 80;
     pp_set_max_indent out 40;

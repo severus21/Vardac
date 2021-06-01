@@ -107,7 +107,50 @@ and finish_stmt : S.stmt -> T.stmt = function
 let rec finish_state : S.state -> T.str_items list = function
     | s when s.persistent -> failwith "TODO finish _state with persistency" 
     | s -> List.map (function x -> T.Stmt x) (List.map finish_stmt s.stmts)
-and finish_event ({vis; name; kind; args}: S.event) :  T.str_items = failwith "TODO finish_event" (* TODO *) 
+and finish_event ({vis; name; kind; args}: S.event) :  T.str_items = 
+    let generate_field (ct, x) = 
+        T.Body (T.FieldDeclaration {
+            annotations = [T.Visibility T.Public; T.Final];
+            type0 = finish_ctype ct;
+            name  = x;
+            body  = None;
+        })
+    in
+
+    let fields = List.map generate_field args in
+
+    let generate_constructor_stmt (ct, x) : T.stmt =  
+        T.ExpressionStmt( 
+            T.AssignExpr( 
+                T.AccessExpr (
+                    T.ThisExpr, T.VarExpr x),
+                    T.AssignOp,
+                    T.VarExpr x
+            )
+        )
+    in
+
+    let constructor = 
+        T.Body (T.MethodDeclaration {
+            annotations = [];   
+            ret_type    = None;
+            name        = name;
+            parameters  = List.map finish_arg args;
+            body        = T.BlockStmt (List.map generate_constructor_stmt args)
+            ;
+        })
+    in
+
+    T.Body (T.ClassOrInterfaceDeclaration {
+        isInterface         = false;
+        annotations         = [T.Visibility (finish_visibility vis); T.Static; T.Final];
+        name                = name;
+        parameters          = []; 
+        extended_types      = [];
+        implemented_types   = [ T.TAtomic "Command" ]; 
+        body                = constructor::fields
+    })
+
 and finish_arg ((ctype,variable):(S.ctype * Atom.atom)) : T.parameter =
     (finish_ctype ctype, variable)
 and finish_method ({vis; ret_type; name; body; args; is_constructor}: S.method0) : T.body = 
