@@ -82,10 +82,10 @@ let rec finish_ctype place : S._composed_type ->  T.ctype = function
 
     | S.TVar x -> T.TVar x 
     | S.TFlatType ft -> begin match ft with  
-        | S.TBool -> T.Atomic "Bool"
-        | S.TInt -> T.Atomic "Int"
-        | S.TFloat -> T.Atomic "Float"
-        | S.TStr -> T.Atomic "Str"
+        | S.TBool -> T.Atomic "boolean"
+        | S.TInt -> T.Atomic "int"
+        | S.TFloat -> T.Atomic "float"
+        | S.TStr -> T.Atomic "str"
         | S.TVoid -> TVoid
         | _ -> Core.Error.error place "TActivationInfo/Place/VPlace/Label type not yey supported."
     end
@@ -324,7 +324,7 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
 
         let ensures_method : T.method0 = {
             vis             = T.Private;
-            ret_type        = T.Atomic "bool";
+            ret_type        = T.Atomic "boolean";
             name            = ensures_name;
             body            = T.ExpressionStmt (fexpr ensures_expr);
             args            = ensures_params;
@@ -359,7 +359,7 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
 
         let returns_method  : T.method0 = {
             vis             = T.Private;
-            ret_type        = T.Atomic "bool";
+            ret_type        = T.Atomic "boolean";
             name            = returns_name;
             body            = T.ExpressionStmt (T.CallExpr(
                 fexpr returns_expr,
@@ -428,7 +428,7 @@ and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._m
         let new_method : T.method0 = { 
             vis             = T.Public; 
             ret_type        = Option.get (fst (fmtype m0.ret_type));
-            name            = m0.name;
+            name            = if is_constructor then actor_name else m0.name;
             args            = (List.map fparam m0.args);
             body            = body; 
             is_constructor  = is_constructor 

@@ -114,7 +114,7 @@ and finish_method ({vis; ret_type; name; body; args; is_constructor}: S.method0)
     T.MethodDeclaration {
         annotations = [T.Visibility (finish_visibility vis)];   
         ret_type    = if is_constructor then None else Some (finish_ctype ret_type);
-        name        = name;
+        name        =  name;
         parameters  = List.map finish_arg args;
         body        = finish_stmt body;
     }
