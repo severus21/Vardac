@@ -15,13 +15,21 @@ module T = Ast
 let fst3 (x,y,z) = x
 
 (* Environments map strings to atoms. *)
+module AtomEnv = Atom.AtomMap 
 module LabelsEnv = Atom.AtomsMap 
 
 type finish_env = {
-    labels:     T.variable LabelsEnv.t; } [@@deriving fields] 
+    labels: T.variable LabelsEnv.t; 
+    events: T.event AtomEnv.t; 
+} [@@deriving fields] 
 
 let fresh_fenv () = {
-    labels    = LabelsEnv.empty; }
+    labels      = LabelsEnv.empty;
+    events      = AtomEnv.empty;
+}
+
+let bind_event (env:finish_env) key value =
+    { env with events = AtomEnv.add key value env.events }
 
 (* FIXME: do we need to make fenv depend of the scope, if yes follow the cook architecture *)
 let general_fenv = ref (fresh_fenv())
@@ -131,7 +139,7 @@ and event_name_of_labels (labels: S.variable list) : T.variable =
     try
         LabelsEnv.find labels !general_fenv.labels
     with Not_found -> begin
-        let name = Atom.fresh "LabelEnv" in
+        let name = Atom.fresh "LabelEvent" in
 
         (* Update *)
         let labels_env = LabelsEnv.add labels name !general_fenv.labels in 
@@ -560,6 +568,7 @@ and finish_term place : S._term -> T.term list = function
     | Some {value=CompType {value=CompTUid _; _}; _} ->  Error.error place "Type aliasing is not (natively) supported in Java" 
     | Some mt -> 
         let mt, events = fmtype mt in
+        general_fenv := List.fold_left (fun env (event:T.event) -> bind_event env event.name event) !general_fenv events;
         (* FIXME | TODO do something with the mt *) 
         [T.Class v] @ (List.map (fun x -> T.Event x) events) 
 
