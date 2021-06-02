@@ -222,7 +222,7 @@ and cook_constraint_header cenv place: S._constraint_header -> cookenv * T._cons
     let new_env, y = bind_type cenv place x in
     new_env, T.UseGlobal (cmtype cenv mt, y)
 
-and cook_constraint cenv place: S._constraints -> cookenv * T._constraints = function
+and cook_constraint cenv place : S._constraints -> cookenv * T._constraints = function
 | S.CExpr e -> cenv, T.CExpr (cexpr cenv e)
 and cconst cenv const : T.constraints = snd(cook_place cook_constraint cenv const)
 
@@ -233,7 +233,7 @@ and caconst cenv (headers,const): T.applied_constraint =
     (new_headers, new_const)
 
 (************************************* Literals ******************************)
-and cook_literal cenv place: S._literal -> cookenv * T._literal = function
+and cook_literal cenv place : S._literal -> cookenv * T._literal = function
 | S.EmptyLit -> cenv, T.EmptyLit
 | S.BoolLit b -> cenv, T.BoolLit b
 | S.FloatLit f -> cenv, T.FloatLit f 
@@ -404,7 +404,7 @@ and cport cenv: S.port -> cookenv * T.port = cook_place cook_port cenv
 
 
 
-and cook_component_item cenv place : S._component_item -> cookenv * T._component_item = function
+and cook_component_item cenv _ : S._component_item -> cookenv * T._component_item = function
 | S.State s ->
     let new_cenv, new_s = cstate cenv s in
     new_cenv, T.State new_s
