@@ -95,7 +95,7 @@ and output_annotation out: annotation -> unit = function
     | Final -> pp_print_string out "final"
 and output_annotations out = function
     | [] -> ()
-    | l -> fprintf out "%a " (pp_list " " output_annotation) l
+    | l -> fprintf out "@[<h>%a@] " (pp_list "" output_annotation) l
 
 and output_visibility out: visibility -> unit = function
     | Public -> pp_print_string out "public"
@@ -128,6 +128,12 @@ and output_body out : body -> unit = function
             output_cl_extended cl.extended_types
             output_cl_implements cl.implemented_types
             output_items cl.body
+    | FieldDeclaration f -> 
+        fprintf out "%a%a%a%a;@;"
+            output_annotations f.annotations 
+            output_jtype f.type0
+            output_var f.name
+            (fun out opt-> ignore (Option.map (fprintf out " = %a" output_expr) opt)) f.body
     | MethodDeclaration m ->
         fprintf out 
             "%a%a%a(@[<hv 3>%a@]) {@;@[<v 3>%a@]@;}"

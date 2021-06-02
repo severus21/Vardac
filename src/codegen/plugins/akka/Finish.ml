@@ -113,11 +113,16 @@ and event_name_of_ctype place : S._composed_type -> string = function
 | S.TArrow _ -> Core.Error.error place "Arrow type can not be translated to a serializable Akka event."
 | S.TVar x -> Atom.value x (* FIXME do we need also the hint ?? *)
 | S.TFlatType ft -> event_name_of_ftype place ft
+| S.TDict (mt1, mt2) | TResult (mt1, mt2) -> (_event_name_of_mtype mt1) ^ (_event_name_of_mtype mt2) 
+| S.TList mt | S.TOption mt | S.TSet mt -> _event_name_of_mtype mt 
+| S.TTuple mts -> List.fold_left (fun acc mt -> acc ^ (_event_name_of_mtype mt)) "" mts
 
-and event_name_of_mtype : S.main_type -> T.variable = function
-(* TODO we should traverse all the recurisve type to ensure that we do not send/receive unserializable things -> maybe we should do this verification after the partial evaluation pass *)
-| {place; value=S.CType ct} -> Atom.fresh (Printf.sprintf "%sEvent" (event_name_of_ctype ct.place ct.value))
+and _event_name_of_mtype : S.main_type ->  string = function
+| {place; value=S.CType ct} -> event_name_of_ctype ct.place ct.value
 | {place; _} -> Core.Error.error place "Session types, component types can not be translated to a serializable Akka event."
+and event_name_of_mtype  mt : T.variable = 
+(* TODO we should traverse all the recurisve type to ensure that we do not send/receive unserializable things -> maybe we should do this verification after the partial evaluation pass *)
+Atom.fresh (Printf.sprintf "%sEvent" (_event_name_of_mtype mt ))
 
 (*
 take the list of labels of a STBranch/STSelect and generate a related EventName. This Event will have a value of type string with the label value inside.
@@ -178,6 +183,9 @@ and finish_stype k place : S._session_type ->  T.ctype option * T.event list  = 
             | None, events -> events
             | _,_ -> raise (Core.Error.DeadbranchError "finish_stype : STSend/STRecv a session type should not produce a ctype.")
         in None, events 
+    | S.STInline x -> 
+        logger#warning "Find STInline %s" (Atom.hint x);
+        raise (Error.DeadbranchError "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass.")
 and fstype : S.session_type -> T.ctype option * T.event list = function st -> (finish_stype 0) st.place st.value 
 
 and finish_component_type place : S._component_type -> T.ctype = function
@@ -545,7 +553,15 @@ and finish_term place : S._term -> T.term list = function
 | S.Comments c -> [T.Comments c.value]
 | S.Component cdcl -> List.map (function a -> T.Actor a) (fcdcl cdcl)
 | S.Stmt stmt -> [T.Stmt (fstmt stmt)]
-| S.Typedef (v, mt_opt) -> [T.Class v] (* FIXME *) 
+| S.Typedef (v, mt_opt) -> (* TODO move this to the translation from akka to java, and add Typedef into akka ast *) 
+    match mt_opt with
+    | None -> [T.Class v]
+    | Some {value=S.CType {value=S.TVar _; _}; _} -> Error.error place "Type aliasing is not (natively) supported in Java"
+    | Some {value=CompType {value=CompTUid _; _}; _} ->  Error.error place "Type aliasing is not (natively) supported in Java" 
+    | Some mt -> 
+        let mt, events = fmtype mt in
+        (* FIXME | TODO do something with the mt *) 
+        [T.Class v] @ (List.map (fun x -> T.Event x) events) 
 
 and fterm : S.term -> T.term list = function t -> finish_term t.place t.value
 

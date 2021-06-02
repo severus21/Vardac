@@ -251,12 +251,7 @@ let init_build build_dir : unit =
             else
                 template))
         in
-        print_string destfile;
-        print_newline ();
-
         let oc = open_out destfile in
-        print_string destfile;
-        print_newline ();
         Printf.fprintf oc "%s" res; 
         close_out oc;
     in
