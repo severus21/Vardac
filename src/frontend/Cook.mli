@@ -9,6 +9,7 @@
     - ensures some safety properties
       * metadata can only be used for session type constraints 
    - typedef -> creation of type constructor inside expression derived using String.lowercase_ascii
+
 *)
 
 open Core

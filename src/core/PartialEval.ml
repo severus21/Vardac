@@ -18,7 +18,7 @@ let map_snd f = function (x,y) -> (x, f y)
 
 (*debug only*)
 let print_env env =
-    let print_keys env = Env.iter (fun x _ -> Printf.printf "%s;" (Atom.atom_to_str Atom.value x)) env in
+    let print_keys env = Env.iter (fun x _ -> Printf.printf "%s;" (Atom.atom_to_str x)) env in
 
     print_newline ();
     print_string "Env = {";
@@ -39,13 +39,40 @@ let rec peval_mtype env place : _main_type -> env * _main_type = function x -> e
 and pe_mtype env: main_type -> env * main_type = peval_place peval_mtype env
 
 (************************************ Expr & Stmt *****************************)
-and peval_stmt env place : _stmt -> env * _stmt = function x -> env, x 
+and peval_expr env place : _expr -> env * _expr = function 
+| CallExpr ({place=_; value=T.VarExpr name}, []) when Atom.hint(name) = "bridge" ->
+     Error.error place "bridge expression must not be used outside the right-handside of a let"  
+| x -> env, x 
+and pe_expr env: expr -> env * expr = peval_place peval_expr env
+
+and peval_stmt env place : _stmt -> env * _stmt = function 
+| LetExpr ({place=_; value=CType {place=_; value= TBridge t_b} } as let_left, let_x, e_b) -> begin 
+    match e_b.value with
+    | CallExpr ({place=_; value=T.VarExpr name}, []) when Atom.hint(name) = "bridge" -> 
+        let protocol = match t_b.protocol.value with
+        | SType st -> st
+        | _ -> Error.error t_b.protocol.place "Third argument of Bridge<_,_,_> must be (partially-evaluated> to a session type"
+        in
+
+        env, LetExpr (
+            let_left,
+            let_x, 
+            {
+                place = e_b.place;
+                value = LitExpr {
+                    place = e_b.place;    
+                    value = Bridge {
+                        id  = Atom.fresh "bridge";
+                        protocol = protocol;
+                    } 
+                }
+            }
+        )
+    | _ -> Error.error place "The right-handside of a Bridge<_,_,_> must be partially evaluated to a bridge literal" 
+end
+| x -> env, x
 and pe_stmt env: stmt -> env * stmt = peval_place peval_stmt env
 
-
-(************************************ Channels *****************************)
-and peval_channel_dcl env place : _channel_dcl -> env * _channel_dcl = function x -> env, x 
-and pe_channel_dcl env: channel_dcl -> env * channel_dcl = peval_place peval_channel_dcl env
 
 (************************************ Component *****************************)
 and peval_component_item env place : _component_item -> env * _component_item = function x -> env, x
@@ -98,7 +125,6 @@ and pe_component_dcl env: component_dcl -> env * component_dcl = peval_place pev
 and peval_term env place : _term -> env * _term = function
 | Comments c -> env, Comments c
 | Stmt stmt -> map_snd (fun x -> Stmt x) (pe_stmt env stmt)
-| Channel chan -> map_snd (fun x -> Channel x) (pe_channel_dcl env chan)
 | Component comp -> map_snd (fun x -> Component x) (pe_component_dcl env comp)
 | Typedef (x, mt_opt) -> begin
     match mt_opt with

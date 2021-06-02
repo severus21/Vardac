@@ -53,7 +53,6 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "return", RETURN;
 
     (* component *)
-    "channel", CHANNEL;
     "component", COMPONENT;
     "contract", CONTRACT;
     "expecting", EXPECTING;

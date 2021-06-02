@@ -164,7 +164,7 @@ and finish_method ({vis; ret_type; name; body; args; is_constructor}: S.method0)
 and finish_actor ({name; methods; states; events; nested_items}: S.actor): T.str_items =
     (** FIXME public/protected/private should parametrized*)
 
-    let extended_type = T.ClassOrInterfaceType (Atom.fresh_builtin "AbstractBehavior", [T.TAtomic ((Atom.atom_to_str builtin_eval name)^".Command")]) in
+    let extended_type = T.ClassOrInterfaceType (Atom.fresh_builtin "AbstractBehavior", [T.TAtomic ((Atom.p_atom_to_str builtin_eval name)^".Command")]) in
 
     let body : T.str_items list ref = ref [] in
     (* FIXME issue with the type of body*)

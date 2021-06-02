@@ -22,6 +22,12 @@ and _composed_type =
     | TResult of main_type * main_type
     | TSet of main_type
     | TTuple of main_type list
+
+    | TBridge of {
+        in_type: main_type; 
+        out_type: main_type;
+        protocol: main_type;
+    }
 and composed_type = _composed_type placed
 
 and _session_type =  
@@ -39,17 +45,11 @@ and _component_type =
     | CompTUid of variable 
 and component_type = _component_type placed
 
-and _channel_type =
-    | ChTUid of variable
-    | ChTProtocol of session_type
-and channel_type = _channel_type placed
-
 and _main_type = 
     | CType of composed_type 
     | SType of session_type
-    (* First value component and channel type*)
+    (* First value component type*)
     | CompType of component_type
-    | ChanType of channel_type    
     (* Dynamic (or not) contraints*)
     | ConstrainedType of main_type * applied_constraint
     (*gadt contraints: type -> bool *)
@@ -163,12 +163,6 @@ and _stmt =
     | GhostStmt of stmt
 and stmt = _stmt placed
 
-(************************************ Channels *****************************)
-and _channel_dcl = 
-    | ChannelStructure of {name: variable; stype: session_type}
-    (* TODO add constraints*)
-and channel_dcl = _channel_dcl placed
-
 (************************************ Component *****************************)
 and state_kind =IR.state_kind 
 
@@ -264,7 +258,6 @@ and _term =
     | Stmt of stmt
 
     (** Structure part*)
-    | Channel of channel_dcl
     | Component of component_dcl
 
     (* Static part*)

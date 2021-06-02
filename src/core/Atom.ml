@@ -236,11 +236,13 @@ let output_atom out builtin_eval (x:atom)=
   else
     fprintf out "%s%d" (hint x) (identity x)
 
-let atom_to_str builtin_eval (x:atom)=
-  if builtin x then (builtin_eval x)
-  else (hint x)^(string_of_int (identity x))
+let atom_to_str (x:atom)=
+  (hint x)^(string_of_int (identity x))
 
-(****)
+let p_atom_to_str builtin_eval (x:atom)=
+  if builtin x then (builtin_eval x)
+  else atom_to_str x
+
 (* Sets and maps. *)
 
 module AtomsOrder = struct

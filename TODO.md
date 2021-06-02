@@ -14,7 +14,6 @@
 
 ### Akka plugin
 * Translate session from IR to Akka
-* Translate channels 
 
 ### Java plugin
 * Handle indentation when generating the source code

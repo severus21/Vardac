@@ -14,14 +14,12 @@ let fst3 (x,y,z) = x
 module Env = Map.Make(String)
 
 type cookenv = {
-    channels:   IR.variable Env.t; 
     components: IR.variable Env.t; 
     exprs:      IR.variable  Env.t; 
     this:       IR.variable  Env.t; 
     types:      IR.variable  Env.t} [@@deriving fields] 
 
 let fresh_cookenv () = {
-    channels    = Env.empty;
     components  = Env.empty;
     exprs       = Env.empty;
     this        = Env.empty; (* current state*)
@@ -37,7 +35,6 @@ let print_cenv cenv =
     List.iter (
         function (name, l) -> print_string ("\t"^name^"\n\t\t"); print_keys (l cenv);print_newline (); 
     ) [
-        ("channels", channels);
         ("components", components);
         ("exprs", exprs); 
         ("this", this);
@@ -48,12 +45,6 @@ let print_cenv cenv =
 
 (* [bind env x] creates a fresh atom [a] and extends the environment [env]
    with a mapping of [x] to [a]. *)
-let bind_channel cenv place x =
-  if is_builtin_channel x then
-    error place "Component Keyword %s is reserved." x;
-
-  let a = Atom.fresh_builtin x in
-  {cenv with channels=Env.add x a cenv.channels}, a
 
 let bind_component cenv place x =
   if is_builtin_component x then
@@ -140,15 +131,6 @@ and cook_var_component cenv place x =
     with Not_found ->
         error place "Unbound component variable: %s" x
     )
-and cook_var_channel cenv place x = 
-    if is_builtin_channel x then
-        Atom.fresh_builtin x
-    else (
-    try
-        Env.find x cenv.channels
-    with Not_found ->
-        error place "Unbound channel variable: %s" x
-    )
 and cook_var_this cenv place x = 
     try
         Env.find x cenv.this
@@ -178,6 +160,12 @@ and cook_composed_type cenv place: S._composed_type -> cookenv * T._composed_typ
 ) 
 | S.TSet mt -> cenv, T.TSet (cmtype cenv mt)
 | S.TTuple mts -> cenv, T.TTuple (List.map (cmtype cenv) mts) 
+| S.TBridge {in_type; out_type; protocol } -> 
+    cenv, T.TBridge { 
+        in_type     = cmtype cenv in_type; 
+        out_type    = cmtype cenv out_type; 
+        protocol    = cmtype cenv protocol; 
+    }
 and cctype cenv ct: T.composed_type = snd (cook_place cook_composed_type cenv ct)
 
 and cook_session_type cenv place: S._session_type -> cookenv * T._session_type = function
@@ -217,16 +205,10 @@ and cook_component_type cenv place: S._component_type -> cookenv * T._component_
 | S.CompTUid x -> cenv, T.CompTUid (cook_var_type cenv place x)
 and ccomptype cenv cmt : T.component_type = snd(cook_place cook_component_type cenv cmt)
 
-and cook_channel_type cenv place: S._channel_type -> cookenv * T._channel_type = function
-| S.ChTUid x -> cenv, T.ChTUid (cook_var_type cenv place x)
-| S.ChTProtocol st -> cenv, T.ChTProtocol (cstype cenv st)
-and cchantype cenv cht : T.channel_type = snd(cook_place cook_channel_type cenv cht)
-
 and cook_mtype cenv place: S._main_type -> cookenv * T._main_type = function
 | S.CType ct -> cenv, T.CType (cctype cenv ct)
 | S.SType st -> cenv, T.SType (cstype cenv st)
 | S.CompType cmt -> cenv, T.CompType (ccomptype cenv cmt)
-| S.ChanType cht -> cenv, T.ChanType (cchantype cenv cht)
 | S.ConstrainedType (mt, aconst) ->
     cenv, T.ConstrainedType (cmtype cenv mt,  caconst cenv aconst)
 and cmtype cenv mt : T.main_type = snd(cook_place cook_mtype cenv mt)
@@ -349,13 +331,6 @@ and cook_stmt cenv place: S._stmt -> cookenv * T._stmt = function
     let new_cenv, new_stmt = cstmt cenv stmt in
     new_cenv, T.GhostStmt new_stmt
 and cstmt cenv : S.stmt -> cookenv * T.stmt = cook_place cook_stmt cenv
-
-(************************************ Channels *****************************)
-and cook_channel_dcl cenv place : S._channel_dcl -> cookenv * T._channel_dcl = function
-| S.ChannelStructure chdcl -> 
-    let new_cenv, y = bind_channel cenv place chdcl.name in
-    new_cenv, T.ChannelStructure {name=y; stype= cstype cenv chdcl.stype}
-and cchdcl cenv: S.channel_dcl -> cookenv * T.channel_dcl = cook_place cook_channel_dcl cenv
 
 (************************************ Component *****************************)
 and cook_state cenv place : S._state -> cookenv * T._state = function
@@ -492,9 +467,6 @@ and cook_term cenv place : S._term -> cookenv * T._term = function
     let new_cenv, new_stmt = cstmt cenv stmt in
     new_cenv, T.Stmt new_stmt
 
-| S.Channel ch ->
-    let new_cenv, new_ch = cchdcl cenv ch in
-    new_cenv, T.Channel new_ch
 | S.Component c ->
     let new_cenv, new_c = ccdcl cenv c in
     new_cenv, T.Component new_c

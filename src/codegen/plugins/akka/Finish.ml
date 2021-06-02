@@ -85,7 +85,7 @@ let rec finish_ctype place : S._composed_type ->  T.ctype = function
         | S.TBool -> T.Atomic "boolean"
         | S.TInt -> T.Atomic "int"
         | S.TFloat -> T.Atomic "float"
-        | S.TStr -> T.Atomic "str"
+        | S.TStr -> T.Atomic "String"
         | S.TVoid -> TVoid
         | _ -> Core.Error.error place "TActivationInfo/Place/VPlace/Label type not yey supported."
     end
@@ -95,6 +95,7 @@ let rec finish_ctype place : S._composed_type ->  T.ctype = function
     | S.TResult (m1, m2) -> T.TResult (getfst(fmtype m1), getfst(fmtype m2))
     | S.TSet mt -> T.TSet (getfst(fmtype mt))
     | S.TTuple mts ->  T.TTuple (List.map (fun x -> (getfst(fmtype x))) mts)
+    | S.TBridge b -> T.Atomic "String" (*TODO*)
 and fctype  : S.composed_type ->  T.ctype = function ct -> finish_ctype ct.place ct.value 
 
 and event_name_of_ftype place : S.flat_type -> string = function
@@ -116,7 +117,7 @@ and event_name_of_ctype place : S._composed_type -> string = function
 and event_name_of_mtype : S.main_type -> T.variable = function
 (* TODO we should traverse all the recurisve type to ensure that we do not send/receive unserializable things -> maybe we should do this verification after the partial evaluation pass *)
 | {place; value=S.CType ct} -> Atom.fresh (Printf.sprintf "%sEvent" (event_name_of_ctype ct.place ct.value))
-| {place; _} -> Core.Error.error place "Session types, component/channel types can not be translated to a serializable Akka event."
+| {place; _} -> Core.Error.error place "Session types, component types can not be translated to a serializable Akka event."
 
 (*
 take the list of labels of a STBranch/STSelect and generate a related EventName. This Event will have a value of type string with the label value inside.
@@ -204,6 +205,8 @@ and finish_literal place : S._literal -> T.literal = function
 
     | S.Place _ -> failwith "Place is not yet supported"
     | S.VPlace _ -> failwith "VPlace is not yet supported"
+
+    | S.Bridge b -> T.StringLit (Atom.atom_to_str b.id)  (*TODO should be class *)
 and fliteral : S.literal -> T.literal = function lit -> finish_literal lit.place lit.value
 
 (************************************ Expr & Stmt *****************************)
@@ -280,13 +283,6 @@ and finish_stmt place : S._stmt -> T.stmt = function
     
     | S.GhostStmt _ -> raise (Core.Error.DeadbranchError "finish_stype : GhostStmt should have been remove by a previous compilation pass.")
 and fstmt : S.stmt -> T.stmt = function stmt -> finish_stmt stmt.place stmt.value
-
-(************************************ Channels *****************************)
-
-and finish_channel_dcl place : S._channel_dcl -> T.term list = function 
-| _ -> failwith "channel is not yet supported"
-and fchdcl : S.channel_dcl -> T.term list = function chdcl -> finish_channel_dcl chdcl.place chdcl.value
-
 
 (************************************ Component *****************************)
 (* return type is T._expr for now, since we built only one state with all the variable inside FIXME *)
@@ -546,7 +542,6 @@ and fcexpr  : S.component_expr -> T.expr = function cexpr -> finish_component_ex
 (************************************ Program *****************************)
 
 and finish_term place : S._term -> T.term list = function
-| S.Channel chdcl -> fchdcl chdcl
 | S.Comments c -> [T.Comments c.value]
 | S.Component cdcl -> List.map (function a -> T.Actor a) (fcdcl cdcl)
 | S.Stmt stmt -> [T.Stmt (fstmt stmt)]

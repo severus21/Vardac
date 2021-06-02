@@ -21,6 +21,7 @@ type action_protocol = µ x.
 type tc_protocol = ?txid (inline action_protocol);
 type full_tx_protocol = !begintx (inline tc_protocol);
 
+
 // Shared type object 
 component PositiveCounter () {
     local int value;
@@ -53,7 +54,7 @@ component Client() {
     Result<void, error> put(k k, v v);
 
     contract put 
-    ensures this.tx_id > 0
+    ensures this.tx_id > 0 && "a" == "a"
     returns res -> 10 > 0 
 
     (*contract put
@@ -73,7 +74,8 @@ component Client() {
     ensures this.tx_id > 0*)
 }
 
-int c1 = 1; (*TODO channel C1 (include full_tx_protocol);*)
+Bridge<Client, TransactionManager, inline full_tx_protocol> c1 = bridge();
+
 component TransactionManager () {
     (* Singleton activation specification *)
     (* FIXME cook does support shared object yet 

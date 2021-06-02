@@ -81,4 +81,5 @@ type renaming =
 (* Printing helper *)
 val output_atom : out_channel -> (atom -> string) -> atom -> unit
 
-val atom_to_str : (atom -> string) -> atom -> string
+val atom_to_str : atom -> string
+val p_atom_to_str : (atom -> string) -> atom -> string

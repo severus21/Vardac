@@ -13,6 +13,7 @@ let builtin_fcts = [
     "places", "TODO", "TODO";
     "pick", "TODO", "Random choice in a sequence, failed if empty";
     "children", "TODO", "child of places";
+    "bridge", "() -> Bridge<'A, 'B, 'a>", "create a new bridge with a fresh id";
 ]
 
 let builtin_atomic_types = [
@@ -35,4 +36,3 @@ let is_builtin_expr x = try let _ = BuiltinSet.find x builtin_expr_env in true w
 let is_builtin_type x = try let _ = BuiltinSet.find x builtin_type_env in true with Not_found -> false                   
 
 let is_builtin_component x = false
-let is_builtin_channel x = false

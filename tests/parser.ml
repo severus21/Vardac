@@ -28,7 +28,6 @@ let coverage_suite = [
     ("componentdcl port", Core.Utils.file_get_contents "data/cdcl_port.spec");
     ("componentdcl state", Core.Utils.file_get_contents "data/cdcl_state.spec");
     ("componentdcl contract", Core.Utils.file_get_contents "data/cdcl_contract.spec");
-    ("channeldcl base", Core.Utils.file_get_contents "data/chandcl_base.spec");
     ("cexpr base", Core.Utils.file_get_contents "data/cexpr_base.spec");
     ("stmt assign", "int x = 1;");
     ("stmt block", "{ int x = 1; return 1; }");

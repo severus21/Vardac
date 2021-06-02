@@ -19,7 +19,6 @@
 %token COMPONENT EXPECTING SIGNATURE METHOD PORT ENSURES RETURNS WITH CONTRACT SIG ON AND METADATA 
 %token INCLUDE MUTATION
 %token SPAWN THIS ONSTARTUP ONDESTROY 
-%token CHANNEL
 %token AT
 %token SIMPLE_QUOTE
 %token SIMPLE_RARROW DOUBLE_RARROW
@@ -112,6 +111,11 @@ any_composed_type_:
             | [x] -> TSet x
             | _ -> Core.Error.error ct.place "Result type excepts exactly one type parameter, gets %d !" (List.length args)
         end
+        | TVar "Bridge" -> begin
+            match args with
+            | [in_type; out_type; protocol] -> TBridge {in_type; out_type; protocol}
+            | _ -> Core.Error.error ct.place "Bridge type excepts exactly tree type parameters, gets %d !" (List.length args)
+        end
         | TVar "Tuple" -> TTuple args
         (* User defined parametrized types *)
         | _ -> Core.Error.error ct.place "Parametrized type syntax not yet supporter except for Option and Result!"
@@ -154,13 +158,6 @@ any_session_type_:
   t = placed(any_session_type_)
     {t}
 
-any_channel_type_:
-| CHANNEL st=any_session_type
-    {ChTProtocol st}
-%inline any_channel_type:
-  t = placed(any_channel_type_)
-    {t}
-
 any_component_type_:
 | COMPONENT x=UID
     {CompTUid x}
@@ -175,8 +172,6 @@ any_type_:
     { SType st }
 | cpt = any_component_type
     { CompType cpt }
-| cht = any_channel_type
-    { ChanType cht }
 | t = any_type c= any_applied_constraint
     { ConstrainedType (t, (fst c, snd c))}
 | LPAREN t = any_type_ RPAREN
@@ -391,17 +386,6 @@ any_stmt_:
   t = placed(any_stmt_)
     { t }
 
-(************************************ Channels *****************************)
-
-any_channel_:
-(* channel X {...} *)
-| CHANNEL name=UID LCURLYBRACKET body=any_session_type RCURLYBRACKET
-    { ChannelStructure {name=name; stype=body} }
-(* TODO *)
-%inline any_channel:
-  t = placed(any_channel_)
-    { t }
-
 (************************************ Component *****************************)
 atomic_state_kind:
 | GLOBAL
@@ -557,7 +541,7 @@ any_component_expr_:
 | x = UID
     { VarCExpr x }
 | e = any_expr
-    { AnyExpr e} (*needed to pass non channel/component as args to component*)
+    { AnyExpr e} (*needed to pass non component as args to component*)
 | x_a = any_component_expr LPAREN x_b = any_component_expr RPAREN (*access*)
     { AppCExpr (x_a,x_b) }
 (* TODO unbox expr*)
@@ -586,8 +570,6 @@ any_term_:
     { PPTerm ppt }
 | stmt=any_stmt
     { Stmt stmt }
-| chan=any_channel 
-    { Channel chan }
 | c=any_component_dcl
     { Component c }
 | t_dcl = any_type_dcl_
