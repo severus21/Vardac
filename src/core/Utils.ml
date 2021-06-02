@@ -1,5 +1,3 @@
-open Config
-
 (* -------------------------------------------------------------------------- *)
 
 (* Printing a syntax tree in an intermediate language (for debugging). *)
@@ -101,6 +99,6 @@ let scandir path wanted_ext =
     |> List.append fs
     |> aux acc
   | f::fs when (Filename.extension f = wanted_ext) -> aux (f::acc) fs
-  | f::fs -> aux acc fs
+  | _::fs -> aux acc fs
   | [] -> acc
   in aux [] [path]

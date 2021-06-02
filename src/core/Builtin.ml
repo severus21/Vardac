@@ -35,4 +35,4 @@ let builtin_type_env = BuiltinSet.of_list  builtin_atomic_types
 let is_builtin_expr x = try let _ = BuiltinSet.find x builtin_expr_env in true with Not_found -> false                   
 let is_builtin_type x = try let _ = BuiltinSet.find x builtin_type_env in true with Not_found -> false                   
 
-let is_builtin_component x = false
+let is_builtin_component _ = false

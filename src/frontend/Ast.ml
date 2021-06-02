@@ -268,5 +268,6 @@ and term = _term placed
 and program = term list
 [@@deriving show { with_path = false }]
 
-let make_vplace name nbr_instances features children = ()
+(* let make_vplace name nbr_instances features children = ()*)
+let make_vplace _ _ _ _ = ()
 

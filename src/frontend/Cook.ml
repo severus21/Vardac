@@ -90,7 +90,6 @@ match value with
     fst (bind_component cenv place cdcl.name)
 | S.ComponentAssign cdcl -> 
     fst (bind_component cenv place cdcl.name)
-| _ -> cenv
 and shallow_scan_term cenv ({place; value}: S.term) : cookenv = 
 match value with
 | S.Component c -> shallow_scan_component_dcl cenv c

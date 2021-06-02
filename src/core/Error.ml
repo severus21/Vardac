@@ -17,7 +17,7 @@ let column p : int =
   p.pos_cnum - p.pos_bol
 
 let get_line place : string =
-  let startp, endp = place in
+  let startp, _ = place in
   let l = (line startp) in   
   let tmp = ref "" in  
   let aux chan = 
@@ -41,8 +41,6 @@ let show place : string =
     (column startp)
     (endp.pos_cnum - startp.pos_bol) (* intentionally [startp.pos_bol] *)
     (get_line place)
-
-  
 
 let display continuation header place format =
   Printf.fprintf stderr "%s:\n" (show place);

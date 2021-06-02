@@ -1,11 +1,13 @@
 # VSCode
 .VSCodeCounter
+.vscode
 
 # Opam
 compspec.install
 
 # Vagrant 
 ubuntu-bionic-18.04-cloudimg-console.log
+.vagrant
 
 # Build
 compiler-build

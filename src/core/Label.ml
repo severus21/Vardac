@@ -13,7 +13,7 @@ module Label =
 
 module LabelSet = struct
     include Set.Make(Label)
-    let pp = function x -> failwith "TODO labelset_pp"
+    let pp = function _ -> failwith "TODO labelset_pp"
 end
 module LabelMap = Map.Make(Label)  
 type label_set = LabelSet.t
