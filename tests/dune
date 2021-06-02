@@ -1,3 +1,5 @@
+(data_only_dirs examples data)
+
 (test
  (name main)
  (deps

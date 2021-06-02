@@ -1,6 +1,6 @@
 open OUnit2
 
-let coverage_suite = [
+let coverage_suite () = [
     ("comments inline", "//comment");
     ("comments multiline", "/*comment\nt1\nt2*/");
     ("comments doc", "/**comment\nt1\nt2*/");
@@ -67,13 +67,13 @@ let coverage_suite = [
     ("ppterm use", "use a.b.c;");
 ] @ (List.map (function path ->  ("example at "^(Filename.basename path), Core.Utils.file_get_contents path)) (Core.Utils.scandir "examples" ".spec"))
 
-let error_coverage_suite = [
+let error_coverage_suite () = [
     ("type definition abstract", "type BeginTX", Utils.SyntaxError);
     ("stmt label", "l\"a::b_::b::**\"", Utils.SyntaxError);
     ("stmt controlflow if", "if (true) { 2 } else { return 10; }", Utils.SyntaxError);
 ]
 
-let expected_suite = [
+let expected_suite () = [
 (*    ("int", "1", [{place = forge_place 0 1; value = Int 1}]);
     ("let", "let x = 1 in 2", [{ place = forge_place 0 14; value = Let (NonRecursive, Binder, "x",
       { place = forge_place 8 9; value = (Int 1)}, { place = forge_place 13 14; value = (Int 2)})}]);
@@ -83,7 +83,7 @@ let expected_suite = [
 
 let unittests () =
     "Parser" >::: [
-        Utils.make_coverage_suite "parsing_coverage" ( function x -> Frontend.Parse.parse "" x) coverage_suite;
-        Utils.make_error_coverage_suite "parsing_error_coverage" ( function x -> Frontend.Parse.parse "" x) error_coverage_suite;
-        Utils.make_expected_suite "parsing_expected" (Core.Utils.ast_to_str Frontend.Ast.show_program) ( function x -> Frontend.Parse.parse "" x) (function x -> x) expected_suite;
+        Utils.make_coverage_suite "parsing_coverage" ( function x -> Frontend.Parse.parse "" x) (coverage_suite ());
+        Utils.make_error_coverage_suite "parsing_error_coverage" ( function x -> Frontend.Parse.parse "" x) (error_coverage_suite ());
+        Utils.make_expected_suite "parsing_expected" (Core.Utils.ast_to_str Frontend.Ast.show_program) ( function x -> Frontend.Parse.parse "" x) (function x -> x) (expected_suite ());
     ]
