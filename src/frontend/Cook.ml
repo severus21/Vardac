@@ -50,25 +50,25 @@ let bind_component cenv place x =
   if is_builtin_component x then
     error place "Component Keyword %s is reserved." x;
 
-  let a = Atom.fresh_builtin x in
+  let a = Atom.fresh x in
   {cenv with components=Env.add x a cenv.components}, a
 
 let bind_expr cenv place x =
   if is_builtin_expr x then
     error place "Keyword %s is reserved." x;
 
-  let a = Atom.fresh_builtin x in
+  let a = Atom.fresh x in
   {cenv with exprs=Env.add x a cenv.exprs}, a
 
 let bind_this cenv place x =
-  let a = Atom.fresh_builtin x in
+  let a = Atom.fresh x in
   {cenv with this=Env.add x a cenv.this}, a 
 
 let bind_type cenv place x =
    if is_builtin_type x then
       error place "Type keyword %s is reserved." x;
 
-  let a = Atom.fresh_builtin x in
+  let a = Atom.fresh x in
   {cenv with types=Env.add x a cenv.types}, a
 
 (* Built a cenv in order to link mutual binding between component and mutual binding methods *)
@@ -357,11 +357,26 @@ and cook_contract cenv place (contract:S._contract): cookenv * T._contract =
         new_cenv, (cmtype cenv mt, y, cexpr cenv e)
     in
     let inner_cenv, pre_binders = List.fold_left_map aux_binder cenv contract.pre_binders in
-
+   
+    (* Goal: invariant should be added to ensures and to returns *)
+    let invariant = (Option.map (cexpr inner_cenv) contract.invariant) in
+    let concat_opt (predicat_opt1:T.expr option) predicat_opt2 =
+        match predicat_opt1, predicat_opt2 with 
+        | None, None -> None
+        | None, Some _ -> predicat_opt2
+        | Some _, None -> predicat_opt1
+        | Some p1, Some p2 -> Some {
+            place = p2.place; (* FIXME update place in order to be able to do the union of two place then do p1.place union p2.place *)
+            value = T.BinopExpr (p1, T.And, p2) 
+        }
+    in
+    let ensures = concat_opt invariant (Option.map (cexpr inner_cenv) contract.ensures) in
+    let returns = concat_opt invariant (Option.map (cexpr inner_cenv) contract.returns) in
+    
     cenv, { method_name; 
             pre_binders; 
-            ensures = Option.map (cexpr inner_cenv) contract.ensures;
-            returns = Option.map (cexpr inner_cenv) contract.returns}
+            ensures;
+            returns}
 
 and ccontract cenv: S.contract -> cookenv * T.contract = cook_place cook_contract cenv
 

@@ -77,6 +77,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "contract", CONTRACT;
     "ensures", ENSURES;
     "global", GLOBAL;
+    "invariant", INVARIANT;
     "metadata", METADATA;
     "returns", RETURNS;
     "with", WITH;

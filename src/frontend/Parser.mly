@@ -16,7 +16,7 @@
 %token BANG RECV SELECT BRANCH RECST
 %token TYPE
 %token EQ IN DOT LPAREN RPAREN 
-%token COMPONENT EXPECTING SIGNATURE METHOD PORT ENSURES RETURNS WITH CONTRACT SIG ON AND METADATA 
+%token COMPONENT EXPECTING SIGNATURE METHOD PORT ENSURES INVARIANT RETURNS WITH CONTRACT SIG ON AND METADATA 
 %token INCLUDE MUTATION
 %token SPAWN THIS ONSTARTUP ONDESTROY 
 %token AT
@@ -40,6 +40,22 @@ open Ast
 open Core.AstUtils
 open Core.Label
 open Core
+
+let make_contract x binders cfs = 
+    let union_opt opt1 opt2 = 
+        match opt1, opt2 with
+        | None, None -> None
+        | ((Some _) as opt), None | None, ((Some _) as opt) -> opt 
+        | _ -> opt2 (* the last one win *)
+    in
+    List.fold_left 
+        (fun c cf -> {c with 
+            ensures= union_opt c.ensures cf.ensures;
+            invariant= union_opt c.invariant cf.invariant;
+            returns= union_opt c.returns cf.returns;
+        })
+        {method_name=x; pre_binders=binders; ensures=None; invariant=None; returns=None} 
+        cfs
 
 %}
 
@@ -418,19 +434,22 @@ any_contract_binders:
 | binders=right_flexible_list(AND, any_contract_binder)
     { binders }
 
+(* TODO factorize this code *)
+
+any_contract_field:
+| ENSURES e = any_expr
+    { {method_name=""; pre_binders=[]; ensures=Some e; invariant=None; returns=None} }
+| INVARIANT e = any_expr
+    { {method_name=""; pre_binders=[]; ensures=None; invariant=Some e; returns=None} }
+| RETURNS e = any_expr
+    { {method_name=""; pre_binders=[]; ensures=None; invariant=None; returns=Some e} }
+
 any_contract_:
-| CONTRACT x = LID ENSURES e = any_expr
-    { {method_name=x; pre_binders=[]; ensures=Some e; returns=None} }
-| CONTRACT x = LID RETURNS e = any_expr
-    { {method_name=x; pre_binders=[]; ensures=None; returns=Some e} }
-| CONTRACT x = LID ENSURES e1 = any_expr RETURNS e2= any_expr 
-    { {method_name=x; pre_binders=[]; ensures=Some e1; returns=Some e2} }
-| CONTRACT x = LID WITH binders=any_contract_binders ENSURES e2 = any_expr
-    { {method_name=x; pre_binders=binders; ensures=Some e2; returns=None} }
-| CONTRACT x = LID WITH binders=any_contract_binders  RETURNS e2 = any_expr
-    { {method_name=x; pre_binders=binders; ensures= None; returns=Some e2} }
-| CONTRACT x = LID WITH binders=any_contract_binders ENSURES e2 = any_expr RETURNS e3 = any_expr 
-    { {method_name=x; pre_binders=binders; ensures=Some e2; returns=Some e3} }
+| CONTRACT x = LID cfs=flexible_sequence(any_contract_field)
+    { make_contract x [] cfs }
+| CONTRACT x = LID WITH binders=any_contract_binders cfs=flexible_sequence(any_contract_field)
+    { make_contract x binders cfs }
+
 %inline any_contract:
   t = placed(any_contract_)
     { t }

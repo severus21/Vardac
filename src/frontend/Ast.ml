@@ -181,6 +181,7 @@ and _contract = { (* TODO GADT *)
     pre_binders: (main_type * variable * expr) list; (* list of binder, should be let*)
     ensures: expr option;
     returns: expr option;
+    invariant: expr option;
 }
 and contract = _contract placed
 
