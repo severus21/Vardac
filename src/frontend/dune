@@ -1,10 +1,34 @@
 
 ;; Constructing the lexer, parser, and executable.
 
-(ocamllex Lexer)
+; Compile tokens.mly into a definition of the type [token].
 (menhir
-  (flags (-lg 1 -la 1 --explain))
-  (modules Parser)
+  (modules tokens)
+  (flags --only-tokens)
+)
+
+(ocamllex Lexer)
+
+(menhir
+  (modules tokens utils common Parser)
+  (merge_into Parser)
+  (flags 
+    -lg 1 
+    -la 1 
+    --explain 
+    --external-tokens Tokens
+  )
+)
+
+(menhir
+  (modules tokens utils common impl)
+  (merge_into Impl)
+  (flags 
+    -lg 1 
+    -la 1 
+    --explain 
+    --external-tokens Tokens
+  )
 )
 
 (library

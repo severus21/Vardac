@@ -2,7 +2,7 @@
 
 open Lexing
 open Core.Error
-open Parser
+open Tokens
 
 open Ast 
 
@@ -107,6 +107,10 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     (* global keyword is already defined *)
     "local",  LOCAL;
     "shared",  SHARED;
+
+    (* Implem lexer *)
+    "impl", IMPL;
+    "where", WHERE;
 ]
 }
 
@@ -216,6 +220,10 @@ rule entry = parse
 | ":" 
     {COLON}
 
+(* Impl *)
+| "{="
+    { BLACKBOX_BODY (string_of_chars(blackbox_body (place lexbuf) lexbuf)) }
+
 (* Quotes *)
 | "\'"
     {SIMPLE_QUOTE}
@@ -286,6 +294,15 @@ and aspeccomment p = parse
     { error p "unterminated comment." }
 | _ as x
     { x::(aspeccomment p lexbuf) }
+and blackbox_body p = parse
+| "=}"
+    { [] }
+| newline as x
+    { new_line lexbuf; (chars_of_string x)@(blackbox_body p lexbuf) }
+| eof
+    { error p "unterminated comment." }
+| _ as x
+    { x::(blackbox_body p lexbuf) }
 
 
 (* ------------------------------------------------------------------------ *)
