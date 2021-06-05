@@ -81,11 +81,10 @@ let group_cdcl_by (citems:  S.component_item list) : items_grps =
 
 
 (************************************ Types **********************************)
-let getfst = function x -> Option.get (fst x )
 let rec finish_ctype place : S._composed_type ->  T.ctype = function
     | S.TArrow (m1, m2) -> T.TFunction (
-        getfst(fmtype m1), 
-        getfst(fmtype m2)
+        fst(fmtype m1), 
+        fst(fmtype m2)
     )
 
     | S.TVar x -> T.TVar x 
@@ -97,14 +96,14 @@ let rec finish_ctype place : S._composed_type ->  T.ctype = function
         | S.TVoid -> TVoid
         | _ -> Core.Error.error place "TActivationInfo/Place/VPlace/Label type not yey supported."
     end
-    | S.TDict (m1, m2) -> T.TMap (getfst(fmtype m1), getfst(fmtype m2))
-    | S.TList mt -> T.TList (getfst(fmtype mt))
-    | S.TOption mt -> T.TOption (getfst(fmtype mt))
-    | S.TResult (m1, m2) -> T.TResult (getfst(fmtype m1), getfst(fmtype m2))
-    | S.TSet mt -> T.TSet (getfst(fmtype mt))
-    | S.TTuple mts ->  T.TTuple (List.map (fun x -> (getfst(fmtype x))) mts)
-    | S.TBridge b -> T.Atomic "String" (*TODO*)
-and fctype  : S.composed_type ->  T.ctype = function ct -> finish_ctype ct.place ct.value 
+    | S.TDict (m1, m2) -> T.TMap (fst(fmtype m1), fst(fmtype m2))
+    | S.TList mt -> T.TList (fst(fmtype mt))
+    | S.TOption mt -> T.TOption (fst(fmtype mt))
+    | S.TResult (m1, m2) -> T.TResult (fst(fmtype m1), fst(fmtype m2))
+    | S.TSet mt -> T.TSet (fst(fmtype mt))
+    | S.TTuple mts ->  T.TTuple (List.map (fun x -> (fst(fmtype x))) mts)
+    | S.TBridge b -> T.Atomic "lg4dc.protocol.Bridge" (*TODO*)
+and fctype : S.composed_type ->  T.ctype = function ct -> finish_ctype ct.place ct.value 
 
 and event_name_of_ftype place : S.flat_type -> string = function
 | S.TActivationInfo -> Core.Error.error place "TActivationInfo type can not be translated to a serializable Akka event."
@@ -148,19 +147,61 @@ and event_name_of_labels (labels: S.variable list) : T.variable =
         name
     end
 
-(* @param k order of the mtype in the protocol *)
-and finish_stype k place : S._session_type ->  T.ctype option * T.event list  = function
-    | S.STEnd -> None, [] (* Optimization: generation of a mock EndEvent is not needed *)
-    | S.STSend (mt, st) | S.STRecv (mt, st) -> begin 
-        let name =  event_name_of_mtype mt in
-        let events = match finish_stype (k+1) st.place st.value with
-        | None, events -> events
-        | _,_ -> raise (Core.Error.DeadbranchError "finish_stype : STSend/STRecv a session type should not produce a ctype.")
+(* Represent an ST object in Java type *)
+and encode_stype ({place;value} : S.session_type) : T.ctype = 
+match value with
+    | S.STEnd -> T.TVar (Atom.fresh_builtin "lg4dc.protocol.STEnd") 
+    | (S.STSend (mt, st) as st0) | (S.STRecv (mt, st) as st0) -> begin 
+        match fmtype mt with
+        | ct, [] ->
+            T.TParam (
+                T.TVar (Atom.fresh_builtin (match st0 with | S.STSend _ -> "lg4dc.protocol.STSend" | STRecv _ -> "lg4dc.protocol.STSend")),
+                [ct; encode_stype st]
+            )
+        | _,_ -> raise (Core.Error.DeadbranchError "finish_stype : STSend/STRecv type should not be a session type.")
+    end
+    | (S.STBranch xs as st0) | (S.STSelect xs as st0) ->
+        let rec built_t_hlist = function
+            | [] -> T.TVar (Atom.fresh_builtin "lg4dc.protocol.HNil")
+            | st::sts -> T.TParam( 
+                T.TVar (Atom.fresh_builtin "lg4dc.protocol.HCons"), [
+                    T.TParam( 
+                        T.TVar (Atom.fresh_builtin "lg4dc.protocol.STEntry"),
+                        [encode_stype st]
+                    )
+                ] @ [(built_t_hlist sts)] 
+            )
         in
 
+        let continuation_st = built_t_hlist (List.map (fun (_, st, _) -> st) xs) in
+
+        T.TParam (
+            T.TVar (Atom.fresh_builtin (match st0 with | S.STBranch _ -> "lg4dc.protocol.STBranch" | S.STSelect _ -> "lg4dc.protocol.STSelect")),
+            [continuation_st]
+        )
+    | S.STVar _ -> T.TVar (Atom.fresh_builtin ("lg4dc.protocol.STVar"))
+    | S.STRec (_,st) ->
+        T.TParam (
+            T.TVar (Atom.fresh_builtin "lg4dc.protocol.STRec"),
+            [ encode_stype st]
+        )
+
+    | S.STInline x -> 
+        raise (Error.DeadbranchError "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass.")
+(* @param k order of the mtype in the protocol *)
+(*
+        @return (ct_opt, events) -> ct_opt is 
+*)
+and stype_to_events ?k:(k=0) ({place;value} : S.session_type) : T.event list  = 
+match value with 
+    | S.STEnd -> [] (* Optimization: generation of a mock EndEvent is not needed *)
+    | S.STSend (mt, st) | S.STRecv (mt, st) -> begin 
+        let name =  event_name_of_mtype mt in
+        let events = stype_to_events ~k:(k+1) st in 
+
         match fmtype mt with
-        | Some ct, [] ->
-            None, {
+        | ct, [] ->
+            {
                 T.vis=T.Public; 
                 T.name= name;
                 T.kind=T.Event; 
@@ -168,44 +209,37 @@ and finish_stype k place : S._session_type ->  T.ctype option * T.event list  = 
             }::events
         | _,_ -> raise (Core.Error.DeadbranchError "finish_stype : STSend/STRecv type should not be a session type.")
     end
-    | S.STBranch xs | S.STSelect xs ->
+    | (S.STBranch xs as st0 )| (S.STSelect xs as st0) ->
         let labels = List.fold_left (fun acc (label, _,_) -> label::acc) [] xs in
 
-        let mock_place : Error.place = Error.forge_place "plugins/akka/Finish.ml" 0 0 in        let ct = Option.get (fst(finish_mtype mock_place (S.CType ({place=mock_place; value=S.TFlatType S.TStr})))) in
+        let mock_place : Error.place = Error.forge_place "plugins/akka/Finish.ml" 0 0 in
+        let ct = fst(finish_mtype mock_place (S.CType ({place=mock_place; value=S.TFlatType S.TStr}))) in
 
-        let aux = function (label, (st: S.session_type), _) ->
-            let events = match finish_stype (k+1) st.place st.value with
-                | None, events -> events
-                | _,_ -> raise (Core.Error.DeadbranchError "finish_stype : STSend/STRecv a session type should not produce a ctype.")
-            in
+        let aux (label, (st: S.session_type), _) = 
+            let events = stype_to_events ~k:(k+1) st in
             {
                 T.vis=T.Public; 
                 T.name= event_name_of_labels labels; 
                 T.kind=T.Event; T.args=[(ct, Atom.fresh_builtin "value")]
             }::events
         in
-        None, List.flatten (List.map aux xs)
-    | S.STVar _ -> None, [] (*No need to signal the start of a new round*)
+        List.flatten (List.map aux xs)
+    | S.STVar _ -> [] (*No need to signal the start of a new round*)
     | S.STRec (_,st) ->
-        let events = match finish_stype (k+1) st.place st.value with
-            | None, events -> events
-            | _,_ -> raise (Core.Error.DeadbranchError "finish_stype : STSend/STRecv a session type should not produce a ctype.")
-        in None, events 
+        stype_to_events ~k:(k+1) st
     | S.STInline x -> 
-        logger#warning "Find STInline %s" (Atom.hint x);
         raise (Error.DeadbranchError "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass.")
-and fstype : S.session_type -> T.ctype option * T.event list = function st -> (finish_stype 0) st.place st.value 
 
 and finish_component_type place : S._component_type -> T.ctype = function
 | S.CompTUid x -> T.TVar x 
 and fcctype : S.component_type -> T.ctype = function t -> finish_component_type t.place t.value
 
-and finish_mtype place : S._main_type -> T.ctype option * T.event list = function
-| S.CType ct -> Some (fctype ct), [] 
-| S.SType st -> fstype st
-| S.CompType ct -> Some (fcctype ct), []
+and finish_mtype place : S._main_type -> T.ctype * T.event list = function
+| S.CType ct -> fctype ct, [] 
+| S.SType st -> encode_stype st, stype_to_events st
+| S.CompType ct -> fcctype ct, []
 | _ -> Core.Error.error place "Akka: Type translation is only supported for composed types and session types"
-and fmtype : S.main_type ->  T.ctype option * T.event list  = function mt -> finish_mtype mt.place mt.value
+and fmtype : S.main_type ->  T.ctype * T.event list  = function mt -> finish_mtype mt.place mt.value
 
 (************************************ Literals *****************************)
 
@@ -235,8 +269,26 @@ and finish_expr place : S._expr -> T.expr = function
     | S.LitExpr lit -> T.LitExpr (fliteral lit)
     | S.UnopExpr (op, e) -> T.UnopExpr (op, fexpr e)
 
-    | S.CallExpr (e1, es)-> T.CallExpr (fexpr e1, List.map fexpr es)
-
+    | S.CallExpr (e1, es) -> begin 
+        match e1.value with 
+        | S.VarExpr x when Atom.is_builtin x -> begin
+            (* TODO put this in separate fct *)
+            (* TODO Remove string and used typed constructor *)
+            match (Atom.value x) with 
+            | "fire" -> begin 
+                match es with
+                | [ session; msg ] -> T.CallExpr(
+                    T.AccessExpr (fexpr session, T.VarExpr x),
+                    [ fexpr msg ]
+                ) 
+                | _ -> Error.error place "fire must take two arguments : place(session, message)"
+                end
+            | _ -> 
+                logger#warning "Akka.Finish do not yet support builtin function %s" (Atom.value x);
+                T.CallExpr (fexpr e1, List.map fexpr es)
+        end
+        | _ -> T.CallExpr (fexpr e1, List.map fexpr es)
+    end
     | S.This -> T.This
     | S.Spawn {c; args; at=None} ->
         T.Spawn {context=T.CurrentContext;  actor_expr=
@@ -279,7 +331,7 @@ and finish_stmt place : S._stmt -> T.stmt = function
     | S.AssignThisExpr (x, e) -> T.AssignExpr (
                                     T.AccessExpr (T.This, T.VarExpr x),
                                    fexpr e)        
-    | S.LetExpr (mt, x, e) ->  T.LetStmt (getfst (fmtype mt), x, Some (fexpr e))                             
+    | S.LetExpr (mt, x, e) ->  T.LetStmt (fst (fmtype mt), x, Some (fexpr e))                             
 
     (*S.* Comments *)
     | S.CommentsStmt comments -> T.CommentsStmt comments.value
@@ -304,7 +356,7 @@ and fstmt : S.stmt -> T.stmt = function stmt -> finish_stmt stmt.place stmt.valu
 (* return type is T._expr for now, since we built only one state with all the variable inside FIXME *)
 and finish_state place : S._state -> T.stmt = function 
     | S.StateDcl {ghost; kind; type0; name; init_opt} -> begin
-        T.LetStmt (Option.get (fst (fmtype type0)), name, Option.map fexpr init_opt)
+        T.LetStmt (fst (fmtype type0), name, Option.map fexpr init_opt)
     end
     (*use global x as y;*)
     | S.StateAlias {ghost; kind; type0; name} -> failwith "finish_state StateAlias is not yet supported" 
@@ -312,7 +364,7 @@ and fstate : S.state -> T.stmt = function state -> finish_state state.place stat
 
 
 and finish_param place : S._param -> (T.ctype * T.variable) = function
-| mt, x -> Option.get (fst(fmtype mt)), x
+| mt, x -> fst(fmtype mt), x
 and fparam : S.param -> (T.ctype * T.variable) = function p -> finish_param p.place p.value
 
 
@@ -439,7 +491,7 @@ and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._m
 
         let new_method : T.method0 = { 
             vis             = T.Public; 
-            ret_type        = Option.get (fst (fmtype m0.ret_type));
+            ret_type        = fst (fmtype m0.ret_type);
             name            = if is_constructor then actor_name else m0.name;
             args            = (List.map fparam m0.args);
             body            = body; 
@@ -494,7 +546,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         let expecting_msg_types = match p.value.expecting_st.value with 
         | S.SType st -> begin
             match st.value with
-            | S.STRecv (msg_type,_) -> Option.get (fst(fmtype msg_type))
+            | S.STRecv (msg_type,_) -> fst(fmtype msg_type)
             | S.STBranch xs -> 
                 let labels = List.fold_left (fun acc (label, _,_) -> label::acc) [] xs in
 

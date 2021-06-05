@@ -34,6 +34,8 @@ let rec finish_ctype : S.ctype -> T.jtype = function
     | S.TList t1 -> T.ClassOrInterfaceType  (Atom.fresh_builtin "List", [finish_ctype t1])
     | S.TMap (t1, t2) -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Map", [finish_ctype t1; finish_ctype t2])
     | S.TOption t1 -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Optional", [finish_ctype t1]) 
+    | S.TParam (S.TVar x, t_args) -> T.ClassOrInterfaceType (x, List.map finish_ctype t_args)
+    | S.TParam _ -> failwith "Akka -> java, tparam with non VAR ctype is not yet supported" 
     | S.TResult (t1, t2) -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Result", [finish_ctype t1; finish_ctype t2])  (*TODO add include https://github.com/hdevalke/result4j*)
     | S.TSet t1 -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Set", [finish_ctype t1])
     | S.TTuple cts -> begin 
@@ -242,8 +244,6 @@ let init_build build_dir : unit =
 
     let templates = FileUtil.ls (FilePath.make_filename ["templates"; name]) in
     let aux_template template =
-        print_string template;
-        print_newline ();
         let res = Jg_template.from_file template ~models:(jingoo_env ()) in  
         let destfile = FilePath.concat build_dir  
             (FilePath.basename (if FilePath.check_extension template "j2" then 

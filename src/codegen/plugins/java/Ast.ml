@@ -62,6 +62,7 @@ and expr =
     | VarExpr of variable
 and jmodule = 
     | ImportDirective of string
+    | PackageDeclaration of string
 and stmt = 
     | BlockStmt of stmt list
     | BreakStmt 

@@ -22,13 +22,13 @@ let pp_break_list sep ppx out l =
     Format.pp_print_list ~pp_sep ppx out l
 
 let rec output_var out (x:Atom.atom)=
-  if Atom.builtin x then fprintf out "%s" (builtin_eval x)
+  if Atom.is_builtin x then fprintf out "%s" (builtin_eval x)
   else
     fprintf out "%s%d" (Atom.hint x) (Atom.identity x)
 and output_vars out: variable list -> unit = pp_list ", " output_var out
 
 let output_capitalize_var out (x:Atom.atom)=
-  if Atom.builtin x then fprintf out "%s" (String.capitalize_ascii (builtin_eval x))
+  if Atom.is_builtin x then fprintf out "%s" (String.capitalize_ascii (builtin_eval x))
   else
     fprintf out "%s%d" (String.capitalize_ascii (Atom.hint x)) (Atom.identity x) 
 
@@ -129,7 +129,7 @@ and output_body out : body -> unit = function
             output_cl_implements cl.implemented_types
             output_items cl.body
     | FieldDeclaration f -> 
-        fprintf out "%a%a%a%a;@;"
+        fprintf out "%a%a %a%a;@;"
             output_annotations f.annotations 
             output_jtype f.type0
             output_var f.name
@@ -144,7 +144,8 @@ and output_body out : body -> unit = function
             (pp_list "" output_stmt) [m.body] 
 
 and output_jmodule out : jmodule -> unit = function
-    | ImportDirective str -> fprintf out "import %s;"str 
+    | ImportDirective str -> fprintf out "import %s;" str 
+    | PackageDeclaration str -> fprintf out "package %s;" str
 
 and output_type_params out : jtype list -> unit = pp_list ", " output_jtype out   
 
@@ -169,6 +170,7 @@ let output_program build_dir items : unit =
     (* Add imports*)
     (* TODO define imports outside this function,   *)
     let items = [
+        JModule (PackageDeclaration (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ())));
         JModule (ImportDirective "com.lg4dc.protocol.*");
     ]@ items in
 

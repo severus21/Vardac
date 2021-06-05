@@ -22,6 +22,8 @@ and ctype =
     | TVar of variable
     | TVoid
 
+    | TParam of ctype * ctype list (* Type parametric (ct, [arg_1; .. arg_n]) -> ct<arg_1, .., arg_n>*)
+
 
 (************************************ Expr & Stmt *****************************)
 
