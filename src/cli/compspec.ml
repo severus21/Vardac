@@ -21,6 +21,7 @@ let options = ref []
 let options_compile = 
     Arg.align [
         "--debug", Arg.Set Config._debug, " Enable debugging output";
+        "--debug-cook", Arg.Set Config._debug_cook, "Print debug for cook pass";
         "--places", Arg.Set_string places_file, "Load a YAML file describing the places"; 
         "--targets", Arg.Set_string targets_file, "Load a YAML file describing the targets";
         "--filename", Arg.String (function x-> filenames := x::!filenames), "Spec file to compile"

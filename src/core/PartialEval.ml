@@ -11,7 +11,8 @@ module T = IR
 module Env = Atom.AtomMap 
 
 type env = { 
-    named_types: main_type Env.t (* namely the list of typedef with their current definition *)
+    named_types: (main_type option) Env.t (* namely the list of typedef with their current definition, 
+    none means that it is an abstract type *)
 } [@@deriving fields] 
 
 let fresh_env () = { 
@@ -42,7 +43,11 @@ let rec peval_place peval_value env ({ AstUtils.place ; AstUtils.value}: 'a AstU
     let env, value = peval_value env place value in
     env, {AstUtils.place; AstUtils.value}
 
-let rec peval_stype env place : _session_type -> env * _session_type = 
+let rec peval_composed_type env place : _composed_type -> env * _composed_type = function ct -> env, ct
+and pe_ctype env: composed_type -> env * composed_type = peval_place peval_composed_type env
+
+
+and peval_stype env place : _session_type -> env * _session_type = 
     let aux_entry (x, st, cst_opt) = 
         let _, st' = pe_stype env st in
         let cst_opt' = Option.map (fun elmt -> snd (peval_applied_constraint env elmt)) cst_opt in
@@ -50,7 +55,6 @@ let rec peval_stype env place : _session_type -> env * _session_type =
     in function  
     | STEnd -> env, STEnd
     | STInline x -> begin
-        logger#warning "Removing STInline %s" (Atom.hint x);
         (*
         let rec assert_is_stype = function  
             | SType _ -> () 
@@ -63,9 +67,8 @@ let rec peval_stype env place : _session_type -> env * _session_type =
             let mt = Env.find x env.named_types in
             (* assert_is_stype mt.value;
             env, mt.value*)
-            
-            match mt.value with 
-            | SType st -> env, st.value 
+            match mt with 
+            | Some {value=SType st; _} -> env, st.value 
             (* FIXME do we want to have the place of the inline (current behviour) or the place of the typedef ??*)
             | _ -> Error.error place "STInline parameter can not be resolved to a session types. It is resolved to %s" (Error.show place)
             
@@ -91,6 +94,23 @@ let rec peval_stype env place : _session_type -> env * _session_type =
 and pe_stype env: session_type -> env * session_type = peval_place peval_stype env
 
 and peval_mtype env place : _main_type -> env * _main_type = function 
+| CType {value=TVar x; _} as mt when  not(Atom.is_builtin x) ->
+    (* get ride of session types aliasing *)
+    (* TODO rename aux *)
+    logger#info "TVar %s" (Atom.value x);
+
+    let rec aux x =
+        try 
+            let mt' = Env.find x env.named_types in    
+            match mt' with 
+            | Some {value=SType st; _} -> 
+                SType st (* NB: we use the place of the alias and not the place of the definition here *)
+            | Some{value=CType {value=TVar y; _}; _} -> aux y (* keep searching the root *)
+            | _ -> mt
+        with Not_found -> raise (Error.DeadbranchError "Unbounded type variable, this should have been checked by the cook pass.")
+    in
+    env, aux x 
+| CType ct -> env, CType (snd (pe_ctype env ct))
 | SType st -> env, SType (snd(pe_stype env st)) 
 | ConstrainedType (mt, cst) -> env, ConstrainedType (
     snd(pe_mtype env mt), 
@@ -109,6 +129,23 @@ and peval_expr env place : _expr -> env * _expr = function
 and pe_expr env: expr -> env * expr = peval_place peval_expr env
 
 and peval_stmt env place : _stmt -> env * _stmt = function 
+| EmptyStmt -> env, EmptyStmt
+| AssignExpr (x, e) -> env, AssignExpr (x,  snd(pe_expr env e ))
+| AssignThisExpr (x, e) -> env, AssignExpr (x,  snd(pe_expr env e ))
+| BlockStmt stmts -> 
+    env, BlockStmt (List.map (function stmt -> snd ((pe_stmt env) stmt)) stmts)
+| BreakStmt -> env, BreakStmt
+| CommentsStmt c -> env, CommentsStmt c 
+| ContinueStmt -> env, ContinueStmt
+| ExitStmt i -> env, ExitStmt i
+| ExpressionStmt e -> env, ExpressionStmt (snd(pe_expr env e))
+| ForStmt (x, e, stmt) -> env, ForStmt (x, snd (pe_expr env e), snd (pe_stmt env stmt))
+| IfStmt (e, stmt, stmt_opt) -> 
+    env, IfStmt (
+        snd (pe_expr env e), 
+        snd (pe_stmt env stmt),
+        Option.map (function elmt -> snd (pe_stmt env elmt)) stmt_opt
+    )
 | LetExpr ({value=CType {value= TBridge t_b; _}; _ } as let_left, let_x, e_b) -> begin 
     match e_b.value with
     | CallExpr ({value=T.VarExpr name; _}, []) when Atom.hint(name) = "bridge" -> 
@@ -133,6 +170,12 @@ and peval_stmt env place : _stmt -> env * _stmt = function
         )
     | _ -> Error.error place "The right-handside of a Bridge<_,_,_> must be partially evaluated to a bridge literal" 
 end
+| MatchStmt (e, entries) -> 
+    env, MatchStmt (
+        snd(pe_expr env e), 
+        List.map ( function (e,stmt) -> snd(pe_expr env e), snd(pe_stmt env stmt)) entries
+    )
+| LetExpr (mt, x, e) -> env, LetExpr( snd(pe_mtype env mt), x, snd(pe_expr env e))
 | ExpressionStmt e -> 
     let new_env, new_e = pe_expr env e in
     new_env, (ExpressionStmt new_e)
@@ -141,11 +184,80 @@ and pe_stmt env: stmt -> env * stmt = peval_place peval_stmt env
 
 
 (************************************ Component *****************************)
-and peval_component_item env place : _component_item -> env * _component_item = function x -> env, x
+and peval_contract env place contract =
+    let pre_binders = List.map (
+        function  (mt, x, e) -> 
+            snd (pe_mtype env mt),
+            x,
+            snd (pe_expr env e )
+        ) contract.pre_binders in
+    let ensures = Option.map (function e -> snd (pe_expr env e )) contract.ensures in
+    let returns = Option.map (function e -> snd (pe_expr env e )) contract.returns in
+
+    env, {contract with
+        pre_binders;
+        ensures;
+        returns 
+    }
+and pe_contract env: contract -> env * contract = peval_place peval_contract env
+
+and peval_param env place (mt, x) = 
+    env, (snd(pe_mtype env mt), x)
+and pe_param env: param -> env * param = peval_place peval_param env
+
+and peval_method env place = function
+| CustomMethod m -> 
+    env, CustomMethod {m with
+            ret_type = snd(pe_mtype env m.ret_type);
+            args = List.map (function param -> snd(pe_param env param)) m.args;
+            abstract_impl = Option.map (function stmt -> snd(pe_stmt env stmt)) m.abstract_impl;
+            contract_opt = Option.map (function c -> snd(pe_contract env c)) m.contract_opt
+
+    } 
+| OnStartup m -> env, OnStartup (snd (pe_method env m)) 
+| OnDestroy m -> env, OnDestroy (snd (pe_method env m))
+and pe_method env: method0 -> env * method0 = peval_place peval_method env
+
+and peval_port env place port = 
+    let expecting_st = snd(pe_mtype env port.expecting_st) in 
+    
+    begin
+        match expecting_st.value with
+        | SType _ -> ()
+        | _ -> Error.error place "port expecting value must be a session type"
+    end;
+
+    env, { port with
+        input =  snd(pe_expr env port.input);
+        expecting_st;
+        callback = snd(pe_expr env port.callback)
+    }
+and pe_port env: port -> env * port = peval_place peval_port env
+
+and peval_state env place = function 
+| StateDcl s -> env, StateDcl {s with 
+    type0 = snd(pe_mtype env s.type0);
+    init_opt = Option.map (function e -> snd(pe_expr env e)) s.init_opt
+} 
+| StateAlias _ -> failwith "partial-evaluation does not support yet StateAlias" 
+and pe_state env: state -> env * state = peval_place peval_state env
+
+and peval_component_item env place : _component_item -> env * _component_item = function 
+| Contract c -> env, Contract (snd(pe_contract env c))
+| Include cexpr -> env, Include (snd(pe_component_expr env cexpr))
+| Method m -> env, Method (snd(pe_method env m))
+| Port p -> env, Port (snd(pe_port env p))
+| State s -> env, State (snd(pe_state env s))
+| Term t -> env, Term (snd(pe_term env t))
+
 and pe_component_item env: component_item -> env * component_item = peval_place peval_component_item env
 
 and peval_component_dcl env place : _component_dcl -> env * _component_dcl = function  
-| ComponentAssign  _ as x -> env, x 
+| ComponentAssign {name; args; value} -> env, ComponentAssign {
+    name;
+    args = List.map (function param -> snd(pe_param env param)) args;
+    value = snd(pe_component_expr env value) 
+} 
 | ComponentStructure cdcl ->
     (* Collect contracts *)
     let collect_contracts env (x:component_item) = 
@@ -187,6 +299,14 @@ and peval_component_dcl env place : _component_dcl -> env * _component_dcl = fun
 
 and pe_component_dcl env: component_dcl -> env * component_dcl = peval_place peval_component_dcl env
 
+(********************** Manipulating component structure *********************)
+and peval_component_expr env place = function
+| VarCExpr x -> env, VarCExpr x
+| AppCExpr (cexpr1, cexpr2) -> env, AppCExpr (snd (pe_component_expr env cexpr1), snd (pe_component_expr env cexpr2)) 
+| UnboxCExpr e -> env, UnboxCExpr (snd(pe_expr env e)) 
+| AnyExpr e -> env, AnyExpr (snd(pe_expr env e)) 
+and pe_component_expr env: component_expr -> env * component_expr = peval_place peval_component_expr env
+
 (************************************ Program *****************************)
 and peval_term env place : _term -> env * _term = function
 | Comments c -> env, Comments c
@@ -194,10 +314,12 @@ and peval_term env place : _term -> env * _term = function
 | Component comp -> map_snd (fun x -> Component x) (pe_component_dcl env comp)
 | Typedef (x, mt_opt) -> begin
     match mt_opt with
-    | None -> env, Typedef (x, None)
+    | None -> 
+        let new_env = bind_named_types env x None in
+        new_env, Typedef (x, None)
     | Some mt -> 
         let _, mt = pe_mtype env mt in 
-        let new_env = bind_named_types env x mt in
+        let new_env = bind_named_types env x (Some mt) in
         new_env, Typedef (x, Some mt)
 end
 and pe_term env: term -> env * term = peval_place peval_term env

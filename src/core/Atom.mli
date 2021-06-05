@@ -12,7 +12,7 @@ and t = atom
 val identity: atom -> int
 val hint: atom -> string
 val value: atom -> string
-val builtin: atom -> bool
+val is_builtin: atom -> bool
 
 (* Producing fresh atoms. *)
 

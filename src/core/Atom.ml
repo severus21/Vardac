@@ -55,7 +55,7 @@ let hint a =
 let value a =
   a.value
 
-let builtin a=
+let is_builtin a=
   a.builtin
 
 (* -------------------------------------------------------------------------- *)
@@ -232,7 +232,7 @@ type renaming =
 
 (* Printing *)
 let output_atom out builtin_eval (x:atom)=
-  if builtin x then fprintf out "%s" (builtin_eval x)
+  if is_builtin x then fprintf out "%s" (builtin_eval x)
   else
     fprintf out "%s%d" (hint x) (identity x)
 
@@ -240,7 +240,7 @@ let atom_to_str (x:atom)=
   (hint x)^(string_of_int (identity x))
 
 let p_atom_to_str builtin_eval (x:atom)=
-  if builtin x then (builtin_eval x)
+  if is_builtin x then (builtin_eval x)
   else atom_to_str x
 
 (* Sets and maps. *)

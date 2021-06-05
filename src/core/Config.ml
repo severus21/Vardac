@@ -6,11 +6,17 @@ let _debug =
 let debug = function () ->
   !_debug
 
+let _debug_cook =
+  ref false
+
+let debug_cook = function () ->
+  !_debug_cook
+
 let _author = ref "author"
 
 let author = function () -> !_author
 
-let _project_name = ref "project-name"
+let _project_name = ref "project_name"
 
 let project_name = function () -> !_project_name
 

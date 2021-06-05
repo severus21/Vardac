@@ -9,15 +9,15 @@ let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 let to_ir places filename =
     filename
     |> Parse.read
-    |> function x-> logger#sinfo "Main spec file has been read"; x
-    |> function x-> logger#sinfo "AST is built";x
+    |> function ast -> logger#sinfo "Main spec file has been read"; ast 
+    |> function ast -> logger#sinfo "AST is built"; ast 
     |> dump "Ast" Ast.show_program
     |> Resolve.resolve_program   
-    |> function x-> logger#sinfo "AST is resolved";x
+    |> function ast -> logger#sinfo "AST is resolved"; ast 
     |> dump "ResolveAst" Ast.show_program  
     |> Cook.cook_program places
-    |> function x-> logger#sinfo "AST is cooked, IR has been generated";x
-    |> dump "IR" IR.show_program 
+    |> function ast -> logger#sinfo "AST is cooked, IR has been generated"; ast 
+    |> dump ~print:(Config.debug_cook ()) "IR" IR.show_program
 
 let process_place (filename:string) =
     filename

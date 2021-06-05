@@ -15,8 +15,8 @@ let print_delimiter () =
   Printf.eprintf "----------------------------------------";
   Printf.eprintf "----------------------------------------\n"
 
-let dump (phase : string) (show : 'term -> string) (t : 'term) =
-  if Config.debug () then begin
+let dump ?(print=(Config.debug ()))(phase : string) (show : 'term -> string) (t : 'term) =
+  if print then begin
     print_delimiter();
     Printf.eprintf "%s:\n\n%s\n\n%!" phase (show t)
   end;
