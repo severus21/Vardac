@@ -3,6 +3,9 @@ open Core.Utils
 open Akka
 open Java
 
+(* The source calculus. *)
+module S = IRI
+
 (** Runtime plugin interface *)
 module type S_Ast = sig
     type program
@@ -13,7 +16,7 @@ module type Rt_plg = sig
     module Ast : S_Ast
 
     module Finish: sig 
-        val finish_program : IR.program -> Ast.program
+        val finish_program : S.program -> Ast.program
     end
 end
 module type Lg_plg = sig
@@ -31,8 +34,8 @@ module type Cg_plg = sig
     module Lg : Lg_plg
     
     val finish_program : Rt.Ast.program -> Lg.Ast.program
-    val finish_ir_program : IR.program -> Lg.Ast.program
-    val output_program : string list -> IR.program -> unit
+    val finish_ir_program : S.program -> Lg.Ast.program
+    val output_program : string list -> S.program -> unit
 
     val init_build : string list -> unit
 end

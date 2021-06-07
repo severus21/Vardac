@@ -139,7 +139,7 @@ and cook_var_this cenv place x =
 and cook_composed_type cenv place: S._composed_type -> cookenv * T._composed_type = function
 | S.TArrow (mt1, mt2) -> cenv, T.TArrow (
     cmtype cenv mt1,
-    cmtype cenv mt1
+    cmtype cenv mt2
 ) 
 
 | S.TVar x -> 
@@ -340,7 +340,7 @@ and cook_state cenv place : S._state -> cookenv * T._state = function
                 kind    = sdcl.kind; 
                 type0   = cmtype cenv sdcl.type0;
                 name    = y;
-                init_opt= Option.map (cexpr cenv) sdcl.init_opt}
+                body = Option.map (cexpr cenv) sdcl.init_opt}
 | S.StateAlias _ -> failwith "cook: state alias not yet supported" (*TODO*)
 and cstate cenv: S.state -> cookenv * T.state = cook_place cook_state cenv
 
@@ -392,7 +392,7 @@ and cook_method0 cenv place : S._method0 -> cookenv * T._method0 = function
         name;
         args;
         contract_opt = None; (* Pairing between contract and method0 is done during a next pass, see. Core.PartialEval.ml *)
-        abstract_impl = match m.abstract_impl with
+        body = match m.abstract_impl with
                             | {place=_;value=S.EmptyStmt} -> None
                             | stmt -> Some (snd(cstmt inner_cenv stmt))
     } 

@@ -211,7 +211,7 @@ and finish_program ({entrypoint; system; terms}: S.program) : T.program =
     List.map finish_term terms 
     (*TODO finish entrypoint/system*)
 
-let finish_ir_program (ir_program: Core.IR.program) : T.program =
+let finish_ir_program (ir_program: Plugin.S.program) : T.program =
     ir_program
     |> Rt.Finish.finish_program  
     |> dump "Runtime AST" Rt.Ast.show_program  

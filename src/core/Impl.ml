@@ -1,4 +1,3 @@
-open Core
 open AstUtils
 
 include Impl_common
@@ -7,13 +6,10 @@ include Impl_common
 type variable = string list
 
 and method_impl = {
-        ret_type: Ast.main_type; 
         name: variable; 
-        args: Ast.param list; 
         body: blackbox_term;
     }
 and state_impl = {
-        type0: Ast.main_type;
         name: variable;
         body: blackbox_term;
     }

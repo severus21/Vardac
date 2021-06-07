@@ -2,11 +2,6 @@ open IR
 open Easy_logging
 let logger = Logging.make_logger "_1_ compspec" Debug [Cli Debug];;
 
-(* The source calculus. *)
-module S = IR 
-(* The target calculus. *)
-module T = IR 
-
 (* Environment *)
 module Env = Atom.AtomMap 
 
@@ -97,8 +92,6 @@ and peval_mtype env place : _main_type -> env * _main_type = function
 | CType {value=TVar x; _} as mt when  not(Atom.is_builtin x) ->
     (* get ride of session types aliasing *)
     (* TODO rename aux *)
-    logger#info "TVar %s" (Atom.value x);
-
     let rec aux x =
         try 
             let mt' = Env.find x env.named_types in    
@@ -123,7 +116,7 @@ and peval_applied_constraint env : applied_constraint -> env * applied_constrain
 
 (************************************ Expr & Stmt *****************************)
 and peval_expr env place : _expr -> env * _expr = function 
-| CallExpr ({value=T.VarExpr name; _}, []) when Atom.hint(name) = "bridge" ->
+| CallExpr ({value=VarExpr name; _}, []) when Atom.hint(name) = "bridge" ->
      Error.error place "bridge expression must not be used outside the right-handside of a let"  
 | x -> env, x 
 and pe_expr env: expr -> env * expr = peval_place peval_expr env
@@ -148,7 +141,7 @@ and peval_stmt env place : _stmt -> env * _stmt = function
     )
 | LetExpr ({value=CType {value= TBridge t_b; _}; _ } as let_left, let_x, e_b) -> begin 
     match e_b.value with
-    | CallExpr ({value=T.VarExpr name; _}, []) when Atom.hint(name) = "bridge" -> 
+    | CallExpr ({value=VarExpr name; _}, []) when Atom.hint(name) = "bridge" -> 
         let protocol = match t_b.protocol.value with
         | SType st -> st
         | _ -> Error.error t_b.protocol.place "Third argument of Bridge<_,_,_> must be (partially-evaluated> to a session type"
@@ -210,7 +203,7 @@ and peval_method env place = function
     env, CustomMethod {m with
             ret_type = snd(pe_mtype env m.ret_type);
             args = List.map (function param -> snd(pe_param env param)) m.args;
-            abstract_impl = Option.map (function stmt -> snd(pe_stmt env stmt)) m.abstract_impl;
+            body = Option.map (function stmt -> snd(pe_stmt env stmt)) m.body;
             contract_opt = Option.map (function c -> snd(pe_contract env c)) m.contract_opt
 
     } 
@@ -237,7 +230,7 @@ and pe_port env: port -> env * port = peval_place peval_port env
 and peval_state env place = function 
 | StateDcl s -> env, StateDcl {s with 
     type0 = snd(pe_mtype env s.type0);
-    init_opt = Option.map (function e -> snd(pe_expr env e)) s.init_opt
+    body = Option.map (function e -> snd(pe_expr env e)) s.body
 } 
 | StateAlias _ -> failwith "partial-evaluation does not support yet StateAlias" 
 and pe_state env: state -> env * state = peval_place peval_state env

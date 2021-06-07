@@ -22,7 +22,7 @@
 
 (menhir
   (modules tokens utils common impl)
-  (merge_into Impl)
+  (merge_into ImplParser)
   (flags 
     -lg 1 
     -la 1 

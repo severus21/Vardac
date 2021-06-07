@@ -3,4 +3,4 @@
 
 open Core
 
-val finish_program: IR.program -> Ast.program
+val finish_program: IRI.program -> Ast.program

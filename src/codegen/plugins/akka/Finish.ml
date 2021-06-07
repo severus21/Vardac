@@ -6,7 +6,7 @@ let plg_name = "Akka"
 let logger = Logging.make_logger ("_1_ compspec.plg."^plg_name) Debug [];;
 
 (* The source calculus. *)
-module S = IR 
+module S = IRI 
 (* The target calculus. *)
 module T = Ast 
 
@@ -41,7 +41,7 @@ type items_grps = {
     states: S.state list; 
     nested: S.component_dcl list; 
     ports: S.port list;
-    typedefs: (S.variable * S.main_type option) list;
+    typedefs: (S.variable * S._typedef_body) list;
     others: S.term list
 }
 
@@ -355,9 +355,10 @@ and fstmt : S.stmt -> T.stmt = function stmt -> finish_stmt stmt.place stmt.valu
 (************************************ Component *****************************)
 (* return type is T._expr for now, since we built only one state with all the variable inside FIXME *)
 and finish_state place : S._state -> T.stmt = function 
-    | S.StateDcl {ghost; kind; type0; name; init_opt} -> begin
-        T.LetStmt (fst (fmtype type0), name, Option.map fexpr init_opt)
-    end
+    | S.StateDcl {ghost; kind; type0; name; body = S.InitExpr e} -> 
+        T.LetStmt (fst (fmtype type0), name, Some (fexpr e))
+    | S.StateDcl {ghost; kind; type0; name; body = S.InitBB bb_term} -> 
+            failwith "InitBB not supported yet"
     (*use global x as y;*)
     | S.StateAlias {ghost; kind; type0; name} -> failwith "finish_state StateAlias is not yet supported" 
 and fstate : S.state -> T.stmt = function state -> finish_state state.place state.value 
@@ -484,9 +485,9 @@ and fcontract actor_name (method0 : T.method0) : S.contract -> T.method0 list = 
     
 and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._method0 -> T.method0 list = function
     | S.CustomMethod m0 ->  
-        let body = match m0.abstract_impl with
-            | None -> T.ContinueStmt (*TODO TODO failwith "loading method from external sources is not yet supported"*) (* abstract method, implementation should be loaded from external sources*)
-            | Some stmt -> fstmt stmt (* implem de reference -> generate code*)
+        let body = match m0.body with
+            | AbstractImpl stmt -> fstmt stmt (* implem de reference -> generate code*)
+            | BBImpl _ -> failwith "BBImpl not supported yet"
         in
 
         let new_method : T.method0 = { 
@@ -528,7 +529,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         | _, Some ({Core.AstUtils.place; Core.AstUtils.value = S.SType st}) -> false
         | _ -> true
     in
-    let events = List.flatten (List.map (function x -> snd (fmtype x)) (List.map (function x -> Option.get (snd x)) grp_items.typedefs)) in
+    let events = List.flatten (List.map (function x -> snd (fmtype x)) (List.filter_map (function x -> match snd x with |S.AbstractTypedef mt -> Some mt | _ -> None) grp_items.typedefs)) in
     
 
     (* Building states *)
@@ -613,13 +614,12 @@ and finish_term place : S._term -> T.term list = function
 | S.Comments c -> [T.Comments c.value]
 | S.Component cdcl -> List.map (function a -> T.Actor a) (fcdcl cdcl)
 | S.Stmt stmt -> [T.Stmt (fstmt stmt)]
-| S.Typedef (v, mt_opt) -> (* TODO move this to the translation from akka to java, and add Typedef into akka ast *) 
-    match mt_opt with
-    | None -> [T.Class v]
-    | Some {value=S.CType {value=S.TVar _; _}; _} -> Error.error place "Type aliasing is not (natively) supported in Java"
-    | Some {value=CompType {value=CompTUid _; _}; _} ->  Error.error place "Type aliasing is not (natively) supported in Java" 
-    | Some mt -> 
-        let mt, events = fmtype mt in
+| S.Typedef (v, S.AbstractTypedef body) -> (* TODO move this to the translation from akka to java, and add Typedef into akka ast *) 
+    match body.value with
+    | S.CType {value=S.TVar _; _} -> Error.error place "Type aliasing is not (natively) supported in Java"
+    | CompType {value=CompTUid _; _} ->  Error.error place "Type aliasing is not (natively) supported in Java" 
+    | _ -> 
+        let mt, events = fmtype body in
         general_fenv := List.fold_left (fun env (event:T.event) -> bind_event env event.name event) !general_fenv events;
         (* FIXME | TODO do something with the mt *) 
         [T.Class v] @ (List.map (fun x -> T.Event x) events) 

@@ -6,7 +6,7 @@ module Rt = Akka
 module Lg = Java 
 
 val finish_program : Rt.Ast.program -> Lg.Ast.program 
-val finish_ir_program : Core.IR.program -> Lg.Ast.program 
-val output_program : string list -> Core.IR.program -> unit
+val finish_ir_program : Plugin.S.program -> Lg.Ast.program 
+val output_program : string list -> Plugin.S.program -> unit
 
 val init_build : string list -> unit
