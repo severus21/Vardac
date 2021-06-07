@@ -402,10 +402,7 @@ and cook_method0 cenv place : S._method0 -> cookenv * T._method0 = function
 | S.OnDestroy m -> 
     let new_cenv, new_m = cmethod0 cenv m in
     new_cenv, T.OnDestroy new_m
-
 and cmethod0 cenv: S.method0 -> cookenv * T.method0 = cook_place cook_method0 cenv
-
-
 
 and cook_port cenv place (port:S._port) : cookenv * T._port =
     let new_cenv, name = bind_this cenv place port.name in

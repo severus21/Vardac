@@ -24,7 +24,6 @@ and ctype =
 
     | TParam of ctype * ctype list (* Type parametric (ct, [arg_1; .. arg_n]) -> ct<arg_1, .., arg_n>*)
 
-
 (************************************ Expr & Stmt *****************************)
 
 and unop = IR.unop 
@@ -56,6 +55,7 @@ and expr =
     | Spawn of { context: expr; actor_expr: expr }
     | CurrentContext
     | CurrentSystem
+    | RawExpr of string
 
 and stmt = 
     | AssignExpr of expr * expr (*expression should be access or variable*)
@@ -73,11 +73,15 @@ and visibility =
     | Protected
     | Public
 
+and method0_body = 
+| AbstractImpl of stmt
+| BBImpl of Impl_common.blackbox_term
+
 and method0 = {
     vis: visibility;
     ret_type: ctype;
     name: variable;
-    body: stmt;
+    body: method0_body;
     args: (ctype * variable) list;
     is_constructor: bool
 }
@@ -133,6 +137,8 @@ and term =
 
 (** Other *)
 | Class of variable 
+| RawClass of variable * string
+| TemplateClass of string
 | Stmt of stmt 
 
 (** Akka structure *)

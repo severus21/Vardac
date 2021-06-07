@@ -30,7 +30,9 @@ any_var:
 
 any_blackbox_term_:
 | language = LID body = blacbox_body
-    { {language; body} }
+    { {language; body; template = false} }
+| TEMPLATE LANGLEBRACKET language = LID RANGLEBRACKET body = blacbox_body
+    { {language; body; template = true} }
 %inline any_blackbox_term:
   t = placed(any_blackbox_term_)
     {t}

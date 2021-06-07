@@ -110,6 +110,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
 
     (* Implem lexer *)
     "impl", IMPL;
+    "template", TEMPLATE;
     "where", WHERE;
 ]
 }

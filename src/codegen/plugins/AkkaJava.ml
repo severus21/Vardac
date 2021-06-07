@@ -95,6 +95,7 @@ and finish_expr : S.expr -> T.expr = function
     | S.UnopExpr (IR.UnpackResult, e) -> T.AppExpr ( T.AccessExpr (finish_expr e, T.VarExpr (Atom.fresh_builtin "unwrap")), []) (* TODO should return form the fct with the error or return the result*) 
     | S.UnopExpr (op, e) -> T.UnaryExpr (op, finish_expr e) 
     | S.VarExpr x -> T.VarExpr x             
+    | S.RawExpr str -> T.RawExpr str
 and finish_stmt : S.stmt -> T.stmt = function
     | S.AssignExpr (e1, e2) -> T.ExpressionStmt (T.AssignExpr(finish_expr e1, T.AssignOp, finish_expr e2))
     | S.BlockStmt stmts -> T.BlockStmt (List.map finish_stmt stmts)
@@ -156,13 +157,48 @@ and finish_event ({vis; name; kind; args}: S.event) :  T.str_items =
 and finish_arg ((ctype,variable):(S.ctype * Atom.atom)) : T.parameter =
     (finish_ctype ctype, variable)
 and finish_method ({vis; ret_type; name; body; args; is_constructor}: S.method0) : T.body = 
-    T.MethodDeclaration {
-        annotations = [T.Visibility (finish_visibility vis)];   
-        ret_type    = if is_constructor then None else Some (finish_ctype ret_type);
-        name        =  name;
-        parameters  = List.map finish_arg args;
-        body        = finish_stmt body;
-    }
+    match body with
+    | S.AbstractImpl stmt ->
+        T.MethodDeclaration {
+            annotations = [T.Visibility (finish_visibility vis)];   
+            ret_type    = if is_constructor then None else Some (finish_ctype ret_type);
+            name        =  name;
+            parameters  = List.map finish_arg args;
+            body        = finish_stmt stmt;
+        }
+    | S.BBImpl bbterm ->
+        let body = T.RawStmt (
+            if bbterm.value.template then
+                let jingoo_args = Hashtbl.create (List.length args) in
+                let aux_arg (ct,x)= 
+                    let buffer = Buffer.create 64 in
+                    Lg.Output.output_arg (Format.formatter_of_buffer buffer)(ct, x);
+                    Hashtbl.add jingoo_args (Atom.hint x) (Jg_types.Tstr (Buffer.contents buffer)) 
+                in
+                List.iter aux_arg (List.map finish_arg args);
+
+                let jingoo_ret_type = 
+                    let buffer = Buffer.create 64 in
+                    Lg.Output.output_jtype (Format.formatter_of_buffer buffer) (finish_ctype ret_type);
+                    Buffer.contents buffer 
+                in
+
+                Jg_template.from_string bbterm.value.body ~models:[
+                    ("name", Jg_types.Tstr (Atom.atom_to_str name));
+                    ("ret_type", Jg_types.Tstr jingoo_ret_type);
+                    ("args", Jg_types.Thash jingoo_args)
+                ]
+            else
+                bbterm.value.body
+        ) in
+
+        T.MethodDeclaration {
+            annotations = [T.Visibility (finish_visibility vis)];   
+            ret_type    = if is_constructor then None else Some (finish_ctype ret_type);
+            name;
+            parameters  = List.map finish_arg args;
+            body
+        }
 and finish_actor ({name; methods; states; events; nested_items}: S.actor): T.str_items =
     (** FIXME public/protected/private should parametrized*)
 
@@ -205,7 +241,19 @@ and finish_term : S.term -> T.str_items = function
             implemented_types = [];
             body = [] 
         }
-    ) (*TODO FIXME x should not be a variable only*) 
+    )
+    | RawClass (x, str) ->  T.Body (
+        T.ClassOrInterfaceDeclaration {
+            isInterface = false;
+            annotations = [];
+            name = x;
+            parameters = []; 
+            extended_types = [];
+            implemented_types = [];
+            body = [T.Raw str] 
+        }
+    ) 
+    | TemplateClass str -> T.Raw str 
 
 and finish_program ({entrypoint; system; terms}: S.program) : T.program = 
     List.map finish_term terms 

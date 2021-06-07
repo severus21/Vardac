@@ -15,6 +15,14 @@ let method_impls : (string list, S1.method_impl) Hashtbl.t = Hashtbl.create 256
 let state_impls : (string list, S1.state_impl) Hashtbl.t = Hashtbl.create 256
 let type_impls : (string list, S1.type_impl) Hashtbl.t = Hashtbl.create 256
 
+let show_htblimpls htbl = 
+    logger#warning "TOTO";
+    Printf.fprintf stdout "Htbl has %d entries\n" (Hashtbl.length htbl);
+    Hashtbl.iter (fun key _ ->
+        Printf.fprintf stdout "- entry %s\n" (List.fold_left (fun acc x -> if acc <> "" then acc^"::"^x else x) "" key)
+    ) htbl 
+
+
 (************************************ Pass 1 *****************************)
 (*
 at the end of pass 1 :
@@ -70,13 +78,13 @@ and paired_method0 parents place : S2._method0 -> T._method0 = function
     try 
         let bb_impl = Hashtbl.find method_impls (List.rev ((Atom.hint name)::parents)) in
         T.CustomMethod { ghost; ret_type; name; args; body= T.BBImpl bb_impl.body; contract_opt }
-    with Not_found -> Error.error place "State has no implementation (neither abstract nor blackbox)" 
+    with Not_found -> Error.error place "Method \"%s\" has no implementation (neither abstract nor blackbox)" (Atom.hint name) 
 end
 | S2.CustomMethod { ghost; ret_type; name; args; body=Some body; contract_opt} -> 
     T.CustomMethod { ghost; ret_type; name; args; body= T.AbstractImpl body; contract_opt }
 | S2.OnStartup m -> T.OnStartup (umethod0 parents m) 
 | S2.OnDestroy m -> T.OnDestroy (umethod0 parents m)
-and umethod0 env: S2.method0 -> T.method0 = paired_place paired_method0 env
+and umethod0 parents: S2.method0 -> T.method0 = paired_place paired_method0 parents
 
 and paired_component_item parents place : S2._component_item -> T._component_item = function
 | S2.Contract c -> T.Contract c
@@ -110,5 +118,6 @@ and uterm parents: S2.term -> T.term = paired_place paired_term parents
 let paired_program terms impl_terms =    
     (* Pass 1 *)
     scan_program impl_terms;
+    show_htblimpls state_impls;
     (* Pass 2 *)
     List.map (uterm []) terms  

@@ -71,6 +71,7 @@ and output_expr out : expr -> unit = function
     | ThisExpr -> pp_print_string out "this";
     | UnaryExpr (op, e) -> fprintf out "%a %a" output_unop op output_expr e
     | VarExpr x -> output_var out x             
+    | RawExpr str -> pp_print_string out str
 and output_exprs out: expr list -> unit = pp_list ", " output_expr out
 
 and output_comments out : IR._comments -> unit = function
@@ -88,6 +89,7 @@ and output_stmt out : stmt -> unit = function
     | IfStmt (e, stmt1, Some stmt2) -> fprintf out "if(%a){@;<1 0>@[<hv>%a@]@;<1 -2>}else{@;<1 0>@[<hv>%a@]@;<1 -2>}" output_expr e output_stmt stmt1 output_stmt stmt2
     | NamedExpr (jt, x, e) -> fprintf out "%a %a = @[<hv>%a@];" output_jtype jt output_var x output_expr e
     | ReturnStmt e -> fprintf out "return %a;" output_expr e
+    | RawStmt str -> pp_print_string out str
 
 and output_annotation out: annotation -> unit = function
     | Visibility vis -> output_visibility out vis 
@@ -161,6 +163,7 @@ and output_item out : str_items -> unit = function
     | JModule jm -> output_jmodule out jm 
     | Stmt stmt -> output_stmt out stmt 
     | JType jt -> output_jtype out jt 
+    | Raw str -> pp_print_string out str
 and output_items out : str_items list -> unit = pp_break_list "" output_item out 
 
 let output_program build_dir items : unit =

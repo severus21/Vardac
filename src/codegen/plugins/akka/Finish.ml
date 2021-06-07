@@ -358,7 +358,13 @@ and finish_state place : S._state -> T.stmt = function
     | S.StateDcl {ghost; kind; type0; name; body = S.InitExpr e} -> 
         T.LetStmt (fst (fmtype type0), name, Some (fexpr e))
     | S.StateDcl {ghost; kind; type0; name; body = S.InitBB bb_term} -> 
-            failwith "InitBB not supported yet"
+        let re = 
+            if bb_term.value.template then 
+                Error.error bb_term.place "template is not used for state"
+            else
+                bb_term.value.body
+        in
+        T.LetStmt (fst (fmtype type0), name, Some (T.RawExpr re))
     (*use global x as y;*)
     | S.StateAlias {ghost; kind; type0; name} -> failwith "finish_state StateAlias is not yet supported" 
 and fstate : S.state -> T.stmt = function state -> finish_state state.place state.value 
@@ -391,7 +397,7 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
             vis             = T.Private;
             ret_type        = T.Atomic "boolean";
             name            = ensures_name;
-            body            = T.ExpressionStmt (fexpr ensures_expr);
+            body            = T.AbstractImpl (T.ExpressionStmt (fexpr ensures_expr));
             args            = ensures_params;
             is_constructor  = false
         } in
@@ -426,10 +432,10 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
             vis             = T.Private;
             ret_type        = T.Atomic "boolean";
             name            = returns_name;
-            body            = T.ExpressionStmt (T.CallExpr(
+            body            = T.AbstractImpl (T.ExpressionStmt (T.CallExpr(
                 fexpr returns_expr,
                 [T.VarExpr (snd ret_type_param)]
-            ));
+            )));
             args            = returns_params;
             is_constructor  = false
         } in
@@ -468,7 +474,7 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
         vis             = method0.vis;
         ret_type        = method0.ret_type;
         name            = method0.name;
-        body            = T.BlockStmt main_stmts;
+        body            = T.AbstractImpl(T.BlockStmt main_stmts);
         args            = method0.args;
         is_constructor  = method0.is_constructor 
     } in 
@@ -486,8 +492,8 @@ and fcontract actor_name (method0 : T.method0) : S.contract -> T.method0 list = 
 and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._method0 -> T.method0 list = function
     | S.CustomMethod m0 ->  
         let body = match m0.body with
-            | AbstractImpl stmt -> fstmt stmt (* implem de reference -> generate code*)
-            | BBImpl _ -> failwith "BBImpl not supported yet"
+            | S.AbstractImpl stmt -> T.AbstractImpl (fstmt stmt)
+            | S.BBImpl body -> T.BBImpl body
         in
 
         let new_method : T.method0 = { 
@@ -577,7 +583,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
 
     let receiver : T.method0 = {
         args            = [];
-        body            = T.ReturnStmt receiver_expr;
+        body            = T.AbstractImpl (T.ReturnStmt receiver_expr);
         name            = Atom.fresh_builtin "createReceive";
         ret_type        = T.Behavior "Command";
         vis             = T.Public;
@@ -614,7 +620,7 @@ and finish_term place : S._term -> T.term list = function
 | S.Comments c -> [T.Comments c.value]
 | S.Component cdcl -> List.map (function a -> T.Actor a) (fcdcl cdcl)
 | S.Stmt stmt -> [T.Stmt (fstmt stmt)]
-| S.Typedef (v, S.AbstractTypedef body) -> (* TODO move this to the translation from akka to java, and add Typedef into akka ast *) 
+| S.Typedef (v, S.AbstractTypedef body) -> begin (* TODO move this to the translation from akka to java, and add Typedef into akka ast *) 
     match body.value with
     | S.CType {value=S.TVar _; _} -> Error.error place "Type aliasing is not (natively) supported in Java"
     | CompType {value=CompTUid _; _} ->  Error.error place "Type aliasing is not (natively) supported in Java" 
@@ -623,6 +629,11 @@ and finish_term place : S._term -> T.term list = function
         general_fenv := List.fold_left (fun env (event:T.event) -> bind_event env event.name event) !general_fenv events;
         (* FIXME | TODO do something with the mt *) 
         [T.Class v] @ (List.map (fun x -> T.Event x) events) 
+end
+| S.Typedef (v, S.BBTypedef body) when not body.value.template ->
+    [T.RawClass (v, body.value.body)] 
+| S.Typedef (v, S.BBTypedef body) when body.value.template ->
+    [T.TemplateClass body.value.body]
 
 and fterm : S.term -> T.term list = function t -> finish_term t.place t.value
 

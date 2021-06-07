@@ -60,6 +60,7 @@ and expr =
     | ThisExpr
     | UnaryExpr of unop * expr
     | VarExpr of variable
+    | RawExpr of string
 and jmodule = 
     | ImportDirective of string
     | PackageDeclaration of string
@@ -72,6 +73,7 @@ and stmt =
     | IfStmt of expr * stmt * stmt option              
     | NamedExpr of jtype * variable * expr 
     | ReturnStmt of expr
+    | RawStmt of string
 and jtype =
     | ClassOrInterfaceType of variable * jtype list (* name * args *) 
     | TAtomic of string
@@ -82,6 +84,7 @@ and str_items =
     | JModule of jmodule
     | Stmt of stmt
     | JType of jtype
+    | Raw of string
 and program = str_items list
 
 
