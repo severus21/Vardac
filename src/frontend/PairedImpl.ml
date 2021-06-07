@@ -58,8 +58,8 @@ let rec paired_state parents place : S2._state -> T._state = function
 end
 | S2.StateDcl { ghost; kind; type0; name; body=Some body} -> begin
     try 
-        let _ = Hashtbl.find state_impls (List.rev ((Atom.hint name)::parents))  in
-        Error.error place "State has two implementations : one abstract and one blackbox" (* TODO display place union *)
+        let bb_impl = Hashtbl.find state_impls (List.rev ((Atom.hint name)::parents))  in
+        Error.error (place@bb_impl.body.place) "State has two implementations : one abstract and one blackbox"
     with Not_found -> T.StateDcl { ghost; kind; type0; name; body= T.InitExpr body } 
 end
 | S2.StateAlias _ -> failwith "paired: state alias not yet supported" (*TODO*)

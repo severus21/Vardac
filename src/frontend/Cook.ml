@@ -366,7 +366,7 @@ and cook_contract cenv place (contract:S._contract): cookenv * T._contract =
         | None, Some _ -> predicat_opt2
         | Some _, None -> predicat_opt1
         | Some p1, Some p2 -> Some {
-            place = p2.place; (* FIXME update place in order to be able to do the union of two place then do p1.place union p2.place *)
+            place = p1.place @ p2.place;
             value = T.BinopExpr (p1, T.And, p2) 
         }
     in

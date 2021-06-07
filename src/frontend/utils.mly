@@ -5,7 +5,7 @@
 
 %public %inline placed(X):
   x = X
-    { { place = $loc; value = x } }
+    { { place = [$loc]; value = x } }
 (* -------------------------------------------------------------------------- *)
 
 %public flexible_sequence(X):

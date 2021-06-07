@@ -2,8 +2,8 @@ open Lexing
 
 (* A place is a pair of a start position and an end position. *)
 
-type place =
-  position * position
+type loc = position * position
+type place = loc list
 
 
 (* Exceptions *)

@@ -222,11 +222,11 @@ any_expr_:
     {AccessExpr (e1,e2)}
 (* Hack because the lexer ouput a.b.c as an ATTR *)
 | lids = ATTR
-    {   let rec aux lids = { place = $loc; value = 
+    {   let rec aux lids = { place = [$loc]; value = 
         match lids with
             | []  -> raise (Core.Error.DeadbranchError "")
-            | x::[y] -> AccessExpr ({ place = $loc; value = (if x = "this" then This else VarExpr x) }, { place = $loc; value = VarExpr y })
-            | x::xs -> AccessExpr ( { place = $loc; value = (if x = "this" then This else  VarExpr x) }, aux xs)
+            | x::[y] -> AccessExpr ({ place = [$loc]; value = (if x = "this" then This else VarExpr x) }, { place = [$loc]; value = VarExpr y })
+            | x::xs -> AccessExpr ( { place = [$loc]; value = (if x = "this" then This else  VarExpr x) }, aux xs)
         }
         in
         (aux lids).value
@@ -287,7 +287,7 @@ any_stmt_:
     {   match lids with 
         | []  -> raise (Core.Error.DeadbranchError "")
         | "this"::[v] -> AssignThisExpr (v, e)
-        | _ -> Core.Error.error $loc "Attribut assignement is only allowed for [this]: ``this.toto=1;``"
+        | _ -> Core.Error.error [$loc] "Attribut assignement is only allowed for [this]: ``this.toto=1;``"
     }
 | v=LID EQ e=any_expr SEMICOLON
     { AssignExpr (v, e) }
@@ -390,7 +390,7 @@ core_method_:
         ret_type=ret_type;
         name=name;
         args=args;
-        abstract_impl=  {place = $loc; value=EmptyStmt}
+        abstract_impl=  {place = [$loc]; value=EmptyStmt}
     } }
 | ret_type=any_type name=LID LPAREN args=right_flexible_list(COMMA, any_param) RPAREN LCURLYBRACKET stmts=flexible_sequence(any_stmt) RCURLYBRACKET 
     { CustomMethod {
@@ -398,7 +398,7 @@ core_method_:
         ret_type=ret_type;
         name=name;
         args=args;
-        abstract_impl= {place = $loc; value=BlockStmt stmts}
+        abstract_impl= {place = [$loc]; value=BlockStmt stmts}
     } }
 
 %inline core_method:
