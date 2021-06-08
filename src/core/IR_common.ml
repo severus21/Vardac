@@ -56,6 +56,7 @@ and _session_type =
     | STSelect of (variable * session_type *  applied_constraint option) list               
     | STRec of variable * session_type (* X * type*) 
     | STInline of variable (* syntaxic suggar in order to inline an existing session type definition*)
+    | STTimeout of expr * session_type (* time in second * protocol*)
 and session_type = _session_type placed
 
 and _component_type =
@@ -260,3 +261,4 @@ and component_expr = _component_expr placed
 (* The following annotation requests the automatic generation of a [show_]
    function for each of the types defined above.*)
 [@@deriving show { with_path = false }]
+

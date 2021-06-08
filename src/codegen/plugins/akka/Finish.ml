@@ -255,6 +255,7 @@ match value with
         stype_to_events ~k:(k+1) st
     | S.STInline x -> 
         raise (Error.DeadbranchError "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass.")
+    | S.STTimeout _ -> failwith "Akka.finish does not support STTimeout yet"
 
 and finish_component_type place : S._component_type -> T._ctype = function
 | S.CompTUid x -> T.TVar x 

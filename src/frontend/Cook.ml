@@ -176,6 +176,8 @@ and cook_session_type cenv place: S._session_type -> cookenv * T._session_type =
     cenv, T.STSend ( cmtype cenv mt, cstype cenv st)
 | S.STRecv (mt, st) -> 
     cenv, T.STRecv ( cmtype cenv mt, cstype cenv st)
+| S.STTimeout (time, st) ->
+    cenv, T.STTimeout ( cexpr cenv time, cstype cenv st)
 | S.STBranch entries ->
     let aux (x, st, aconst_opt) = 
         let _, y = bind_type cenv place x in

@@ -85,6 +85,8 @@ any_session_type_:
     {STSelect l}
 |RECST x = LID DOT t=any_session_type |RECST x = UID DOT t=any_session_type
     {STRec (x,t)}
+| TIMEOUT time = any_expr st=any_session_type
+    {STTimeout (time, st)}
 |LPAREN st=any_session_type_ RPAREN
     {st}
 |INLINE x=LID | INLINE x=UID 

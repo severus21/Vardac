@@ -179,6 +179,8 @@ rule entry = parse
     {SELECT}
 | "µ"
     {RECST}
+| "timeout"
+    {TIMEOUT}
 
 (* binders *)
 
