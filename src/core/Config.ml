@@ -20,6 +20,15 @@ let _project_name = ref "project_name"
 
 let project_name = function () -> !_project_name
 
+
+type provenance_lvl =
+| None
+| Medium (*only method/component + impl*)
+| Full
+[@@deriving enum]
+let _provenance_lvl = ref Full
+let provenance_lvl () = !_provenance_lvl
+
 (* --skip-dt-strat*)
 type detection_strategies = 
 | NONE (* no violation detection*)

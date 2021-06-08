@@ -33,20 +33,27 @@ let get_line loc : string =
   Utils.with_open_in startp.pos_fname aux;
   !tmp
 
-let show_loc loc : string =
+let show_loc ?display_line:(display_line=true) loc : string =
+  let show_line = 
+    if display_line then 
+      Printf.sprintf ":\027[0m\n\027[1;31m%s\027[0m" (get_line loc) 
+    else
+      ""
+  in
   let startp, endp = loc in
-  Printf.sprintf "\027[1mFile \"%s\", line %d, characters %d-%d:\027[0m\n\027[1;31m%s\027[0m"
+  Printf.sprintf "\027[1mFile \"%s\", line %d, characters %d-%d%s"
     startp.pos_fname
     (line startp)
     (column startp)
     (endp.pos_cnum - startp.pos_bol) (* intentionally [startp.pos_bol] *)
-    (get_line loc)
+    show_line
+    
 
-let show place : string =
+let show ?display_line:(display_line=true) place : string =
   List.fold_left (
     fun acc tmp -> 
       acc^"\t"^tmp^"\n"
-  ) "Locations:\n" (List.map show_loc place)  
+  ) "Locations:\n" (List.map (show_loc ~display_line:display_line) place)  
 
 let display continuation header place format =
   Printf.fprintf stderr "%s:\n" (show place);

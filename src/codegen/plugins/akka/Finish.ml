@@ -1,4 +1,5 @@
 open Core
+open AstUtils
 open Easy_logging
 open Fieldslib
 
@@ -79,9 +80,12 @@ let group_cdcl_by (citems:  S.component_item list) : items_grps =
 
 (************************************* Base types ****************************)
 
+let rec finish_place finish_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
+    let value = finish_value place value in
+    {AstUtils.place; AstUtils.value}
 
 (************************************ Types **********************************)
-let rec finish_ctype place : S._composed_type ->  T.ctype = function
+let rec finish_ctype place : S._composed_type ->  T._ctype = function
     | S.TArrow (m1, m2) -> T.TFunction (
         fst(fmtype m1), 
         fst(fmtype m2)
@@ -103,7 +107,7 @@ let rec finish_ctype place : S._composed_type ->  T.ctype = function
     | S.TSet mt -> T.TSet (fst(fmtype mt))
     | S.TTuple mts ->  T.TTuple (List.map (fun x -> (fst(fmtype x))) mts)
     | S.TBridge b -> T.Atomic "lg4dc.protocol.Bridge" (*TODO*)
-and fctype : S.composed_type ->  T.ctype = function ct -> finish_ctype ct.place ct.value 
+and fctype ct :  T.ctype = finish_place finish_ctype ct
 
 and event_name_of_ftype place : S.flat_type -> string = function
 | S.TActivationInfo -> Core.Error.error place "TActivationInfo type can not be translated to a serializable Akka event."
@@ -148,46 +152,62 @@ and event_name_of_labels (labels: S.variable list) : T.variable =
     end
 
 (* Represent an ST object in Java type *)
-and encode_stype ({place;value} : S.session_type) : T.ctype = 
-match value with
+and encode_stype place : S._session_type -> T._ctype = function 
     | S.STEnd -> T.TVar (Atom.fresh_builtin "lg4dc.protocol.STEnd") 
     | (S.STSend (mt, st) as st0) | (S.STRecv (mt, st) as st0) -> begin 
         match fmtype mt with
         | ct, [] ->
             T.TParam (
-                T.TVar (Atom.fresh_builtin (match st0 with | S.STSend _ -> "lg4dc.protocol.STSend" | STRecv _ -> "lg4dc.protocol.STSend")),
-                [ct; encode_stype st]
+                {
+                    place;
+                    value =  T.TVar (Atom.fresh_builtin (match st0 with | S.STSend _ -> "lg4dc.protocol.STSend" | STRecv _ -> "lg4dc.protocol.STSend"))
+                },
+                [ct; estype st]
             )
         | _,_ -> raise (Core.Error.DeadbranchError "finish_stype : STSend/STRecv type should not be a session type.")
     end
     | (S.STBranch xs as st0) | (S.STSelect xs as st0) ->
         let rec built_t_hlist = function
-            | [] -> T.TVar (Atom.fresh_builtin "lg4dc.protocol.HNil")
-            | st::sts -> T.TParam( 
-                T.TVar (Atom.fresh_builtin "lg4dc.protocol.HCons"), [
-                    T.TParam( 
-                        T.TVar (Atom.fresh_builtin "lg4dc.protocol.STEntry"),
-                        [encode_stype st]
-                    )
+            | [] -> {place; value = T.TVar (Atom.fresh_builtin "lg4dc.protocol.HNil")}
+            | st::sts -> { place; value = T.TParam( 
+                { 
+                    place = st.place; 
+                    value = T.TVar (Atom.fresh_builtin "lg4dc.protocol.HCons")
+                }, [
+                    {place = place; value = T.TParam( 
+                        { 
+                            place = st.place;
+                            value = T.TVar (Atom.fresh_builtin "lg4dc.protocol.STEntry")
+                        },
+                        [estype st]
+                    )}
                 ] @ [(built_t_hlist sts)] 
-            )
+            )}
         in
 
         let continuation_st = built_t_hlist (List.map (fun (_, st, _) -> st) xs) in
 
         T.TParam (
-            T.TVar (Atom.fresh_builtin (match st0 with | S.STBranch _ -> "lg4dc.protocol.STBranch" | S.STSelect _ -> "lg4dc.protocol.STSelect")),
+            { 
+                place;
+                value = T.TVar (Atom.fresh_builtin (match st0 with | S.STBranch _ -> "lg4dc.protocol.STBranch" | S.STSelect _ -> "lg4dc.protocol.STSelect"))
+            },
             [continuation_st]
         )
     | S.STVar _ -> T.TVar (Atom.fresh_builtin ("lg4dc.protocol.STVar"))
     | S.STRec (_,st) ->
         T.TParam (
-            T.TVar (Atom.fresh_builtin "lg4dc.protocol.STRec"),
-            [ encode_stype st]
+            { 
+                place;
+                value = T.TVar (Atom.fresh_builtin "lg4dc.protocol.STRec")
+            },
+            [ estype st]
         )
 
     | S.STInline x -> 
         raise (Error.DeadbranchError "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass.")
+and estype st : T.ctype = finish_place encode_stype st
+
 (* @param k order of the mtype in the protocol *)
 (*
         @return (ct_opt, events) -> ct_opt is 
@@ -201,11 +221,14 @@ match value with
 
         match fmtype mt with
         | ct, [] ->
-            {
-                T.vis=T.Public; 
-                T.name= name;
-                T.kind=T.Event; 
-                T.args=[(ct, Atom.fresh_builtin "value")]
+            { 
+                place = mt.place; 
+                value = {
+                    T.vis=T.Public; 
+                    T.name= name;
+                    T.kind=T.Event; 
+                    T.args=[(ct, Atom.fresh_builtin "value")]
+                }
             }::events
         | _,_ -> raise (Core.Error.DeadbranchError "finish_stype : STSend/STRecv type should not be a session type.")
     end
@@ -217,10 +240,13 @@ match value with
 
         let aux (label, (st: S.session_type), _) = 
             let events = stype_to_events ~k:(k+1) st in
-            {
-                T.vis=T.Public; 
-                T.name= event_name_of_labels labels; 
-                T.kind=T.Event; T.args=[(ct, Atom.fresh_builtin "value")]
+            {   place = st.place;
+                value = 
+                {
+                    T.vis=T.Public; 
+                    T.name= event_name_of_labels labels; 
+                    T.kind=T.Event; T.args=[(ct, Atom.fresh_builtin "value")]
+                }
             }::events
         in
         List.flatten (List.map aux xs)
@@ -230,20 +256,20 @@ match value with
     | S.STInline x -> 
         raise (Error.DeadbranchError "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass.")
 
-and finish_component_type place : S._component_type -> T.ctype = function
+and finish_component_type place : S._component_type -> T._ctype = function
 | S.CompTUid x -> T.TVar x 
-and fcctype : S.component_type -> T.ctype = function t -> finish_component_type t.place t.value
+and fcctype ct : T.ctype = finish_place finish_component_type ct
 
 and finish_mtype place : S._main_type -> T.ctype * T.event list = function
 | S.CType ct -> fctype ct, [] 
-| S.SType st -> encode_stype st, stype_to_events st
+| S.SType st -> estype st, stype_to_events st
 | S.CompType ct -> fcctype ct, []
 | _ -> Core.Error.error place "Akka: Type translation is only supported for composed types and session types"
 and fmtype : S.main_type ->  T.ctype * T.event list  = function mt -> finish_mtype mt.place mt.value
 
 (************************************ Literals *****************************)
 
-and finish_literal place : S._literal -> T.literal = function
+and finish_literal place : S._literal -> T._literal = function
     | S.EmptyLit -> T.EmptyLit
     | S.BoolLit b -> T.BoolLit b
     | S.FloatLit f -> T.FloatLit f
@@ -257,11 +283,11 @@ and finish_literal place : S._literal -> T.literal = function
     | S.VPlace _ -> failwith "VPlace is not yet supported"
 
     | S.Bridge b -> T.StringLit (Atom.atom_to_str b.id)  (*TODO should be class *)
-and fliteral : S.literal -> T.literal = function lit -> finish_literal lit.place lit.value
+and fliteral lit : T.literal = finish_place finish_literal lit
 
 (************************************ Expr & Stmt *****************************)
 
-and finish_expr place : S._expr -> T.expr = function
+and finish_expr place : S._expr -> T._expr = function
     | S.VarExpr x -> T.VarExpr x
     | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
     | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
@@ -277,8 +303,11 @@ and finish_expr place : S._expr -> T.expr = function
             match (Atom.value x) with 
             | "fire" -> begin 
                 match es with
-                | [ session; msg ] -> T.CallExpr(
-                    T.AccessExpr (fexpr session, T.VarExpr x),
+                | [ session; msg ] -> T.CallExpr( 
+                    {
+                        place = e1.place;
+                        value = T.AccessExpr (fexpr session, {place = e1.place; value = T.VarExpr x})
+                    },
                     [ fexpr msg ]
                 ) 
                 | _ -> Error.error place "fire must take two arguments : place(session, message)"
@@ -291,19 +320,29 @@ and finish_expr place : S._expr -> T.expr = function
     end
     | S.This -> T.This
     | S.Spawn {c; args; at=None} ->
-        T.Spawn {context=T.CurrentContext;  actor_expr=
-        T.CallExpr(
-            T.VarExpr (Atom.fresh_builtin "spawn"),
-            [
-                T.CallExpr (
-                    T.AccessExpr (
-                        fcexpr c,
-                        T.VarExpr (Atom.fresh_builtin "create")
-                    ),
-                    []
-                )
-            ] @ (List.map fexpr args)
-        )}
+        T.Spawn {
+            context = {place; value = T.CurrentContext};  
+            actor_expr= {place; value = T.CallExpr(
+                { 
+                    place;
+                    value = T.VarExpr (Atom.fresh_builtin "spawn")
+                },
+                [{
+                    place;
+                    value = T.CallExpr ({
+                        place;
+                        value = T.AccessExpr (
+                            fcexpr c,
+                            { 
+                                place;
+                                value = T.VarExpr (Atom.fresh_builtin "create")
+                            }
+                        )},
+                        []
+                    )
+                }] @ (List.map fexpr args)
+            )}
+        }
     | S.Spawn {c; args; at=at} ->
         failwith "finish_expr spawn with place annotation not yet supported" 
 
@@ -311,26 +350,30 @@ and finish_expr place : S._expr -> T.expr = function
     
     | S.OptionExpr e_opt -> failwith "option not yet supported" 
     | S.ResultExpr (None, Some err) ->  T.CallExpr (
-        T.VarExpr (Atom.fresh_builtin "err"),
+        { place; value = T.VarExpr (Atom.fresh_builtin "err")},
         [fexpr err]
     ) 
     | S.ResultExpr (Some ok, None) -> T.CallExpr (
-        T.VarExpr (Atom.fresh_builtin "ok"),
+        { place; value = T.VarExpr (Atom.fresh_builtin "ok")},
         [fexpr ok]
     ) 
     | S.ResultExpr (_,_) -> raise (Core.Error.DeadbranchError "finish_expr : a result expr can not be Ok and Err at the same time.")
     | S.BlockExpr (b, es) -> failwith "block not yet supported"
     | S.Block2Expr (b, xs) -> failwith "block not yet supported"
-and fexpr : S.expr -> T.expr = function e -> finish_expr e.place e.value
+and fexpr e : T.expr = finish_place finish_expr e
 
-and finish_stmt place : S._stmt -> T.stmt = function
+and finish_stmt place : S._stmt -> T._stmt = function
     | S.EmptyStmt -> T.CommentsStmt (IR.LineComment "Empty Statement")
 
     (*S.* Binders *)
-    | S.AssignExpr (x, e) -> T.AssignExpr (T.VarExpr x, fexpr e)
-    | S.AssignThisExpr (x, e) -> T.AssignExpr (
-                                    T.AccessExpr (T.This, T.VarExpr x),
-                                   fexpr e)        
+    | S.AssignExpr (x, e) -> T.AssignExpr ({place; value=T.VarExpr x}, fexpr e)
+    | S.AssignThisExpr (x, e) -> 
+        T.AssignExpr ( 
+            {place; value= T.AccessExpr (
+                {place; value=T.This},
+                {place; value= T.VarExpr x})
+            },
+            fexpr e)        
     | S.LetExpr (mt, x, e) ->  T.LetStmt (fst (fmtype mt), x, Some (fexpr e))                             
 
     (*S.* Comments *)
@@ -350,11 +393,11 @@ and finish_stmt place : S._stmt -> T.stmt = function
     | S.BlockStmt stmts -> T.BlockStmt (List.map fstmt stmts)
     
     | S.GhostStmt _ -> raise (Core.Error.DeadbranchError "finish_stype : GhostStmt should have been remove by a previous compilation pass.")
-and fstmt : S.stmt -> T.stmt = function stmt -> finish_stmt stmt.place stmt.value
+and fstmt stmt : T.stmt = finish_place finish_stmt stmt
 
 (************************************ Component *****************************)
 (* return type is T._expr for now, since we built only one state with all the variable inside FIXME *)
-and finish_state place : S._state -> T.stmt = function 
+and finish_state place : S._state -> T._stmt = function 
     | S.StateDcl {ghost; kind; type0; name; body = S.InitExpr e} -> 
         T.LetStmt (fst (fmtype type0), name, Some (fexpr e))
     | S.StateDcl {ghost; kind; type0; name; body = S.InitBB bb_term} -> 
@@ -364,10 +407,10 @@ and finish_state place : S._state -> T.stmt = function
             else
                 bb_term.value.body
         in
-        T.LetStmt (fst (fmtype type0), name, Some (T.RawExpr re))
+        T.LetStmt (fst (fmtype type0), name, Some ({place=bb_term.place; value = T.RawExpr re}))
     (*use global x as y;*)
     | S.StateAlias {ghost; kind; type0; name} -> failwith "finish_state StateAlias is not yet supported" 
-and fstate : S.state -> T.stmt = function state -> finish_state state.place state.value 
+and fstate s : T.stmt = finish_place finish_state s
 
 
 and finish_param place : S._param -> (T.ctype * T.variable) = function
@@ -378,12 +421,15 @@ and fparam : S.param -> (T.ctype * T.variable) = function p -> finish_param p.pl
 and finish_contract place (method0 : T.method0) (contract : S._contract) : T.method0 list =
     (* Inner logic of the method *)
     let inner_name = Atom.fresh ((Atom.hint contract.method_name)^"_inner") in
-    let inner_method = { method0 with name = inner_name; vis = T.Private } in
+    let inner_method = {
+        place = method0.place;
+        value = { method0.value with name = inner_name; vis = T.Private }
+    } in
 
     (* Pre binders *)
     let with_params = List.map (function (x,y,_) -> finish_param place (x,y)) contract.pre_binders in
-    let with_stmts : S._stmt list = List.map (function (x,y,z) -> S.LetExpr (x,y,z)) contract.pre_binders in 
-    let with_stmts : T.stmt list = List.map (finish_stmt place) with_stmts in
+    let with_stmts : S.stmt list = List.map (function (x,y,z) -> {place; value=S.LetExpr (x,y,z)}) contract.pre_binders in 
+    let with_stmts : T.stmt list = List.map fstmt with_stmts in
     (*let with_body : T.stmt = T.BlockStmt with_stmts in*)
 
     (* Pre-condition *)
@@ -391,76 +437,107 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
     | None -> [], [] 
     | Some ensures_expr -> begin
         let ensures_name    = Atom.fresh ((Atom.hint contract.method_name)^"_ensures") in
-        let ensures_params  = method0.args @ with_params in
+        let ensures_params  = method0.value.args @ with_params in
 
         let ensures_method : T.method0 = {
-            vis             = T.Private;
-            ret_type        = T.Atomic "boolean";
-            name            = ensures_name;
-            body            = T.AbstractImpl (T.ExpressionStmt (fexpr ensures_expr));
-            args            = ensures_params;
-            is_constructor  = false
+            place = ensures_expr.place;
+            value = {
+                vis             = T.Private;
+                ret_type        = { place; value=T.Atomic "boolean"};
+                name            = ensures_name;
+                body            =  T.AbstractImpl ({ 
+                    place= ensures_expr.place;
+                    value = T.ExpressionStmt (fexpr ensures_expr)
+                });
+                args            = ensures_params;
+                is_constructor  = false
+            }
         } in
 
-        [ensures_method], [ T.IfStmt (
-            T.UnopExpr ( 
-                IR.Not,
-                T.CallExpr ( 
-                    T.VarExpr ensures_name, 
-                    List.map (function param -> T.VarExpr (snd param)) ensures_params 
-                )
-            ),
-            T.ExpressionStmt (T.AssertExpr (T.LitExpr (T.BoolLit false))), (*TODO refine*)
-            None
-        ) ]
+        [ensures_method], [ 
+            { place = ensures_expr.place; value= T.IfStmt (
+                {place = ensures_expr.place; value = T.UnopExpr ( 
+                    IR.Not,
+                    {place = ensures_expr.place; value = T.CallExpr ( 
+                        {place = ensures_expr.place; value = T.VarExpr ensures_name}, 
+                        List.map (function param -> {place = ensures_expr.place; value =T.VarExpr (snd param)}) ensures_params 
+                    )}
+                )},
+                {place = ensures_expr.place; value = T.ExpressionStmt (
+                    {place = ensures_expr.place; value = T.AssertExpr (
+                        {place = ensures_expr.place; value = T.LitExpr (
+                            {place = ensures_expr.place; value = T.BoolLit false})}
+                    )}
+                )}, (*TODO refine*)
+                None
+            )}
+        ]
     end in 
 
     (* Post-condition *)
     let returns_methods, returns_stmts = match contract.returns with
     | None -> [], [
-        T.ReturnStmt ( T.CallExpr (
-            T.VarExpr inner_name,
-            List.map (function param -> T.VarExpr (snd param)) method0.args
-        ))
+        {place; value = T.ReturnStmt ( 
+            {place; value = T.CallExpr (
+                {place; value=T.VarExpr inner_name},
+                List.map (function param -> {place; value=T.VarExpr (snd param)}) method0.value.args
+            )})
+        }
     ] 
     | Some returns_expr -> begin
         let returns_name    = Atom.fresh ((Atom.hint contract.method_name)^"_returns") in
-        let ret_type_param  = (method0.ret_type, Atom.fresh "res") in 
-        let returns_params  = ret_type_param :: method0.args @ with_params in
+        let ret_type_param  = (method0.value.ret_type, Atom.fresh "res") in 
+        let returns_params  = ret_type_param :: method0.value.args @ with_params in
 
         let returns_method  : T.method0 = {
-            vis             = T.Private;
-            ret_type        = T.Atomic "boolean";
-            name            = returns_name;
-            body            = T.AbstractImpl (T.ExpressionStmt (T.CallExpr(
-                fexpr returns_expr,
-                [T.VarExpr (snd ret_type_param)]
-            )));
-            args            = returns_params;
-            is_constructor  = false
+            place = returns_expr.place;
+            value = {
+                vis             = T.Private;
+                ret_type        = { place = returns_expr.place; value=T.Atomic "boolean"};
+                name            = returns_name;
+                body            = T.AbstractImpl (
+                    {place = returns_expr.place; value= T.ExpressionStmt (
+                        {place = returns_expr.place; value=T.CallExpr(
+                            fexpr returns_expr,
+                            [{place = returns_expr.place; value=T.VarExpr (snd ret_type_param)}]
+                            )
+                        })
+                    })
+                ;
+                args            = returns_params;
+                is_constructor  = false
+            }
         } in
 
         [returns_method], [ 
-            T.LetStmt (
-                method0.ret_type,
+            {place; value= T.LetStmt (
+                method0.value.ret_type,
                 (snd ret_type_param),
-                Some (T.CallExpr (
-                    T.VarExpr inner_name,
-                    List.map (function param -> T.VarExpr (snd param)) method0.args
-                ))
-            );
-            T.IfStmt (
-                T.UnopExpr ( 
+                Some ({place; value=T.CallExpr (
+                    {place; value=T.VarExpr inner_name},
+                    List.map (function param -> {place; value=T.VarExpr (snd param)}) method0.value.args
+                )})
+            )};
+            {place; value=T.IfStmt (
+                {place; value=T.UnopExpr ( 
                     IR.Not,
-                    T.CallExpr ( 
-                        T.VarExpr returns_name, 
-                        List.map (function param -> T.VarExpr (snd param)) returns_params 
-                    )
-                ),
-                T.ExpressionStmt (T.AssertExpr (T.LitExpr (T.BoolLit false))), (*TODO refine*)
+                    {place; value=T.CallExpr ( 
+                        {place; value=T.VarExpr returns_name}, 
+                        List.map (function param -> {place; value=T.VarExpr (snd param)}) returns_params 
+                    )}
+                )},
+                {place; value=T.ExpressionStmt (
+                    {place; value=T.AssertExpr (
+                        {place; value=T.LitExpr (
+                            {place; value=T.BoolLit false}
+                        )}
+                    )}
+                )}, (*TODO refine*)
                 None
-            );
-            T.ReturnStmt (T.VarExpr (snd ret_type_param))
+            )};
+            {place; value=T.ReturnStmt (
+                {place; value=T.VarExpr (snd ret_type_param)}
+            )}
         ]
     end in
 
@@ -471,12 +548,15 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
     in
 
     let main_method : T.method0 = {
-        vis             = method0.vis;
-        ret_type        = method0.ret_type;
-        name            = method0.name;
-        body            = T.AbstractImpl(T.BlockStmt main_stmts);
-        args            = method0.args;
-        is_constructor  = method0.is_constructor 
+        place = method0.place@place;
+        value = {
+            vis             = method0.value.vis;
+            ret_type        = method0.value.ret_type;
+            name            = method0.value.name;
+            body            = T.AbstractImpl({place=method0.place@place; value=T.BlockStmt main_stmts});
+            args            = method0.value.args;
+            is_constructor  = method0.value.is_constructor 
+        }
     } in 
 
     let methods =
@@ -496,13 +576,16 @@ and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._m
             | S.BBImpl body -> T.BBImpl body
         in
 
-        let new_method : T.method0 = { 
-            vis             = T.Public; 
-            ret_type        = fst (fmtype m0.ret_type);
-            name            = if is_constructor then actor_name else m0.name;
-            args            = (List.map fparam m0.args);
-            body            = body; 
-            is_constructor  = is_constructor 
+        let new_method : T.method0 = {
+            place;
+            value = { 
+                vis             = T.Public; 
+                ret_type        = fst (fmtype m0.ret_type);
+                name            = if is_constructor then actor_name else m0.name;
+                args            = (List.map fparam m0.args);
+                body            = body; 
+                is_constructor  = is_constructor 
+            }
         } in
 
         begin
@@ -540,11 +623,19 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
 
     (* Building states *)
     let states : T.state list = List.map (
-        function state -> {T.persistent=false; stmts= [fstate state] } (* TODO handle persistency*)
+        function state -> {
+            place = state.place; 
+            value = {T.persistent=false; stmts= [fstate state] }
+        } (* TODO handle persistency*)
     ) grp_items.states in 
 
     (* Building receiver *)
-    let receiver_expr = T.CallExpr(T.VarExpr (Atom.fresh "newReceiveBuilder"), [T.LitExpr T.EmptyLit]) in
+    let receiver_expr = {place; value=T.CallExpr(
+        {place; value=T.VarExpr (
+            Atom.fresh "newReceiveBuilder"
+        )}, 
+        [{place; value=T.LitExpr {place; value=T.EmptyLit}}]
+    )} in
 
     let aux_receiver (expr: T.expr) (p: S.port) = 
         (* TODO also ensure this propertie about expecting after the partial evaluation pass by doing a 
@@ -557,7 +648,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             | S.STBranch xs -> 
                 let labels = List.fold_left (fun acc (label, _,_) -> label::acc) [] xs in
 
-                T.TVar (event_name_of_labels labels)
+                {place=st.place; value=T.TVar (event_name_of_labels labels)}
             | S.STEnd | S.STVar _ |S.STRecv _-> failwith "TOTO"
             | S.STSend _-> failwith "TATA"
             | S.STInline _ -> failwith "TITI"
@@ -565,29 +656,39 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         end 
         | _ -> Core.Error.error p.value.expecting_st.place "%s plugin do not support main type for port expecting" plg_name  
         in
-
-        T.AccessExpr(
+        
+        {place; value=T.AccessExpr(
             expr, 
-            T.CallExpr(T.VarExpr (Atom.fresh_builtin "onMessage"), [
-                T.ClassOf expecting_msg_types;
-                fexpr p.value.callback
-            ]))
+            {place; value=T.CallExpr(
+                {place; value=T.VarExpr (Atom.fresh_builtin "onMessage")}, 
+                [
+                    {place; value=T.ClassOf expecting_msg_types};
+                    fexpr p.value.callback
+                ]
+            )}
+        )}
     in
 
     let receiver_expr = List.fold_left aux_receiver receiver_expr grp_items.ports in
 
-    let receiver_expr = T.AccessExpr(
+    let receiver_expr = {place; value=T.AccessExpr(
         receiver_expr, 
-        T.CallExpr(T.VarExpr (Atom.fresh_builtin "build"), [T.LitExpr T.EmptyLit]))
+        { place; value=T.CallExpr(
+            {place; value=T.VarExpr (Atom.fresh_builtin "build")},
+            [{place; value=T.LitExpr {place; value=T.EmptyLit}}])
+        })}
     in
 
-    let receiver : T.method0 = {
-        args            = [];
-        body            = T.AbstractImpl (T.ReturnStmt receiver_expr);
-        name            = Atom.fresh_builtin "createReceive";
-        ret_type        = T.Behavior "Command";
-        vis             = T.Public;
-        is_constructor  = false
+    let receiver : T.method0 = { 
+        place;
+        value = {
+            args            = [];
+            body            = T.AbstractImpl ({place; value=T.ReturnStmt receiver_expr});
+            name            = Atom.fresh_builtin "createReceive";
+            ret_type        = {place; value=T.Behavior "Command"};
+            vis             = T.Public;
+            is_constructor  = false
+        }
     } in
     
     (* building methods *)
@@ -595,13 +696,16 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     
 
     (* Sumup *)
-    [{   
-        T.name;
-        T.methods; 
-        T.states;
-        T.events;
-        T.nested_items= (List.map (function x -> T.Actor x)) (List.flatten (List.map fcdcl grp_items.nested)); 
-        T.receiver = Some receiver
+    [{
+        place;
+        value = {   
+            T.name;
+            T.methods; 
+            T.states;
+            T.events;
+            T.nested_items= (List.map (function x -> { place = x.place; value=T.Actor x})) (List.flatten (List.map fcdcl grp_items.nested)); 
+            T.receiver = Some receiver
+        }
     }]
 end 
 | S.ComponentAssign _ -> failwith "Component expr are not yet supported" 
@@ -609,31 +713,40 @@ end
 and fcdcl  : S.component_dcl -> T.actor list = function cdcl -> finish_component_dcl cdcl.place cdcl.value 
 
 (********************** Manipulating component structure *********************)
-and finish_component_expr place : S._component_expr -> T.expr = function
+and finish_component_expr place : S._component_expr -> T._expr = function
     | S.VarCExpr x -> T.VarExpr x
-    | _ -> failwith "Akka plg do not uspprt yet advance compoent expr" 
-and fcexpr  : S.component_expr -> T.expr = function cexpr -> finish_component_expr cexpr.place cexpr.value 
+    | _ -> failwith "Akka plg do not support yet advance component expr" 
+and fcexpr ce : T.expr = finish_place finish_component_expr ce
 
 (************************************ Program *****************************)
 
 and finish_term place : S._term -> T.term list = function
-| S.Comments c -> [T.Comments c.value]
-| S.Component cdcl -> List.map (function a -> T.Actor a) (fcdcl cdcl)
-| S.Stmt stmt -> [T.Stmt (fstmt stmt)]
+| S.Comments c -> [{
+    place;
+    value=T.Comments c.value
+}]
+| S.Component cdcl -> List.map (function a -> {
+    place=a.place; 
+    value=T.Actor a
+}) (fcdcl cdcl)
+| S.Stmt stmt -> [{
+    place; 
+    value = T.Stmt (fstmt stmt)
+}]
 | S.Typedef (v, S.AbstractTypedef body) -> begin (* TODO move this to the translation from akka to java, and add Typedef into akka ast *) 
     match body.value with
     | S.CType {value=S.TVar _; _} -> Error.error place "Type aliasing is not (natively) supported in Java"
     | CompType {value=CompTUid _; _} ->  Error.error place "Type aliasing is not (natively) supported in Java" 
     | _ -> 
         let mt, events = fmtype body in
-        general_fenv := List.fold_left (fun env (event:T.event) -> bind_event env event.name event) !general_fenv events;
+        general_fenv := List.fold_left (fun env (event:T.event) -> bind_event env event.value.name event) !general_fenv events;
         (* FIXME | TODO do something with the mt *) 
-        [T.Class v] @ (List.map (fun x -> T.Event x) events) 
+        [{place = place; value=T.Class v}] @ (List.map (fun x -> {place=x.place; value=T.Event x}) events) 
 end
 | S.Typedef (v, S.BBTypedef body) when not body.value.template ->
-    [T.RawClass (v, body.value.body)] 
+    [{place; value = T.RawClass (v, {place = body.place; value = body.value.body})}] 
 | S.Typedef (v, S.BBTypedef body) when body.value.template ->
-    [T.TemplateClass body.value.body]
+    [{place; value = T.TemplateClass {place=body.place; value = body.value.body}}]
 
 and fterm : S.term -> T.term list = function t -> finish_term t.place t.value
 
@@ -641,11 +754,14 @@ let finish_program terms =
     { 
         T.entrypoint = [];
         T.system = {
+            place = Error.forge_place "Plg=Akka/finish_program" 0 0;
+            value = {
             name=Atom.fresh "AkkaSystem";
             methods= []; 
             states= []; 
             events=[]; 
             receiver = None;
-            nested_items=[]};
+            nested_items=[]}
+        };
         T.terms= List.flatten (List.map fterm terms)   
     }

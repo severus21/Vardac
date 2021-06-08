@@ -1,17 +1,20 @@
 (* Docs: https://github.com/javaparser/javaparser/tree/master/javaparser-core/src/main/java/com/github/javaparser/ast*)
 
 open Core
+open AstUtils
+
 type unop = IR.unop 
 and binop = IR.binop 
 and assign_operator = 
     | AssignOp (* = *)
     (* TODO += etc if needed*)
-and literal = 
+and _literal = 
     | EmptyLit
     | BoolLit of bool
     | FloatLit of float
     | IntLit of int
     | StringLit of string
+and literal = _literal placed
 and visibility = 
     | Private
     | Protected
@@ -26,7 +29,7 @@ type variable =
     Atom.atom
 and parameter = jtype * variable
 and type_parameter = jtype
-and body =
+and _body =
     | ClassOrInterfaceDeclaration of {
         isInterface:bool; 
         annotations: annotation list;
@@ -48,8 +51,10 @@ and body =
         name: variable;
         body: expr option 
     }
+and body = _body placed
 and comments = Core.IR._comments
-and expr = 
+
+and _expr = 
     | AccessExpr of expr * expr (*e1.e2*)
     | AppExpr of expr * expr list (*e1 e2*)
     | AssertExpr of expr 
@@ -61,10 +66,14 @@ and expr =
     | UnaryExpr of unop * expr
     | VarExpr of variable
     | RawExpr of string
-and jmodule = 
+and expr = _expr placed
+
+and _jmodule = 
     | ImportDirective of string
     | PackageDeclaration of string
-and stmt = 
+and jmodule = _jmodule placed
+
+and _stmt = 
     | BlockStmt of stmt list
     | BreakStmt 
     | CommentsStmt of comments
@@ -74,18 +83,22 @@ and stmt =
     | NamedExpr of jtype * variable * expr 
     | ReturnStmt of expr
     | RawStmt of string
-and jtype =
+and stmt = _stmt placed
+
+and _jtype =
     | ClassOrInterfaceType of variable * jtype list (* name * args *) 
     | TAtomic of string
     | TVar of variable
-and str_items =
+and jtype = _jtype placed
+
+and _str_items =
     | Body of body
     | Comments of comments
     | JModule of jmodule
     | Stmt of stmt
     | JType of jtype
     | Raw of string
+and str_items = _str_items placed
+
 and program = str_items list
-
-
 [@@deriving show { with_path = false }]

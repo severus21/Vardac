@@ -28,7 +28,7 @@ val set_filename: lexbuf -> string -> unit
 val place: lexbuf -> place
 
 (* display the portion located at [place]*)
-val show : place -> string
+val show : ?display_line:bool -> place -> string
 
 (* [error place format ...] displays an error message and exits.
    The error message is located at [place]. The error message

@@ -34,6 +34,16 @@ let output_capitalize_var out (x:Atom.atom)=
 
 let wrapper_newline out f = function x -> ((f out) x; fprintf out "\n")
 
+let rec output_placed out output_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
+    let comment = IR.BlockComment (Error.show ~display_line:false place) in
+    fprintf out "%a@;%a" output_comments comment output_value value
+and output_comments out : IR._comments -> unit = function
+    | IR.BlockComment str -> fprintf out "/* %s@;*/" str
+    | IR.DocComment str -> fprintf out "/** %s@;*/" str
+    | IR.LineComment str -> fprintf out "// %s" str
+
+
+
 (** Akka specific *)
 let rec output_unop out = function
     | IR.Not -> pp_print_string out "!"
@@ -52,44 +62,52 @@ and output_binop out = function
     | IR.Or -> pp_print_string out "||"
 and output_assignop out : assign_operator -> unit = function
     | AssignOp -> pp_print_string out "="
-and output_literal out : literal -> unit = function
+and output_literal out : _literal -> unit = function
     | EmptyLit ->  pp_print_string out "()"
     | BoolLit b -> pp_print_bool out b
     | FloatLit f -> pp_print_float out f 
     | IntLit i -> pp_print_int out i 
     | StringLit str -> fprintf out "\"%s\"" str 
+and oliteral out : literal -> unit = function lit ->
+match Config.provenance_lvl () with
+| Config.None | Config.Medium -> output_literal out lit.value
+| Config.Full -> output_placed out output_literal lit 
 
-and output_expr out : expr -> unit = function
-    | AccessExpr (e1,e2) -> fprintf out "%a.%a" output_expr e1 output_expr e2
+and output_expr out : _expr -> unit = function
+    | AccessExpr (e1,e2) -> fprintf out "%a.%a" oexpr e1 oexpr e2
     | AppExpr (e1, es) -> 
-        fprintf out "@[%a(@[<hv>@;<0 3>%a@])@]" output_expr e1 output_exprs es
-    | AssertExpr e -> fprintf out "assert(%a)" output_expr e                   
-    | AssignExpr (e1, op, e2) -> fprintf out "%a %a %a" output_expr e1 output_assignop op output_expr e2
-    | BinaryExpr (e1, op, e2) -> fprintf out "%a %a %a" output_expr e1 output_binop op output_expr e2
-    | LiteralExpr lit -> output_literal out lit
-    | LambdaExpr (variables, stmt) -> fprintf out "( (%a) -> { %a } )" output_vars variables output_stmt stmt
+        fprintf out "@[%a(@[<hv>@;<0 3>%a@])@]" oexpr e1 oexprs es
+    | AssertExpr e -> fprintf out "assert(%a)" oexpr e                   
+    | AssignExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_assignop op oexpr e2
+    | BinaryExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_binop op oexpr e2
+    | LiteralExpr lit -> oliteral out lit
+    | LambdaExpr (variables, stmt) -> fprintf out "( (%a) -> { %a } )" output_vars variables ostmt stmt
     | ThisExpr -> pp_print_string out "this";
-    | UnaryExpr (op, e) -> fprintf out "%a %a" output_unop op output_expr e
+    | UnaryExpr (op, e) -> fprintf out "%a %a" output_unop op oexpr e
     | VarExpr x -> output_var out x             
     | RawExpr str -> pp_print_string out str
-and output_exprs out: expr list -> unit = pp_list ", " output_expr out
+and oexpr out : expr -> unit = function e ->
+    match Config.provenance_lvl () with
+    | Config.None | Config.Medium -> output_expr out e.value
+    | Config.Full -> output_placed out output_expr e 
+and oexprs out: expr list -> unit = pp_list ", " oexpr out
 
-and output_comments out : IR._comments -> unit = function
-    | IR.BlockComment str -> fprintf out "/* %s */" str
-    | IR.DocComment str -> fprintf out "/** %s */" str
-    | IR.LineComment str -> fprintf out "// %s" str
 
-and output_stmt out : stmt -> unit = function
-    | BlockStmt stmts -> fprintf out "{@;@[<v 3>%a@]@;<0 -3>}" (pp_list "" output_stmt) stmts
+and output_stmt out : _stmt -> unit = function
+    | BlockStmt stmts -> fprintf out "{@;@[<v 3>%a@]@;<0 -3>}" (pp_list "" ostmt) stmts
     | BreakStmt -> fprintf out "break;"
     | CommentsStmt c -> output_comments out c 
     | ContinueStmt -> fprintf out "continue;"
-    | ExpressionStmt e -> fprintf out "%a;" output_expr e 
-    | IfStmt (e, stmt1, None) -> fprintf out "if(%a){@;<1 0>@[<hv>%a@]@;<1 -2>}" output_expr e output_stmt stmt1
-    | IfStmt (e, stmt1, Some stmt2) -> fprintf out "if(%a){@;<1 0>@[<hv>%a@]@;<1 -2>}else{@;<1 0>@[<hv>%a@]@;<1 -2>}" output_expr e output_stmt stmt1 output_stmt stmt2
-    | NamedExpr (jt, x, e) -> fprintf out "%a %a = @[<hv>%a@];" output_jtype jt output_var x output_expr e
-    | ReturnStmt e -> fprintf out "return %a;" output_expr e
+    | ExpressionStmt e -> fprintf out "%a;" oexpr e 
+    | IfStmt (e, stmt1, None) -> fprintf out "if(%a){@;<1 0>@[<hv>%a@]@;<1 -2>}" oexpr e ostmt stmt1
+    | IfStmt (e, stmt1, Some stmt2) -> fprintf out "if(%a){@;<1 0>@[<hv>%a@]@;<1 -2>}else{@;<1 0>@[<hv>%a@]@;<1 -2>}" oexpr e ostmt stmt1 ostmt stmt2
+    | NamedExpr (jt, x, e) -> fprintf out "%a %a = @[<hv>%a@];" ojtype jt output_var x oexpr e
+    | ReturnStmt e -> fprintf out "return %a;" oexpr e
     | RawStmt str -> pp_print_string out str
+and ostmt out: stmt -> unit = function stmt ->
+    match Config.provenance_lvl () with
+    | Config.None | Config.Medium -> output_stmt out stmt.value
+    | Config.Full -> output_placed out output_stmt stmt 
 
 and output_annotation out: annotation -> unit = function
     | Visibility vis -> output_visibility out vis 
@@ -105,10 +123,10 @@ and output_visibility out: visibility -> unit = function
     | Protected -> pp_print_string out "protected"
 
 and output_arg out (jt, var): unit =
-    fprintf out "%a %a" output_jtype jt output_var var
+    fprintf out "%a %a" ojtype jt output_var var
 and output_args out: (jtype * variable) list -> unit = pp_list ", " output_arg out  
 
-and output_body out : body -> unit = function 
+and output_body out : _body -> unit = function 
     | ClassOrInterfaceDeclaration cl -> 
         let output_cl_params out = function 
             | [] -> ()
@@ -133,38 +151,51 @@ and output_body out : body -> unit = function
     | FieldDeclaration f -> 
         fprintf out "%a%a %a%a;@;"
             output_annotations f.annotations 
-            output_jtype f.type0
+            ojtype f.type0
             output_var f.name
-            (fun out opt-> ignore (Option.map (fprintf out " = %a" output_expr) opt)) f.body
+            (fun out opt-> ignore (Option.map (fprintf out " = %a" oexpr) opt)) f.body
     | MethodDeclaration m ->
         fprintf out 
             "%a%a%a(@[<hv 3>%a@]) {@;@[<v 3>%a@]@;}"
             output_annotations m.annotations 
-            (fun out opt-> ignore (Option.map (fprintf out "%a " output_jtype) opt)) m.ret_type 
+            (fun out opt-> ignore (Option.map (fprintf out "%a " ojtype) opt)) m.ret_type 
             output_var m.name 
             output_args m.parameters 
-            (pp_list "" output_stmt) [m.body] 
+            (pp_list "" ostmt) [m.body] 
+and obody out : body -> unit = function b ->
+    match Config.provenance_lvl () with
+    | Config.None -> output_body out b.value
+    | Config.Medium | Config.Full -> output_placed out output_body b 
 
-and output_jmodule out : jmodule -> unit = function
+and output_jmodule out : _jmodule -> unit = function
     | ImportDirective str -> fprintf out "import %s;" str 
     | PackageDeclaration str -> fprintf out "package %s;" str
+and ojmodule out : jmodule -> unit = output_placed out output_jmodule
 
-and output_type_params out : jtype list -> unit = pp_list ", " output_jtype out   
+and output_type_params out : jtype list -> unit = pp_list ", " ojtype out   
 
-and output_jtype out : jtype -> unit = function
+and output_jtype out : _jtype -> unit = function
     | ClassOrInterfaceType (x, []) ->  output_var out x    
     | ClassOrInterfaceType (x, params) -> fprintf out "%a<@[<hv>%a@]>" output_var x output_type_params params
     | TAtomic str -> pp_print_string out str
     | TVar x -> output_var out x 
+and ojtype out : jtype -> unit = function jt ->
+    match Config.provenance_lvl () with
+    | Config.None | Config.Medium -> output_jtype out jt.value
+    | Config.Full -> output_placed out output_jtype jt 
 
-and output_item out : str_items -> unit = function
-    | Body b -> output_body out b 
+and output_item out : _str_items -> unit = function
+    | Body b -> obody out b 
     | Comments c -> output_comments out c 
-    | JModule jm -> output_jmodule out jm 
-    | Stmt stmt -> output_stmt out stmt 
-    | JType jt -> output_jtype out jt 
+    | JModule jm -> ojmodule out jm 
+    | Stmt stmt -> ostmt out stmt 
+    | JType jt -> ojtype out jt 
     | Raw str -> pp_print_string out str
-and output_items out : str_items list -> unit = pp_break_list "" output_item out 
+and oitem out : str_items -> unit = function item ->
+    match Config.provenance_lvl () with
+    | Config.None -> output_item out item.value
+    | Config.Medium | Config.Full -> output_placed out output_item item 
+and output_items out : str_items list -> unit = pp_break_list "" oitem out 
 
 let output_program build_dir items : unit =
     let out = open_out (FilePath.make_filename (build_dir @ ["main.java"])) in
@@ -172,10 +203,14 @@ let output_program build_dir items : unit =
 
     (* Add imports*)
     (* TODO define imports outside this function,   *)
-    let items = [
-        JModule (PackageDeclaration (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ())));
-        JModule (ImportDirective "com.lg4dc.protocol.*");
-    ]@ items in
+    let mock_placed value =  { 
+        AstUtils.place = Error.forge_place "Lg=Java/output_program" 0 0; 
+        value
+    } in
+    let items = (List.map mock_placed [
+        JModule (mock_placed (PackageDeclaration (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ()))));
+        JModule (mock_placed(ImportDirective "com.lg4dc.protocol.*"));
+    ])@ items in
 
     (* Configure formatter *)
     pp_set_margin out 80;

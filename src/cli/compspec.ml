@@ -20,6 +20,12 @@ let action = ref ""
 
 let options = ref []
 
+
+let set_provenance x = 
+    match Config.provenance_lvl_of_enum x with
+    | None -> raise (Arg.Bad "Incorrect provenance")
+    | Some lvl -> Config._provenance_lvl:=lvl
+
 let common_options = 
 [
     "--debug", Arg.Set Config._debug, " Enable debugging output";
@@ -27,6 +33,7 @@ let common_options =
     "--places", Arg.Set_string places_file, "Load a YAML file describing the places"; 
     "--targets", Arg.Set_string targets_file, "Load a YAML file describing the targets";
     "--filename", Arg.String (function x-> filenames := x::!filenames), "Spec file to compile";
+    "--provenance", Arg.Int set_provenance, "Select how provenance information should be propagated; 0: None; 1: Medium; 2:Full";
 ]
 
 let options_compile = 

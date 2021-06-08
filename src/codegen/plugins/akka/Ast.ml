@@ -1,5 +1,6 @@
 (** Underlying programming language primitives *)
 open Core
+open AstUtils
 
 (************************************* Base types ****************************)
 open Label
@@ -9,7 +10,7 @@ type variable = Atom.atom
 and comments = Core.IR._comments
 
 (************************************ Types **********************************)
-and ctype = 
+and _ctype = 
     | Atomic of string (*int, float, ..*)           
     | Behavior of string 
     | TFunction of ctype * ctype
@@ -23,22 +24,24 @@ and ctype =
     | TVoid
 
     | TParam of ctype * ctype list (* Type parametric (ct, [arg_1; .. arg_n]) -> ct<arg_1, .., arg_n>*)
+and ctype =_ctype placed
 
 (************************************ Expr & Stmt *****************************)
 
 and unop = IR.unop 
 and binop = IR.binop 
 
-and literal = 
+and _literal = 
     | EmptyLit 
     | BoolLit of bool
     | FloatLit of float 
     | IntLit of int
     | StringLit of string
+and literal = _literal placed
 
 and parameter = ctype * variable
 
-and expr =                  
+and _expr =                  
     | AccessExpr of expr * expr
     | AssertExpr of expr 
     | BinopExpr of expr * binop * expr 
@@ -56,8 +59,9 @@ and expr =
     | CurrentContext
     | CurrentSystem
     | RawExpr of string
+and expr = _expr placed
 
-and stmt = 
+and _stmt = 
     | AssignExpr of expr * expr (*expression should be access or variable*)
     | BlockStmt of stmt list
     | BreakStmt
@@ -67,6 +71,7 @@ and stmt =
     | ExpressionStmt of expr
     | IfStmt of expr * stmt * stmt option               
     | ReturnStmt of expr
+and stmt = _stmt placed
 
 and visibility = 
     | Private
@@ -77,7 +82,7 @@ and method0_body =
 | AbstractImpl of stmt
 | BBImpl of Impl_common.blackbox_term
 
-and method0 = {
+and _method0 = {
     vis: visibility;
     ret_type: ctype;
     name: variable;
@@ -85,7 +90,7 @@ and method0 = {
     args: (ctype * variable) list;
     is_constructor: bool
 }
-
+and method0 = _method0 placed
 (************************************ Akka Actors **********************************)
 
 (** Akka specific primitives *)
@@ -93,20 +98,22 @@ and event_kind =
     | Command 
     | Event
 
-and event = {
+and _event = {
     vis: visibility;
     name: variable;
     kind: event_kind; 
     args: (ctype * variable) list
 }
+and event = _event placed
 
-and state = {
+and _state = {
     persistent: bool;
     (** list of let*)
     stmts: stmt list
 }
+and state = _state placed
 
-and actor = {
+and _actor = {
     name: variable;
     methods: method0 list;
     (*
@@ -125,25 +132,28 @@ and actor = {
     events: event list; 
     nested_items: term list;
 }
-
+and actor = _actor placed
 (************************************ Akka streams **********************************)
 (* TODO *)
 
 (************************************ Akka program **********************************)
-and term = 
+and raw = string placed
+
+and _term = 
 | Comments of comments
 (** Preprocessor *)
 | Import of string
 
 (** Other *)
 | Class of variable 
-| RawClass of variable * string
-| TemplateClass of string
+| RawClass of variable *raw 
+| TemplateClass of raw 
 | Stmt of stmt 
 
 (** Akka structure *)
 | Actor of actor
 | Event of event
+and term = _term placed
 
 (**  Main function*)
 and entrypoint = expr list
