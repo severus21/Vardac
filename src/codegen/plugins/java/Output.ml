@@ -170,7 +170,10 @@ and obody out : body -> unit = function b ->
 and output_jmodule out : _jmodule -> unit = function
     | ImportDirective str -> fprintf out "import %s;" str 
     | PackageDeclaration str -> fprintf out "package %s;" str
-and ojmodule out : jmodule -> unit = output_placed out output_jmodule
+and ojmodule out : jmodule -> unit = function jm ->
+    match Config.provenance_lvl () with
+    | Config.None | Config.Medium -> output_jmodule out jm.value
+    | Config.Full -> output_placed out output_jmodule jm 
 
 and output_type_params out : jtype list -> unit = pp_list ", " ojtype out   
 
@@ -210,6 +213,7 @@ let output_program build_dir items : unit =
     let items = (List.map mock_placed [
         JModule (mock_placed (PackageDeclaration (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ()))));
         JModule (mock_placed(ImportDirective "com.lg4dc.protocol.*"));
+        JModule (mock_placed(ImportDirective "com.bmartin.SpawnProtocol"));
     ])@ items in
 
     (* Configure formatter *)

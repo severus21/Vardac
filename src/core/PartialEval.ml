@@ -2,6 +2,13 @@ open IR
 open Easy_logging
 let logger = Logging.make_logger "_1_ compspec" Debug [Cli Debug];;
 
+(*
+ TODO add 
+ - Data-flow analysis - https://en.wikipedia.org/wiki/Data-flow_analysis
+ - Static single assignment form : https://en.wikipedia.org/wiki/Static_single_assignment_form#Converting_out_of_SSA_form
+
+*)
+
 (* Environment *)
 module Env = Atom.AtomMap 
 
