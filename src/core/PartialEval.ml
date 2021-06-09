@@ -6,16 +6,20 @@ let logger = Logging.make_logger "_1_ compspec" Debug [Cli Debug];;
 module Env = Atom.AtomMap 
 
 type env = { 
-    named_types: (main_type option) Env.t (* namely the list of typedef with their current definition, 
+    named_types: (main_type option) Env.t; (* namely the list of typedef with their current definition, 
     none means that it is an abstract type *)
+    terminal_expr_assignements: expr Env.t (* x -> LitExpr _*)
 } [@@deriving fields] 
 
 let fresh_env () = { 
     named_types = Env.empty;
+    terminal_expr_assignements = Env.empty;
 }
 
 let bind_named_types (env:env) key value : env = 
     { env with named_types = Env.add key value env.named_types}
+let bind_terminal_expr (env:env) key value : env = 
+    { env with terminal_expr_assignements = Env.add key value env.terminal_expr_assignements}
 
 let map_snd f = function (x,y) -> (x, f y)
 
@@ -230,9 +234,19 @@ match (e1.value, op, e2.value) with
         env, BinopExpr (e1, op, e2)
 | _ -> env, BinopExpr (e1, op, e2)
 
+and peval_call env place (fct: expr) (args: expr list) : env * _expr =
+match fct.value, args with
+| VarExpr name, [] when Atom.hint(name) = "bridge" ->
+    env, LitExpr {
+        place;    
+        value = Bridge {
+            id  = Atom.fresh "bridge";
+            protocol = { place = Error.forge_place "partial_eval/peval_call/default_protocol" 0 0; value = STEnd}; (* Should be update afterward by using type annotation *)
+        } 
+    }
+| _ -> env, CallExpr (fct, args)
+
 and peval_expr env place : _expr -> env * _expr = function 
-| CallExpr ({value=VarExpr name; _}, []) when Atom.hint(name) = "bridge" ->
-     Error.error place "bridge expression must not be used outside the right-handside of a let"  
 | AccessExpr (e1, e2) -> 
     let _, e1 = pe_expr env e1 in
     let _, e2 = pe_expr env e2 in
@@ -256,7 +270,7 @@ and peval_expr env place : _expr -> env * _expr = function
 | CallExpr (fct, args) -> 
     let _, fct = pe_expr env fct in
     let args = List.map (function arg -> snd (pe_expr env arg)) args in
-    env, CallExpr (fct, args) (* TODO can we apply statically some functions ?? *)
+    peval_call env place fct args
 | LambdaExpr (x, stmt) ->
     let _, stmt = pe_stmt env stmt in
     env, LambdaExpr (x, stmt)
@@ -276,57 +290,87 @@ and peval_expr env place : _expr -> env * _expr = function
 | UnopExpr (op, e) -> 
     let _, e = pe_expr env e in
     peval_unop env place op e
+| VarExpr x -> begin
+    try 
+        let t_e = Env.find x env.terminal_expr_assignements in
+        env, t_e.value (*TODO should be t_e.place @ place @ partial_eval_var place *)
+    with | Not_found -> env, VarExpr x
+end
 | x -> env, x 
 and pe_expr env: expr -> env * expr = peval_place peval_expr env
 
 and peval_stmt env place : _stmt -> env * _stmt = function 
 | EmptyStmt -> env, EmptyStmt
-| AssignExpr (x, e) -> env, AssignExpr (x,  snd(pe_expr env e ))
+| AssignExpr (x, e) -> 
+    let e = snd(pe_expr env e) in
+    if is_terminal_expr e.value then
+        let new_env = bind_terminal_expr env x e in 
+        new_env, EmptyStmt 
+    else
+        env, AssignExpr (x, e)
 | AssignThisExpr (x, e) -> env, AssignExpr (x,  snd(pe_expr env e ))
 | BlockStmt stmts -> 
-    env, BlockStmt (List.map (function stmt -> snd ((pe_stmt env) stmt)) stmts)
+    let stmts = List.map (function stmt -> snd ((pe_stmt env) stmt)) stmts in
+
+    (* Cleansing: removing empty stmt *)
+    let stmts = List.filter (function | {AstUtils.value=EmptyStmt;_} -> false | _-> true) stmts in
+
+    (* Stop at exit *)
+    let _, stmts, _ = List.fold_left (fun (seen_exit, acc_before, acc_after) -> 
+            if seen_exit then function stmt -> (seen_exit, acc_before, stmt::acc_after)
+            else function   | {AstUtils.value=ExitStmt i;_} as stmt -> (true, acc_before, stmt::acc_after)
+                            | stmt -> (seen_exit, stmt::acc_before, acc_after) 
+        ) (false, [],[]) stmts in
+    let stmts = List.rev stmts in
+
+    env, BlockStmt stmts 
 | BreakStmt -> env, BreakStmt
 | CommentsStmt c -> env, CommentsStmt c 
 | ContinueStmt -> env, ContinueStmt
 | ExitStmt i -> env, ExitStmt i
 | ExpressionStmt e -> env, ExpressionStmt (snd(pe_expr env e))
-| ForStmt (x, e, stmt) -> env, ForStmt (x, snd (pe_expr env e), snd (pe_stmt env stmt))
-| IfStmt (e, stmt, stmt_opt) -> 
-    env, IfStmt (
-        snd (pe_expr env e), 
-        snd (pe_stmt env stmt),
-        Option.map (function elmt -> snd (pe_stmt env elmt)) stmt_opt
-    )
-| LetExpr ({value=CType {value= TBridge t_b; _}; _ } as let_left, let_x, e_b) -> begin 
-    match e_b.value with
-    | CallExpr ({value=VarExpr name; _}, []) when Atom.hint(name) = "bridge" -> 
-        let protocol = match t_b.protocol.value with
-        | SType st -> st
-        | _ -> Error.error t_b.protocol.place "Third argument of Bridge<_,_,_> must be (partially-evaluated> to a session type"
-        in
-
-        env, LetExpr (
-            let_left,
-            let_x, 
-            {
-                place = e_b.place;
-                value = LitExpr {
-                    place = e_b.place;    
-                    value = Bridge {
-                        id  = Atom.fresh "bridge";
-                        protocol = protocol;
-                    } 
-                }
-            }
-        )
-    | _ -> Error.error place "The right-handside of a Bridge<_,_,_> must be partially evaluated to a bridge literal" 
+| ForStmt (x, e, stmt) -> env, ForStmt (x, snd (pe_expr env e), snd (pe_stmt env stmt)) (* TODO *)
+| IfStmt (e, stmt, stmt_opt) -> begin 
+    let e = snd (pe_expr env e) in
+    let stmt = snd (pe_stmt env stmt) in
+    let stmt_opt = Option.map (function elmt -> snd (pe_stmt env elmt)) stmt_opt in 
+    match e.value with
+    | LitExpr {value=BoolLit true; _} -> env, stmt.value (* TODO should be stmt.place *)
+    | LitExpr {value=BoolLit false; _} -> env, Option.value (Option.map (fun (x:stmt) -> x.value) stmt_opt) ~default:EmptyStmt (*TODO should be stmt.place *)
+    | _ -> env, IfStmt (e, stmt, stmt_opt)
 end
-| MatchStmt (e, entries) -> 
+| LetExpr ({value=CType {value= TBridge t_b; _}; _ } as let_left, let_x, e_b) -> begin 
+    let _, let_left = pe_mtype env let_left in
+    let _, e_b = pe_expr env e_b in
+
+    match let_left.value with
+    | CType {value= TBridge t_b; _} -> begin
+        match e_b.value with
+        | LitExpr {value=Bridge bridge; _} -> 
+            let protocol = match t_b.protocol.value with
+            | SType st -> st
+            | _ -> Error.error t_b.protocol.place "Third argument of Bridge<_,_,_> must be (partially-evaluated> to a session type"
+            in
+            let bridge = LitExpr {place = e_b.place@let_left.place; value = Bridge {bridge with protocol = protocol}} in
+
+            env, LetExpr (
+                let_left,
+                let_x, 
+                {place = e_b.place; value = bridge} 
+            )
+        | _ -> Error.error place "The right-handside of a Bridge<_,_,_> must be partially evaluated to a bridge literal" 
+    end
+    | _-> 
+        if is_terminal_expr e_b.value then
+            let new_env = bind_terminal_expr env let_x e_b in
+            new_env, LetExpr (let_left, let_x, e_b) (* TODO removing a let needs us to know if their is an assigned somewhere *)
+        else env, LetExpr( let_left, let_x, e_b)
+end
+| MatchStmt (e, entries) -> (* TODO *) 
     env, MatchStmt (
         snd(pe_expr env e), 
         List.map ( function (e,stmt) -> snd(pe_expr env e), snd(pe_stmt env stmt)) entries
     )
-| LetExpr (mt, x, e) -> env, LetExpr( snd(pe_mtype env mt), x, snd(pe_expr env e))
 | ExpressionStmt e -> 
     let new_env, new_e = pe_expr env e in
     new_env, (ExpressionStmt new_e)
@@ -345,10 +389,17 @@ and peval_contract env place contract =
     let ensures = Option.map (function e -> snd (pe_expr env e )) contract.ensures in
     let returns = Option.map (function e -> snd (pe_expr env e )) contract.returns in
 
+    let clean_predicate = function
+    | Some {AstUtils.value=LitExpr {value=BoolLit true; _}; _} -> None
+    | Some {AstUtils.value=LitExpr {value=BoolLit false; _}; place} -> Error.error place "ensures expresion has been evaluated to false" 
+    | Some {value=LitExpr _; place} -> Error.error place "ensures expr has been evaluated to a non boolean literal"
+    | pred_opt -> pred_opt
+    in
+
     env, {contract with
         pre_binders;
-        ensures;
-        returns 
+        ensures = clean_predicate ensures;
+        returns = clean_predicate returns 
     }
 and pe_contract env: contract -> env * contract = peval_place peval_contract env
 
@@ -358,12 +409,18 @@ and pe_param env: param -> env * param = peval_place peval_param env
 
 and peval_method env place = function
 | CustomMethod m -> 
+    let contract_opt = Option.map (function c -> snd(pe_contract env c)) m.contract_opt in
+    (* Cleansing: elminates empty contract *)
+    let contract_opt = match contract_opt with
+    | Some c when c.value.ensures = None && c.value.returns = None -> None
+    | c_opt -> c_opt 
+    in
+
     env, CustomMethod {m with
             ret_type = snd(pe_mtype env m.ret_type);
             args = List.map (function param -> snd(pe_param env param)) m.args;
             body = Option.map (function stmt -> snd(pe_stmt env stmt)) m.body;
-            contract_opt = Option.map (function c -> snd(pe_contract env c)) m.contract_opt
-
+            contract_opt = contract_opt
     } 
 | OnStartup m -> env, OnStartup (snd (pe_method env m)) 
 | OnDestroy m -> env, OnDestroy (snd (pe_method env m))
@@ -374,6 +431,7 @@ and peval_port env place port =
     
     begin
         match expecting_st.value with
+        | SType {value=STEnd; _} -> Error.error place "a port can not expect the end of a protocol, no message will be send"
         | SType _ -> ()
         | _ -> Error.error place "port expecting value must be a session type"
     end;
@@ -394,7 +452,7 @@ and peval_state env place = function
 and pe_state env: state -> env * state = peval_place peval_state env
 
 and peval_component_item env place : _component_item -> env * _component_item = function 
-| Contract c -> env, Contract (snd(pe_contract env c))
+| Contract c -> raise (Error.DeadbranchError "contract should be paired with method before partial_evaluation, therefore no contract should remains as a component_item") 
 | Include cexpr -> env, Include (snd(pe_component_expr env cexpr))
 | Method m -> env, Method (snd(pe_method env m))
 | Port p -> env, Port (snd(pe_port env p))
@@ -451,7 +509,7 @@ and peval_component_dcl env place : _component_dcl -> env * _component_dcl = fun
 and pe_component_dcl env: component_dcl -> env * component_dcl = peval_place peval_component_dcl env
 
 (********************** Manipulating component structure *********************)
-and peval_component_expr env place = function
+and peval_component_expr env place = function (* TODO peval for this*)
 | VarCExpr x -> env, VarCExpr x
 | AppCExpr (cexpr1, cexpr2) -> env, AppCExpr (snd (pe_component_expr env cexpr1), snd (pe_component_expr env cexpr2)) 
 | UnboxCExpr e -> env, UnboxCExpr (snd(pe_expr env e)) 
