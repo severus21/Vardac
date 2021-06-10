@@ -102,3 +102,8 @@ let scandir path wanted_ext =
   | _::fs -> aux acc fs
   | [] -> acc
   in aux [] [path]
+
+(***************************** Function manipulations *************************)
+
+(* Function composition, TODO put it in some Core file*)
+let (<->) f g x = f(g(x));;

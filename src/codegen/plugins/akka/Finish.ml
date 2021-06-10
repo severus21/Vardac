@@ -1,8 +1,10 @@
 open Core
+open Utils
 open AstUtils
 open Easy_logging
 open Fieldslib
 
+(* Function composition, TODO put it in some Core file*)
 let plg_name = "Akka"
 let logger = Logging.make_logger ("_1_ compspec.plg."^plg_name) Debug [];;
 
@@ -42,7 +44,7 @@ type items_grps = {
     states: S.state list; 
     nested: S.component_dcl list; 
     ports: S.port list;
-    typedefs: (S.variable * S._typedef_body) list;
+    typealiass: (S.variable * S._typealias_body) list;
     others: S.term list
 }
 
@@ -51,7 +53,7 @@ let fresh_items_grp () = {
     states      = [];
     nested      = [];
     ports       = [];
-    typedefs    = [];
+    typealiass    = [];
     others      = [];
 }
 
@@ -62,8 +64,8 @@ let group_cdcl_by (citems:  S.component_item list) : items_grps =
         | S.Method  m-> {grp with methods=m::grp.methods}
         | S.State f-> {grp with states=f::grp.states}
         | S.Port p -> {grp with ports=p::grp.ports}
-        (* Shallow search of Typedef, FIXME do we need deep search ?*)
-        | S.Term {place; value=S.Typedef (v,mt)} -> {grp with typedefs=(v,mt)::grp.typedefs}
+        (* Shallow search of Typealias, FIXME do we need deep search ?*)
+        | S.Term {place; value=S.Typealias (v,mt)} -> {grp with typealiass=(v,mt)::grp.typealiass}
         | S.Term {place; value=S.Component cdcl} -> {grp with nested=cdcl::grp.nested}
         | S.Term t -> {grp with others=t::grp.others}
     in
@@ -74,7 +76,7 @@ let group_cdcl_by (citems:  S.component_item list) : items_grps =
             states=(List.rev grp.states) ; 
             nested=(List.rev grp.nested) ; 
             ports=(List.rev grp.ports) ; 
-            typedefs=(List.rev grp.typedefs) ; 
+            typealiass=(List.rev grp.typealiass) ; 
             others=(List.rev grp.others)
         }
 
@@ -107,6 +109,7 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
     | S.TSet mt -> T.TSet (fst(fmtype mt))
     | S.TTuple mts ->  T.TTuple (List.map (fun x -> (fst(fmtype x))) mts)
     | S.TBridge b -> T.Atomic "lg4dc.protocol.Bridge" (*TODO*)
+    | S.TRaw bbraw -> T.TRaw bbraw.value.body
 and fctype ct :  T.ctype = finish_place finish_ctype ct
 
 and event_name_of_ftype place : S.flat_type -> string = function
@@ -127,6 +130,16 @@ and event_name_of_ctype place : S._composed_type -> string = function
 | S.TDict (mt1, mt2) | TResult (mt1, mt2) -> (_event_name_of_mtype mt1) ^ (_event_name_of_mtype mt2) 
 | S.TList mt | S.TOption mt | S.TSet mt -> _event_name_of_mtype mt 
 | S.TTuple mts -> List.fold_left (fun acc mt -> acc ^ (_event_name_of_mtype mt)) "" mts
+| S.TRaw raw -> 
+    let normalize str =
+        let str = String.trim str in
+        String.map ( function
+            | '<' -> '_'
+            | '>' -> '_'
+            | c -> c
+        ) str
+    in 
+    logger#warning "TRaw is used for generating event name"; (normalize raw.value.body)
 
 and _event_name_of_mtype : S.main_type ->  string = function
 | {place; value=S.CType ct} -> event_name_of_ctype ct.place ct.value
@@ -424,7 +437,10 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
     let inner_name = Atom.fresh ((Atom.hint contract.method_name)^"_inner") in
     let inner_method = {
         place = method0.place;
-        value = { method0.value with name = inner_name; vis = T.Private }
+        value = { method0.value with 
+            name = inner_name; 
+            annotations = [T.Visibility T.Private] 
+        }
     } in
 
     (* Pre binders *)
@@ -443,13 +459,13 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
         let ensures_method : T.method0 = {
             place = ensures_expr.place;
             value = {
-                vis             = T.Private;
+                annotations     = [ T.Visibility T.Private ];
                 ret_type        = { place; value=T.Atomic "boolean"};
                 name            = ensures_name;
-                body            =  T.AbstractImpl ({ 
+                body            =  T.AbstractImpl ([{ 
                     place= ensures_expr.place;
-                    value = T.ExpressionStmt (fexpr ensures_expr)
-                });
+                    value = T.ReturnStmt (fexpr ensures_expr)
+                }]);
                 args            = ensures_params;
                 is_constructor  = false
             }
@@ -493,18 +509,18 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
         let returns_method  : T.method0 = {
             place = returns_expr.place;
             value = {
-                vis             = T.Private;
+                annotations     = [ T.Visibility T.Private ];
                 ret_type        = { place = returns_expr.place; value=T.Atomic "boolean"};
                 name            = returns_name;
-                body            = T.AbstractImpl (
-                    {place = returns_expr.place; value= T.ExpressionStmt (
+                body            = T.AbstractImpl ([
+                    {place = returns_expr.place; value= T.ReturnStmt (
                         {place = returns_expr.place; value=T.CallExpr(
                             fexpr returns_expr,
                             [{place = returns_expr.place; value=T.VarExpr (snd ret_type_param)}]
                             )
                         })
-                    })
-                ;
+                    }
+                ]);
                 args            = returns_params;
                 is_constructor  = false
             }
@@ -551,10 +567,10 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
     let main_method : T.method0 = {
         place = method0.place@place;
         value = {
-            vis             = method0.value.vis;
+            annotations     = method0.value.annotations;
             ret_type        = method0.value.ret_type;
             name            = method0.value.name;
-            body            = T.AbstractImpl({place=method0.place@place; value=T.BlockStmt main_stmts});
+            body            = T.AbstractImpl main_stmts;
             args            = method0.value.args;
             is_constructor  = method0.value.is_constructor 
         }
@@ -573,14 +589,14 @@ and fcontract actor_name (method0 : T.method0) : S.contract -> T.method0 list = 
 and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._method0 -> T.method0 list = function
     | S.CustomMethod m0 ->  
         let body = match m0.body with
-            | S.AbstractImpl stmt -> T.AbstractImpl (fstmt stmt)
+            | S.AbstractImpl stmts -> T.AbstractImpl (List.map fstmt stmts)
             | S.BBImpl body -> T.BBImpl body
         in
 
         let new_method : T.method0 = {
             place;
             value = { 
-                vis             = T.Public; 
+                annotations     = [ T.Visibility T.Public ]; 
                 ret_type        = fst (fmtype m0.ret_type);
                 name            = if is_constructor then actor_name else m0.name;
                 args            = (List.map fparam m0.args);
@@ -596,7 +612,7 @@ and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._m
         end
 
     | S.OnStartup m0 -> finish_method m0.place actor_name ~is_constructor:true m0.value   
-    | S.OnDestroy _ -> failwith "onstart and ondestroy are not yet supported"
+    | S.OnDestroy _ -> failwith "ondestroy is not yet supported"
 and fmethod actor_name : S.method0 -> T.method0 list = function m -> finish_method m.place actor_name m.value
 
 
@@ -619,7 +635,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         | _, Some ({Core.AstUtils.place; Core.AstUtils.value = S.SType st}) -> false
         | _ -> true
     in
-    let events = List.flatten (List.map (function x -> snd (fmtype x)) (List.filter_map (function x -> match snd x with |S.AbstractTypedef mt -> Some mt | _ -> None) grp_items.typedefs)) in
+    let events = List.flatten (List.map (function x -> snd (fmtype x)) (List.filter_map (function x -> match snd x with |S.AbstractTypealias mt -> Some mt | _ -> None) grp_items.typealiass)) in
     
 
     (* Building states *)
@@ -684,10 +700,12 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         place;
         value = {
             args            = [];
-            body            = T.AbstractImpl ({place; value=T.ReturnStmt receiver_expr});
+            body            = T.AbstractImpl ([
+                {place; value=T.ReturnStmt receiver_expr}
+            ]);
             name            = Atom.fresh_builtin "createReceive";
             ret_type        = {place; value=T.Behavior "Command"};
-            vis             = T.Public;
+            annotations     = [ T.Visibility T.Public ];
             is_constructor  = false
         }
     } in
@@ -734,24 +752,76 @@ and finish_term place : S._term -> T.term list = function
     place; 
     value = T.Stmt (fstmt stmt)
 }]
-| S.Typedef (v, S.AbstractTypedef body) -> begin (* TODO move this to the translation from akka to java, and add Typedef into akka ast *) 
-    match body.value with
-    | S.CType {value=S.TVar _; _} -> Error.error place "Type aliasing is not (natively) supported in Java"
-    | CompType {value=CompTUid _; _} ->  Error.error place "Type aliasing is not (natively) supported in Java" 
-    | _ -> 
-        let mt, events = fmtype body in
-        general_fenv := List.fold_left (fun env (event:T.event) -> bind_event env event.value.name event) !general_fenv events;
-        (* FIXME | TODO do something with the mt *) 
-        [{place = place; value=T.Class v}] @ (List.map (fun x -> {place=x.place; value=T.Event x}) events) 
-end
-| S.Typedef (v, S.BBTypedef body) when not body.value.template ->
+| S.Typealias (v, S.AbstractTypealias body) -> raise (Error.DeadbranchError "partial evaluation should have removed type alias exept those from impl")
+| S.Typealias (v, S.BBTypealias body) as term -> raise (Error.DeadbranchError "should have been removed (and replaced) by clean_terms")
+| S.Typedef (name, args, None) -> (* implicit constructor should translate to akka *)
+    let args = List.map (function (arg:T.ctype) -> (arg, Atom.fresh "arg")) (List.map (fst <-> fmtype) args) in
+    let constructor_body = 
+        let place = (Error.forge_place "Plg=Akka/finish_term/typedef/implicit_constructor" 0 0) in
+        let aux (_, arg_name) = 
+            { place; value = T.AssignExpr (
+                { place; value = T.AccessExpr (
+                    { place; value = T.This }, 
+                    { place; value = T.VarExpr arg_name }
+                )},
+                { place; value = T.VarExpr arg_name }
+            )}
+        in
+        T.BlockStmt (List.map aux args)
+    in
+    let fields = 
+        let place = (Error.forge_place "Plg=Akka/finish_term/typedef/implicit_constructor" 0 0) in
+        let aux (arg_ctype, arg_name) = 
+            { place; value = T.Stmt (
+                { place; value = T.LetStmt (
+                    arg_ctype, 
+                    name,
+                    None 
+                )}
+            )}
+        in
+        List.map aux args
+    in
+
+    let constructor = { place = place @ (Error.forge_place "Plg=Akka/finish_term/typedef/implicit_constructor" 0 0); value= 
+        T.MethodDeclaration { place; value = {
+            annotations = [T.Visibility T.Public];
+            ret_type = {place; value = T.TVoid}; (* removed by the is_constructor *)
+            name;
+            body = T.AbstractImpl [{place; value  = constructor_body}];
+            args = args;
+            is_constructor = true
+        }}
+    }
+    in
+
+    [{place; value =
+        T.ClassOrInterfaceDeclaration {
+            isInterface = false;
+            annotations = [T.Visibility T.Public];
+            name;
+            body = fields @ [constructor] 
+        }
+    }]
+| S.Typedef (v, _, Some body) when not body.value.template ->
     [{place; value = T.RawClass (v, {place = body.place; value = body.value.body})}] 
-| S.Typedef (v, S.BBTypedef body) when body.value.template ->
+| S.Typedef (v, _, Some body) when body.value.template ->
     [{place; value = T.TemplateClass {place=body.place; value = body.value.body}}]
 
 and fterm : S.term -> T.term list = function t -> finish_term t.place t.value
 
+(* Remove type alias for java *)
+and clean_terms : S.term list -> S.term list = function
+| [] -> [] 
+| {value= S.Typealias (x, S.BBTypealias body); _} :: terms ->
+    let terms = List.map (S.type_replace_term (TVar x) (TRaw body)) terms in
+    (clean_terms terms)
+| term :: terms -> term::(clean_terms terms)
+
 let finish_program terms = 
+    let terms = clean_terms terms in
+    let terms = List.flatten (List.map fterm terms) in
+
     { 
         T.entrypoint = [];
         T.system = {
@@ -764,5 +834,5 @@ let finish_program terms =
             receiver = None;
             nested_items=[]}
         };
-        T.terms= List.flatten (List.map fterm terms)   
+        T.terms = terms   
     }

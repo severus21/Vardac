@@ -192,7 +192,7 @@ and _method0 =
         ret_type: main_type; 
         name: variable; 
         args: param list; 
-        abstract_impl: stmt; 
+        abstract_impl: stmt list; 
     }
     (* Activation liftime management*)
     | OnStartup of method0 
@@ -264,7 +264,8 @@ and _term =
 
     (* Static part*)
     (*TODO | SignatureDcl of signature_dcl*)   
-    | Typedef of variable * main_type option (* name, optional value*) 
+    | Typealias of variable * main_type option (* name, optional value*) 
+    | Typedef of variable * main_type list 
 and term = _term placed
 
 and program = term list

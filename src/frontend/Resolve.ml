@@ -75,7 +75,7 @@ and resolve_contract (c:S._contract) : T._contract =
 
 and resolve_method : S._method0 -> T._method0 = function 
 | S.CustomMethod m -> T.CustomMethod {m with
-        abstract_impl= (resolve_placed resolve_stmt) m.abstract_impl   
+        abstract_impl= List.map rstmt m.abstract_impl   
     }
 | S.OnStartup m -> T.OnStartup (rmethod m) 
 | S.OnDestroy m -> T.OnDestroy (rmethod m) 

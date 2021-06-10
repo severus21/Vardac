@@ -120,13 +120,15 @@ any_type_:
 
 %public any_type_dcl_:
 | TYPE x=LID SEMICOLON
-    { Typedef (x, None) }
+    { Typealias (x, None) }
 | TYPE x=LID EQ t=any_type SEMICOLON
-    { Typedef (x, Some t) }
+    { Typealias (x, Some t) }
 | TYPE x=UID SEMICOLON
-    { Typedef (x, None) }
+    { Typealias (x, None) }
 | TYPE x=UID EQ t=any_type SEMICOLON
-    { Typedef (x, Some t) }
+    { Typealias (x, Some t) }
+| TYPE x=LID OF args = right_flexible_list(COMMA, any_type) SEMICOLON
+    { Typedef (x, args) }
 
 (******************************** Constraints ********************************)
 any_constraint_header_:
@@ -392,7 +394,7 @@ core_method_:
         ret_type=ret_type;
         name=name;
         args=args;
-        abstract_impl=  {place = [$loc]; value=EmptyStmt}
+        abstract_impl= []
     } }
 | ret_type=any_type name=LID LPAREN args=right_flexible_list(COMMA, any_param) RPAREN LCURLYBRACKET stmts=flexible_sequence(any_stmt) RCURLYBRACKET 
     { CustomMethod {
@@ -400,7 +402,7 @@ core_method_:
         ret_type=ret_type;
         name=name;
         args=args;
-        abstract_impl= {place = [$loc]; value=BlockStmt stmts}
+        abstract_impl= stmts
     } }
 
 %inline core_method:
@@ -411,7 +413,7 @@ lifetime_method_:
 | ONSTARTUP  m=core_method
     { OnStartup m }
 | ONDESTROY  m=core_method
-    { OnStartup m }
+    { OnDestroy m }
 
 any_method_:
 | m = core_method_

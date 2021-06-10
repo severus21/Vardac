@@ -59,13 +59,20 @@ let rec finish_ctype place : S._ctype -> T._jtype = function
     end 
     | S.TVar v -> T.TVar v
     | S.TVoid -> T.TAtomic "void"
+    | S.TRaw str -> T.TAtomic str
 and fctype ct : T.jtype = finish_place finish_ctype ct
 
 
-let finish_visibility = function
+let rec finish_visibility = function
     | S.Private -> T.Private
     | S.Protected -> T.Protected
     | S.Public -> T.Public
+and finish_annotation = function
+| S.Visibility vis -> T.Visibility (finish_visibility vis)
+| S.Static -> T.Static
+| S.Final -> T.Final
+and finish_annotations annotations = List.map finish_annotation annotations
+
 
 let finish_unop = Fun.id 
 let finish_binop = Fun.id 
@@ -86,24 +93,24 @@ and finish_expr place : S._expr -> T._expr = function
     | S.CurrentContext -> 
         T.AppExpr (
             {place; value=T.VarExpr (Atom.fresh_builtin "getContext")},
-            [{place; value=T.LiteralExpr {place; value=T.EmptyLit}}]
+            []
         )
     | S.CurrentSystem -> T.AccessExpr 
         ({  
             place;
             value = T.AppExpr 
             ({ place; value=T.VarExpr (Atom.fresh_builtin "getContext")},
-            [{place; value=T.LiteralExpr {place; value=T.EmptyLit}}])
+            [])
         },
         { 
             place;
             value = T.AppExpr
                 ({ place; value =T.VarExpr (Atom.fresh_builtin "getSystem")},
-                [{place; value=T.LiteralExpr {place; value=T.EmptyLit}}])
+                [])
         }) 
     | S.LambdaExpr (variables, stmt) -> T.LambdaExpr (variables, fstmt stmt)
     | S.LitExpr lit -> LiteralExpr (fliteral lit)
-    | S.Spawn {context; actor_expr} -> T.AppExpr (fexpr context, [fexpr actor_expr])
+    | S.Spawn {context; actor_expr} -> T.AccessExpr (fexpr context, fexpr actor_expr)
     | S.This -> T.ThisExpr
     | S.UnopExpr (IR.UnpackResult, e) -> 
         T.AppExpr ( 
@@ -168,7 +175,7 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
             ret_type    = None;
             name        = name;
             parameters  = List.map finish_arg args;
-            body        = {place; value = T.BlockStmt (List.map generate_constructor_stmt args)}
+            body        = List.map generate_constructor_stmt args
             ;
         }})}
     in
@@ -186,15 +193,15 @@ and fevent e : T.str_items = finish_place finish_event e
 
 and finish_arg ((ctype,variable):(S.ctype * Atom.atom)) : T.parameter =
     (fctype ctype, variable)
-and finish_method place ({vis; ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
+and finish_method place ({annotations; ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
     match body with
-    | S.AbstractImpl stmt ->
+    | S.AbstractImpl stmts ->
         T.MethodDeclaration {
-            annotations = [T.Visibility (finish_visibility vis)];   
+            annotations = finish_annotations annotations;   
             ret_type    = if is_constructor then None else Some (fctype ret_type);
             name        =  name;
             parameters  = List.map finish_arg args;
-            body        = fstmt stmt;
+            body        = List.map fstmt stmts;
         }
     | S.BBImpl bbterm ->
         let body = T.RawStmt (
@@ -221,10 +228,10 @@ and finish_method place ({vis; ret_type; name; body; args; is_constructor}: S._m
             else
                 bbterm.value.body
         ) in
-        let body = {place = bbterm.place; value = body } in
+        let body = [{place = bbterm.place; value = body }] in
 
         T.MethodDeclaration {
-            annotations = [T.Visibility (finish_visibility vis)];   
+            annotations = finish_annotations annotations;   
             ret_type    = if is_constructor then None else Some (fctype ret_type);
             name;
             parameters  = List.map finish_arg args;
@@ -233,6 +240,9 @@ and finish_method place ({vis; ret_type; name; body; args; is_constructor}: S._m
 and fmethod m : T.str_items = {place=m.place; value=T.Body (finish_place finish_method m)}
 
 and finish_actor place ({name; methods; states; events; nested_items}: S._actor): T._str_items =
+    (* At most one constructor *)
+    assert( List.length (List.filter (function (m:S.method0) -> m.value.is_constructor) methods) <= 1);
+
     (** FIXME public/protected/private should parametrized*)
 
     let extended_type = T.ClassOrInterfaceType (
@@ -285,6 +295,21 @@ and finish_term place : S._term -> T._str_items = function
             }
         }
     )
+    | ClassOrInterfaceDeclaration cdcl ->T.Body (
+        { 
+            place;
+            value = T.ClassOrInterfaceDeclaration {
+                isInterface = cdcl.isInterface;
+                annotations = finish_annotations cdcl.annotations;
+                name = cdcl.name;
+                parameters = []; 
+                extended_types = [];
+                implemented_types = [];
+                body = List.map fterm cdcl.body 
+            }
+        }
+    ) 
+    | MethodDeclaration m -> (fmethod m).value
     | RawClass (x, raw) ->  T.Body (
         { 
             place;

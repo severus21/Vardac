@@ -22,7 +22,7 @@ entry:
 
 blacbox_body:
 | b = BLACKBOX_BODY 
-    { b }
+    { String.trim b }
 
 any_var:
 | x = right_flexible_list(DOUBLE_COLON, LID)
@@ -69,7 +69,7 @@ any_term_:
 | c=any_component_impl
     { ComponentImpl c }
 | t_impl = any_type_impl
-    { TypedefImpl t_impl }
+    { TypeImpl t_impl }
 %inline any_term:
     t = placed(any_term_)
     { t }

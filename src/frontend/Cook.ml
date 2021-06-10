@@ -1,7 +1,11 @@
 open Core 
+open Utils
 open Core.Error
 open Core.Builtin
+open Easy_logging
 open Fieldslib
+
+let logger = Logging.make_logger ("_1_ compspec.frontend") Debug [];;
 
 (* The source calculus. *)
 module S = Ast 
@@ -388,15 +392,19 @@ and cook_method0 cenv place : S._method0 -> cookenv * T._method0 = function
     let new_cenv, name = bind_this cenv place m.name in 
     let inner_cenv, args = List.fold_left_map cparam cenv m.args in
 
+    let rec remove_empty_stmt = function
+        | [] -> []
+        | {AstUtils.place=_;value=S.EmptyStmt}::stmts -> remove_empty_stmt stmts
+        | stmt::stmts -> stmt::(remove_empty_stmt stmts)
+    in
+
     new_cenv, T.CustomMethod {
         ghost = m.ghost;
         ret_type = cmtype cenv m.ret_type;
         name;
         args;
         contract_opt = None; (* Pairing between contract and method0 is done during a next pass, see. Core.PartialEval.ml *)
-        body = match m.abstract_impl with
-                            | {place=_;value=S.EmptyStmt} -> None
-                            | stmt -> Some (snd(cstmt inner_cenv stmt))
+        body = snd (List.fold_left_map cstmt inner_cenv (remove_empty_stmt m.abstract_impl))
     } 
 | S.OnStartup m -> 
     let new_cenv, new_m = cmethod0 cenv m in
@@ -438,6 +446,16 @@ and ccitem cenv: S.component_item -> cookenv * T.component_item = cook_place coo
 
 and cook_component_dcl cenv place : S._component_dcl -> cookenv * T._component_dcl = function
 | S.ComponentStructure cdcl -> 
+
+    (* Check that there is at most one constructor/destructor per component *)
+    let constructors = List.filter (function |{AstUtils.value=S.Method {value= S.OnStartup _; _};_} -> true | _-> false) cdcl.body in 
+    if List.length constructors > 1 then
+        Error.error (List.flatten (List.map (function (item:S.component_item) -> item.place) constructors)) "multiple onstartup in component %s" cdcl.name;
+
+    let destructors = List.filter (function |{AstUtils.value=S.Method {value= S.OnDestroy _; _};_} -> true | _-> false) cdcl.body in 
+    if List.length destructors > 1 then
+        Error.error (List.flatten (List.map (function (item:S.component_item) -> item.place) destructors)) "multiple ondestroy in component %s" cdcl.name;
+
     let new_cenv, name = bind_component cenv place cdcl.name in
     let inner_cenv, args = List.fold_left_map cparam cenv cdcl.args in
 
@@ -484,11 +502,16 @@ and cook_term cenv place : S._term -> cookenv * T._term = function
     let new_cenv, new_c = ccdcl cenv c in
     new_cenv, T.Component new_c
 
-| S.Typedef (x, mt_opt) ->
+| S.Typealias (x, mt_opt) ->
     let new_cenv, y = bind_type cenv place x in
-    (* Deriving type constructor *)
-    let new_cenv, _ = bind_expr new_cenv place (String.lowercase_ascii x) in
-    new_cenv, T.Typedef (y, Option.map (cmtype cenv) mt_opt)
+    (* No type constructor for alias *)
+    new_cenv, T.Typealias (y, Option.map (cmtype cenv) mt_opt)
+| S.Typedef (x, args) ->
+    let new_cenv1, y = bind_type cenv place x in
+    (* Type constructor for typedef *)
+    let new_cenv2, _ = bind_expr new_cenv1 place (String.lowercase_ascii x) in
+    new_cenv2, T.Typedef (y, List.map (cmtype cenv) args, ())
+
 and cterm cenv: S.term -> cookenv * T.term = cook_place cook_term cenv
 
 let cook_program places terms =    

@@ -1,5 +1,7 @@
 open IR
 open Easy_logging
+open Utils
+
 let logger = Logging.make_logger "_1_ compspec" Debug [Cli Debug];;
 
 (*
@@ -13,7 +15,7 @@ let logger = Logging.make_logger "_1_ compspec" Debug [Cli Debug];;
 module Env = Atom.AtomMap 
 
 type env = { 
-    named_types: (main_type option) Env.t; (* namely the list of typedef with their current definition, 
+    named_types: (main_type option) Env.t; (* namely the list of typealias with their current definition, 
     none means that it is an abstract type *)
     terminal_expr_assignements: expr Env.t (* x -> LitExpr _*)
 } [@@deriving fields] 
@@ -49,7 +51,42 @@ let rec peval_place peval_value env ({ AstUtils.place ; AstUtils.value}: 'a AstU
     let env, value = peval_value env place value in
     env, {AstUtils.place; AstUtils.value}
 
-let rec peval_composed_type env place : _composed_type -> env * _composed_type = function ct -> env, ct
+let rec peval_composed_type env place : _composed_type -> env * _composed_type = function
+| TArrow (mt1, mt2) -> 
+    let _, mt1 = pe_mtype env mt1 in
+    let _, mt2 = pe_mtype env mt2 in
+    env, TArrow (mt1, mt2)
+| TVar x ->  env, TVar x (*TVar is process by the pe_main_type because it should be able to be evaluated to any type*)
+
+| TFlatType ft -> env, TFlatType ft 
+| TDict (mt1, mt2) -> 
+    let _, mt1 = pe_mtype env mt1 in
+    let _, mt2 = pe_mtype env mt2 in
+    env, TDict (mt1, mt2)
+| TList mt ->
+    let _, mt = pe_mtype env mt in 
+    env, TList mt 
+| TOption mt ->
+    let _, mt = pe_mtype env mt in 
+    env, TOption mt
+| TResult (mt1, mt2) -> 
+    let _, mt1 = pe_mtype env mt1 in
+    let _, mt2 = pe_mtype env mt2 in
+    env, TResult (mt1, mt2)
+| TSet mt ->
+    let _, mt = pe_mtype env mt in 
+    env, TSet mt
+| TTuple mts ->
+    let mts = List.map (snd <-> pe_mtype env) mts in
+    env, TTuple mts
+
+(** Message-passing *)
+| TBridge { in_type; out_type; protocol} ->
+    env, TBridge {
+        in_type = (snd <-> pe_mtype env) in_type;
+        out_type = (snd <-> pe_mtype env) out_type;
+        protocol = (snd <-> pe_mtype env) protocol 
+    }
 and pe_ctype env: composed_type -> env * composed_type = peval_place peval_composed_type env
 
 
@@ -61,26 +98,17 @@ and peval_stype env place : _session_type -> env * _session_type =
     in function  
     | STEnd -> env, STEnd
     | STInline x -> begin
-        (*
-        let rec assert_is_stype = function  
-            | SType _ -> () 
-            | ConstrainedType (mt, _) -> assert_is_stype mt.value  
-            | _ -> Error.error place "STInline parameter can not be resolved to a session types. It is resolved to %s" (Error.show place)
-        in
-        *)
-
         try
             let mt = Env.find x env.named_types in
             (* assert_is_stype mt.value;
             env, mt.value*)
             match mt with 
             | Some {value=SType st; _} -> env, st.value 
-            (* FIXME do we want to have the place of the inline (current behviour) or the place of the typedef ??*)
+            (* FIXME do we want to have the place of the inline (current behviour) or the place of the typealias ??*)
             | _ -> Error.error place "STInline parameter can not be resolved to a session types. It is resolved to %s" (Error.show place)
             
         with Not_found -> raise (Error.DeadbranchError "Unbounded inline variable, this should have been checked by the cook pass.")
     end
-
     | STBranch entries -> 
         env, STBranch (List.map aux_entry entries) 
     | STTimeout (time, st) -> begin 
@@ -103,24 +131,31 @@ and peval_stype env place : _session_type -> env * _session_type =
         env, STSend (mt', st')
     | STVar (x, constraint_opt) -> 
         env, STVar (x, Option.map (function elmt -> snd (peval_applied_constraint env elmt)) constraint_opt )
-
 and pe_stype env: session_type -> env * session_type = peval_place peval_stype env
 
+and is_type_of_component x = Str.string_match (Str.regexp "[A-Z].*") (Atom.hint x) 0
+
 and peval_mtype env place : _main_type -> env * _main_type = function 
-| CType {value=TVar x; _} as mt when  not(Atom.is_builtin x) ->
-    (* get ride of session types aliasing *)
+| CType {value=TVar x; _} as mt when not(Atom.is_builtin x) && not(is_type_of_component x) -> (* when the type do not denote a  x) 0component *)
+    (* get ride of types aliasing *)
     (* TODO rename aux *)
-    let rec aux x =
+    let rec aux already_seen x =
+        if (Atom.Set.find_opt x already_seen) <> None then
+            Error.error place "cyclic type alias detected"
+        ;
+        let already_seen = Atom.Set.add x already_seen in
+            
         try 
-            let mt' = Env.find x env.named_types in    
-            match mt' with 
-            | Some {value=SType st; _} -> 
-                SType st (* NB: we use the place of the alias and not the place of the definition here *)
-            | Some{value=CType {value=TVar y; _}; _} -> aux y (* keep searching the root *)
-            | _ -> mt
+            let mt1_opt = Env.find x env.named_types in    
+            match mt1_opt with 
+            | None -> mt (* type alias with alias in impl or typedef *)
+            (* Some implies type alias *)
+            | Some {value=CType {value=TVar y; _}; _} -> 
+                aux already_seen y (* keep searching the root *)
+            | Some mt1 -> mt1.value (* NB: we use the place of the alias and not the place of the definition here *)
         with Not_found -> raise (Error.DeadbranchError "Unbounded type variable, this should have been checked by the cook pass.")
     in
-    env, aux x 
+    env, aux Atom.Set.empty x 
 | CType ct -> env, CType (snd (pe_ctype env ct))
 | SType st -> env, SType (snd(pe_stype env st)) 
 | ConstrainedType (mt, cst) -> env, ConstrainedType (
@@ -426,7 +461,7 @@ and peval_method env place = function
     env, CustomMethod {m with
             ret_type = snd(pe_mtype env m.ret_type);
             args = List.map (function param -> snd(pe_param env param)) m.args;
-            body = Option.map (function stmt -> snd(pe_stmt env stmt)) m.body;
+            body = List.map (snd <-> pe_stmt env) m.body;
             contract_opt = contract_opt
     } 
 | OnStartup m -> env, OnStartup (snd (pe_method env m)) 
@@ -528,22 +563,30 @@ and peval_term env place : _term -> env * _term = function
 | Comments c -> env, Comments c
 | Stmt stmt -> map_snd (fun x -> Stmt x) (pe_stmt env stmt)
 | Component comp -> map_snd (fun x -> Component x) (pe_component_dcl env comp)
-| Typedef (x, mt_opt) -> begin
+| Typealias (x, mt_opt) -> begin
     match mt_opt with
     | None -> 
         let new_env = bind_named_types env x None in
-        new_env, Typedef (x, None)
+        new_env, Typealias (x, None)
     | Some mt -> 
         let _, mt = pe_mtype env mt in 
         let new_env = bind_named_types env x (Some mt) in
-        new_env, Typedef (x, Some mt)
+        new_env, EmptyTerm (*Typealias (x, Some mt)*)
 end
+| Typedef (x, args, ()) -> 
+    let new_env = bind_named_types env x None in
+    let args = List.map (function mt -> snd(pe_mtype env mt)) args in
+    new_env, Typedef (x, args, ())
 and pe_term env: term -> env * term = peval_place peval_term env
+
+and pe_terms env terms : env * IR.term list =
+    let env, program = List.fold_left_map pe_term (fresh_env ()) terms in
+    env, List.filter (function |{AstUtils.value=EmptyTerm; _} -> false | _-> true) program
 
 and peval_program (terms: IR.program) : IR.program = 
     (*  Hydrate env, namely:
         -  collect the contract
         And remove contracts from component_item + add contract inside method0 structure *)
-    let env, program = List.fold_left_map pe_term (fresh_env ()) terms in
+    let env, program = pe_terms (fresh_env ()) terms in
     program
 

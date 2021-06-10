@@ -43,7 +43,7 @@ and _body =
         ret_type: jtype option; (* None for constructor, Some _ otherwise *)
         name: variable;
         parameters: parameter list;
-        body: stmt 
+        body: stmt list
     } (*GADT stmt of type blockstatemtn*)
     | FieldDeclaration of { 
         annotations: annotation list;

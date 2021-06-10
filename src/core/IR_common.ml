@@ -45,6 +45,8 @@ and _composed_type =
         out_type: main_type;
         protocol: main_type;
     }
+
+    | TRaw of Impl_common.blackbox_term (*TODO move it to IRI by doing so composed type should not be any more in common *)
 and composed_type = _composed_type placed
 
 and _session_type =  

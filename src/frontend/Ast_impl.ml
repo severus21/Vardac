@@ -26,7 +26,7 @@ and component_impl = { name: variable; body: component_item_impl list}
 and type_impl = {name: variable; body: blackbox_term}
 and _term =
     | ComponentImpl of component_impl
-    | TypedefImpl of type_impl
+    | TypeImpl of type_impl
 
 and term = _term placed
 

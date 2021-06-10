@@ -161,7 +161,7 @@ and output_body out : _body -> unit = function
             (fun out opt-> ignore (Option.map (fprintf out "%a " ojtype) opt)) m.ret_type 
             output_var m.name 
             output_args m.parameters 
-            (pp_list "" ostmt) [m.body] 
+            (pp_list "" ostmt) m.body 
 and obody out : body -> unit = function b ->
     match Config.provenance_lvl () with
     | Config.None -> output_body out b.value

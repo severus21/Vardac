@@ -7,10 +7,13 @@ open Label
 module type IRParams = sig
   type _state_dcl_body
   type _custom_method0_body
+  type _typealias_body
   type _typedef_body
+  val show__typealias_body :  _typealias_body -> Ppx_deriving_runtime.string
   val show__typedef_body :  _typedef_body -> Ppx_deriving_runtime.string
   val show__state_dcl_body :  _state_dcl_body -> Ppx_deriving_runtime.string
   val show__custom_method0_body : _custom_method0_body ->  Ppx_deriving_runtime.string
+  val pp__typealias_body : Ppx_deriving_runtime.Format.formatter -> _typealias_body -> Ppx_deriving_runtime.unit
   val pp__typedef_body : Ppx_deriving_runtime.Format.formatter -> _typedef_body -> Ppx_deriving_runtime.unit
   val pp__state_dcl_body : Ppx_deriving_runtime.Format.formatter -> _state_dcl_body -> Ppx_deriving_runtime.unit
   val pp__custom_method0_body : Ppx_deriving_runtime.Format.formatter -> _custom_method0_body -> Ppx_deriving_runtime.unit
@@ -22,10 +25,13 @@ module Make (Params : IRParams) = struct
   include IR_common
   type _state_dcl_body = Params._state_dcl_body
   type _custom_method0_body = Params._custom_method0_body
+  type _typealias_body = Params._typealias_body
   type _typedef_body = Params._typedef_body
+  let show__typealias_body = Params.show__typealias_body
   let show__typedef_body = Params.show__typedef_body
   let show__state_dcl_body = Params.show__state_dcl_body
   let show__custom_method0_body = Params.show__custom_method0_body
+  let pp__typealias_body = Params.pp__typealias_body
   let pp__typedef_body = Params.pp__typedef_body
   let pp__state_dcl_body = Params.pp__state_dcl_body
   let pp__custom_method0_body = Params.pp__custom_method0_body
@@ -123,21 +129,23 @@ module Make (Params : IRParams) = struct
   and signature_dcl = 
     | CSig of variable * pattern_expr list * signature_item list  (*name, args, body*)
   *)
+    
+    (************************************ Program *****************************)
+    and _term =
+        | EmptyTerm
+        | Comments of comments
+        
+        (* Dynamic part*)
+        | Stmt of stmt
 
-  (************************************ Program *****************************)
-  and _term =
-      | Comments of comments
-      
-      (* Dynamic part*)
-      | Stmt of stmt
+        (** Structure part*)
+        | Component of component_dcl
 
-      (** Structure part*)
-      | Component of component_dcl
-
-      (* Static part*)
-      (*TODO | SignatureDcl of signature_dcl*)   
-      | Typedef of variable * _typedef_body
-  and term = _term placed
+        (* Static part*)
+        (*TODO | SignatureDcl of signature_dcl*)   
+        | Typealias of variable * _typealias_body
+        | Typedef of variable * main_type list * _typedef_body 
+    and term = _term placed
 
   and program = term list
 

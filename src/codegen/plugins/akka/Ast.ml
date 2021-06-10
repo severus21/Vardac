@@ -24,6 +24,7 @@ and _ctype =
     | TVoid
 
     | TParam of ctype * ctype list (* Type parametric (ct, [arg_1; .. arg_n]) -> ct<arg_1, .., arg_n>*)
+    | TRaw of string
 and ctype =_ctype placed
 
 (************************************ Expr & Stmt *****************************)
@@ -77,13 +78,16 @@ and visibility =
     | Private
     | Protected
     | Public
-
+and annotation =
+    | Visibility of visibility
+    | Static 
+    | Final
 and method0_body = 
-| AbstractImpl of stmt
+| AbstractImpl of stmt list
 | BBImpl of Impl_common.blackbox_term
 
 and _method0 = {
-    vis: visibility;
+    annotations: annotation list;
     ret_type: ctype;
     name: variable;
     body: method0_body;
@@ -146,6 +150,12 @@ and _term =
 
 (** Other *)
 | Class of variable 
+| ClassOrInterfaceDeclaration of {
+    isInterface:bool; 
+    annotations: annotation list;
+    name: variable;
+    body: term list} 
+| MethodDeclaration of method0
 | RawClass of variable *raw 
 | TemplateClass of raw 
 | Stmt of stmt 

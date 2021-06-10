@@ -37,6 +37,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
 [
     (* type *)
     "type", TYPE;
+    "of", OF;
 
     (* binders *)
     "in", IN;
