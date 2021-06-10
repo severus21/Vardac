@@ -88,10 +88,10 @@ let rec finish_place finish_value ({ AstUtils.place ; AstUtils.value}: 'a AstUti
 
 (************************************ Types **********************************)
 let rec finish_ctype place : S._composed_type ->  T._ctype = function
-    | S.TActivationInfo mt -> T.ActorRef (fst(fmtype mt)) 
+    | S.TActivationInfo mt -> T.ActorRef (fmtype mt) 
     | S.TArrow (m1, m2) -> T.TFunction (
-        fst(fmtype m1), 
-        fst(fmtype m2)
+        fmtype m1,
+        fmtype m2
     )
 
     | S.TVar x -> T.TVar x 
@@ -103,81 +103,30 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
         | S.TVoid -> TVoid
         | _ -> Core.Error.error place "TActivationInfo/Place/VPlace/Label type not yey supported."
     end
-    | S.TDict (m1, m2) -> T.TMap (fst(fmtype m1), fst(fmtype m2))
-    | S.TList mt -> T.TList (fst(fmtype mt))
-    | S.TOption mt -> T.TOption (fst(fmtype mt))
-    | S.TResult (m1, m2) -> T.TResult (fst(fmtype m1), fst(fmtype m2))
-    | S.TSet mt -> T.TSet (fst(fmtype mt))
-    | S.TTuple mts ->  T.TTuple (List.map (fun x -> (fst(fmtype x))) mts)
+    | S.TDict (m1, m2) -> T.TMap (fmtype m1, fmtype m2)
+    | S.TList mt -> T.TList (fmtype mt)
+    | S.TOption mt -> T.TOption (fmtype mt)
+    | S.TResult (m1, m2) -> T.TResult (fmtype m1, fmtype m2)
+    | S.TSet mt -> T.TSet (fmtype mt)
+    | S.TTuple mts ->  T.TTuple (List.map (fun x -> (fmtype x)) mts)
     | S.TBridge b -> T.Atomic "lg4dc.protocol.Bridge" (*TODO*)
     | S.TRaw bbraw -> T.TRaw bbraw.value.body
 and fctype ct :  T.ctype = finish_place finish_ctype ct
 
-and event_name_of_ftype place : S.flat_type -> string = function
-| S.TBool -> "Bool"
-| S.TInt -> "Int"
-| S.TFloat -> "Float"
-| S.TStr -> "Str"
-| S.TLabel -> "Label"
-| S.TVoid -> "Void"
-| S.TPlace -> "Place"
-| S.TVPlace -> "VPlace"
-
-and event_name_of_ctype place : S._composed_type -> string = function 
-| S.TArrow _ -> Core.Error.error place "Arrow type can not be translated to a serializable Akka event."
-| S.TVar x -> Atom.value x (* FIXME do we need also the hint ?? *)
-| S.TFlatType ft -> event_name_of_ftype place ft
-| S.TDict (mt1, mt2) | TResult (mt1, mt2) -> (_event_name_of_mtype mt1) ^ (_event_name_of_mtype mt2) 
-| S.TList mt | S.TOption mt | S.TSet mt -> _event_name_of_mtype mt 
-| S.TTuple mts -> List.fold_left (fun acc mt -> acc ^ (_event_name_of_mtype mt)) "" mts
-| S.TRaw raw -> 
-    let normalize str =
-        let str = String.trim str in
-        String.map ( function
-            | '<' -> '_'
-            | '>' -> '_'
-            | c -> c
-        ) str
-    in 
-    logger#warning "TRaw is used for generating event name"; (normalize raw.value.body)
-
-and _event_name_of_mtype : S.main_type ->  string = function
-| {place; value=S.CType ct} -> event_name_of_ctype ct.place ct.value
-| {place; _} -> Core.Error.error place "Session types, component types can not be translated to a serializable Akka event."
-and event_name_of_mtype  mt : T.variable = 
-(* TODO we should traverse all the recurisve type to ensure that we do not send/receive unserializable things -> maybe we should do this verification after the partial evaluation pass *)
-Atom.fresh (Printf.sprintf "%sEvent" (_event_name_of_mtype mt ))
-
-(*
-take the list of labels of a STBranch/STSelect and generate a related EventName. This Event will have a value of type string with the label value inside.
-*)
-and event_name_of_labels (labels: S.variable list) : T.variable = 
-    try
-        LabelsEnv.find labels !general_fenv.labels
-    with Not_found -> begin
-        let name = Atom.fresh "LabelEvent" in
-
-        (* Update *)
-        let labels_env = LabelsEnv.add labels name !general_fenv.labels in 
-        general_fenv := {!general_fenv with labels = labels_env };
-
-        name
-    end
-
 (* Represent an ST object in Java type *)
-and encode_stype place : S._session_type -> T._ctype = function 
+and finish_stype place : S._session_type -> T._ctype = function 
     | S.STEnd -> T.TVar (Atom.fresh_builtin "lg4dc.protocol.STEnd") 
     | (S.STSend (mt, st) as st0) | (S.STRecv (mt, st) as st0) -> begin 
         match fmtype mt with
-        | ct, [] ->
+        | ct ->
             T.TParam (
                 {
                     place;
                     value =  T.TVar (Atom.fresh_builtin (match st0 with | S.STSend _ -> "lg4dc.protocol.STSend" | STRecv _ -> "lg4dc.protocol.STSend"))
                 },
-                [ct; estype st]
+                [ct; fstype st]
             )
-        | _,_ -> raise (Core.Error.DeadbranchError "finish_stype : STSend/STRecv type should not be a session type.")
+        | _ -> raise (Core.Error.DeadbranchError "finish_stype : STSend/STRecv type should not be a session type.")
     end
     | (S.STBranch xs as st0) | (S.STSelect xs as st0) ->
         let rec built_t_hlist = function
@@ -192,7 +141,7 @@ and encode_stype place : S._session_type -> T._ctype = function
                             place = st.place;
                             value = T.TVar (Atom.fresh_builtin "lg4dc.protocol.STEntry")
                         },
-                        [estype st]
+                        [fstype st]
                     )}
                 ] @ [(built_t_hlist sts)] 
             )}
@@ -214,72 +163,23 @@ and encode_stype place : S._session_type -> T._ctype = function
                 place;
                 value = T.TVar (Atom.fresh_builtin "lg4dc.protocol.STRec")
             },
-            [ estype st]
+            [ fstype st]
         )
 
     | S.STInline x -> 
         raise (Error.DeadbranchError "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass.")
-and estype st : T.ctype = finish_place encode_stype st
-
-(* @param k order of the mtype in the protocol *)
-(*
-        @return (ct_opt, events) -> ct_opt is 
-*)
-and stype_to_events ?k:(k=0) ({place;value} : S.session_type) : T.event list  = 
-match value with 
-    | S.STEnd -> [] (* Optimization: generation of a mock EndEvent is not needed *)
-    | S.STSend (mt, st) | S.STRecv (mt, st) -> begin 
-        let name =  event_name_of_mtype mt in
-        let events = stype_to_events ~k:(k+1) st in 
-
-        match fmtype mt with
-        | ct, [] ->
-            { 
-                place = mt.place; 
-                value = {
-                    T.vis=T.Public; 
-                    T.name= name;
-                    T.kind=T.Event; 
-                    T.args=[(ct, Atom.fresh_builtin "value")]
-                }
-            }::events
-        | _,_ -> raise (Core.Error.DeadbranchError "finish_stype : STSend/STRecv type should not be a session type.")
-    end
-    | (S.STBranch xs as st0 )| (S.STSelect xs as st0) ->
-        let labels = List.fold_left (fun acc (label, _,_) -> label::acc) [] xs in
-
-        let mock_place : Error.place = Error.forge_place "plugins/akka/Finish.ml" 0 0 in
-        let ct = fst(finish_mtype mock_place (S.CType ({place=mock_place; value=S.TFlatType S.TStr}))) in
-
-        let aux (label, (st: S.session_type), _) = 
-            let events = stype_to_events ~k:(k+1) st in
-            {   place = st.place;
-                value = 
-                {
-                    T.vis=T.Public; 
-                    T.name= event_name_of_labels labels; 
-                    T.kind=T.Event; T.args=[(ct, Atom.fresh_builtin "value")]
-                }
-            }::events
-        in
-        List.flatten (List.map aux xs)
-    | S.STVar _ -> [] (*No need to signal the start of a new round*)
-    | S.STRec (_,st) ->
-        stype_to_events ~k:(k+1) st
-    | S.STInline x -> 
-        raise (Error.DeadbranchError "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass.")
-    | S.STTimeout _ -> failwith "Akka.finish does not support STTimeout yet"
+and fstype st : T.ctype = finish_place finish_stype st
 
 and finish_component_type place : S._component_type -> T._ctype = function
 | S.CompTUid x -> T.TVar x 
 and fcctype ct : T.ctype = finish_place finish_component_type ct
 
-and finish_mtype place : S._main_type -> T.ctype * T.event list = function
-| S.CType ct -> fctype ct, [] 
-| S.SType st -> estype st, stype_to_events st
-| S.CompType ct -> fcctype ct, []
+and finish_mtype place : S._main_type -> T.ctype = function
+| S.CType ct -> fctype ct 
+| S.SType st -> fstype st
+| S.CompType ct -> fcctype ct
 | _ -> Core.Error.error place "Akka: Type translation is only supported for composed types and session types"
-and fmtype : S.main_type ->  T.ctype * T.event list  = function mt -> finish_mtype mt.place mt.value
+and fmtype : S.main_type ->  T.ctype = function mt -> finish_mtype mt.place mt.value
 
 (************************************ Literals *****************************)
 
@@ -389,7 +289,7 @@ and finish_stmt place : S._stmt -> T._stmt = function
                 {place; value= T.VarExpr x})
             },
             fexpr e)        
-    | S.LetExpr (mt, x, e) ->  T.LetStmt (fst (fmtype mt), x, Some (fexpr e))                             
+    | S.LetExpr (mt, x, e) ->  T.LetStmt (fmtype mt, x, Some (fexpr e))                             
 
     (*S.* Comments *)
     | S.CommentsStmt comments -> T.CommentsStmt comments.value
@@ -414,7 +314,7 @@ and fstmt stmt : T.stmt = finish_place finish_stmt stmt
 (* return type is T._expr for now, since we built only one state with all the variable inside FIXME *)
 and finish_state place : S._state -> T._stmt = function 
     | S.StateDcl {ghost; kind; type0; name; body = S.InitExpr e} -> 
-        T.LetStmt (fst (fmtype type0), name, Some (fexpr e))
+        T.LetStmt (fmtype type0, name, Some (fexpr e))
     | S.StateDcl {ghost; kind; type0; name; body = S.InitBB bb_term} -> 
         let re = 
             if bb_term.value.template then 
@@ -422,14 +322,14 @@ and finish_state place : S._state -> T._stmt = function
             else
                 bb_term.value.body
         in
-        T.LetStmt (fst (fmtype type0), name, Some ({place=bb_term.place; value = T.RawExpr re}))
+        T.LetStmt (fmtype type0, name, Some ({place=bb_term.place; value = T.RawExpr re}))
     (*use global x as y;*)
     | S.StateAlias {ghost; kind; type0; name} -> failwith "finish_state StateAlias is not yet supported" 
 and fstate s : T.stmt = finish_place finish_state s
 
 
 and finish_param place : S._param -> (T.ctype * T.variable) = function
-| mt, x -> fst(fmtype mt), x
+| mt, x -> fmtype mt, x
 and fparam : S.param -> (T.ctype * T.variable) = function p -> finish_param p.place p.value
 
 
@@ -598,7 +498,7 @@ and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._m
             place;
             value = { 
                 annotations     = [ T.Visibility T.Public ]; 
-                ret_type        = fst (fmtype m0.ret_type);
+                ret_type        = fmtype m0.ret_type;
                 name            = if is_constructor then actor_name else m0.name;
                 args            = (List.map fparam m0.args);
                 body            = body; 
@@ -645,7 +545,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                     T.name= name;
                     T.kind=T.Event; 
                     T.args=List.mapi ( fun i mt ->
-                        (fst <-> fmtype) mt, Atom.fresh_builtin ("value"^(string_of_int i))
+                        fmtype mt, Atom.fresh_builtin ("value"^(string_of_int i))
                     ) mts
                 }
             }
@@ -677,11 +577,11 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         let expecting_msg_types = match p.value.expecting_st.value with 
         | S.SType st -> begin
             match st.value with
-            | S.STRecv (msg_type,_) -> fst(fmtype msg_type)
+            | S.STRecv (msg_type,_) -> fmtype msg_type
             | S.STBranch xs -> 
                 let labels = List.fold_left (fun acc (label, _,_) -> label::acc) [] xs in
-
-                {place=st.place; value=T.TVar (event_name_of_labels labels)}
+                failwith "TRUC"
+                (*{place=st.place; value=T.TVar (event_name_of_labels labels)}*)
             | S.STEnd | S.STVar _ |S.STRecv _-> failwith "TOTO"
             | S.STSend _-> failwith "TATA"
             | S.STInline _ -> failwith "TITI"
@@ -780,13 +680,13 @@ and finish_term place : S._term -> T.term list = function
                 T.name= name;
                 T.kind=T.Event; 
                 T.args=List.mapi ( fun i mt ->
-                    (fst <-> fmtype) mt, Atom.fresh_builtin ("value"^(string_of_int i))
+                    fmtype mt, Atom.fresh_builtin ("value"^(string_of_int i))
                 ) mts
             }
         }
     }]
 | S.Typedef  {value= ClassicalDef (name, args, None) as tdef; place} -> (* implicit constructor should translate to akka *)
-    let args = List.map (function (arg:T.ctype) -> (arg, Atom.fresh "arg")) (List.map (fst <-> fmtype) args) in
+    let args = List.map (function (arg:T.ctype) -> (arg, Atom.fresh "arg")) (List.map fmtype args) in
     let constructor_body = 
         let place = (Error.forge_place "Plg=Akka/finish_term/typedef/implicit_constructor" 0 0) in
         let aux (_, arg_name) = 
