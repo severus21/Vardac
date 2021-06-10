@@ -41,19 +41,19 @@ let general_fenv = ref (fresh_fenv())
 
 type items_grps = { 
     methods: S.method0 list; 
+    eventdefs: S.typedef list;
     states: S.state list; 
     nested: S.component_dcl list; 
     ports: S.port list;
-    typealiass: (S.variable * S._typealias_body) list;
     others: S.term list
 }
 
 let fresh_items_grp () = { 
     methods     = [];
+    eventdefs    = [];
     states      = [];
     nested      = [];
     ports       = [];
-    typealiass    = [];
     others      = [];
 }
 
@@ -65,18 +65,18 @@ let group_cdcl_by (citems:  S.component_item list) : items_grps =
         | S.State f-> {grp with states=f::grp.states}
         | S.Port p -> {grp with ports=p::grp.ports}
         (* Shallow search of Typealias, FIXME do we need deep search ?*)
-        | S.Term {place; value=S.Typealias (v,mt)} -> {grp with typealiass=(v,mt)::grp.typealiass}
         | S.Term {place; value=S.Component cdcl} -> {grp with nested=cdcl::grp.nested}
+        | S.Term {place; value=S.Typedef ({value=EventDef _;_} as edef)} -> {grp with eventdefs=edef::grp.eventdefs}
         | S.Term t -> {grp with others=t::grp.others}
     in
 
     let grp = (List.fold_left  dispatch (fresh_items_grp ()) citems) in 
         {
             methods=(List.rev grp.methods);
+            eventdefs=(List.rev grp.eventdefs);
             states=(List.rev grp.states) ; 
             nested=(List.rev grp.nested) ; 
             ports=(List.rev grp.ports) ; 
-            typealiass=(List.rev grp.typealiass) ; 
             others=(List.rev grp.others)
         }
 
@@ -88,6 +88,7 @@ let rec finish_place finish_value ({ AstUtils.place ; AstUtils.value}: 'a AstUti
 
 (************************************ Types **********************************)
 let rec finish_ctype place : S._composed_type ->  T._ctype = function
+    | S.TActivationInfo mt -> T.ActorRef (fst(fmtype mt)) 
     | S.TArrow (m1, m2) -> T.TFunction (
         fst(fmtype m1), 
         fst(fmtype m2)
@@ -113,7 +114,6 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
 and fctype ct :  T.ctype = finish_place finish_ctype ct
 
 and event_name_of_ftype place : S.flat_type -> string = function
-| S.TActivationInfo -> Core.Error.error place "TActivationInfo type can not be translated to a serializable Akka event."
 | S.TBool -> "Bool"
 | S.TInt -> "Int"
 | S.TFloat -> "Float"
@@ -285,6 +285,7 @@ and fmtype : S.main_type ->  T.ctype * T.event list  = function mt -> finish_mty
 
 and finish_literal place : S._literal -> T._literal = function
     | S.EmptyLit -> T.EmptyLit
+    | S.VoidLit -> T.VoidLit
     | S.BoolLit b -> T.BoolLit b
     | S.FloatLit f -> T.FloatLit f
     | S.IntLit i -> T.IntLit i
@@ -635,7 +636,22 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         | _, Some ({Core.AstUtils.place; Core.AstUtils.value = S.SType st}) -> false
         | _ -> true
     in
-    let events = List.flatten (List.map (function x -> snd (fmtype x)) (List.filter_map (function x -> match snd x with |S.AbstractTypealias mt -> Some mt | _ -> None) grp_items.typealiass)) in
+    let events = List.map ( function
+        | {value=S.EventDef (name, mts, body); place} ->
+            { 
+                place = place; 
+                value = {
+                    T.vis=T.Public; 
+                    T.name= name;
+                    T.kind=T.Event; 
+                    T.args=List.mapi ( fun i mt ->
+                        (fst <-> fmtype) mt, Atom.fresh_builtin ("value"^(string_of_int i))
+                    ) mts
+                }
+            }
+    ) grp_items.eventdefs in
+       (* 
+        List.flatten (List.map (function x -> snd (fmtype x)) (List.filter_map (function x -> match snd x with |S.AbstractTypealias mt -> Some mt | _ -> None) (List.map (function |{value=S.EventDef (x, mts,body); _} -> (x, mts, body)) grp_items.eventdefs))) in*)
     
 
     (* Building states *)
@@ -754,7 +770,22 @@ and finish_term place : S._term -> T.term list = function
 }]
 | S.Typealias (v, S.AbstractTypealias body) -> raise (Error.DeadbranchError "partial evaluation should have removed type alias exept those from impl")
 | S.Typealias (v, S.BBTypealias body) as term -> raise (Error.DeadbranchError "should have been removed (and replaced) by clean_terms")
-| S.Typedef (name, args, None) -> (* implicit constructor should translate to akka *)
+|Typedef {value= EventDef (name, mts, None)as tdef; place = inner_place} ->
+    [{
+        place;
+        value = T.Event { 
+            place = inner_place; 
+            value = {
+                T.vis=T.Public; 
+                T.name= name;
+                T.kind=T.Event; 
+                T.args=List.mapi ( fun i mt ->
+                    (fst <-> fmtype) mt, Atom.fresh_builtin ("value"^(string_of_int i))
+                ) mts
+            }
+        }
+    }]
+| S.Typedef  {value= ClassicalDef (name, args, None) as tdef; place} -> (* implicit constructor should translate to akka *)
     let args = List.map (function (arg:T.ctype) -> (arg, Atom.fresh "arg")) (List.map (fst <-> fmtype) args) in
     let constructor_body = 
         let place = (Error.forge_place "Plg=Akka/finish_term/typedef/implicit_constructor" 0 0) in
@@ -803,10 +834,13 @@ and finish_term place : S._term -> T.term list = function
             body = fields @ [constructor] 
         }
     }]
-| S.Typedef (v, _, Some body) when not body.value.template ->
-    [{place; value = T.RawClass (v, {place = body.place; value = body.value.body})}] 
-| S.Typedef (v, _, Some body) when body.value.template ->
-    [{place; value = T.TemplateClass {place=body.place; value = body.value.body}}]
+| S.Typedef {value = ClassicalDef (v, _, Some body); _} ->
+    if not body.value.template then (
+        [{place; value = T.RawClass (v, {place = body.place; value = body.value.body})}] 
+    ) else (
+        [{place; value = T.TemplateClass {place=body.place; value = body.value.body}}]
+    )
+| S.Typedef {value = EventDef (v, _, Some body); _} -> Error.error place "eventdef with body is not yet supported by the akka.finish"
 
 and fterm : S.term -> T.term list = function t -> finish_term t.place t.value
 

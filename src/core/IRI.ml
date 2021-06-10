@@ -204,9 +204,13 @@ and _type_replace_term to_be_replaced by = function
 | Stmt stmt -> Stmt (type_replace_stmt to_be_replaced by stmt)
 | Component cdcl -> Component (type_replace_component_dcl to_be_replaced by cdcl)
 | Typealias (x, body) -> Typealias (x, type_replace__typealias_body to_be_replaced by body)
-| Typedef (x, args, body) -> Typedef (
-    x, 
-    List.map (type_replace_main_type to_be_replaced by) args,
-    body)
+| Typedef {value= ClassicalDef (x, args, body) as tdef; place} | Typedef {value= EventDef (x, args, body) as tdef; place} -> 
+    let args = List.map (type_replace_main_type to_be_replaced by) args in 
+
+    Typedef ({ place; value = 
+        match tdef with
+        | ClassicalDef _ -> ClassicalDef (x, args, body)
+        | EventDef _ -> EventDef (x, args, body)
+    })
 | term -> term
 and type_replace_term to_be_replaced by = replace_place (_type_replace_term to_be_replaced by)

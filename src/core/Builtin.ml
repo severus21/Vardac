@@ -14,6 +14,10 @@ let builtin_fcts = [
     "pick", "TODO", "Random choice in a sequence, failed if empty";
     "children", "TODO", "child of places";
     "bridge", "() -> Bridge<'A, 'B, 'a>", "create a new bridge with a fresh id";
+    "initiate_session_with", "TODO", "TODO";
+    "fst", "TODO", "TODO";
+    "snd", "TODO", "TODO";
+    "print", "TODO", "TODO";
 ]
 
 let builtin_atomic_types = [

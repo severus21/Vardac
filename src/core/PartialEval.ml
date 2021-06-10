@@ -52,6 +52,7 @@ let rec peval_place peval_value env ({ AstUtils.place ; AstUtils.value}: 'a AstU
     env, {AstUtils.place; AstUtils.value}
 
 let rec peval_composed_type env place : _composed_type -> env * _composed_type = function
+| TActivationInfo mt -> env, TActivationInfo ((snd <-> pe_mtype env) mt)
 | TArrow (mt1, mt2) -> 
     let _, mt1 = pe_mtype env mt1 in
     let _, mt2 = pe_mtype env mt2 in
@@ -573,10 +574,15 @@ and peval_term env place : _term -> env * _term = function
         let new_env = bind_named_types env x (Some mt) in
         new_env, EmptyTerm (*Typealias (x, Some mt)*)
 end
-| Typedef (x, args, ()) -> 
+| Typedef {value= ClassicalDef (x, args, ()) as tdef; place} | Typedef {value= EventDef (x, args, ()) as tdef; place} -> 
     let new_env = bind_named_types env x None in
     let args = List.map (function mt -> snd(pe_mtype env mt)) args in
-    new_env, Typedef (x, args, ())
+
+    new_env, Typedef ({ place; value = 
+    match tdef with 
+        | ClassicalDef _ -> ClassicalDef (x, args, ())
+        | EventDef _ -> EventDef (x, args, ())
+    })
 and pe_term env: term -> env * term = peval_place peval_term env
 
 and pe_terms env terms : env * IR.term list =

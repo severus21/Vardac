@@ -15,7 +15,6 @@ and comments = _comments placed
 (************************************ Types **********************************)
 and flat_type = 
     (** Literal types *)
-    | TActivationInfo
     | TBool
     | TInt
     | TFloat 
@@ -26,6 +25,7 @@ and flat_type =
     | TVPlace
 
 and _composed_type =
+    | TActivationInfo of main_type
     | TArrow of main_type * main_type
 
     | TVar of variable
@@ -107,6 +107,7 @@ and vplaces = vplace list
 (************************************* Literals ******************************)
 
 and _literal = 
+    | VoidLit
     | EmptyLit 
     | BoolLit of bool
     | FloatLit of float 

@@ -13,6 +13,7 @@ and comments = Core.IR._comments
 and _ctype = 
     | Atomic of string (*int, float, ..*)           
     | Behavior of string 
+    | ActorRef of ctype
     | TFunction of ctype * ctype
     | TList of ctype 
     | TMap of ctype * ctype (*Map<String, String> map = new HashMap<String, String>();*)
@@ -34,6 +35,7 @@ and binop = IR.binop
 
 and _literal = 
     | EmptyLit 
+    | VoidLit
     | BoolLit of bool
     | FloatLit of float 
     | IntLit of int

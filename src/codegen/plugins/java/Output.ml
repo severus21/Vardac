@@ -63,11 +63,12 @@ and output_binop out = function
 and output_assignop out : assign_operator -> unit = function
     | AssignOp -> pp_print_string out "="
 and output_literal out : _literal -> unit = function
-    | EmptyLit ->  pp_print_string out "()"
+    | EmptyLit -> pp_print_string out "()" (* TODO EmptyLit is only a compiling artefact it sould not be use to write anything*)
     | BoolLit b -> pp_print_bool out b
     | FloatLit f -> pp_print_float out f 
     | IntLit i -> pp_print_int out i 
     | StringLit str -> fprintf out "\"%s\"" str 
+    | VoidLit -> pp_print_string out "()" 
 and oliteral out : literal -> unit = function lit ->
 match Config.provenance_lvl () with
 | Config.None | Config.Medium -> output_literal out lit.value

@@ -131,6 +131,11 @@ module Make (Params : IRParams) = struct
   *)
     
     (************************************ Program *****************************)
+    and _typedef = (* Two kind for type *) 
+    | ClassicalDef of variable * main_type list * _typedef_body
+    | EventDef of variable * main_type list * _typedef_body
+    and typedef = _typedef placed
+
     and _term =
         | EmptyTerm
         | Comments of comments
@@ -144,7 +149,7 @@ module Make (Params : IRParams) = struct
         (* Static part*)
         (*TODO | SignatureDcl of signature_dcl*)   
         | Typealias of variable * _typealias_body
-        | Typedef of variable * main_type list * _typedef_body 
+        | Typedef of typedef 
     and term = _term placed
 
   and program = term list

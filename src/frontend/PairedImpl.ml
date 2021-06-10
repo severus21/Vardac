@@ -148,6 +148,7 @@ and paired_term parents place : S2._term -> T._term = function
         T.Typealias (x, BBTypealias bb_impl.value.body) 
     with Not_found -> Error.error place "Typealias has no implementation (neither abstract nor blackbox)" 
 end
+(* FIXME TODO we do not distinguish between classical type and event when checkin gsould be done by addint an event_impls*)
 | S2.Typealias (x, Some mt) -> begin
     try 
         let key = List.rev ((Atom.hint x)::parents) in
@@ -155,13 +156,30 @@ end
         Error.error (place@bb_impl.place) "Type alias has two implementations : one abstract and one blackbox"
     with Not_found -> T.Typealias (x, AbstractTypealias mt) 
 end
-| S2.Typedef (x, args, ()) -> begin
+| S2.Typedef {value=ClassicalDef(x, args, ()); place} -> begin
     try 
         let key = List.rev ((Atom.hint x)::parents) in
         let bb_impl = Hashtbl.find type_impls key in
         mark_type key;
-        T.Typedef (x, args, Some bb_impl.value.body) 
-    with Not_found ->  T.Typedef (x, args, None)  (* Implict constructor *)
+        T.Typedef { 
+            place; 
+            value = ClassicalDef (x, args, Some bb_impl.value.body) 
+        }
+    with Not_found -> T.Typedef { 
+        place; 
+        value = ClassicalDef (x, args, None) 
+    }  (* Implict constructor *)
+end
+| S2.Typedef {value=EventDef(x, args, ()); place} -> begin
+    try 
+        let key = List.rev ((Atom.hint x)::parents) in
+        let bb_impl = Hashtbl.find type_impls key in
+        mark_type key;
+        Error.error (place@bb_impl.place) "an event can not have a blackbox implementation yet"
+    with Not_found -> T.Typedef { 
+        place; 
+        value = EventDef (x, args, None) 
+    }  (* Implict constructor *)
 end
 and uterm parents: S2.term -> T.term = paired_place paired_term parents 
 

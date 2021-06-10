@@ -19,15 +19,17 @@ module Env = Map.Make(String)
 
 type cookenv = {
     components: IR.variable Env.t; 
+    eventdef_from_labels: IR.typedef Env.t;
     exprs:      IR.variable  Env.t; 
     this:       IR.variable  Env.t; 
     types:      IR.variable  Env.t} [@@deriving fields] 
 
 let fresh_cookenv () = {
-    components  = Env.empty;
-    exprs       = Env.empty;
-    this        = Env.empty; (* current state*)
-    types       = Env.empty}
+    components              = Env.empty;
+    eventdef_from_labels    = Env.empty;
+    exprs                   = Env.empty;
+    this                    = Env.empty; (* current state*)
+    types                   = Env.empty}
 
 (*debug only*)
 let print_cenv cenv =
@@ -63,6 +65,25 @@ let bind_expr cenv place x =
 
   let a = Atom.fresh x in
   {cenv with exprs=Env.add x a cenv.exprs}, a
+
+let bind_eventdef cenv place (label:Atom.atom) =
+    let key = Atom.hint label in
+
+    (* Sanity check *)
+    begin
+    match  Env.find_opt key cenv.eventdef_from_labels with 
+    | None -> ()
+    | Some {AstUtils.place=inner_place; _} ->
+        Error.error (place@inner_place) "label %s is used multiple times" key
+    end;
+
+
+    let place = place @ Error.forge_place "cook/bind_evendef" 0 0 in
+    let edef = { 
+        AstUtils.place; 
+        value = T.EventDef (label, [], ())
+    } in
+    {cenv with eventdef_from_labels=Env.add key edef cenv.eventdef_from_labels} 
 
 let bind_this cenv place x =
   let a = Atom.fresh x in
@@ -141,6 +162,7 @@ and cook_var_this cenv place x =
         error place "Unbound this variable: %s" x
 (************************************ Types **********************************)
 and cook_composed_type cenv place: S._composed_type -> cookenv * T._composed_type = function
+| S.TActivationInfo mt -> cenv, T.TActivationInfo (cmtype cenv mt)
 | S.TArrow (mt1, mt2) -> cenv, T.TArrow (
     cmtype cenv mt1,
     cmtype cenv mt2
@@ -183,13 +205,17 @@ and cook_session_type cenv place: S._session_type -> cookenv * T._session_type =
 | S.STTimeout (time, st) ->
     cenv, T.STTimeout ( cexpr cenv time, cstype cenv st)
 | S.STBranch entries ->
-    let aux (x, st, aconst_opt) = 
+    let aux cenv (x, st, aconst_opt) = 
         let _, y = bind_type cenv place x in
+        (* Register an event def for this label *)
+        let new_cenv = bind_eventdef cenv place y in
+
         let st = cstype cenv st in
         let aconst_opt = Option.map (caconst cenv) aconst_opt in
-        (y, st, aconst_opt)
+        new_cenv, (y, st, aconst_opt)
     in
-    cenv, T.STBranch (List.map aux entries)            
+    let new_cenv, entries = List.fold_left_map aux cenv entries in
+    new_cenv, T.STBranch entries            
 | S.STSelect entries ->               
     let aux (x, st, aconst_opt) = 
         let _, y = bind_type cenv place x in
@@ -245,6 +271,7 @@ and cook_literal cenv place : S._literal -> cookenv * T._literal = function
 | S.IntLit i -> cenv, T.IntLit i
 | S.LabelLit l -> cenv, T.LabelLit l 
 | S.StringLit s -> cenv, T.StringLit s
+| S.VoidLit -> cenv, T.VoidLit
 
 (** Activations *)
 | S.ActivationInfo _ -> cenv, T.ActivationInfo () (* TODO *)
@@ -506,12 +533,18 @@ and cook_term cenv place : S._term -> cookenv * T._term = function
     let new_cenv, y = bind_type cenv place x in
     (* No type constructor for alias *)
     new_cenv, T.Typealias (y, Option.map (cmtype cenv) mt_opt)
-| S.Typedef (x, args) ->
+| Typedef {value= ClassicalDef (x, args) as tdef; place} | Typedef {value= EventDef (x, args) as tdef; place} -> 
     let new_cenv1, y = bind_type cenv place x in
     (* Type constructor for typedef *)
     let new_cenv2, _ = bind_expr new_cenv1 place (String.lowercase_ascii x) in
-    new_cenv2, T.Typedef (y, List.map (cmtype cenv) args, ())
+    let args = List.map (cmtype cenv) args in 
 
+    new_cenv2, T.Typedef ({ place; value = 
+    match tdef with 
+        | ClassicalDef _ -> ClassicalDef (y, args, ())
+        | EventDef _ -> EventDef (y, args, ())
+    })
+    
 and cterm cenv: S.term -> cookenv * T.term = cook_place cook_term cenv
 
 let cook_program places terms =    

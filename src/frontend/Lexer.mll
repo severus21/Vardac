@@ -36,8 +36,9 @@ let keywords = Hashtbl.create 128
 let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
 [
     (* type *)
-    "type", TYPE;
+    "event", EVENT;
     "of", OF;
+    "type", TYPE;
 
     (* binders *)
     "in", IN;

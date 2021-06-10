@@ -32,6 +32,7 @@ let builtin_eval =
 
 let rec finish_ctype place : S._ctype -> T._jtype = function 
     | S.Atomic s -> T.TAtomic s 
+    | S.ActorRef t -> T.ClassOrInterfaceType  (Atom.fresh_builtin "ActorRef", [fctype t])  
     | S.Behavior x -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Behavior", [{place; value=T.TAtomic x}]) 
     | S.TFunction (t1, t2) -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Function", [fctype t1; fctype t2]) 
     | S.TList t1 -> T.ClassOrInterfaceType  (Atom.fresh_builtin "List", [fctype t1])
@@ -79,6 +80,7 @@ let finish_binop = Fun.id
 
 let rec finish_literal place : S._literal -> T._literal= function
     | S.EmptyLit -> T.EmptyLit
+    | S.VoidLit -> T.VoidLit
     | S.BoolLit b -> T.BoolLit b
     | S.FloatLit f -> T.FloatLit f
     | S.IntLit f -> T.IntLit f

@@ -14,6 +14,7 @@ and _literal =
     | FloatLit of float
     | IntLit of int
     | StringLit of string
+    | VoidLit
 and literal = _literal placed
 and visibility = 
     | Private

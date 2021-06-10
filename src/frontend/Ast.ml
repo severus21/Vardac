@@ -11,6 +11,7 @@ and comments = _comments placed
 (************************************ Types **********************************)
 and flat_type = IR.flat_type
 and _composed_type =
+    | TActivationInfo of main_type
     | TArrow of main_type * main_type
 
     | TVar of variable
@@ -86,6 +87,7 @@ and vplaces = vplace list
 (************************************* Literals ******************************)
 and _literal = 
     | EmptyLit 
+    | VoidLit
     | BoolLit of bool
     | FloatLit of float 
     | IntLit of int
@@ -251,6 +253,11 @@ and _pp_term =
     | UsePP of string list 
 and pp_term = _pp_term placed
 
+and _typedef = 
+| ClassicalDef of variable * main_type list 
+| EventDef of variable * main_type list
+and typedef = _typedef placed
+
 and _term =
     | Comments of comments
 
@@ -265,7 +272,7 @@ and _term =
     (* Static part*)
     (*TODO | SignatureDcl of signature_dcl*)   
     | Typealias of variable * main_type option (* name, optional value*) 
-    | Typedef of variable * main_type list 
+    | Typedef of typedef 
 and term = _term placed
 
 and program = term list

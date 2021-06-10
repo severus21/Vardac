@@ -19,6 +19,7 @@ any_composed_type_:
     { TFlatType flat_type}
 | ct = any_composed_type LANGLEBRACKET args=right_flexible_list(COMMA, any_type) RANGLEBRACKET 
     {
+        (* TODO Dict and co -> to lower *)
         match ct.value with
         (* Primitive types *)
         | TVar "Dict" -> begin
@@ -52,6 +53,11 @@ any_composed_type_:
             | _ -> Core.Error.error ct.place "Bridge type excepts exactly tree type parameters, gets %d !" (List.length args)
         end
         | TVar "Tuple" -> TTuple args
+        | TVar "activation_info" -> begin 
+            match args with
+            | [arg] -> TActivationInfo arg 
+            | _ -> Core.Error.error ct.place "activation_info except exactly one type parameter (a Component type)"
+        end
         (* User defined parametrized types *)
         | _ -> Core.Error.error ct.place "Parametrized type syntax not yet supporter except for Option and Result!"
     }
@@ -71,10 +77,18 @@ any_st_match:
 any_session_type_:
 |DOT
     {STEnd}
-|DOT x = LID | DOT x = UID
-    {STVar (x, None)}
-|DOT x = LID c= any_applied_constraint  | DOT x = UID c= any_applied_constraint 
-    {STVar (x, Some c)}
+|op=BINOP x = LID |op=BINOP x = UID
+    {
+        match op with
+        | Minus -> STVar (x, None)
+        | _ -> raise (Error.SyntaxError [$loc])
+    }
+|op=BINOP x = LID c= any_applied_constraint  | op=BINOP x = UID c= any_applied_constraint 
+    {
+        match op with
+        | Minus -> STVar (x, Some c)
+        | _ -> raise (Error.SyntaxError [$loc])
+    }
 |BANG t=any_type st=any_session_type 
     {STSend (t, st)}
 |RECV t=any_type st=any_session_type   
@@ -85,7 +99,7 @@ any_session_type_:
     {STSelect l}
 |RECST x = LID DOT t=any_session_type |RECST x = UID DOT t=any_session_type
     {STRec (x,t)}
-| TIMEOUT time = any_expr st=any_session_type
+|TIMEOUT time = any_expr st=any_session_type
     {STTimeout (time, st)}
 |LPAREN st=any_session_type_ RPAREN
     {st}
@@ -104,10 +118,10 @@ any_component_type_:
     {t}
 
 any_type_:
-| ct = any_composed_type
-    { CType ct }
 | st = any_session_type
     { SType st }
+| ct = any_composed_type
+    { CType ct }
 | cpt = any_component_type
     { CompType cpt }
 | t = any_type c= any_applied_constraint
@@ -128,7 +142,9 @@ any_type_:
 | TYPE x=UID EQ t=any_type SEMICOLON
     { Typealias (x, Some t) }
 | TYPE x=LID OF args = right_flexible_list(COMMA, any_type) SEMICOLON
-    { Typedef (x, args) }
+    { Typedef { place=[$loc]; value = ClassicalDef(x, args)} }
+| EVENT x=LID OF args = right_flexible_list(COMMA, any_type) SEMICOLON
+    { Typedef { place=[$loc]; value=EventDef(x, args)} }
 
 (******************************** Constraints ********************************)
 any_constraint_header_:
@@ -220,6 +236,11 @@ atomic_expr_:
 any_expr_:
 | t = atomic_expr_
     { t }
+| LPAREN RPAREN
+    { LitExpr {
+        place = [$loc]; 
+        value = VoidLit 
+    }}
 | LPAREN e=any_expr_ RPAREN
     { e }
 | e1 = any_expr DOT e2=any_expr
