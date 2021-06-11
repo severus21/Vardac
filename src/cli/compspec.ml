@@ -118,14 +118,14 @@ let () =
             let places = Frontend.Main.process_place !places_file in
             List.iter (process places !targets_file !impl_filename) filenames
         with
-        | Core.Error.SyntaxError _ as e -> Core.Error.error_of_syntax_error e
+        | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
     end
     | "compile" -> begin
         try
             let places = Frontend.Main.process_place !places_file in
             List.iter (process places !targets_file !impl_filename) filenames
         with
-        | Core.Error.SyntaxError _ as e -> Core.Error.error_of_syntax_error e
+        | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
     end
     | "info" -> ()
 

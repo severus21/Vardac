@@ -9,6 +9,7 @@ type place = loc list
 (* Exceptions *)
 exception SyntaxError of place 
 exception DeadbranchError of string 
+exception PlacedDeadbranchError of place * string 
 
 val  error_of_syntax_error : exn -> unit
 

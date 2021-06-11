@@ -59,7 +59,7 @@ let fresh_items_grp () = {
 
 let group_cdcl_by (citems:  S.component_item list) : items_grps =
     let dispatch grp (citem: S.component_item) = match citem.value with
-        | S.Contract _ -> raise (Core.Error.DeadbranchError  "Contract term should have been remove from AST by the cook pass and binded to a method")
+        | S.Contract _ -> raise (Core.Error.PlacedDeadbranchError  (citem.place, "Contract term should have been remove from AST by the cook pass and binded to a method"))
         | S.Include _ -> Core.Error.error citem.place "Include is not yet supported in Akka plg"
         | S.Method  m-> {grp with methods=m::grp.methods}
         | S.State f-> {grp with states=f::grp.states}
@@ -126,7 +126,7 @@ and finish_stype place : S._session_type -> T._ctype = function
                 },
                 [ct; fstype st]
             )
-        | _ -> raise (Core.Error.DeadbranchError "finish_stype : STSend/STRecv type should not be a session type.")
+        | _ -> raise (Core.Error.PlacedDeadbranchError (mt.place, "finish_stype : STSend/STRecv type should not be a session type."))
     end
     | (S.STBranch xs as st0) | (S.STSelect xs as st0) ->
         let rec built_t_hlist = function
@@ -167,7 +167,7 @@ and finish_stype place : S._session_type -> T._ctype = function
         )
 
     | S.STInline x -> 
-        raise (Error.DeadbranchError "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass.")
+        raise (Error.PlacedDeadbranchError (place, "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass."))
 and fstype st : T.ctype = finish_place finish_stype st
 
 and finish_component_type place : S._component_type -> T._ctype = function
@@ -197,7 +197,7 @@ and finish_literal place : S._literal -> T._literal = function
     | S.Place _ -> failwith "Place is not yet supported"
     | S.VPlace _ -> failwith "VPlace is not yet supported"
 
-    | S.Bridge b -> T.StringLit (Atom.atom_to_str b.id)  (*TODO should be class *)
+    | S.Bridge b -> T.StringLit (Atom.to_string b.id)  (*TODO should be class *)
 and fliteral lit : T.literal = finish_place finish_literal lit
 
 (************************************ Expr & Stmt *****************************)
@@ -272,7 +272,7 @@ and finish_expr place : S._expr -> T._expr = function
         { place; value = T.VarExpr (Atom.fresh_builtin "ok")},
         [fexpr ok]
     ) 
-    | S.ResultExpr (_,_) -> raise (Core.Error.DeadbranchError "finish_expr : a result expr can not be Ok and Err at the same time.")
+    | S.ResultExpr (_,_) -> raise (Core.Error.PlacedDeadbranchError (place, "finish_expr : a result expr can not be Ok and Err at the same time."))
     | S.BlockExpr (b, es) -> failwith "block not yet supported"
     | S.Block2Expr (b, xs) -> failwith "block not yet supported"
 and fexpr e : T.expr = finish_place finish_expr e
@@ -307,7 +307,7 @@ and finish_stmt place : S._stmt -> T._stmt = function
     | S.ExpressionStmt e -> T.ExpressionStmt (fexpr e) 
     | S.BlockStmt stmts -> T.BlockStmt (List.map fstmt stmts)
     
-    | S.GhostStmt _ -> raise (Core.Error.DeadbranchError "finish_stype : GhostStmt should have been remove by a previous compilation pass.")
+    | S.GhostStmt _ -> raise (Core.Error.PlacedDeadbranchError (place, "finish_stype : GhostStmt should have been remove by a previous compilation pass."))
 and fstmt stmt : T.stmt = finish_place finish_stmt stmt
 
 (************************************ Component *****************************)
@@ -668,8 +668,8 @@ and finish_term place : S._term -> T.term list = function
     place; 
     value = T.Stmt (fstmt stmt)
 }]
-| S.Typealias (v, S.AbstractTypealias body) -> raise (Error.DeadbranchError "partial evaluation should have removed type alias exept those from impl")
-| S.Typealias (v, S.BBTypealias body) as term -> raise (Error.DeadbranchError "should have been removed (and replaced) by clean_terms")
+| S.Typealias (v, S.AbstractTypealias body) -> raise (Error.PlacedDeadbranchError (place, "partial evaluation should have removed type alias exept those from impl"))
+| S.Typealias (v, S.BBTypealias body) as term -> raise (Error.PlacedDeadbranchError (place, "should have been removed (and replaced) by clean_terms"))
 |Typedef {value= EventDef (name, mts, None)as tdef; place = inner_place} ->
     [{
         place;

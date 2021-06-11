@@ -1,6 +1,10 @@
 open Lexing
 
-(* A place can be a union of various files and positions *)
+(* 
+  A place can be a union of various files and positions
+  A place can concret -> referer to an existing file
+              abstract -> fname is just a description (e.g. a compilation pass)
+*)
 type loc = position * position
 type place = loc list               
 
@@ -34,13 +38,17 @@ let get_line loc : string =
   !tmp
 
 let show_loc ?display_line:(display_line=true) loc : string =
-  let show_line = 
-    if display_line then 
-      Printf.sprintf ":\027[0m\n\027[1;31m%s\027[0m" (get_line loc) 
-    else
+  let show_line= 
+    if display_line  then (
+      if (Sys.file_exists (fst loc).pos_fname) then 
+        Printf.sprintf ":\027[0m\n\t> \027[1;31m%s\027[0m" (get_line loc) 
+      else
+        ":\027[0m\n\t> \027[1;31mcompilation pass is involved\027[0m"
+    ) else (* if the location is abstract or the displaying of the line is disabled *)
       ""
   in
   let startp, endp = loc in
+  assert(startp.pos_fname = endp.pos_fname);
   Printf.sprintf "\027[1mFile \"%s\", line %d, characters %d-%d%s"
     startp.pos_fname
     (line startp)
@@ -70,9 +78,11 @@ let error place format =
 
 exception SyntaxError of place 
 exception DeadbranchError of string 
+exception PlacedDeadbranchError of place * string 
 
 let error_of_syntax_error = function
 | SyntaxError p -> error p "Syntax error : unable to parse!"
+| PlacedDeadbranchError (p,msg) -> error p "%s" msg
 | e -> raise e
 
 

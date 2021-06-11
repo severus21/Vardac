@@ -34,7 +34,7 @@ let map_snd f = function (x,y) -> (x, f y)
 
 (*debug only
 let print_env env =
-    let print_keys env = Env.iter (fun x _ -> Printf.printf "%s;" (Atom.atom_to_str x)) env in
+    let print_keys env = Env.iter (fun x _ -> Printf.printf "%s;" (Atom.to_string x)) env in
 
     print_newline ();
     print_string "Env = {";
@@ -108,7 +108,7 @@ and peval_stype env place : _session_type -> env * _session_type =
             (* FIXME do we want to have the place of the inline (current behviour) or the place of the typealias ??*)
             | _ -> Error.error place "STInline parameter can not be resolved to a session types. It is resolved to %s" (Error.show place)
             
-        with Not_found -> raise (Error.DeadbranchError "Unbounded inline variable, this should have been checked by the cook pass.")
+        with Not_found -> raise (Error.PlacedDeadbranchError (place, "Unbounded inline variable, this should have been checked by the cook pass."))
     end
     | STBranch entries -> 
         env, STBranch (List.map aux_entry entries) 
@@ -154,7 +154,7 @@ and peval_mtype env place : _main_type -> env * _main_type = function
             | Some {value=CType {value=TVar y; _}; _} -> 
                 aux already_seen y (* keep searching the root *)
             | Some mt1 -> mt1.value (* NB: we use the place of the alias and not the place of the definition here *)
-        with Not_found -> raise (Error.DeadbranchError "Unbounded type variable, this should have been checked by the cook pass.")
+        with Not_found -> logger#error "Unbound type variable %s" (Atom.to_string x); raise (Error.PlacedDeadbranchError (place, "Unbounded type variable, this should have been checked by the cook pass."))
     in
     env, aux Atom.Set.empty x 
 | CType ct -> env, CType (snd (pe_ctype env ct))
@@ -178,7 +178,7 @@ and is_terminal_expr : _expr -> bool = function
 | OptionExpr None -> true
 | OptionExpr Some e -> is_terminal_expr e.value
 | ResultExpr (Some e, None) | ResultExpr (None, Some e) -> is_terminal_expr e.value 
-| ResultExpr _ -> raise (Error.DeadbranchError "Result can not be err and ok at the same")
+| ResultExpr _ -> raise (Error.DeadbranchError "Result can not be err and ok at the same nor be neither ok nor err")
 
 and peval_unop env place (op: unop) (e: expr) : env * _expr =
 match (op, e.value) with
@@ -187,7 +187,7 @@ match (op, e.value) with
     if is_terminal_expr re then
         env, (match (ok_opt, err_opt) with 
         | Some e, None | None, Some e -> e.value (* TODO here we should return e.place *)
-        | _ -> raise (Error.DeadbranchError "Result can not be err and ok at the same")
+        | _ -> raise (Error.PlacedDeadbranchError (place, "Result can not be err and ok at the same neither not an err nor not an ok"))
         )
     else
         env, UnopExpr (op, e)
@@ -495,7 +495,7 @@ and peval_state env place = function
 and pe_state env: state -> env * state = peval_place peval_state env
 
 and peval_component_item env place : _component_item -> env * _component_item = function 
-| Contract c -> raise (Error.DeadbranchError "contract should be paired with method before partial_evaluation, therefore no contract should remains as a component_item") 
+| Contract c -> raise (Error.PlacedDeadbranchError (place, "contract should be paired with method before partial_evaluation, therefore no contract should remains as a component_item"))
 | Include cexpr -> env, Include (snd(pe_component_expr env cexpr))
 | Method m -> env, Method (snd(pe_method env m))
 | Port p -> env, Port (snd(pe_port env p))

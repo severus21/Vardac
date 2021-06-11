@@ -249,7 +249,7 @@ any_expr_:
 | lids = ATTR
     {   let rec aux lids = { place = [$loc]; value = 
         match lids with
-            | []  -> raise (Core.Error.DeadbranchError "")
+            | []  -> raise (Core.Error.PlacedDeadbranchError ([$loc], "parsing AccesExpr, should be a non empty list of lids"))
             | x::[y] -> AccessExpr ({ place = [$loc]; value = (if x = "this" then This else VarExpr x) }, { place = [$loc]; value = VarExpr y })
             | x::xs -> AccessExpr ( { place = [$loc]; value = (if x = "this" then This else  VarExpr x) }, aux xs)
         }
@@ -310,7 +310,7 @@ any_stmt_:
 (* Hack because the lexer ouput a.b.c as an ATTR *)
 | lids = ATTR EQ e=any_expr SEMICOLON
     {   match lids with 
-        | []  -> raise (Core.Error.DeadbranchError "")
+        | []  -> raise (Core.Error.PlacedDeadbranchError ([$loc], "parsing AssignThisExpr, should be a non empty list of lids"))
         | "this"::[v] -> AssignThisExpr (v, e)
         | _ -> Core.Error.error [$loc] "Attribut assignement is only allowed for [this]: ``this.toto=1;``"
     }
@@ -455,7 +455,7 @@ any_method_:
             | CustomMethod _m -> CustomMethod {_m with ghost=true}   
             | _ -> Core.Error.error m.place "Lifetime keyword (onstatup, ondestroy) can not be nested!"
         end 
-        | _ -> failwith "Deadbranch, lifetime method can onmy be OnStartup or on Destroy" 
+        | _ -> raise (Core.Error.PlacedDeadbranchError ([$loc], "lifetime method can only be OnStartup or on Destroy"))
    }
 %inline any_method:
   t = placed(any_method_)

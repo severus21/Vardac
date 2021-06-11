@@ -236,12 +236,12 @@ let output_atom out builtin_eval (x:atom)=
   else
     fprintf out "%s%d" (hint x) (identity x)
 
-let atom_to_str (x:atom)=
+let to_string (x:atom)=
   (hint x)^(string_of_int (identity x))
 
-let p_atom_to_str builtin_eval (x:atom)=
+let p_to_string builtin_eval (x:atom)=
   if is_builtin x then (builtin_eval x)
-  else atom_to_str x
+  else to_string x
 
 (* Sets and maps. *)
 

@@ -223,7 +223,7 @@ and finish_method place ({annotations; ret_type; name; body; args; is_constructo
                 in
 
                 Jg_template.from_string bbterm.value.body ~models:[
-                    ("name", Jg_types.Tstr (Atom.atom_to_str name));
+                    ("name", Jg_types.Tstr (Atom.to_string name));
                     ("ret_type", Jg_types.Tstr jingoo_ret_type);
                     ("args", Jg_types.Thash jingoo_args)
                 ]
@@ -251,7 +251,7 @@ and finish_actor place ({name; methods; states; events; nested_items}: S._actor)
         Atom.fresh_builtin "AbstractBehavior", 
         [ { 
             place;
-            value = T.TAtomic ((Atom.p_atom_to_str builtin_eval name)^".Command")
+            value = T.TAtomic ((Atom.p_to_string builtin_eval name)^".Command")
         }]) in
     let extended_type = {place; value = extended_type} in
 
