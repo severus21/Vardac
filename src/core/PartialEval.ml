@@ -2,7 +2,7 @@ open IR
 open Easy_logging
 open Utils
 
-let logger = Logging.make_logger "_1_ compspec" Debug [Cli Debug];;
+let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
 (*
  TODO add 

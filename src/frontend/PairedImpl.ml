@@ -3,7 +3,7 @@ open Core.Error
 open Core.Builtin
 open Fieldslib
 open Easy_logging
-let logger = Logging.make_logger "_1_ compspec.frontend" Debug [Cli Debug];;
+let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
 (* The source calculus. *)
 module S1 = Ast_impl

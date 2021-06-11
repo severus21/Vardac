@@ -5,7 +5,7 @@ open Core.Builtin
 open Easy_logging
 open Fieldslib
 
-let logger = Logging.make_logger ("_1_ compspec.frontend") Debug [];;
+let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
 (* The source calculus. *)
 module S = Ast 
