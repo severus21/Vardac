@@ -51,7 +51,7 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
       in
       [{  Core.AstUtils.place=mock_place; 
           Core.AstUtils.value=
-            RawTarget.Target {name=name; codegen=codegen}
+            {name=name; codegen=codegen}
       }]
   end
   |_ -> Error.error mock_place "Syntax error in targets definition of target [%s]\n" current_target                

@@ -202,7 +202,7 @@ and oitem out : str_items -> unit = function item ->
 and output_items out : str_items list -> unit = pp_break_list "" oitem out 
 
 let output_program build_dir items : unit =
-    let out = open_out (FilePath.make_filename (build_dir @ ["main.java"])) in
+    let out = open_out (Fpath.to_string (Fpath.add_seg build_dir "main.java")) in
     let out = formatter_of_out_channel out in (* TODO propagate the change from Prtinf to format to all *)
 
     (* Add imports*)

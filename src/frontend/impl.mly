@@ -63,9 +63,13 @@ any_component_item_impl:
 
 any_component_impl:
 | IMPL COMPONENT name=right_flexible_list(DOUBLE_COLON, UID) LCURLYBRACKET body=flexible_sequence(any_component_item_impl) RCURLYBRACKET 
-    { {name; body} }
+    { {name; body; target = None} }
+| IMPL COMPONENT name=right_flexible_list(DOUBLE_COLON, UID) TARGET target=LID LCURLYBRACKET body=flexible_sequence(any_component_item_impl) RCURLYBRACKET 
+    { {name; body; target = Some(target)} }
 
 any_term_:
+| TARGET target = LID SEMICOLON
+    { CurrentDefaultTarget target }
 | c=any_component_impl
     { ComponentImpl c }
 | t_impl = any_type_impl

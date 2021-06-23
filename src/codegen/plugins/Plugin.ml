@@ -24,7 +24,7 @@ module type Lg_plg = sig
     module Ast : S_Ast
 
     module Output: sig
-        val output_program : string list -> Ast.program -> unit 
+        val output_program : Fpath.t -> Ast.program -> unit 
     end
 end
 
@@ -35,7 +35,7 @@ module type Cg_plg = sig
     
     val finish_program : Rt.Ast.program -> Lg.Ast.program
     val finish_ir_program : S.program -> Lg.Ast.program
-    val output_program : string list -> S.program -> unit
+    val output_program : Fpath.t -> S.program -> unit
 
-    val init_build : string list -> unit
+    val init_build : Fpath.t -> unit
 end

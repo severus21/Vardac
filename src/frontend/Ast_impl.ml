@@ -22,10 +22,11 @@ and _component_item_impl =
     | StateImpl of state_impl 
 and component_item_impl = _component_item_impl placed
 
-and component_impl = { name: variable; body: component_item_impl list}
+and component_impl = { target: string option; name: variable; body: component_item_impl list}
 and type_impl = {name: variable; body: blackbox_term}
 and _term =
     | ComponentImpl of component_impl
+    | CurrentDefaultTarget of string 
     | TypeImpl of type_impl
 
 and term = _term placed

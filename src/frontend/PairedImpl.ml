@@ -6,7 +6,7 @@ open Easy_logging
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
 (* The source calculus. *)
-module S1 = Ast_impl
+module S1 = Impl
 module S2 = IR
 (* The target calculus. *)
 module T = IRI 
@@ -38,6 +38,8 @@ let mark_type key =
     types_seen := SeenSet.add key !types_seen
 let type_impls : (string list, S1.type_impl  AstUtils.placed) Hashtbl.t = Hashtbl.create 256
 
+let component2target : (string list, string) Hashtbl.t = Hashtbl.create 256
+
 let show_htblimpls htbl = 
     Printf.fprintf stdout "Htbl has %d entries\n" (Hashtbl.length htbl);
     Hashtbl.iter (fun key _ ->
@@ -68,7 +70,9 @@ match value with
 
 and scan_term parents ({place; value} : S1.term) = 
 match value with
-| S1.ComponentImpl c -> List.iter (scan_component_item_impl (parents@c.name)) c.body
+| S1.ComponentImpl c -> 
+    Hashtbl.add component2target (parents@c.name) c.target;
+    List.iter (scan_component_item_impl (parents@c.name)) c.body
 | S1.TypeImpl tdef -> Hashtbl.add type_impls (parents@tdef.name) {place; value = tdef}
 
 let scan_program terms =    
@@ -129,9 +133,14 @@ and paired_component_item parents place : S2._component_item -> T._component_ite
 and ucitem parents: S2.component_item -> T.component_item  = paired_place paired_component_item parents 
 
 and paired_component_dcl parents place : S2._component_dcl -> T._component_dcl = function
-| S2.ComponentStructure {name; args; body} -> 
-    let body = List.map (ucitem ((Atom.hint name)::parents)) body in
-    T.ComponentStructure {name; args; body}
+| S2.ComponentStructure {name; args; body} -> begin 
+    try 
+        let key = List.rev ((Atom.hint name)::parents) in 
+        let target = Hashtbl.find component2target key in
+        let body = List.map (ucitem ((Atom.hint name)::parents)) body in
+        T.ComponentStructure {target; name; args; body}
+    with | Not_found -> raise (Error.PlacedDeadbranchError (place, "A target should have been assign to each component"))
+end
 | S2.ComponentAssign {name; args; value} -> T.ComponentAssign {name; args; value} 
 and ccdcl parents: S2.component_dcl -> T.component_dcl = paired_place paired_component_dcl parents 
 

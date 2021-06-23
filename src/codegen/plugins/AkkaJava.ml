@@ -356,7 +356,7 @@ let jingoo_env () = [
 ]
 
 let init_build build_dir : unit = 
-    let build_dir = FilePath.make_filename build_dir in (* FIXME do it after build_dir creation*)
+    let build_dir = (Fpath.to_string build_dir) in (* FIXME do it after build_dir creation*)
 
     let externals = FileUtil.ls (FilePath.make_filename ["external"; name]) in
     let aux_external (location : FilePath.filename) = 

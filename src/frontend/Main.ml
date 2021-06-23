@@ -32,8 +32,9 @@ let to_impl filename program =
     filename
     |> ParseImpl.read
     |> function ast -> logger#sinfo "Main impl file has been read"; ast 
+    |> CookImpl.cook_program
     |> function ast -> logger#sinfo "Impl AST is built"; ast 
-    |> dump "Ast_impl" Ast_impl.show_program
+    |> dump "Impl" Impl.show_program
     |> PairedImpl.paired_program program
     |> function ast -> logger#sinfo "AST_impl is cooked, Impl has been generated"; ast 
     |> dump "IRI - IR-with-implemented" IRI.show_program

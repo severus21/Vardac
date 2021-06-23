@@ -39,3 +39,5 @@ type detection_strategies =
 
 let _keep_ghost = ref false
 let keep_ghost = function () -> !_keep_ghost
+
+let default_build_dir = Fpath.add_seg (Fpath.v (Sys.getcwd())) "compiler-build" 

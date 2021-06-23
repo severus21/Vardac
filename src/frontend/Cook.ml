@@ -671,7 +671,7 @@ and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = 
     let collect_labelevents = citems_of_eventdef_from_labels inner_env in 
     let body = collect_labelevents @ body in
 
-    new_env, T.ComponentStructure {name; args; body} 
+    new_env, T.ComponentStructure {target = (); name; args; body} 
 | S.ComponentAssign cdcl -> 
     let new_env, name = bind_component env place cdcl.name in
     let env = {env with component = new_env.component } in

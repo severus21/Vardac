@@ -29,7 +29,7 @@
 %token<Ast._comments> COMMENTS 
 %token ERR NONE OK SOME
 
-%token IMPL WHERE TEMPLATE 
+%token IMPL TARGET TEMPLATE WHERE
 %token<string> BLACKBOX_BODY
 
 %%

@@ -69,15 +69,7 @@ let () =
 let filenames =
     List.rev !filenames
 
-let build_dir : Fpath.t = 
-    let default = Fpath.add_seg (Fpath.v (Sys.getcwd())) "compiler-build" in
-    match Bos.OS.Dir.delete ~must_exist:false ~recurse:true default with
-    | Rresult.Error _ -> failwith "build_dir cleansing failure"
-    | _ -> ();
 
-    match Bos.OS.Dir.create default with 
-    | Rresult.Ok _ -> default
-    | _ -> failwith "build_dir failed"
 
 (* -------------------------------------------------------------------------- *)
 let process_impl filename =
@@ -85,8 +77,8 @@ let process_impl filename =
 
 let process places targets_file impl_filename filename = 
     (* Prepare dir *)
-    let build_dir = "/" :: Fpath.segs build_dir in
-    Printf.eprintf "Target dir is \"%s\":\n" (FilePath.string_of_path build_dir);
+    let build_dir = Utils.refresh_or_create_build_dir Config.default_build_dir in
+    Printf.eprintf "Codegeneration directory is \"%s\":\n" (Fpath.to_string build_dir);
 
     Frontend.Main.to_ir places filename 
     |> Core.PartialEval.peval_program 

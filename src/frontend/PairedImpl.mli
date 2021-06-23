@@ -8,4 +8,4 @@
 
 open Core
 
-val paired_program: IR.program -> Ast_impl.program -> IRI.program
+val paired_program: IR.program -> Impl.program -> IRI.program
