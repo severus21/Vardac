@@ -4,6 +4,7 @@
     - ensuring that every name in the Ast_impl is properly bound to the IR part
     - ensuring that every type, state and method in the IR has an abstract implementation or a blackbox one
     - paired blackbox implementation with IR entities 
+    - it also add a target to each component according to the Impl bindings
 *)
 
 open Core
