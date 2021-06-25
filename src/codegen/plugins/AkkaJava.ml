@@ -414,27 +414,9 @@ let jingoo_env () = [
     ("author", Jg_types.Tstr (Config.author ()));
 ]
 
-let init_build build_dir : unit = 
-    let build_dir = (Fpath.to_string build_dir) in (* FIXME do it after build_dir creation*)
+let custom_template_rules () = [
+    (Fpath.v "application.conf.j2", jingoo_env (), List.fold_left Fpath.add_seg (Fpath.v "src/main/resources")  [Config.author (); Config.project_name (); "application.conf"]);
+]
+let custom_external_rules () = []
 
-    let externals = FileUtil.ls (FilePath.make_filename ["external"; name]) in
-    let aux_external (location : FilePath.filename) = 
-        FileUtil.cp [location] (FilePath.concat build_dir (FilePath.basename location))
-    in
-    List.iter aux_external externals; 
-
-    let templates = FileUtil.ls (FilePath.make_filename ["templates"; name]) in
-    let aux_template template =
-        let res = Jg_template.from_file template ~models:(jingoo_env ()) in  
-        let destfile = FilePath.concat build_dir  
-            (FilePath.basename (if FilePath.check_extension template "j2" then 
-                FilePath.chop_extension template
-            else
-                template))
-        in
-        let oc = open_out destfile in
-        Printf.fprintf oc "%s" res; 
-        close_out oc;
-    in
-    List.iter aux_template templates
     

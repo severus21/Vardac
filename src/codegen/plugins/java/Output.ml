@@ -209,18 +209,7 @@ and output_items out : str_items list -> unit = pp_break_list "" oitem out
 let output_program outpath items : unit =
     let outfile = (Fpath.to_string outpath)^".java" in
     let parentdir = (Fpath.parent outpath) in
-    begin
-    match Bos.OS.Dir.exists parentdir with
-    | Rresult.Ok false -> begin
-        logger#debug "creation";
-        match Bos.OS.Dir.create parentdir with
-        | Rresult.Error _ -> logger#error "can not create buildir %s" (Fpath.to_string parentdir); exit 1
-        | _ -> () 
-        end
-    | Rresult.Ok true -> ()
-    | Rresult.Error _ -> logger#error "directory creation fails at %s" (Fpath.to_string parentdir)
-    end;
-    logger#debug "blabla %s" ((Fpath.to_string parentdir));
+    Utils.create_directory_hierarchy parentdir;
 
     let out = open_out outfile in
     let out = formatter_of_out_channel out in (* TODO propagate the change from Prtinf to format to all *)

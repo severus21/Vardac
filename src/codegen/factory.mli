@@ -12,6 +12,6 @@ val get_plugins : unit -> Plugin.plug list
 *)
 
 (** Searches for plugins and load them dynamically *)
-val load_plugin : string -> string -> (module Plugin.Cg_plg)
+val load_plugin : string -> string -> (module Plugin.Plug)
 
 val display_available_plugins : unit -> unit

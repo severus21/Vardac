@@ -1,3 +1,5 @@
+open Easy_logging
+let logger = Logging.make_logger ("_1_ compspec.core") Debug [];;
 (* -------------------------------------------------------------------------- *)
 
 (* Printing a syntax tree in an intermediate language (for debugging). *)
@@ -109,6 +111,7 @@ let scandir path wanted_ext =
 let (<->) f g x = f(g(x));;
 
 
+(***************************** File manipulations *************************)
 
 let refresh_or_create_build_dir (build_dir:Fpath.t) = 
     match Bos.OS.Dir.delete ~must_exist:false ~recurse:true build_dir with
@@ -118,3 +121,15 @@ let refresh_or_create_build_dir (build_dir:Fpath.t) =
     match Bos.OS.Dir.create build_dir with 
     | Rresult.Ok _ -> build_dir
     | _ -> failwith "build_dir failed"
+  
+  
+let create_directory_hierarchy (parentdir:Fpath.t): unit = 
+    assert( Fpath.is_dir_path parentdir);
+    match Bos.OS.Dir.exists parentdir with
+    | Rresult.Ok false -> begin
+        match Bos.OS.Dir.create parentdir with
+        | Rresult.Error _ -> logger#error "can not create dir %s" (Fpath.to_string parentdir); exit 1
+        | _ -> () 
+        end
+    | Rresult.Ok true -> ()
+    | Rresult.Error _ -> logger#error "directory exist check fails for %s" (Fpath.to_string parentdir); exit 1
