@@ -33,8 +33,8 @@ module type Cg_plg = sig
     module Rt : Rt_plg
     module Lg : Lg_plg
     
-    val finish_program : Rt.Ast.program -> Lg.Ast.program
-    val finish_ir_program : S.program -> Lg.Ast.program
+    val finish_program : Rt.Ast.program -> (Fpath.t * Lg.Ast.program) Seq.t 
+    val finish_ir_program : S.program -> (Fpath.t * Lg.Ast.program) Seq.t
     val output_program : Fpath.t -> S.program -> unit
 
     val init_build : Fpath.t -> unit

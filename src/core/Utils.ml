@@ -111,9 +111,6 @@ let (<->) f g x = f(g(x));;
 
 
 let refresh_or_create_build_dir (build_dir:Fpath.t) = 
-  print_string ">>";
-  print_string (Fpath.to_string build_dir);
-  print_newline ();
     match Bos.OS.Dir.delete ~must_exist:false ~recurse:true build_dir with
     | Rresult.Error _ -> failwith "build_dir cleansing failure"
     | _ -> ();

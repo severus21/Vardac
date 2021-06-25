@@ -1,6 +1,11 @@
 open Core
 open Ast
 open Format 
+open Easy_logging
+
+let name = "Java"
+let logger = Logging.make_logger ("_1_ compspec.plg."^name) Debug [];;
+
 
 let failwith s = failwith "[Plg=Java] %s" s
 (** FIXME Factorise into a OCaml module since OutputMl will do the smae too *)
@@ -201,8 +206,23 @@ and oitem out : str_items -> unit = function item ->
     | Config.Medium | Config.Full -> output_placed out output_item item 
 and output_items out : str_items list -> unit = pp_break_list "" oitem out 
 
-let output_program build_dir items : unit =
-    let out = open_out (Fpath.to_string (Fpath.add_seg build_dir "main.java")) in
+let output_program outpath items : unit =
+    let outfile = (Fpath.to_string outpath)^".java" in
+    let parentdir = (Fpath.parent outpath) in
+    begin
+    match Bos.OS.Dir.exists parentdir with
+    | Rresult.Ok false -> begin
+        logger#debug "creation";
+        match Bos.OS.Dir.create parentdir with
+        | Rresult.Error _ -> logger#error "can not create buildir %s" (Fpath.to_string parentdir); exit 1
+        | _ -> () 
+        end
+    | Rresult.Ok true -> ()
+    | Rresult.Error _ -> logger#error "directory creation fails at %s" (Fpath.to_string parentdir)
+    end;
+    logger#debug "blabla %s" ((Fpath.to_string parentdir));
+
+    let out = open_out outfile in
     let out = formatter_of_out_channel out in (* TODO propagate the change from Prtinf to format to all *)
 
     (* Add imports*)
@@ -221,4 +241,4 @@ let output_program build_dir items : unit =
     pp_set_margin out 80;
     pp_set_max_indent out 40;
 
-    fprintf out "@[<v>%a@]" output_items items
+    fprintf out "@[<v>%a@]@." output_items items

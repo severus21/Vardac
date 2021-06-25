@@ -17,6 +17,62 @@ module S = Rt.Ast
 (* The target calculus. *)
 module T = Lg.Ast 
 
+
+(** Split Akka.AST in multiple file then convert it to Java AST *)
+(* - One actor per file *)
+(* map : filename java_ast *)
+let split_akka_ast_to_files (akka_program:Rt.Ast.program) : (Fpath.t * Rt.Ast.term list) Seq.t = 
+    let tbl_files2program : (Fpath.t, Rt.Ast.term list) Hashtbl.t = Hashtbl.create 256 in
+    let add_to_files2program file term = 
+        try 
+            let ast = Hashtbl.find tbl_files2program file in 
+            Hashtbl.replace tbl_files2program file (term::ast)
+        with | Not_found -> Hashtbl.replace tbl_files2program file [term] 
+    in
+
+    let rec split_term_to_files current_file term : unit = 
+    match term.value with
+    | Rt.Ast.Actor a  -> 
+        let sub_actors = List.filter (function | {AstUtils.value=Rt.Ast.Actor _ } -> true | _-> false) a.value.nested_items in 
+        let sub_items = List.filter (function | {AstUtils.value=Rt.Ast.Actor _ } -> false | _-> true) a.value.nested_items in 
+        
+        let a_current_file = if sub_actors = [] then 
+                (* parentdir/main_actor.java*)
+                Fpath.add_seg (Fpath.parent current_file) (Atom.to_string a.value.name)
+            else 
+                (* parentdir/main_actor/{main_actor.java, nested_actor1.java, nested_actor_n.java}
+                where main_actor will only store the glue and not the subactor/components
+                *)
+                Fpath.add_seg (Fpath.add_seg (Fpath.parent current_file) (Atom.to_string a.value.name))  (Atom.to_string a.value.name)
+        in
+
+        (* add sub actor def to dedicated sub files*)
+        List.iter (split_term_to_files a_current_file) a.value.nested_items; 
+
+        (* removes subactors, they have been put in other files *)
+        let term = {
+            place = term.place;
+            value =  Rt.Ast.Actor {
+                place = a.place; value = {
+                    a.value with nested_items = sub_items
+                }
+            }
+        } in
+
+        add_to_files2program a_current_file term 
+    | _ -> add_to_files2program current_file term
+    in
+
+    (*TODO finish entrypoint/system*)
+    let main_file = List.fold_left Fpath.add_seg (Fpath.v "src/main/java")  [Config.author (); Config.project_name (); "main"] in 
+    List.iter (split_term_to_files main_file) akka_program.terms;
+
+    (* Correct terms order *)
+    Seq.map (function (target, ast) -> 
+        (target, List.rev ast)
+    ) (Hashtbl.to_seq tbl_files2program)
+
+
 let rec finish_place finish_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
     let value = finish_value place value in
     {AstUtils.place; AstUtils.value}
@@ -329,22 +385,25 @@ and finish_term place : S._term -> T._str_items = function
     | TemplateClass raw -> T.Raw raw.value (* TODO FIXME we should  keep raw.place here *) 
 and fterm t : T.str_items = finish_place finish_term t
 
-and finish_program ({entrypoint; system; terms}: S.program) : T.program = 
-    List.map fterm terms 
+and finish_program (program:S.program): (Fpath.t * T.program) Seq.t = 
     (*TODO finish entrypoint/system*)
+    program
+    |> split_akka_ast_to_files
+    |> Seq.map (function file, terms -> file, List.map fterm terms)
 
-let finish_ir_program (ir_program: Plugin.S.program) : T.program =
+let finish_ir_program (ir_program: Plugin.S.program) : (Fpath.t * T.program) Seq.t =
     ir_program
     |> Rt.Finish.finish_program  
     |> dump "Runtime AST" Rt.Ast.show_program  
     |> finish_program
-    |> dump "Language AST" Lg.Ast.show_program
+    |> Seq.map (function file, program -> file, dump "Language AST" Lg.Ast.show_program program)
+
 
 (** Output program*)
 let output_program build_dir ir_program =
     ir_program
     |> finish_ir_program
-    |> Lg.Output.output_program build_dir
+    |> Seq.iter (function (file,program) -> Lg.Output.output_program (Fpath.append build_dir file) program)
 
 let jingoo_env () = [
     ("compiler_version", Jg_types.Tstr Config.version);
