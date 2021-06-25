@@ -20,7 +20,7 @@ let rec split_toplvl_term (term:IRI.term) : unit =
     - TODO remove unneeded term in targets or undefined ref of component
 *)
 match term.value with
-| Component {value=ComponentStructure cstruct;_} -> add_to_target cstruct.target term
+| Component {value=ComponentStructure cstruct;_} -> add_to_target cstruct.target_name term
 | _ -> 
     Seq.iter 
     (function target -> add_to_target target term) (Hashtbl.to_seq_keys targets2ast)

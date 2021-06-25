@@ -5,17 +5,17 @@ open Label
 
 (* Abstract types *)
 module type IRParams = sig
-  type target
+  type target_name
   type _state_dcl_body
   type _custom_method0_body
   type _typealias_body
   type _typedef_body
-  val show_target :  target -> Ppx_deriving_runtime.string
+  val show_target_name :  target_name -> Ppx_deriving_runtime.string
   val show__typealias_body :  _typealias_body -> Ppx_deriving_runtime.string
   val show__typedef_body :  _typedef_body -> Ppx_deriving_runtime.string
   val show__state_dcl_body :  _state_dcl_body -> Ppx_deriving_runtime.string
   val show__custom_method0_body : _custom_method0_body ->  Ppx_deriving_runtime.string
-  val pp_target : Ppx_deriving_runtime.Format.formatter -> target -> Ppx_deriving_runtime.unit
+  val pp_target_name : Ppx_deriving_runtime.Format.formatter -> target_name -> Ppx_deriving_runtime.unit
   val pp__typealias_body : Ppx_deriving_runtime.Format.formatter -> _typealias_body -> Ppx_deriving_runtime.unit
   val pp__typedef_body : Ppx_deriving_runtime.Format.formatter -> _typedef_body -> Ppx_deriving_runtime.unit
   val pp__state_dcl_body : Ppx_deriving_runtime.Format.formatter -> _state_dcl_body -> Ppx_deriving_runtime.unit
@@ -26,17 +26,17 @@ include IR_common
 
 module Make (Params : IRParams) = struct
   include IR_common
-  type target = Params.target
+  type target_name = Params.target_name
   type _state_dcl_body = Params._state_dcl_body
   type _custom_method0_body = Params._custom_method0_body
   type _typealias_body = Params._typealias_body
   type _typedef_body = Params._typedef_body
-  let show_target = Params.show_target
+  let show_target_name = Params.show_target_name
   let show__typealias_body = Params.show__typealias_body
   let show__typedef_body = Params.show__typedef_body
   let show__state_dcl_body = Params.show__state_dcl_body
   let show__custom_method0_body = Params.show__custom_method0_body
-  let pp_target = Params.pp_target
+  let pp_target_name = Params.pp_target_name
   let pp__typealias_body = Params.pp__typealias_body
   let pp__typedef_body = Params.pp__typedef_body
   let pp__state_dcl_body = Params.pp__state_dcl_body
@@ -106,7 +106,7 @@ module Make (Params : IRParams) = struct
       } =>
       TODO component X = lambda arg1: ... lambda argn: { body } ???
       *)
-      | ComponentStructure of {target: target; name: variable; args: param list; body: component_item list} 
+      | ComponentStructure of {target_name: target_name; name: variable; args: param list; body: component_item list} 
       | ComponentAssign of {name: variable; args: param list; value: component_expr}
 
   and component_dcl = _component_dcl placed

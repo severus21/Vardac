@@ -9,4 +9,4 @@
 
 open Core
 
-val paired_program: IR.program -> Impl.program -> IRI.program
+val paired_program: Target.targets -> IR.program -> Impl.program -> IRI.program

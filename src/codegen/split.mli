@@ -5,4 +5,4 @@
         - TODO FIXME for now, this can add not working code if the component is used inside the other toplevel code or inside some components (e.g. types parametrized by components)
    - components are added according to their target attribute
 *)
-val split_program : Target.targets -> IRI.program -> (Target.target * IRI.program) Seq.t 
+val split_program : Core.Target.targets -> Core.IRI.program -> (Core.Target.target * Core.IRI.program) Seq.t 

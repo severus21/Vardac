@@ -136,9 +136,9 @@ and paired_component_dcl parents place : S2._component_dcl -> T._component_dcl =
 | S2.ComponentStructure {name; args; body} -> begin 
     try 
         let key = List.rev ((Atom.hint name)::parents) in 
-        let target = Hashtbl.find component2target key in
+        let target_name = Hashtbl.find component2target key in
         let body = List.map (ucitem ((Atom.hint name)::parents)) body in
-        T.ComponentStructure {target; name; args; body}
+        T.ComponentStructure {target_name; name; args; body}
     with | Not_found -> raise (Error.PlacedDeadbranchError (place, "A target should have been assign to each component"))
 end
 | S2.ComponentAssign {name; args; value} -> T.ComponentAssign {name; args; value} 
@@ -192,7 +192,7 @@ end
 end
 and uterm parents: S2.term -> T.term = paired_place paired_term parents 
 
-let paired_program terms impl_terms =    
+let paired_program targets terms impl_terms =    
     (* Pass 1 *)
     scan_program impl_terms;
     (* Pass 2 *)

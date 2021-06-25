@@ -80,12 +80,15 @@ let process places targets_file impl_filename filename =
     let build_dir = Utils.refresh_or_create_build_dir Config.default_build_dir in
     Printf.eprintf "Codegeneration directory is \"%s\":\n" (Fpath.to_string build_dir);
 
+    (* extract targets definitions from file *)
+    let targets = Frontend.Main.process_target targets_file in
+
     Frontend.Main.to_ir places filename 
     |> Core.PartialEval.peval_program 
     |> function x-> logger#sinfo "IR has been partially evaluated";x
     |> Core.AstUtils.dump "pevaled IR" IR.show_program 
-    |> Frontend.Main.to_impl impl_filename  
-    |> Codegen.codegen build_dir targets_file
+    |> Frontend.Main.to_impl targets impl_filename  
+    |> Codegen.codegen build_dir targets
     (*let out_ml = open_out (FilePath.make_filename (build_dir @ ["main.ml"])) in
     to_ocaml out_ml ir;*)
 

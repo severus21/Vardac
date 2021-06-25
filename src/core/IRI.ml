@@ -1,5 +1,5 @@
 (* IR extended with blackbox implementation for type, methods and states *)
-type iri_target = string
+type iri_target_name = string
 
 and iri_state_dcl_body = 
 | InitExpr of IR_common.expr
@@ -17,13 +17,13 @@ and iri_typedef_body = Impl_common.blackbox_term option
 
 module Params : (
     IR_template.IRParams with   
-        type target = iri_target and
+        type target_name = iri_target_name and
         type _state_dcl_body = iri_state_dcl_body and 
         type _custom_method0_body = iri_custom_method0_body and 
         type _typealias_body = iri_typealias_body and
         type _typedef_body = iri_typedef_body
 ) = struct
-    type target = iri_target
+    type target_name = iri_target_name
     and _state_dcl_body = iri_state_dcl_body 
     and _custom_method0_body = iri_custom_method0_body 
     and _typealias_body = iri_typealias_body

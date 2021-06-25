@@ -6,6 +6,15 @@ open Easy_logging
 
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
+let process_target (filename:string) =
+  filename
+  |> ParseTarget.parse_targets
+  |> function x-> logger#sinfo "Target file has been parsed"; x
+  |> dump "RawTarget" RawTarget.show_targets
+  |> CookTarget.cook_targets   
+  |> function x-> logger#sinfo "Targets has been cooked"; x
+  |> dump "Target" Target.show_targets 
+
 let to_ir places filename =
     filename
     |> Parse.read
@@ -28,13 +37,13 @@ let process_place (filename:string) =
     |> function x-> logger#sinfo "PlaceAST has been coocked";x
     |> dump "Place" IR.show_vplaces  
 
-let to_impl filename program = 
+let to_impl targets filename program = 
     filename
     |> ParseImpl.read
     |> function ast -> logger#sinfo "Main impl file has been read"; ast 
     |> CookImpl.cook_program
     |> function ast -> logger#sinfo "Impl AST is built"; ast 
     |> dump "Impl" Impl.show_program
-    |> PairedImpl.paired_program program
+    |> PairedImpl.paired_program targets program
     |> function ast -> logger#sinfo "AST_impl is cooked, Impl has been generated"; ast 
     |> dump "IRI - IR-with-implemented" IRI.show_program
