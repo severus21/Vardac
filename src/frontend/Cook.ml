@@ -314,14 +314,26 @@ and cook_session_type env place: S._session_type -> env * T._session_type = func
         let new_env, aconst = caconst env aconst in
         new_env, T.STVar (y, Some aconst)
 end
-| S.STTimeout (time, st) ->
+| S.STTimeout (time, st) -> begin
+    match st.value with 
+    | S.STRec _ -> Error.error place "timeout before a recursive session type is not yet supported in the implementation"
+    | S.STEnd -> Error.error place "can not place a timeout before the end of a protocol"
+    | _ -> ()
+    ;
+
     let env1, time = cexpr env time in 
     let env2, st = cstype env st in 
     env << [env1; env2], T.STTimeout (time, st)
-| S.STRec (x, st) ->
+end
+| S.STRec (x, st) -> begin
+    match st.value with 
+    | S.STTimeout _ -> Error.error place "timeout after a recursive session type is not yet supported in the implementation"
+    | _ -> ()
+    ;
     let _env, y = bind_type env place x in  
     let env1, st  = cstype _env st in
     env << [env1], T.STRec (y, st) (* NB: env1 is included in env2 *)
+end
 | S.STInline x ->  
     let y = cook_var_type env place x in  
     env, T.STInline y
@@ -725,6 +737,14 @@ and cook_term env place : S._term -> env * T._term = function
         let cenv1, mt = cmtype env mt in
         new_env << [cenv1], T.Typealias (y, Some mt)
 end
+| Typedef {value= ProtocolDef (x, mt) as tdef; place} -> 
+    let new_env1, y = bind_type env place x in
+    (* Type constructor for typedef *)
+    let new_env2, _ = bind_expr new_env1 place (String.lowercase_ascii x) in
+    let env3, mt = cmtype env mt in 
+
+    new_env2 << [env3], T.Typedef ({ place; value = 
+    ProtocolDef (y, mt) })
 | Typedef {value= ClassicalDef (x, args) as tdef; place} | Typedef {value= EventDef (x, args) as tdef; place} -> 
     let new_env1, y = bind_type env place x in
     (* Type constructor for typedef *)

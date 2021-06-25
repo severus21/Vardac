@@ -140,6 +140,7 @@ module Make (Params : IRParams) = struct
     and _typedef = (* Two kind for type *) 
     | ClassicalDef of variable * main_type list * _typedef_body
     | EventDef of variable * main_type list * _typedef_body
+    | ProtocolDef of variable * main_type
     and typedef = _typedef placed
 
     and _term =

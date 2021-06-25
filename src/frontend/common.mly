@@ -145,6 +145,8 @@ any_type_:
     { Typedef { place=[$loc]; value = ClassicalDef(x, args)} }
 | EVENT x=LID OF args = right_flexible_list(COMMA, any_type) SEMICOLON
     { Typedef { place=[$loc]; value=EventDef(x, args)} }
+| PROTOCOL x=LID EQ mt = any_type SEMICOLON
+    { Typedef { place=[$loc]; value=ProtocolDef(x, mt)} }
 
 (******************************** Constraints ********************************)
 any_constraint_header_:

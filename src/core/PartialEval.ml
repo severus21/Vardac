@@ -32,7 +32,6 @@ let bind_terminal_expr (env:env) key value : env =
 
 let map_snd f = function (x,y) -> (x, f y)
 
-(*debug only
 let print_env env =
     let print_keys env = Env.iter (fun x _ -> Printf.printf "%s;" (Atom.to_string x)) env in
 
@@ -45,7 +44,6 @@ let print_env env =
     
     print_string "}";
     print_newline ()
-*)
 
 let rec peval_place peval_value env ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
     let env, value = peval_value env place value in
@@ -106,8 +104,7 @@ and peval_stype env place : _session_type -> env * _session_type =
             match mt with 
             | Some {value=SType st; _} -> env, st.value 
             (* FIXME do we want to have the place of the inline (current behviour) or the place of the typealias ??*)
-            | _ -> Error.error place "STInline parameter can not be resolved to a session types. It is resolved to %s" (Error.show place)
-            
+            | _ -> Error.error place "STInline parameter can not be resolved to a session types."
         with Not_found -> raise (Error.PlacedDeadbranchError (place, "Unbounded inline variable, this should have been checked by the cook pass."))
     end
     | STBranch entries -> 
@@ -572,17 +569,30 @@ and peval_term env place : _term -> env * _term = function
     | Some mt -> 
         let _, mt = pe_mtype env mt in 
         let new_env = bind_named_types env x (Some mt) in
-        new_env, EmptyTerm (*Typealias (x, Some mt)*)
+        new_env, EmptyTerm
 end
-| Typedef {value= ClassicalDef (x, args, ()) as tdef; place} | Typedef {value= EventDef (x, args, ()) as tdef; place} -> 
-    let new_env = bind_named_types env x None in
+| Typedef {value= ProtocolDef (x, mt); place}-> begin 
+    logger#debug "bind type %s" (Atom.to_string x);
+    let _, mt = pe_mtype env mt in
+    let new_env = bind_named_types env x (Some mt) in
+    logger#debug "bind type %s" (Atom.hint x);
+
+    new_env, Typedef ({ place; value = 
+    ProtocolDef (x, mt) })
+end
+| Typedef {value= ClassicalDef (x, args, ()) as tdef; place} | Typedef {value= EventDef (x, args, ()) as tdef; place} ->begin 
+    logger#debug "bind type %s" (Atom.to_string x);
     let args = List.map (function mt -> snd(pe_mtype env mt)) args in
+    let new_env = bind_named_types env x None in
+    logger#debug "bind type %s" (Atom.hint x);
+    print_env new_env;
 
     new_env, Typedef ({ place; value = 
     match tdef with 
         | ClassicalDef _ -> ClassicalDef (x, args, ())
         | EventDef _ -> EventDef (x, args, ())
     })
+end
 and pe_term env: term -> env * term = peval_place peval_term env
 
 and pe_terms env terms : env * IR.term list =

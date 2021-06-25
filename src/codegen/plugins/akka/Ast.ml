@@ -156,6 +156,8 @@ and _term =
     isInterface:bool; 
     annotations: annotation list;
     name: variable;
+    extended_types: ctype list;
+    implemented_types: ctype list;
     body: term list} 
 | MethodDeclaration of method0
 | RawClass of variable *raw 

@@ -21,6 +21,8 @@ val fresh_builtin: string -> atom
 val copy: atom -> atom
 val copy_upper: atom -> atom
 
+val refresh_hint : atom -> string -> atom
+
 (* Comparison of atoms. *)
 
 val equal: atom -> atom -> bool

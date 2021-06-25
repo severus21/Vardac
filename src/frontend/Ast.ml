@@ -256,6 +256,7 @@ and pp_term = _pp_term placed
 and _typedef = 
 | ClassicalDef of variable * main_type list 
 | EventDef of variable * main_type list
+| ProtocolDef of variable * main_type
 and typedef = _typedef placed
 
 and _term =

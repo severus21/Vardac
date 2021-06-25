@@ -93,6 +93,9 @@ let copy a =
 let copy_upper a =
   fresh (String.capitalize_ascii a.value)
 
+
+let refresh_hint a hint =
+  {a with hint = hint}
 (* -------------------------------------------------------------------------- *)
 
 (* Comparison of atoms. *)

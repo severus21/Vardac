@@ -229,7 +229,7 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
 
     let constructor = 
         { place; value=T.Body ({place; value=T.MethodDeclaration {
-            annotations = [];   
+            annotations = [T.Visibility T.Public];   
             ret_type    = None;
             name        = name;
             parameters  = List.map finish_arg args;
@@ -361,8 +361,8 @@ and finish_term place : S._term -> T._str_items = function
                 annotations = finish_annotations cdcl.annotations;
                 name = cdcl.name;
                 parameters = []; 
-                extended_types = [];
-                implemented_types = [];
+                extended_types = List.map fctype cdcl.extended_types;
+                implemented_types = List.map fctype cdcl.implemented_types;
                 body = List.map fterm cdcl.body 
             }
         }

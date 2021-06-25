@@ -38,6 +38,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     (* type *)
     "event", EVENT;
     "of", OF;
+    "protocol", PROTOCOL;
     "type", TYPE;
 
     (* binders *)

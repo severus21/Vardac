@@ -190,6 +190,17 @@ end
         value = EventDef (x, args, None) 
     }  (* Implict constructor *)
 end
+| S2.Typedef {value=ProtocolDef(x, mt); place} -> begin
+    try 
+        let key = List.rev ((Atom.hint x)::parents) in
+        let bb_impl = Hashtbl.find type_impls key in
+        mark_type key;
+        Error.error (place@bb_impl.place) "a protocol can not have a blackbox implementation yet"
+    with Not_found -> T.Typedef { 
+        place; 
+        value = ProtocolDef (x, mt) 
+    }  (* Implict constructor *)
+end
 and uterm parents: S2.term -> T.term = paired_place paired_term parents 
 
 let paired_program targets terms impl_terms =    

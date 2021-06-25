@@ -668,6 +668,130 @@ and finish_term place : S._term -> T.term list = function
     place; 
     value = T.Stmt (fstmt stmt)
 }]
+| S.Typedef {value=S.ProtocolDef (name, {value=S.SType st; _});_} -> 
+    let fplace = (Error.forge_place "Plg=Akka/finish_term/protocoldef" 0 0) in
+    let auto_place smth = {place = fplace; value=smth} in
+    (* TODO generalize the usage of auto place *)
+
+    (* case protocol definition *)
+    let rec extract_events place k = function
+    | S.STEnd | S.STVar _ -> []
+    | S.STInline _ -> raise (Error.PlacedDeadbranchError (place, "STInline should have been removed by the partial evaluation pass"))
+    | S.STSend ({value=S.CType {value=S.TVar name;_};_}, st_next) | S.STRecv ({value=S.CType{value=S.TVar name;_};_}, st_next) -> 
+        { 
+            place = place; 
+            (*
+    goal public static final class Pong implements Event {}
+            *)
+            value = {
+                T.vis=T.Public; 
+                T.name= name;
+                T.kind=T.Event; 
+                T.args= []
+            }
+        }:: (extract_events st_next.place (k+1) st_next.value)
+    | (S.STSend _ as t)| (STRecv _ as t)-> failwith "toto"
+    | S.STBranch entries | STSelect entries -> begin
+        let aux_entry (label, st, _) = 
+            { 
+                place; 
+                value = {
+                    T.vis = T.Public; 
+                    T.name = label;
+                    T.kind = T.Event; 
+                    T.args = []
+                }
+            }
+        in
+        List.map aux_entry entries
+    end
+    | S.STRec (x, st_next) -> extract_events st_next.place k st_next.value
+    | S.STTimeout (time_expr, st_next) ->        
+        let next_events = (extract_events st.place (k+1) st_next.value) in
+        let next_name = (List.hd next_events).value.name in
+
+        { 
+            place = place; 
+            (*
+    goal public static final class Pong implements Event {}
+            *)
+            value = {
+                T.vis=T.Public; 
+                T.name= Atom.refresh_hint next_name ("Timeout"^(Atom.hint next_name));
+                T.kind=T.Event; 
+                T.args= []
+            }
+        }:: (extract_events st_next.place (k+1) st_next.value)
+    in
+    let sub_class_command = 
+        T.ClassOrInterfaceDeclaration {
+            isInterface = true;
+            annotations = [T.Visibility T.Public];
+            name = Atom.fresh_builtin "Command";
+            extended_types = [auto_place (T.Atomic "CborSerializable")];
+            implemented_types = [];
+            body = [] 
+        }
+    in
+    let sub_class_event = 
+    begin
+        let stmts = [
+            T.LetStmt ({place=fplace; value=(Atomic "String")}, (Atom.fresh_builtin "bridge_id"), None);
+            T.LetStmt ({place=fplace; value=(Atomic "int")}, (Atom.fresh_builtin "session_id"), None);
+            T.LetStmt ({place=fplace; value=(Atomic "Msg")}, (Atom.fresh_builtin "msg"), None)
+        ] in
+        let stmts = List.map (function stmt -> auto_place(T.Stmt {place=fplace; value=stmt})) stmts in
+
+        let methods : T._method0 list = [
+            { T.annotations = [T.Visibility T.Public];
+                ret_type = auto_place T.TVoid;
+                name = Atom.fresh_builtin "Event";
+                body = AbstractImpl (List.map (function fname -> (auto_place (T.AssignExpr (
+                        auto_place (T.AccessExpr (
+                            auto_place T.This, 
+                            auto_place (T.VarExpr (Atom.fresh_builtin fname))
+                            )
+                        ),
+                        auto_place (T.VarExpr (Atom.fresh_builtin fname))
+                    )
+                ))) ["session_id"; "bridge_id"; "msg"]);
+                args = [];
+                is_constructor = true;
+            }
+        ] in
+        let methods = List.map (function m -> auto_place (T.MethodDeclaration (auto_place m))) methods in
+
+        T.ClassOrInterfaceDeclaration {
+            isInterface = false;
+            annotations = [T.Visibility T.Public];
+            name = Atom.fresh_builtin "Event<Msg>";
+            extended_types = [];
+            implemented_types = [auto_place (T.Atomic "Command")];
+            body = stmts @ methods 
+        }
+    end
+    in
+    let sub_classes = List.map (function cl -> auto_place cl) [sub_class_command; sub_class_event] in
+
+    let stmts = [
+        T.LetStmt ({place=fplace; value=(Atomic "String")}, (Atom.fresh_builtin "bridge_id"), None);
+        T.LetStmt ({place=fplace; value=(Atomic "int")}, (Atom.fresh_builtin "session_id"), None);
+        T.LetStmt ({place=fplace; value=(Atomic "ActorRef<TODO>")}, (Atom.fresh_builtin "other"), None)
+    ] in
+    let stmts = List.map (function stmt -> auto_place(T.Stmt {place=fplace; value=stmt})) stmts in
+    let events = extract_events st.place 0 st.value in
+    let events = List.map (function e -> {place=e.place@fplace; value=T.Event e}) events in
+    [{place; value=T.ClassOrInterfaceDeclaration {
+        isInterface = false;
+        annotations = [T.Visibility T.Public];
+        extended_types = [];
+        implemented_types = [];
+        name = name;
+        body = sub_classes @ events @ stmts 
+    }}]
+
+    (* TODO generate the core of the protocol *)
+
 | S.Typealias (v, S.AbstractTypealias body) -> raise (Error.PlacedDeadbranchError (place, "partial evaluation should have removed type alias exept those from impl"))
 | S.Typealias (v, S.BBTypealias body) as term -> raise (Error.PlacedDeadbranchError (place, "should have been removed (and replaced) by clean_terms"))
 |Typedef {value= EventDef (name, mts, None)as tdef; place = inner_place} ->
@@ -730,6 +854,8 @@ and finish_term place : S._term -> T.term list = function
         T.ClassOrInterfaceDeclaration {
             isInterface = false;
             annotations = [T.Visibility T.Public];
+            extended_types = [];
+            implemented_types = [];
             name;
             body = fields @ [constructor] 
         }

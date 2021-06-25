@@ -138,6 +138,10 @@ and output_body out : _body -> unit = function
             | [] -> ()
             | params -> fprintf out "(%a)" output_type_params params 
         in
+        let output_kind out = function 
+        | true -> fprintf out "interface"
+        | false -> fprintf out "class"
+        in
         let output_cl_extended out = function
             | [] -> ()
             | params -> fprintf out " extends %a" output_type_params params
@@ -147,8 +151,9 @@ and output_body out : _body -> unit = function
             | params -> fprintf out " implements %a" output_type_params params
         in
         fprintf out 
-            "%aclass %a%a%a%a {@;@[<v 3>%a@]@;}" 
+            "%a%a %a%a%a%a {@;@[<v 3>%a@]@;}" 
             output_annotations cl.annotations
+            output_kind cl.isInterface
             output_var cl.name 
             output_cl_params cl.parameters
             output_cl_extended cl.extended_types
@@ -161,6 +166,8 @@ and output_body out : _body -> unit = function
             output_var f.name
             (fun out opt-> ignore (Option.map (fprintf out " = %a" oexpr) opt)) f.body
     | MethodDeclaration m ->
+        assert(m.annotations <> []);
+
         fprintf out 
             "%a%a%a(@[<hv 3>%a@]) {@;@[<v 3>%a@]@;}"
             output_annotations m.annotations 
