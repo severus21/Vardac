@@ -105,8 +105,8 @@ and output_stmt out : _stmt -> unit = function
     | CommentsStmt c -> output_comments out c 
     | ContinueStmt -> fprintf out "continue;"
     | ExpressionStmt e -> fprintf out "%a;" oexpr e 
-    | IfStmt (e, stmt1, None) -> fprintf out "if(%a){@;<1 0>@[<hv>%a@]@;<1 -2>}" oexpr e ostmt stmt1
-    | IfStmt (e, stmt1, Some stmt2) -> fprintf out "if(%a){@;<1 0>@[<hv>%a@]@;<1 -2>}else{@;<1 0>@[<hv>%a@]@;<1 -2>}" oexpr e ostmt stmt1 ostmt stmt2
+    | IfStmt (e, stmt1, None) -> fprintf out "if(@[<hv 3>%a@]){@;@[<v 3>@;%a@]@;}" oexpr e ostmt stmt1
+    | IfStmt (e, stmt1, Some stmt2) -> fprintf out "if(@[<hv 3>%a@]){@;@[<v 3>@;%a@]@;}else{@;@[<v 3>@;%a@]@;}" oexpr e ostmt stmt1 ostmt stmt2
     | NamedExpr (jt, x, e) -> fprintf out "%a %a = @[<hv>%a@];" ojtype jt output_var x oexpr e
     | ReturnStmt e -> fprintf out "return %a;" oexpr e
     | RawStmt str -> pp_print_string out str
@@ -151,7 +151,7 @@ and output_body out : _body -> unit = function
             | params -> fprintf out " implements %a" output_type_params params
         in
         fprintf out 
-            "%a%a %a%a%a%a {@;@[<v 3>%a@]@;}" 
+            "%a%a %a%a%a%a {@;@[<v 3>@;%a@]@;}" 
             output_annotations cl.annotations
             output_kind cl.isInterface
             output_var cl.name 
@@ -169,7 +169,7 @@ and output_body out : _body -> unit = function
         assert(m.annotations <> []);
 
         fprintf out 
-            "%a%a%a(@[<hv 3>%a@]) {@;@[<v 3>%a@]@;}"
+            "%a%a%a(@[<hv 3>%a@]) {@;@[<v 3>@;%a@]@;}"
             output_annotations m.annotations 
             (fun out opt-> ignore (Option.map (fprintf out "%a " ojtype) opt)) m.ret_type 
             output_var m.name 

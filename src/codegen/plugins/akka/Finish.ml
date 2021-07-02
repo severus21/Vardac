@@ -712,9 +712,6 @@ and finish_term place : S._term -> T.term list = function
 
         { 
             place = place; 
-            (*
-    goal public static final class Pong implements Event {}
-            *)
             value = {
                 T.vis=T.Public; 
                 T.name= Atom.refresh_hint next_name ("Timeout"^(Atom.hint next_name));
@@ -735,27 +732,28 @@ and finish_term place : S._term -> T.term list = function
     in
     let sub_class_event = 
     begin
-        let stmts = [
-            T.LetStmt ({place=fplace; value=(Atomic "String")}, (Atom.fresh_builtin "bridge_id"), None);
-            T.LetStmt ({place=fplace; value=(Atomic "int")}, (Atom.fresh_builtin "session_id"), None);
-            T.LetStmt ({place=fplace; value=(Atomic "Msg")}, (Atom.fresh_builtin "msg"), None)
+        let args = [ 
+            auto_place (T.Atomic "String"), (Atom.fresh_builtin "bridge_id");
+            auto_place (T.Atomic "int"), (Atom.fresh_builtin "session_id");
+            auto_place (T.Atomic "Msg"), (Atom.fresh_builtin "msg")
         ] in
-        let stmts = List.map (function stmt -> auto_place(T.Stmt {place=fplace; value=stmt})) stmts in
+        let stmts = List.map (function (t, name) -> T.LetStmt (t, name, None)) args in
+        let stmts = List.map (function stmt -> auto_place(T.Stmt (auto_place stmt))) stmts in
 
         let methods : T._method0 list = [
             { T.annotations = [T.Visibility T.Public];
                 ret_type = auto_place T.TVoid;
                 name = Atom.fresh_builtin "Event";
-                body = AbstractImpl (List.map (function fname -> (auto_place (T.AssignExpr (
+                body = AbstractImpl (List.map (function (_, name) -> (auto_place (T.AssignExpr (
                         auto_place (T.AccessExpr (
                             auto_place T.This, 
-                            auto_place (T.VarExpr (Atom.fresh_builtin fname))
+                            auto_place (T.VarExpr name)
                             )
                         ),
-                        auto_place (T.VarExpr (Atom.fresh_builtin fname))
+                        auto_place (T.VarExpr name)
                     )
-                ))) ["session_id"; "bridge_id"; "msg"]);
-                args = [];
+                ))) args);
+                args;
                 is_constructor = true;
             }
         ] in
