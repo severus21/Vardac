@@ -24,6 +24,12 @@ and flat_type =
     | TPlace
     | TVPlace
 
+and tbridge = {
+    in_type: main_type; 
+    out_type: main_type;
+    protocol: main_type;
+}
+
 and _composed_type =
     | TActivationInfo of main_type
     | TArrow of main_type * main_type
@@ -40,11 +46,7 @@ and _composed_type =
 
 
     (** Message-passing *)
-    | TBridge of {
-        in_type: main_type; 
-        out_type: main_type;
-        protocol: main_type;
-    }
+    | TBridge of tbridge
 
     | TRaw of Impl_common.blackbox_term (*TODO move it to IRI by doing so composed type should not be any more in common *)
 and composed_type = _composed_type placed

@@ -212,25 +212,8 @@ and finish_expr place : S._expr -> T._expr = function
 
     | S.CallExpr (e1, es) -> begin 
         match e1.value with 
-        | S.VarExpr x when Atom.is_builtin x -> begin
-            (* TODO put this in separate fct *)
-            (* TODO Remove string and used typed constructor *)
-            match (Atom.value x) with 
-            | "fire" -> begin 
-                match es with
-                | [ session; msg ] -> T.CallExpr( 
-                    {
-                        place = e1.place;
-                        value = T.AccessExpr (fexpr session, {place = e1.place; value = T.VarExpr x})
-                    },
-                    [ fexpr msg ]
-                ) 
-                | _ -> Error.error place "fire must take two arguments : place(session, message)"
-                end
-            | _ -> 
-                logger#warning "Akka.Finish do not yet support builtin function %s" (Atom.value x);
-                T.CallExpr (fexpr e1, List.map fexpr es)
-        end
+        | S.VarExpr x when Atom.is_builtin x ->
+            Encode.encode_builtin_fct e1.place (Atom.value x) (List.map fexpr es)
         | _ -> T.CallExpr (fexpr e1, List.map fexpr es)
     end
     | S.This -> T.This

@@ -18,6 +18,9 @@ module S = Rt.Ast
 module T = Lg.Ast 
 
 
+let fplace = (Error.forge_place "Plg=AkkaJava" 0 0)
+let auto_place smth = {place = fplace; value=smth}
+
 (** Split Akka.AST in multiple file then convert it to Java AST *)
 (* - One actor per file *)
 (* map : filename java_ast *)
@@ -96,21 +99,15 @@ let rec finish_ctype place : S._ctype -> T._jtype = function
     | S.TOption t1 -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Optional", [fctype t1]) 
     | S.TParam ({value=S.TVar x;_}, t_args) -> T.ClassOrInterfaceType (x, List.map fctype t_args)
     | S.TParam _ -> failwith "Akka -> java, tparam with non VAR ctype is not yet supported" 
-    | S.TResult (t1, t2) -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Result", [fctype t1; fctype t2])  (*TODO add include https://github.com/hdevalke/result4j*)
+    | S.TResult (t1, t2) -> 
+        (* Encoding as the Either<keft,right> for Vavr,
+        left denotes the Err and right denotes the Ok*)
+        T.ClassOrInterfaceType  (Atom.fresh_builtin "Either", [fctype t2; fctype t1]) 
     | S.TSet t1 -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Set", [fctype t1])
     | S.TTuple cts -> begin 
         let cls_name = match List.length cts with
-        | 0 -> "Unit" 
-        | 1 -> "Pair" 
-        | 2 -> "Triplet" 
-        | 4 -> "Quartet" 
-        | 5 -> "Quintet" 
-        | 6 -> "Sextet" 
-        | 7 -> "Septet" 
-        | 8 -> "Octet" 
-        | 9 -> "Ennead"
-        | 10 -> "Decade"
-        | _ -> failwith "Tuple with length > 10 are not supported by the javatuples library."
+        | n when n < 9 -> "Tuple"^(string_of_int n) 
+        | _ -> failwith "Tuple with length > 8 are not supported by the Vavr library."
         in 
         T.ClassOrInterfaceType (Atom.fresh_builtin cls_name, List.map fctype cts)
     end 
@@ -171,9 +168,23 @@ and finish_expr place : S._expr -> T._expr = function
     | S.Spawn {context; actor_expr} -> T.AccessExpr (fexpr context, fexpr actor_expr)
     | S.This -> T.ThisExpr
     | S.UnopExpr (IR.UnpackResult, e) -> 
+        (*  Encoding
+            e.getOrElseThrow(() -> new RuntimeException("The result is failure, can access the success."))
+        *)
         T.AppExpr ( 
-            {place; value=T.AccessExpr (fexpr e, { place; value=T.VarExpr (Atom.fresh_builtin "unwrap")})},
-            []
+            {place; value=T.AccessExpr (fexpr e, { place; value=T.VarExpr (Atom.fresh_builtin "getOrElseThrow")})},
+            [
+                {place; value = LambdaExpr ([], {place; value=
+                    ReturnStmt {place; value = 
+                        NewExpr (
+                            auto_place (T.VarExpr (Atom.fresh_builtin "RuntimeException")),
+                            [
+                                auto_place (T.LiteralExpr (auto_place (T.StringLit "The result is failure, can access the success.")))
+                            ]
+                        )
+                    } 
+                })}
+            ]
         ) (* TODO should return form the fct with the error or return the result*) 
     | S.UnopExpr (op, e) -> T.UnaryExpr (op, fexpr e) 
     | S.VarExpr x -> T.VarExpr x             

@@ -88,6 +88,7 @@ and output_expr out : _expr -> unit = function
     | BinaryExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_binop op oexpr e2
     | LiteralExpr lit -> oliteral out lit
     | LambdaExpr (variables, stmt) -> fprintf out "( (%a) -> { %a } )" output_vars variables ostmt stmt
+    | NewExpr (e1, es) -> fprintf out "new @[%a(@[<hv>@;<0 3>%a@])@]" oexpr e1 oexprs es
     | ThisExpr -> pp_print_string out "this";
     | UnaryExpr (op, e) -> fprintf out "%a %a" output_unop op oexpr e
     | VarExpr x -> output_var out x             

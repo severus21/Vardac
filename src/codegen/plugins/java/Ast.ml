@@ -63,6 +63,7 @@ and _expr =
     | BinaryExpr of expr * binop * expr
     | LiteralExpr of literal
     | LambdaExpr of variable list * stmt 
+    | NewExpr of expr * expr list
     | ThisExpr
     | UnaryExpr of unop * expr
     | VarExpr of variable

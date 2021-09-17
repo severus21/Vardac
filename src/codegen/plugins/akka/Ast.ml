@@ -20,7 +20,7 @@ and _ctype =
     | TOption of ctype (*https://www.touilleur-express.fr/2014/11/07/optional-en-java-8/*)
     | TResult of ctype * ctype (*https://github.com/hdevalke/result4j*)
     | TSet of ctype (*Set<String> set =  new HashSet<String>() ;*)
-    | TTuple of ctype list (*https://howtodoinjava.com/java/java-misc/java-tuples/*)
+    | TTuple of ctype list 
     | TVar of variable
     | TVoid
 
