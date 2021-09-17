@@ -89,3 +89,12 @@ builddocker:
 
 vagrant:
 	vagrant up && vagrant ssh
+
+
+#### Vizualisation tools
+render:
+	dot -Tpng compiler-build/sltopology.dot -o compiler-build/sltopology.png
+
+# eog - gnome default
+sltopology: render
+	eog compiler-build/sltopology.png
