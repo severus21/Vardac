@@ -105,6 +105,7 @@ and output_stmt out : _stmt -> unit = function
     | BreakStmt -> fprintf out "break;"
     | CommentsStmt c -> output_comments out c 
     | ContinueStmt -> fprintf out "continue;"
+    | EmptyStmt -> ()
     | ExpressionStmt e -> fprintf out "%a;" oexpr e 
     | IfStmt (e, stmt1, None) -> fprintf out "if(@[<hv 3>%a@]){@;@[<v 3>@;%a@]@;}" oexpr e ostmt stmt1
     | IfStmt (e, stmt1, Some stmt2) -> fprintf out "if(@[<hv 3>%a@]){@;@[<v 3>@;%a@]@;}else{@;@[<v 3>@;%a@]@;}" oexpr e ostmt stmt1 ostmt stmt2

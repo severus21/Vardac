@@ -2,7 +2,8 @@ let builtin_fcts = [
     "placeof", "abs -> place option", "Give the current place where the abstraction is running. Returns None if the abstraction is not yet placed.";
     "sqrt", "float -> float", "Compute the square root of a float.";
     "none", "unit", "unit term";
-    "first", "List<T> -> T", "Return the first element of list, failed if empty";
+    "first", "Tuple/List<T> -> T", "Return the first element of list, failed if empty";
+    "second", "Tuple/List<T> -> T", "Return the second element of list, failed if empty";
     "last", "List<T> -> T", "Return the last element of list, failed if empty";
     "initiate_session", "TODO", "TODO";
     "fire", "TODO", "TODO";
@@ -15,9 +16,7 @@ let builtin_fcts = [
     "children", "TODO", "child of places";
     "bridge", "() -> Bridge<'A, 'B, 'a>", "create a new bridge with a fresh id";
     "initiate_session_with", "TODO", "TODO";
-    "fst", "TODO", "TODO";
-    "snd", "TODO", "TODO";
-    "print", "TODO", "TODO";
+    "print", "string -> unit", "TODO";
 ]
 
 let builtin_atomic_types = [

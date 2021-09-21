@@ -81,6 +81,7 @@ and _stmt =
     | CommentsStmt of comments
     | ContinueStmt
     | ExpressionStmt of expr
+    | EmptyStmt 
     | IfStmt of expr * stmt * stmt option              
     | NamedExpr of jtype * variable * expr 
     | ReturnStmt of expr

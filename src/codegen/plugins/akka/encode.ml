@@ -33,12 +33,22 @@ let encode_builtin_fct place name (args:T.expr list) =
         | [ tuple ] ->  T.AccessExpr (tuple, {place; value = T.VarExpr (Atom.fresh_builtin "_1")})
         | _ -> Error.error place "first must take one argument"
     end
-    | "initiate_session" -> begin
+    | "second" -> begin
+        match args with
+        | [ tuple ] ->  T.AccessExpr (tuple, {place; value = T.VarExpr (Atom.fresh_builtin "_2")})
+        | _ -> Error.error place "second must take one argument"
+    end
+    | "print" -> begin
+        match args with
+        | [ msg ] -> T.CallExpr (({place; value=T.VarExpr (Atom.fresh_builtin "println")}), [msg])
+        | _ -> Error.error place "print must take one argument" 
+    end
+    | "initiate_session_with" -> begin
         (* TODO i need to get the name of the type of the protocol 
         Maybe some thing like protocol is a value and we bind a protocol type with it.
         *)
         match args with
-        | [ tuple ] ->  T.AccessExpr (tuple, {place; value = T.VarExpr (Atom.fresh_builtin "_1")})
+        | [ bridge; right ] ->  T.AccessExpr (bridge, {place; value = T.VarExpr (Atom.fresh_builtin "_TODO")})
         | _ -> Error.error place "first must take one argument"
     end
     | _ -> 

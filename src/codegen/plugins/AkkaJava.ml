@@ -145,6 +145,14 @@ and finish_expr place : S._expr -> T._expr = function
     | S.AssertExpr e -> T.AssertExpr (fexpr e)                   
     | S.BinopExpr (e1, op, e2) -> T.BinaryExpr ( fexpr e1, op, fexpr e2) 
     | S.CallExpr (e1,e2) -> T.AppExpr(fexpr e1, List.map fexpr e2) 
+    | S.ClassOf ct -> begin
+        match ct.value with
+        | S.Atomic x -> T.VarExpr (Atom.fresh_builtin x)
+        | S.TVar x -> T.AccessExpr( 
+            {place = ct.place; value=T.VarExpr x}, 
+            {place = ct.place; value = T.VarExpr (Atom.fresh_builtin "class")}
+            )
+    end 
     | S.CurrentContext -> 
         T.AppExpr (
             {place; value=T.VarExpr (Atom.fresh_builtin "getContext")},
@@ -198,6 +206,7 @@ and finish_stmt place : S._stmt -> T._stmt = function
     | S.CommentsStmt c -> T.CommentsStmt c
     | S.ContinueStmt -> T.ContinueStmt
     | S.ExpressionStmt e -> T.ExpressionStmt(fexpr e)
+    | S.EmptyStmt -> T.EmptyStmt
     | S.IfStmt (e, stmt1, stmt2_opt) -> T.IfStmt (fexpr e, fstmt stmt1, Option.map fstmt stmt2_opt)              
     | S.LetStmt (ct, x, None) -> 
         T.NamedExpr (fctype ct, x, {place; value = T.VarExpr (Atom.fresh_builtin "null")}) (* TODO FIXME maybe not the semantic that we want, we need to add this to the doc*)  
@@ -308,7 +317,7 @@ and finish_method place ({annotations; ret_type; name; body; args; is_constructo
         }
 and fmethod m : T.str_items = {place=m.place; value=T.Body (finish_place finish_method m)}
 
-and finish_actor place ({name; methods; states; events; nested_items}: S._actor): T._str_items =
+and finish_actor place ({name; methods; states; events; nested_items; receiver}: S._actor): T._str_items =
     (* At most one constructor *)
     assert( List.length (List.filter (function (m:S.method0) -> m.value.is_constructor) methods) <= 1);
 
@@ -332,6 +341,12 @@ and finish_actor place ({name; methods; states; events; nested_items}: S._actor)
     body := !body @ (List.map fmethod methods);
     body := !body @ [{place; value=T.Comments (IR.LineComment "Nested structures")}];
     body := !body @ (List.map fterm nested_items);
+    begin match receiver with
+    | Some receiver  ->     
+        body := !body @ [{place; value=T.Comments (IR.LineComment "Receiver")}];
+        body := !body @ [fmethod receiver];
+    | None -> ()
+    end;
 
     T.Body ({ place; value = T.ClassOrInterfaceDeclaration {
         isInterface= false;

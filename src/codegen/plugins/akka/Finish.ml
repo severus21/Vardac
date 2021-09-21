@@ -17,6 +17,7 @@ module T = Ast
 
 let fst3 (x,y,z) = x
 
+
 (* Environments map strings to atoms. *)
 module AtomEnv = Atom.AtomMap 
 module LabelsEnv = Atom.AtomsMap 
@@ -293,7 +294,23 @@ and finish_stmt place : S._stmt -> T._stmt = function
     | S.GhostStmt _ -> raise (Core.Error.PlacedDeadbranchError (place, "finish_stype : GhostStmt should have been remove by a previous compilation pass."))
 and fstmt stmt : T.stmt = finish_place finish_stmt stmt
 
+and finish_eventdef (inner_place:Error.place) (name, mts, body) : T.event =
+match body with  
+| None -> { 
+            place = inner_place; 
+            value = {
+                T.vis=T.Public; 
+                T.name= name;
+                T.kind=T.Event; 
+                T.args=List.mapi ( fun i mt ->
+                    fmtype mt, Atom.fresh_builtin ("value"^(string_of_int i))
+                ) mts
+            }
+        }
+
 (************************************ Component *****************************)
+
+
 (* return type is T._expr for now, since we built only one state with all the variable inside FIXME *)
 and finish_state place : S._state -> T._stmt = function 
     | S.StateDcl {ghost; kind; type0; name; body = S.InitExpr e} -> 
@@ -502,9 +519,15 @@ and fmethod actor_name : S.method0 -> T.method0 list = function m -> finish_meth
 
 and finish_component_dcl place : S._component_dcl -> T.actor list = function
 | S.ComponentStructure {name; args; body} -> begin 
-    print_string (Atom.hint name);
-    print_newline ();
     assert( args == []); (* Not supported yet, maybe one day *)
+
+    (****** Helpers *****)
+    let fplace = (Error.forge_place "Plg=Akka/finish_term/protocoldef" 0 0) in
+    let auto_place smth = {place = fplace; value=smth} in
+    let expr2stmt e : T.stmt = auto_place (T.ExpressionStmt e) in
+    let exprs2stmts es : T.stmt list = List.map expr2stmt es in
+
+    (***** Processing *****)
 
     (* Group by kind the elmts : method, state, ...
         in order to display well stuctured code at the end (and since the order of definition do not matter)
@@ -513,7 +536,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     assert(grp_items.others == []);
 
     
-    (* Building events *)
+    (*** Building events ***)
     (* Events that should be defined inside the Actor *)
     let is_stype = function
         | _, Some ({Core.AstUtils.place; Core.AstUtils.value = S.SType st}) -> false
@@ -521,23 +544,13 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     in
     let events = List.map ( function
         | {value=S.EventDef (name, mts, body); place} ->
-            { 
-                place = place; 
-                value = {
-                    T.vis=T.Public; 
-                    T.name= name;
-                    T.kind=T.Event; 
-                    T.args=List.mapi ( fun i mt ->
-                        fmtype mt, Atom.fresh_builtin ("value"^(string_of_int i))
-                    ) mts
-                }
-            }
+            finish_eventdef place (name, mts, body)
     ) grp_items.eventdefs in
        (* 
         List.flatten (List.map (function x -> snd (fmtype x)) (List.filter_map (function x -> match snd x with |S.AbstractTypealias mt -> Some mt | _ -> None) (List.map (function |{value=S.EventDef (x, mts,body); _} -> (x, mts, body)) grp_items.eventdefs))) in*)
     
 
-    (* Building states *)
+    (*** Building states ***)
     let states : T.state list = List.map (
         function state -> {
             place = state.place; 
@@ -545,13 +558,196 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         } (* TODO handle persistency*)
     ) grp_items.states in 
 
-    (* Building receiver *)
+    (*** Building receiver ***)
+
+    (* Strategy
+        1) actor wait for all possible incomming events, i.e., events that are parts of at least one protocol of a port of the actor.
+        2) Then dispatch the message to the receiver of the bridge that carry it
+        3) at this point we can reconstruct the destination port using the expecting session type
+        4) run the callback
+    list_possible_incomming_events
+    map_bridge_id_bridge_receiver
+    per_pridge_expectingèstage_callback
+    *)
+
+
+    (* Step0 - name of receiver param (event) *)
+    let l_event_name : Atom.atom = (Atom.fresh_builtin "e") in
+    let l_event : T.expr = auto_place (T.VarExpr l_event_name) in
+
+    (* Step1 - create {event_name: {(bridge_expr, remaining_step i.e st) ->  callbak}} *)
+    let env : (Atom.atom, (T.expr * S.session_type, T.expr) Hashtbl.t) Hashtbl.t = Hashtbl.create 16 in
+    let hydrate_env (p: S.port) = 
+        let msg_type, remaining_st = match p.value.expecting_st.value with 
+        | S.SType st -> begin
+            match st.value with
+            | S.STRecv ({value=S.CType {value=S.TVar event_name;};}, st) -> event_name, st
+            | S.STRecv _ -> Core.Error.error p.place "only event type supported"
+            | S.STBranch xs -> failwith "TODO"
+            | S.STEnd | S.STVar _ |S.STRecv _-> failwith "TOTO"
+            | S.STInline _ -> failwith "TITI"
+            | _ -> Core.Error.error p.value.expecting_st.place "%s plugin: expecting type can only start by the reception of a message or of a label" plg_name  
+        end 
+        | _ -> Core.Error.error p.value.expecting_st.place "%s plugin do not support main type for port expecting" plg_name  
+        in
+       
+        let inner_env = begin 
+            try 
+                Hashtbl.find env msg_type 
+            with Not_found -> let _inner_env = Hashtbl.create 8 in Hashtbl.add env msg_type _inner_env; _inner_env
+        end in
+
+        let key = (fexpr p.value.input, remaining_st) in
+
+        (* check that key are not duplicated for the current event *)
+        try
+            ignore (Hashtbl.find inner_env key);
+            Error.error (place@p.place) "Tuple (bridge, st) is not unique for the component %s" (Atom.hint name)
+        with Not_found -> Hashtbl.add inner_env key (fexpr p.value.callback)
+    in
+
+    List.iter hydrate_env grp_items.ports;
+
+    (* Step 2 - Generate a receiver per event *)
+    let generate_event_receiver (event_name:Atom.atom) (inner_env:(T.expr * S.session_type, T.expr) Hashtbl.t) : T.stmt =
+        (* Helpers *)
+        let bridgeid (bridge: T.expr) = auto_place (T.AccessExpr (
+            bridge,
+            auto_place (T.VarExpr (Atom.fresh_builtin "id"))
+        )) in
+        let e_bridgeid e = auto_place (T.AccessExpr (
+            e,
+            auto_place (T.VarExpr (Atom.fresh_builtin "bridge_id"))
+        )) in
+        let remaining_stepof st = auto_place(T.VarExpr (Atom.fresh_builtin "TODO_st_remaining_stepof")) in
+        let e_remaining_step e = auto_place (T.AccessExpr (
+            e,
+            auto_place (T.VarExpr (Atom.fresh_builtin "current_set"))
+        )) in
+
+        (* Creating the statement*)
+        let add_case (bridge, st) (callback:T.expr) acc : T.stmt =
+            auto_place (T.IfStmt (
+                auto_place (T.BinopExpr(
+                    auto_place (T.BinopExpr (e_bridgeid l_event, S.Equal, bridgeid bridge)),
+                    S.And,
+                    auto_place (T.BinopExpr (e_remaining_step l_event, S.Equal, remaining_stepof st))
+                )),
+                auto_place (T.ExpressionStmt (auto_place (
+                    T.CallExpr(
+                        callback,
+                        [ l_event ]
+                    )
+                ))),
+                Some acc
+            ))
+        in
+        Hashtbl.fold add_case inner_env (auto_place (T.EmptyStmt))
+    in
+
+    (* Step3 - Generate the component receiver *)
+    let generate_component_receiver () = 
+        let init_receiver_expr = {place; value=T.CallExpr(
+            {place; value=T.VarExpr (
+                Atom.fresh "newReceiveBuilder"
+            )}, 
+            [{place; value=T.LitExpr {place; value=T.EmptyLit}}]
+        )} in
+        let add_case event_name inner_env (acc, acc_methods) =
+            let _m_name = Atom.fresh "event_dispatcher" in
+            let _m : T.method0 = auto_place {
+                T.annotations = [T.Visibility T.Public];
+                T.ret_type = auto_place (T.TVar (Atom.fresh_builtin "Behavior"));
+                T.name = _m_name;
+                T.body = AbstractImpl [generate_event_receiver event_name inner_env];
+                T.args = [(auto_place (T.TVar event_name), l_event_name)];
+                T.is_constructor = false;
+            } in
+
+            ({place; value=T.AccessExpr(
+                acc, 
+                {place; value=T.CallExpr(
+                    {place; value=T.VarExpr (Atom.fresh_builtin "onMessage")}, 
+                    [
+                        {place; value=T.ClassOf (auto_place (T.TVar event_name))};
+                        auto_place (T.VarExpr _m_name)
+                    ]
+                )}
+            )}, _m::acc_methods)
+        in
+        Hashtbl.fold add_case env (init_receiver_expr, [])
+    in
+
+    let (receiver_body, receiver_methods) = generate_component_receiver () in
+
+    (*
+    (* Collect phase 1 *)
+    let rec collect_incomming_events_form_st incomming_events : bridge_id AtomMap.t = function
+    | S.STEnd | S.STVar _ -> incomming_events
+    | S.STRecv (msg_type, st) -> 
+        let incomming_events = AtomMap.add incomming_events (fmtype msg_type) in
+        collect_incomming_events collect_incomming_events_form_st st 
+    | S.STSend (_, st) -> collect_incomming_events_form_st incomming_events st 
+    | S.STBranch xs -> 
+        failwith "TRUC"
+        (*{place=st.place; value=T.TVar (event_name_of_labels labels)}*)
+    | S.STSelect xs -> failwith "TODO"
+    | S.STInline _ -> failwith "TOTDOI"
+    in
+
+    let rec collect_incomming_events incomming_events (p: S.port) : bridge_id AtomMap.t = 
+        match p.value.expecting_st.value with 
+        | S.SType st -> collect_incomming_events_form_st st.value 
+        | _ -> Core.Error.error p.value.expecting_st.place "%s plugin do not support main type for port expecting" plg_name  
+    in
+
+    let incomming_events : bridge_id AtomMap.t = List.fold_left collect_incomming_events  (AtomMap.empty ()) grp_items.ports in
+
+    (* Collect pass 2 *)
+    let l_bridge_id (bridge_name:Atom.atom) = T.AccessExpr (
+        auto_place T.This,
+        auto_place (T.VarExpr bridge_name)
+    ) in
+    let l_e_bridge e = T.AccessExpr (
+        e,
+        auto_place (T.VarExpr (Atom.fresh_buitlin "bridge_id"))
+    ) in
+
+    (* current  protocol step *)
+    let l_e_current_step e = T.AccessExpr (
+        e,
+        auto_place (T.VarExpr (Atom.fresh_buitlin "current_set"))
+    ) in
+
+    let collect_bridge2ports bridge2ports (S.port list) : AtomMap bridge_id = 
+        AtomMap.add bridge2ports p.value.bridge p
+    let bridge2ports = List.fold_left collect_bridge2ports (AtomMap.empty ()) grp_items.ports in 
+
+    let build_event_receiver bridge2ports e : T.expr = 
+        let l_event = T.VarExpr (Atom.fresh_buitlin "e") in
+        let next_set_of port p = () in
+        T.IfStmt (
+            T.BinaryExpr(
+                auto_place (T.BinaryExpr (l_bridge_id, T.Equal, auto_place l_event)),
+                T.And,
+                auto_place (T.BinaryExpr (next_step_of, T.Equal, l_e_current_step l_event))
+            ),
+            auto_place T.BreakStmt,
+            auto_place T.BreakStmt
+        )
+    in
+    
+    
+
+    (* Collect pass 3*)
+
     let receiver_expr = {place; value=T.CallExpr(
         {place; value=T.VarExpr (
             Atom.fresh "newReceiveBuilder"
         )}, 
         [{place; value=T.LitExpr {place; value=T.EmptyLit}}]
     )} in
+
 
     let aux_receiver (expr: T.expr) (p: S.port) = 
         (* TODO also ensure this propertie about expecting after the partial evaluation pass by doing a 
@@ -586,9 +782,10 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     in
 
     let receiver_expr = List.fold_left aux_receiver receiver_expr grp_items.ports in
+    *)
 
     let receiver_expr = {place; value=T.AccessExpr(
-        receiver_expr, 
+        receiver_body, 
         { place; value=T.CallExpr(
             {place; value=T.VarExpr (Atom.fresh_builtin "build")},
             [{place; value=T.LitExpr {place; value=T.EmptyLit}}])
@@ -609,11 +806,11 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         }
     } in
     
-    (* building methods *)
-    let methods = List.flatten (List.map (fmethod name) grp_items.methods) in 
+    (***** Building methods *****)
+    let methods = receiver_methods @ (List.flatten (List.map (fmethod name) grp_items.methods)) in 
     
 
-    (* Sumup *)
+    (***** Sumup *****)
     [{
         place;
         value = {   
@@ -652,10 +849,15 @@ and finish_term place : S._term -> T.term list = function
     value = T.Stmt (fstmt stmt)
 }]
 | S.Typedef {value=S.ProtocolDef (name, {value=S.SType st; _});_} -> 
+    (*** Helpers ***)
     let fplace = (Error.forge_place "Plg=Akka/finish_term/protocoldef" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
+    let expr2stmt e : T.stmt = auto_place (T.ExpressionStmt e) in
+    let exprs2stmts es : T.stmt list = List.map expr2stmt es in
+
     (* TODO generalize the usage of auto place *)
 
+    (*** Processing ***)
     (* case protocol definition *)
     let rec extract_events place k = function
     | S.STEnd | S.STVar _ -> []
@@ -713,20 +915,22 @@ and finish_term place : S._term -> T.term list = function
             body = [] 
         }
     in
+
+
+    (*** Inner class: Event<Msg> ***)
+    let cl_event_name = Atom.fresh_builtin "Event" in
     let sub_class_event = 
     begin
-        let args = [ 
+        (*** Constructor ***)
+        let constructor_args = [ 
             auto_place (T.Atomic "String"), (Atom.fresh_builtin "bridge_id");
             auto_place (T.Atomic "int"), (Atom.fresh_builtin "session_id");
             auto_place (T.Atomic "Msg"), (Atom.fresh_builtin "msg")
         ] in
-        let stmts = List.map (function (t, name) -> T.LetStmt (t, name, None)) args in
-        let stmts = List.map (function stmt -> auto_place(T.Stmt (auto_place stmt))) stmts in
-
-        let methods : T._method0 list = [
-            { T.annotations = [T.Visibility T.Public];
+        let m_constructor = { 
+            T.annotations = [T.Visibility T.Public];
                 ret_type = auto_place T.TVoid;
-                name = Atom.fresh_builtin "Event";
+                name = cl_event_name;
                 body = AbstractImpl (List.map (function (_, name) -> (auto_place (T.AssignExpr (
                         auto_place (T.AccessExpr (
                             auto_place T.This, 
@@ -735,13 +939,20 @@ and finish_term place : S._term -> T.term list = function
                         ),
                         auto_place (T.VarExpr name)
                     )
-                ))) args);
-                args;
+                ))) constructor_args);
+                args = constructor_args;
                 is_constructor = true;
-            }
-        ] in
-        let methods = List.map (function m -> auto_place (T.MethodDeclaration (auto_place m))) methods in
+        } in
 
+        let methods : T.method0 list = List.map auto_place [ m_constructor ] in
+        let methods = List.map (function m -> auto_place (T.MethodDeclaration m)) methods in
+
+        (*** Attributes ***)
+        let stmts = List.map (function (t, name) -> T.LetStmt (t, name, None)) constructor_args in
+        let stmts = List.map (function stmt -> auto_place(T.Stmt (auto_place stmt))) stmts in
+
+
+        (*** CL Def ***)
         T.ClassOrInterfaceDeclaration {
             isInterface = false;
             annotations = [T.Visibility T.Public];
@@ -752,43 +963,136 @@ and finish_term place : S._term -> T.term list = function
         }
     end
     in
+
+    (*** Helpers ***)
+    let l_bridge_id = Atom.fresh_builtin "bridge_id" in
+    let l_session_id = Atom.fresh_builtin "session_id" in
+    let l_right = Atom.fresh_builtin "right" in
+
+    let cl_session_stmts = List.map auto_place [
+        T.LetStmt ({place=fplace; value=(Atomic "String")}, l_bridge_id, None);
+        T.LetStmt ({place=fplace; value=(Atomic "int")}, l_session_id, None);
+        T.LetStmt ({place=fplace; value=(Atomic "ActorRef<T>")}, l_right, None)
+    ] in
+    let this_bridge_id = T.AccessExpr (
+                        auto_place T.This, 
+                        auto_place (T.VarExpr l_bridge_id)
+                        ) in
+    let this_session_id = T.AccessExpr (
+                        auto_place T.This, 
+                        auto_place (T.VarExpr l_session_id)
+                        ) in
+    let this_right = T.AccessExpr (
+                        auto_place T.This, 
+                        auto_place (T.VarExpr l_right)
+                        ) in
+    
+    (*let events = extract_events st.place 0 st.value in
+    let events = List.map (function e -> {place=e.place@fplace; value=T.Event e}) events in*)
+
+    (*** Constructor ***)
+    let event_constructor_args = [ 
+        auto_place (T.Atomic "String"), (Atom.fresh_builtin "bridge_id");
+        auto_place (T.Atomic "int"), (Atom.fresh_builtin "session_id");
+        auto_place (T.Atomic "ActorRef<T>"), (Atom.fresh_builtin "right")
+    ] in
+    let m_event_constructor = { 
+        T.annotations = [T.Visibility T.Public];
+            ret_type = auto_place T.TVoid;
+            name = name;
+            body = AbstractImpl (List.map (function (_, name) -> (auto_place (T.AssignExpr (
+                    auto_place (T.AccessExpr (
+                        auto_place T.This, 
+                        auto_place (T.VarExpr name)
+                        )
+                    ),
+                    auto_place (T.VarExpr name)
+                )
+            ))) event_constructor_args);
+            args = event_constructor_args;
+            is_constructor = true;
+    } in
+
+    (*** Method: fire ***)
+    let m_fire_name = Atom.fresh_builtin "fire" in
+    let fire_args = [
+        auto_place (T.Atomic "Msg"), (Atom.fresh_builtin "msg");
+    ] in
+    let m_fire = 
+        let l_msg = T.VarExpr (Atom.fresh_builtin "msg") in  
+        let cl_msg_name = Atom.fresh_builtin "Msg" in  
+        let l_e = Atom.fresh_builtin "e" in
+        { 
+            T.annotations = [T.Visibility T.Public];
+            ret_type = auto_place T.TVoid;
+            name = m_fire_name;
+            body = AbstractImpl ([
+                (* Event<Msg> e = Event(this.bridge_id, this.session_id, msg); *)
+                (auto_place (T.LetStmt (
+                    auto_place (T.TParam 
+                    (auto_place (T.TVar cl_event_name),
+                    [ (auto_place (T.TVar cl_msg_name)) ]
+                    )),
+                    l_e,
+                    Some (auto_place (T.CallExpr (
+                        auto_place (T.VarExpr cl_event_name),
+                        [
+                            auto_place this_bridge_id;
+                            auto_place this_session_id;
+                            auto_place l_msg
+                        ]
+                    ))
+                ))));
+                
+                (* this.right.tell(e,  getSelf()); *)
+                expr2stmt (auto_place (T.CallExpr (
+                    auto_place (T.AccessExpr (
+                        auto_place this_right,
+                        auto_place (T.VarExpr (Atom.fresh_builtin "tell"))
+                        )
+                    ),
+                    [
+                        auto_place (T.VarExpr l_e);
+                        auto_place (T.CallExpr (
+                            auto_place (T.VarExpr (Atom.fresh_builtin "getSelf")),
+                            []
+                        ))
+                    ]
+                )
+            ))]);
+            args = fire_args;
+            is_constructor = true;
+        } 
+    in
+
+    (*** Method: receive ***)
+    (* TODO with ports *)
+
+    (*** Body assembly ***)
     let sub_classes = List.map (function cl -> auto_place cl) [sub_class_command; sub_class_event] in
 
-    let stmts = [
-        T.LetStmt ({place=fplace; value=(Atomic "String")}, (Atom.fresh_builtin "bridge_id"), None);
-        T.LetStmt ({place=fplace; value=(Atomic "int")}, (Atom.fresh_builtin "session_id"), None);
-        T.LetStmt ({place=fplace; value=(Atomic "ActorRef<TODO>")}, (Atom.fresh_builtin "other"), None)
-    ] in
-    let stmts = List.map (function stmt -> auto_place(T.Stmt {place=fplace; value=stmt})) stmts in
-    let events = extract_events st.place 0 st.value in
-    let events = List.map (function e -> {place=e.place@fplace; value=T.Event e}) events in
+    let methods : T.method0 list = List.map auto_place [ m_event_constructor ; m_fire ] in
+    let methods = List.map (function m -> auto_place (T.MethodDeclaration m)) methods in
+
+    let stmts = List.map (function stmt -> auto_place (T.Stmt stmt)) cl_session_stmts in
+
     [{place; value=T.ClassOrInterfaceDeclaration {
         isInterface = false;
         annotations = [T.Visibility T.Public];
         extended_types = [];
         implemented_types = [];
         name = name;
-        body = sub_classes @ events @ stmts 
+        body = stmts @ sub_classes @ methods (*@ events*)
     }}]
 
-    (* TODO generate the core of the protocol *)
+    (* TODO generate the dynamic checking of protocol order if needed *)
 
 | S.Typealias (v, S.AbstractTypealias body) -> raise (Error.PlacedDeadbranchError (place, "partial evaluation should have removed type alias exept those from impl"))
 | S.Typealias (v, S.BBTypealias body) as term -> raise (Error.PlacedDeadbranchError (place, "should have been removed (and replaced) by clean_terms"))
-|Typedef {value= EventDef (name, mts, None)as tdef; place = inner_place} ->
+|Typedef {value= EventDef (name, mts, None) as tdef; place = inner_place} ->
     [{
         place;
-        value = T.Event { 
-            place = inner_place; 
-            value = {
-                T.vis=T.Public; 
-                T.name= name;
-                T.kind=T.Event; 
-                T.args=List.mapi ( fun i mt ->
-                    fmtype mt, Atom.fresh_builtin ("value"^(string_of_int i))
-                ) mts
-            }
-        }
+        value = T.Event (finish_eventdef inner_place (name, mts, None)) 
     }]
 | S.Typedef  {value= ClassicalDef (name, args, None) as tdef; place} -> (* implicit constructor should translate to akka *)
     let args = List.map (function (arg:T.ctype) -> (arg, Atom.fresh "arg")) (List.map fmtype args) in
@@ -861,7 +1165,7 @@ and clean_terms : S.term list -> S.term list = function
 
 let finish_program terms = 
     let terms = clean_terms terms in
-    let terms = List.flatten (List.map fterm terms) in
+    let terms = List.flatten (List.rev(List.map fterm terms)) in
 
     { 
         T.entrypoint = [];

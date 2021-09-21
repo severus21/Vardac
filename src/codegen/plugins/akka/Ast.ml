@@ -68,6 +68,7 @@ and _stmt =
     | AssignExpr of expr * expr (*expression should be access or variable*)
     | BlockStmt of stmt list
     | BreakStmt
+    | EmptyStmt
     | LetStmt of ctype * variable * expr option(*int x = blabl*)
     | CommentsStmt of comments
     | ContinueStmt
