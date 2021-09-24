@@ -15,9 +15,9 @@ let codegen_program project_dir build_dir ((target, program):Target.target * IRI
     let module Plug = (val plug:Plugins.Plugin.Plug) in    
 
     logger#info "Init build directory \"%s\" with plugin templates and external files"  (Fpath.to_string build_dir);
-    Plug.init_build_dir project_dir build_dir;
+    Plug.init_build_dir target project_dir build_dir;
     logger#info "Building ...";
-    Plug.output_program build_dir program 
+    Plug.output_program target build_dir program 
 
 let codegen project_dir (build_dir:Fpath.t) targets program = 
     (* build a { target -> plugin } dictionary *)

@@ -9,7 +9,6 @@ and assign_operator =
     | AssignOp (* = *)
     (* TODO += etc if needed*)
 and _literal = 
-    | EmptyLit
     | BoolLit of bool
     | FloatLit of float
     | IntLit of int
@@ -83,7 +82,7 @@ and _stmt =
     | ExpressionStmt of expr
     | EmptyStmt 
     | IfStmt of expr * stmt * stmt option              
-    | NamedExpr of jtype * variable * expr 
+    | NamedExpr of jtype * variable * expr option 
     | ReturnStmt of expr
     | RawStmt of string
 and stmt = _stmt placed

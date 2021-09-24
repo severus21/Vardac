@@ -35,19 +35,19 @@ module type Cg_plg = sig
     module Rt : Rt_plg
     module Lg : Lg_plg
     
-    val finish_program : Rt.Ast.program -> (Fpath.t * Lg.Ast.program) Seq.t 
-    val finish_ir_program : S.program -> (Fpath.t * Lg.Ast.program) Seq.t
-    val output_program : Fpath.t -> S.program -> unit
+    val finish_program : Core.Target.target -> Rt.Ast.program -> (Fpath.t * Lg.Ast.program) list 
+    val finish_ir_program : Core.Target.target -> S.program -> (Fpath.t * Lg.Ast.program) list 
+    val output_program : Core.Target.target -> Fpath.t -> S.program -> unit
 
-    val custom_template_rules : unit -> (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) list
+    val custom_template_rules : Core.Target.target -> (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) list
     val custom_external_rules : unit -> (Fpath.t * Fpath.t) list
-    val jingoo_env : unit -> (string * Jingoo.Jg_types.tvalue) list
+    val jingoo_env : Core.Target.target -> (string * Jingoo.Jg_types.tvalue) list
 end
 
 module type Plug = sig
     include Cg_plg
 
-    val init_build_dir : Fpath.t -> Fpath.t -> unit
+    val init_build_dir : Core.Target.target -> Fpath.t -> Fpath.t -> unit
 end
 
 module Make (Plg: Cg_plg) = struct 
@@ -101,7 +101,7 @@ let filter_custom root path =
         (external0, destfile)
     let process_externals root build_dir = 
         let copy_external (src, dst) : unit = 
-            FileUtil.cp [Fpath.to_string src] (Fpath.to_string dst)
+            FileUtil.cp ~recurse:true [Fpath.to_string src] (Fpath.to_string dst)
         in
 
         (* auto_externals *)
@@ -138,7 +138,7 @@ let filter_custom root path =
         Printf.fprintf oc "%s" res; 
         close_out oc
 
-    let preprocess_auto_template root build_dir template : (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) = 
+    let preprocess_auto_template target root build_dir template : (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) = 
         let destfile = match Fpath.relativize (auto_templates_dir root) template with
         | Some destfile -> destfile
         | None -> template (* already relative to auto_template_dirs*) 
@@ -151,7 +151,7 @@ let filter_custom root path =
         ) in
         let destfile = Fpath.append build_dir  destfile in
 
-        (template, jingoo_env (), destfile)
+        (template, jingoo_env target, destfile)
 
     let preprocess_custom_template root build_dir (template, env, destfile) : (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) =
         let template = Fpath.append (custom_templates_dir root) template in
@@ -159,7 +159,7 @@ let filter_custom root path =
         (template, env, destfile)
 
     (** @param root - empty for lg4dc or projec_name directory *)
-    let process_templates root build_dir = 
+    let process_templates target root build_dir = 
         logger#debug "> root=%s" (Fpath.to_string root);
 
         (* auto_templates *)
@@ -169,7 +169,7 @@ let filter_custom root path =
             | Rresult.Ok true -> begin 
                 FileUtil.ls (Fpath.to_string _auto_templates_dir)
                 |> List.map Fpath.v
-                |> List.map (preprocess_auto_template root build_dir)
+                |> List.map (preprocess_auto_template target root build_dir)
                 |> List.iter resolve_template;
             end
             | Rresult.Ok false -> ()
@@ -177,14 +177,14 @@ let filter_custom root path =
         end;
 
         (* custom_templates *)
-        custom_template_rules ()
+        custom_template_rules target 
         |> List.map (preprocess_custom_template root build_dir)
         |> List.filter (function (path,_,_) -> filter_custom root path) 
         |> List.iter resolve_template
 
-    let init_build_dir (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
+    let init_build_dir target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
         process_externals (Fpath.v ".") build_dir;
         process_externals project_dir build_dir;
-        process_templates (Fpath.v ".") build_dir;
-        process_templates project_dir build_dir
+        process_templates target (Fpath.v ".") build_dir;
+        process_templates target project_dir build_dir
 end

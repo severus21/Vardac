@@ -1,4 +1,9 @@
-- target: Akka 
+- target: akka 
   codegen: 
     language: Java
     runtime: Akka
+    mains: 
+      - name: main 
+        component: toplevel
+      - name: consol
+        component: A

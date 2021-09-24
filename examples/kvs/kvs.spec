@@ -1,30 +1,38 @@
 // Parameter types
-type k;
+type k = int;
 type v;
 type error;
 
+type toto of int;
+
 // Custom transaction types
-type begintx;
-type txid;
-type abort;
-type ack;
-type commit;
+type _begintx; (* define an abstract type alias *)
+type _txid =int ;
+type _abort = int;
+type _ack =int ;
+type _commit =int;
+
+event begintx of _begintx; (* create a type and its constructor => begin tx can not be implemented ?? *)
+event txid of _txid;
+event abort of _abort;
+event ack of _ack;
+event commit of _commit;
 
 type action_protocol = µ x. 
 &{ (* non deterministic fire *)
-    "get" { | true } : !k ?Result<v, error> . x; (* recursif *)
-    "put": !Tuple<k,v> ?Result<void, error> . x { | true }; (* recursif *)
+    "get" { | true } : !k ?Result<v, error> - x; (* recursif *)
+    "put": !Tuple<k,v> ?Result<void, error> - x { | true }; (* recursif *)
     "abort": !abort ?ack . ; (* non-recursif *)
     "commit": !commit ?Result<void, error> . (* non-recursif *)
 };
 
 type tc_protocol = ?txid (inline action_protocol);
-type full_tx_protocol = !begintx (inline tc_protocol);
+protocol full_tx_protocol = !begintx (inline tc_protocol);
 
 
 // Shared type object 
 component PositiveCounter () {
-    local int value;
+    local int value = 0;
     (*TODO not yet supported by the Akka plg local int{|x -> x > 0.1} value;*)
 
     void decrement ();
@@ -45,7 +53,7 @@ component Client() {
     onstartup void init () {
         // Initialize communication with the KVS
         (*FIXME add C() tunnel *)
-        full_tx_protocol s = initiate_session().first()?;
+        full_tx_protocol s = first(initiate_session())?;
         // blocking call
         tc_protocol s1 = fire(s, begintx())?;
         this.tx_id = receive(s1)?; (* TODO specify timeout second args*)
@@ -54,7 +62,8 @@ component Client() {
     Result<void, error> put(k k, v v);
 
     contract put 
-    ensures this.tx_id > 0 && "a" == "a"
+    invariant this.tx_id > 0 
+    ensures "a" == "a"
     returns res -> 10 > 0 
 
     (*contract put
@@ -84,12 +93,13 @@ component TransactionManager () {
 
     (* Handling activation initialization *)
     onstartup void init () {
+        int test = 1;
         ghost!{ __nbr_activations.increment(); }
     }
-
+    (* Not yet support by Plg Akka
     ondestroy void destroy () {
         ghost!{ __nbr_activations.decrement(); }
-    }
+    }*)
 
     (* Business logic *)
     txid fresh_tx_id ();
@@ -99,7 +109,7 @@ component TransactionManager () {
     returns res -> (this.last_tx_id == res) && (res > current_tx_id)*)
 
 
-    Result<void, ActivationError> start_transaction (full_tx_protocol session) { 
+    Result<void, error> start_transaction (full_tx_protocol session) { 
         (*We provide a reference implementation for this method*)
         txid tx_id = this.fresh_tx_id(); (* this denotes the current activation *)
 
@@ -144,6 +154,7 @@ component TransactionManager () {
     port port_begintransaction on c1 expecting ?int. = this.start_transaction;
 }
 
+type local_journal;
 component TransactionCoordinator () {
     local txid tx_id;
 
@@ -164,7 +175,7 @@ component TransactionCoordinator () {
     port port_handleaction on 1 expecting ?int. = this.dispatcher;
 
     (* rev -> Result<...,NetworkError>*)
-    Result<void, Error> dispatcher(action_protocol s) {
+    Result<void, error> dispatcher(action_protocol s) {
         (*//https://medium.com/@shannonbarnes_85491/algebraic-data-types-in-scala-701f3227fe91
         *)
         //comment
@@ -205,8 +216,12 @@ component TransactionCoordinator () {
     }
 
     (* Business logic *)
-    Result<void, Error> abort ();
-    Result<void, Error> commit ();
-    Result<v, Error> get (k key);
-    Result<void, Error> put (k key, v value);
+    Result<void, error> abort ();
+    Result<void, error> commit ();
+    Result<v, error> get (k key);
+    Result<void, error> put (k key, v value);
 }
+
+component B () {
+    component C () {}
+ }

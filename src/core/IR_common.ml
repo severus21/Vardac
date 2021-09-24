@@ -110,7 +110,6 @@ and vplaces = vplace list
 
 and _literal = 
     | VoidLit
-    | EmptyLit 
     | BoolLit of bool
     | FloatLit of float 
     | IntLit of int
@@ -127,7 +126,7 @@ and _literal =
     (** Message-passing *)
     | Bridge of {
         id: variable; 
-        protocol: session_type;
+        protocol_name: variable;
     }
 and literal = _literal placed
 

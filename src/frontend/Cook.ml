@@ -385,7 +385,6 @@ and caconst env (headers,const): env * T.applied_constraint =
 
 (************************************* Literals ******************************)
 and cook_literal env place : S._literal -> env * T._literal = function
-| S.EmptyLit -> env, T.EmptyLit
 | S.BoolLit b -> env, T.BoolLit b
 | S.FloatLit f -> env, T.FloatLit f 
 | S.IntLit i -> env, T.IntLit i
@@ -661,7 +660,17 @@ and ccitem env: S.component_item -> env * T.component_item = cook_place cook_com
 
 and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = function
 | S.ComponentStructure cdcl -> 
-    let new_env, name = bind_component env place cdcl.name in
+    (*
+        Hyp: Exactly one component delcaration per component name at a given layer of the architure -> has to be checked (FIXME/TODO.
+        Which means that A { B{ } } B {}, A.B and B will be binded to different unique atom.
+        Stmt: shallow_scan_compoent, used for allowing architecture loop i.e. A use B ref and B use A ref, has already attributed an Atom to the current componen t component. Shallow_componen thas been run by the parent or at top-level.
+    *)
+    let name = cook_var_component env place cdcl.name in
+    let new_env = 
+        {env with 
+        current = {env.current with components=Env.add cdcl.name name env.current.components};
+        component = { (fresh_component_env ()) with  name = name}
+    } in
     let env = {env with component = new_env.component } in
 
     (* Check that there is at most one constructor/destructor per component *)
@@ -762,7 +771,10 @@ and cterm env: S.term -> env * T.term = cook_place cook_term env
 let cook_program places terms =    
     let toplevel_env = {(fresh_env ()) with component = {(fresh_component_env ()) with name = Atom.fresh_builtin "toplevel"}} in
     let toplevel_env = List.fold_left shallow_scan_term toplevel_env terms in
+    print_string ">>>>";
+    print_env toplevel_env;
     let toplevel_env = refresh_component_env toplevel_env (Atom.fresh_builtin "toplevel") in
+    print_env toplevel_env;
 
     let toplevel_env,  program = (List.fold_left_map cterm toplevel_env terms) in 
     (terms_of_eventdef_from_labels toplevel_env) @ program

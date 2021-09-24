@@ -6,7 +6,7 @@ plugins {
     id "com.github.johnrengelman.shadow" version "6.1.0"
 }
 
-group 'com.bmartin'
+group 'com.{{author}}'
 version '1.0-SNAPSHOT'
 
 repositories {
@@ -49,6 +49,19 @@ dependencies {
 
     // interactive console
     implementation "org.jline:jline:3.20.0"
+
+    // telemetry
+    // JMX exporter
+    implementation "io.prometheus.jmx:jmx_prometheus_javaagent:0.15.0"
+    implementation "org.jgrapht:jgrapht-core:1.5.1"
+    // https://github.com/RustedBones/akka-http-metrics
+//    implementation "io.prometheus:simpleclient:0.10.0"
+//    implementation "fr.davit:akka-http-metrics-core:1.6.0"
+//    implementation "fr.davit:akka-http-metrics-core_${versions.ScalaBinary}:1.6.0"
+//    implementation "fr.davit:akka-http-metrics-prometheus_${versions.ScalaBinary}:1.6.0"
+
+    // Lg4dc - adding types + functional behavior
+    implementation "io.vavr:vavr:0.10.3"
 }
 
 test {
@@ -58,16 +71,18 @@ test {
 /*
     FAT jar tasks
  */
-task jarMain(type: ShadowJar) {
-    archiveBaseName.set('kvsServer')
+{% for name in target_mains %}
+task jar{{name|capitalize}}(type: ShadowJar) {
+    archiveBaseName.set('{{name}}')
     archiveClassifier.set('')
     archiveVersion.set('')
     configurations = [project.configurations.compileClasspath]
     manifest {
-        attributes('Main-Class': 'com.{{author}}.{{project_name}}.MainServer')
+        attributes('Main-Class': 'com.{{author}}.{{project_name}}.main')
     }
     transform(AppendingTransformer) {
         resource = 'reference.conf'
     }
     with jar
 }
+{% endfor %}

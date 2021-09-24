@@ -1,4 +1,4 @@
-//package com.bmartin.kvs;
+package com.bmartin;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
@@ -96,7 +96,7 @@ public class SpawnProtocol {
                     actorRef = ctx.spawnAnonymous(Behaviors.setup(spawn.runnable::apply),
                             null == spawn.props ? Props.empty() : spawn.props);
                 } else {
-                    actorRef = spawnWithUniqueName(0, spawn.name, ctx, Behaviors.setup(.runnable::apply),
+                    actorRef = spawnWithUniqueName(0, spawn.name, ctx, Behaviors.setup(spawn.runnable::apply),
                             null == spawn.props ? Props.empty() : spawn.props);
                 }
 

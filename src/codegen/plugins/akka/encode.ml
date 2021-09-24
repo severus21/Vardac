@@ -3,6 +3,7 @@ open Utils
 open AstUtils
 open Easy_logging
 open Fieldslib
+open Misc
 
 let plg_name = "Akka"
 let logger = Logging.make_logger ("_1_ compspec.plg."^plg_name) Debug [];;
@@ -15,6 +16,7 @@ module T = Ast
 
 let encode_builtin_fct place name (args:T.expr list) =
     assert(Core.Builtin.is_builtin_expr name);
+    let auto_place t = {place; value=t} in 
     match name with
     (* TODO Remove string and used typed constructor in order to ensure that this file is uptodate with the Core.Builtin.builtin_fcts*)
     | "fire" -> begin 
@@ -24,7 +26,10 @@ let encode_builtin_fct place name (args:T.expr list) =
                 place;
                 value = T.AccessExpr (session, {place; value = T.VarExpr (Atom.fresh_builtin "fire")})
             },
-            [ msg ]
+            [ 
+                msg; 
+                e_get_context place
+            ]
         ) 
         | _ -> Error.error place "fire must take two arguments : place(session, message)"
         end
@@ -40,7 +45,7 @@ let encode_builtin_fct place name (args:T.expr list) =
     end
     | "print" -> begin
         match args with
-        | [ msg ] -> T.CallExpr (({place; value=T.VarExpr (Atom.fresh_builtin "println")}), [msg])
+        | [ msg ] -> T.CallExpr (({place; value=T.VarExpr (Atom.fresh_builtin "System.out.println")}), [msg])
         | _ -> Error.error place "print must take one argument" 
     end
     | "initiate_session_with" -> begin
@@ -48,7 +53,13 @@ let encode_builtin_fct place name (args:T.expr list) =
         Maybe some thing like protocol is a value and we bind a protocol type with it.
         *)
         match args with
-        | [ bridge; right ] ->  T.AccessExpr (bridge, {place; value = T.VarExpr (Atom.fresh_builtin "_TODO")})
+        | [ bridge; right ] ->  
+            T.CallExpr (
+                auto_place (T.AccessExpr (bridge, auto_place (T.VarExpr (Atom.fresh_builtin "initiate_session_with")))),
+                [
+                    right 
+                ]
+            )
         | _ -> Error.error place "first must take one argument"
     end
     | _ -> 

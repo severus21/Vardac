@@ -222,7 +222,6 @@ match (e1.value, op, e2.value) with
 | (LitExpr {value = l1; _}), GreaterThan, (LitExpr {value = l2; _}) ->
     env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
     match (l1, l2) with
-    | EmptyLit, EmptyLit -> false 
     | IntLit x, IntLit y -> x > y 
     | FloatLit x, FloatLit y -> x > y 
     | StringLit x, StringLit y -> x > y
@@ -231,7 +230,6 @@ match (e1.value, op, e2.value) with
 | (LitExpr {value = l1; _}), GreaterThanEqual, (LitExpr {value = l2; _}) ->
     env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
     match (l1, l2) with
-    | EmptyLit, EmptyLit -> true 
     | IntLit x, IntLit y -> x >= y 
     | FloatLit x, FloatLit y -> x >= y 
     | StringLit x, StringLit y -> x >= y
@@ -240,7 +238,6 @@ match (e1.value, op, e2.value) with
 | (LitExpr {value = l1; _}), LessThan, (LitExpr {value = l2; _}) ->
     env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
     match (l1, l2) with
-    | EmptyLit, EmptyLit -> false 
     | IntLit x, IntLit y -> x < y 
     | FloatLit x, FloatLit y -> x < y 
     | StringLit x, StringLit y -> x < y
@@ -249,7 +246,6 @@ match (e1.value, op, e2.value) with
 | (LitExpr {value = l1; _}), LessThanEqual, (LitExpr {value = l2; _}) ->
     env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
     match (l1, l2) with
-    | EmptyLit, EmptyLit -> true 
     | IntLit x, IntLit y -> x <= y 
     | FloatLit x, FloatLit y -> x <= y 
     | StringLit x, StringLit y -> x <= y
@@ -276,14 +272,16 @@ match (e1.value, op, e2.value) with
 
 and peval_call env place (fct: expr) (args: expr list) : env * _expr =
 match fct.value, args with
-| VarExpr name, [] when Atom.hint(name) = "bridge" ->
+| VarExpr name, [{value=VarExpr protocol_name;}] when Atom.hint(name) = "bridge" ->
     env, LitExpr {
         place;    
         value = Bridge {
             id  = Atom.fresh "bridge";
-            protocol = { place = Error.forge_place "partial_eval/peval_call/default_protocol" 0 0; value = STEnd}; (* Should be update afterward by using type annotation *)
+            protocol_name
         } 
     }
+| VarExpr name, _ when Atom.hint(name) = "bridge" ->
+    Error.error place "bridge should have exactly one argument - the protocol"
 | _ -> env, CallExpr (fct, args)
 
 and peval_expr env place : _expr -> env * _expr = function 
@@ -391,12 +389,11 @@ end
             | SType st -> st
             | _ -> Error.error t_b.protocol.place "Third argument of Bridge<_,_,_> must be (partially-evaluated> to a session type"
             in
-            let bridge = LitExpr {place = e_b.place@let_left.place; value = Bridge {bridge with protocol = protocol}} in
 
             env, LetExpr (
                 let_left,
                 let_x, 
-                {place = e_b.place; value = bridge} 
+                e_b 
             )
         | _ -> Error.error place "The right-handside of a Bridge<_,_,_> must be partially evaluated to a bridge literal" 
     end

@@ -68,12 +68,11 @@ and output_binop out = function
 and output_assignop out : assign_operator -> unit = function
     | AssignOp -> pp_print_string out "="
 and output_literal out : _literal -> unit = function
-    | EmptyLit -> pp_print_string out "()" (* TODO EmptyLit is only a compiling artefact it sould not be use to write anything*)
     | BoolLit b -> pp_print_bool out b
     | FloatLit f -> pp_print_float out f 
     | IntLit i -> pp_print_int out i 
     | StringLit str -> fprintf out "\"%s\"" str 
-    | VoidLit -> pp_print_string out "()" 
+    | VoidLit -> pp_print_string out "null" 
 and oliteral out : literal -> unit = function lit ->
 match Config.provenance_lvl () with
 | Config.None | Config.Medium -> output_literal out lit.value
@@ -109,7 +108,8 @@ and output_stmt out : _stmt -> unit = function
     | ExpressionStmt e -> fprintf out "%a;" oexpr e 
     | IfStmt (e, stmt1, None) -> fprintf out "if(@[<hv 3>%a@]){@;@[<v 3>@;%a@]@;}" oexpr e ostmt stmt1
     | IfStmt (e, stmt1, Some stmt2) -> fprintf out "if(@[<hv 3>%a@]){@;@[<v 3>@;%a@]@;}else{@;@[<v 3>@;%a@]@;}" oexpr e ostmt stmt1 ostmt stmt2
-    | NamedExpr (jt, x, e) -> fprintf out "%a %a = @[<hv>%a@];" ojtype jt output_var x oexpr e
+    | NamedExpr (jt, x, Some e) -> fprintf out "%a %a = @[<hv>%a@];" ojtype jt output_var x oexpr e
+    | NamedExpr (jt, x, None) -> fprintf out "%a %a;" ojtype jt output_var x 
     | ReturnStmt e -> fprintf out "return %a;" oexpr e
     | RawStmt str -> pp_print_string out str
 and ostmt out: stmt -> unit = function stmt ->
@@ -231,6 +231,27 @@ let output_program outpath items : unit =
     } in
     let items = (List.map mock_placed [
         JModule (mock_placed (PackageDeclaration (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ()))));
+
+        (* Java *)
+        JModule (mock_placed(ImportDirective "java.util.List"));
+        JModule (mock_placed(ImportDirective "java.time.Duration"));
+        JModule (mock_placed(ImportDirective "java.util.concurrent.CompletableFuture"));
+
+
+        (* Akka imports *)
+        JModule (mock_placed(ImportDirective "akka.actor.typed.ActorRef"));
+        JModule (mock_placed(ImportDirective "akka.actor.typed.Behavior"));
+        JModule (mock_placed(ImportDirective "akka.actor.typed.javadsl.AbstractBehavior"));
+        JModule (mock_placed(ImportDirective "akka.actor.typed.javadsl.ActorContext"));
+        JModule (mock_placed(ImportDirective "akka.actor.typed.javadsl.Behaviors"));
+        JModule (mock_placed(ImportDirective "akka.actor.typed.javadsl.Receive"));
+        JModule (mock_placed(ImportDirective "akka.actor.typed.receptionist.Receptionist"));
+
+        (* Other dependencies *)
+        JModule (mock_placed(ImportDirective "io.vavr.*"));
+        JModule (mock_placed(ImportDirective "io.vavr.control.*"));
+
+        (* Plugin (external) libs imports *)
         JModule (mock_placed(ImportDirective "com.lg4dc.protocol.*"));
         JModule (mock_placed(ImportDirective "com.bmartin.SpawnProtocol"));
     ])@ items in

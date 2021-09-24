@@ -15,9 +15,10 @@
         <--- pong ----- 
 
 *)
-type ping; (* type constructor ping() *)
-type pong; (* type constructor pong() *)
-type protocol = !ping?pong;
+type error of ;
+event ping of; (* type constructor ping() *)
+event pong of; (* type constructor pong() *)
+protocol p_pingpong = !ping?pong. ;
 
 (*  a bridge is a dynamic object, it replace the channel concept
     - with a unique ID
@@ -35,8 +36,10 @@ type protocol = !ping?pong;
 *)
 
 (* b0 can de defined globaly or passed as a spawn argument *)
-bridge<A, B, !ping?pong, None> b0 = bridge();
-bridge<A, B, !ping?pong, TLS> b1 = tlsbridge('xxx.cert');
+(* TODO fixme do i need inline, seems to be correctly handle by partial eval *)
+Bridge<A, B, inline p_pingpong> b0 = bridge(p_pingpong);
+(*bridge<A, B, !ping?pong, None> b0 = bridge();
+bridge<A, B, !ping?pong, TLS> b1 = tlsbridge('xxx.cert');*)
 
 (*  Implementation of a bridge will be provided has an external libraries (according to target definition)
 
@@ -55,13 +58,16 @@ bridge<A, B, !ping?pong, TLS> b1 = tlsbridge('xxx.cert');
     - check that the protocols hosted by the logical bridge also match
 *)
 component A () {
-    oncreate result<void, error> toto (activation_info<B> b) {
-       !ping?pong s0 = b0.initiate_session_with(b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationInfo<'A> -> 'st *)
+    onstartup void toto (activation_info<B> b) {
+       p_pingpong s0 = initiate_session_with(b0, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationInfo<'A> -> 'st *)
 
-       ?pong s1 = s0.fire(ping())?; (* fire : !'a 'st -> 'a -> Result<'st, error> *)
-       tuple<pong, .> res = s1.receive()?; (* receive : ?a 'st -> Result<Tuple<'a, 'st>, error> *)
-
-       return ok(());
+       ?pong. s1 = fire(s0, ping()); (* fire : !'a 'st -> 'a -> Result<'st, error> *)
+       Tuple<pong, .> res = s1.receive(); (* receive : ?a 'st -> Result<Tuple<'a, 'st>, error> *)
+    }
+    component C () {
+        void toto () {
+            return ();
+        }
     }
 }
 
@@ -73,22 +79,26 @@ component B () {
                 so we specify which point of the protocol is handled by this port using [expecting]
         then the handling of an incomming interaction is delegated to a callback : 'st -> Result<void, error>
     *)
-    port truc on b0 expecting ?ping!pong = handle_ping 
+    port truc on b0 expecting ?ping!pong. = this.handle_ping;
 
-    result<void, error> handle_ping (?ping!pong s0) {
-        tuple<ping, !pong> res = s0.receive()?;
-        ping msg = res.fst();
-        !pong s1 = res.snd();
+    Result<void, error> handle_ping (?ping!pong. s0) {
+        Tuple<ping, !pong.> res = (); (*receive(s0)?;*)
+        ping msg = first(res);
+        !pong. s1 = second(res);
 
         print("ping");
-        s1.fire(pong()); 
+        fire(s1, pong()); 
 
-        return ok(());
+        return Ok(());
     }
 }
 
-activation_info<B> b = (spawn B())?; (* B() -> call the oncreate method of B with the argument whereas B(A) will be a functor application TODO fix the syntax *) 
-activation_info<A> a = (spawn A(b))?;  
+activation_info<B> b = (spawn B()); (* B() -> call the oncreate method of B with the argument whereas B(A) will be a functor application TODO fix the syntax *) 
+activation_info<A> a = (spawn A(b));  
+
+
+
+(*
 
 (* Ex1.2: event carrying values *)
 type ping = string; (* alias de type, if we do this ping and pong will have the same type *) 
@@ -187,7 +197,7 @@ component A () {
     oncreate result<void, error> toto () {
         (* initiate_sessions : void -> Sequence/List lazy<Result<'st>> one per target activation that are registered on b0 *)
         for(res0 in b0.initiate_sessions()?){
-            protocol s0 = res0?;
+            p_pingpong s0 = res0?;
             if(s0.endpoint().gid() != this.gid()) { (* No point to send msg to itself*)
                 !ping?pong s0 = b0.initiate_session_with(b);
 
@@ -238,8 +248,9 @@ component B1 () { (*same for B2*)
 
 type request;
 type item;
-type protocol = !request µ x. ?item . x;
+p_pingpongs = !request µ x. ?item . x;
 
-bridge<A, B, protocol> b0 = bridge();
+bridge<A, B, p_pingpongs> b0 = bridge();
 
 (* Code like for classical pingpong *)
+*)

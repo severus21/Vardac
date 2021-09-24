@@ -1,0 +1,10 @@
+
+target akka;
+
+impl component A {
+}
+
+impl component B {
+}
+
+impl component A::C {}

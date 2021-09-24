@@ -86,7 +86,6 @@ and vplaces = vplace list
 
 (************************************* Literals ******************************)
 and _literal = 
-    | EmptyLit 
     | VoidLit
     | BoolLit of bool
     | FloatLit of float 
