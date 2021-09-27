@@ -235,7 +235,7 @@ and finish_mtype place : S._main_type -> T.ctype = function
     value = T.TParam (
         { 
             place;
-            value = T.TVar (Atom.fresh_builtin "Session")
+            value = T.TVar (Atom.fresh_builtin "ASTStype")
         },
         [ fstype st]
     )
@@ -258,7 +258,7 @@ and finish_literal place : S._literal -> T._literal = function
 
     | S.Place _ -> failwith "Place is not yet supported"
     | S.VPlace _ -> failwith "VPlace is not yet supported"
-    | S.Bridge _ -> raise (Error.DeadbranchError "Bridge should have been process by the finishi_expr (returns an expr)")
+    | S.Bridge _ -> raise (Error.DeadbranchError "Bridge should have been process by the finish_expr (returns an expr)")
 and fliteral lit : T.literal = finish_place finish_literal lit
 
 (************************************ Expr & Stmt *****************************)
@@ -272,11 +272,10 @@ function
     | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
     | S.LambdaExpr (x, stmt) -> T.LambdaExpr ([x], fstmt stmt) 
     | S.LitExpr {value=S.Bridge b; place=lit_place} -> T.NewExpr(
-        auto_place (T.AccessExpr( 
-            auto_place (T.VarExpr b.protocol_name), 
-            auto_place (T.VarExpr a_protocol_inner_bridge)
-        )),
-        []
+        auto_place (T.VarExpr (a_ASTStype_of "Bridge")),
+        [
+            e_session_of_protocol fplace (auto_place (T.VarExpr b.protocol_name))
+        ]
     )
     | S.LitExpr lit -> T.LitExpr (fliteral lit)
     | S.UnopExpr (op, e) -> T.UnopExpr (op, fexpr e)
@@ -684,6 +683,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         )) in
 
         (* Creating the statement*)
+        (* TODO do it with a switch ??? *)
         let add_case (bridge, st) (callback:T.expr) acc : T.stmt =
             auto_place (T.IfStmt (
                 auto_place (T.BinopExpr(
@@ -728,7 +728,10 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                     {place; value=T.VarExpr (Atom.fresh_builtin "onMessage")}, 
                     [
                         {place; value=T.ClassOf (auto_place (T.TVar event_name))};
-                        auto_place (T.VarExpr _m_name)
+                        auto_place (T.AccessMethod (
+                            auto_place T.This,
+                            _m_name
+                        ))
                     ]
                 )}
             )}, _m::acc_methods)
@@ -885,7 +888,7 @@ and finish_term place : S._term -> T.term list = function
         let constructor_args = [ 
             auto_place (T.Atomic "String"), (Atom.fresh_builtin "bridge_id");
             auto_place (T.Atomic "int"), (Atom.fresh_builtin "session_id");
-            (auto_place (T.Atomic "ASTSTYPE")), (Atom.fresh_builtin "st");
+            (auto_place (T.Atomic "ASTStype")), (Atom.fresh_builtin "st");
             auto_place (T.Atomic "Msg"), (Atom.fresh_builtin "msg");
         ] in
         let m_constructor = { 

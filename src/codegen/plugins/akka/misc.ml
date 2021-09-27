@@ -5,10 +5,21 @@ open AstUtils
 (* Helper name *)
 let a_ASTStype_of (s:string) =
     if s <> "" then
-        Atom.fresh_builtin ("Protocol.ASTSType.Base."^s)
+        Atom.fresh_builtin ("Protocol.ASTStype.Base."^s)
     else
-        Atom.fresh_builtin "Protocol.ASTSType.Base"
-let a_protocol_inner_bridge = Atom.fresh_builtin "Bridge" 
+        Atom.fresh_builtin "Protocol.ASTStype.Base"
+(*let a_protocol_inner_bridge = Atom.fresh_builtin "Bridge" *)
+
+(* Helper types *)
+let a_command = 
+    Atom.fresh_builtin "Command"
+    
+let t_command_of_actor place actor_name = 
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TAccess (
+        auto_place (Ast.TVar actor_name),
+        auto_place (Ast.TVar a_command) 
+    ))
 
 (* Helper exprs *)
 let e_get_context place = 
@@ -25,4 +36,11 @@ let e_get_self place context =
             auto_place ( Ast.VarExpr (Atom.fresh_builtin "getSelf")),
             []
         ))
+    ))
+
+let e_session_of_protocol place protocol = 
+    let auto_place smth = {place; value=smth} in
+    auto_place ( Ast.AccessExpr (
+        protocol,
+        auto_place ( Ast.VarExpr (Atom.fresh_builtin "st"))
     ))

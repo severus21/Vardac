@@ -149,6 +149,13 @@ let bind_expr env place x =
   let a = Atom.fresh x in
   { env with current = {env.current with exprs=Env.add x a env.current.exprs}}, a
 
+let register_expr env place atom =
+  if is_builtin_expr (Atom.hint atom) then
+    error place "Keyword %s is reserved." (Atom.hint atom);
+
+  { env with current = {env.current with exprs=Env.add (Atom.hint atom) atom env.current.exprs}}
+
+
 let bind_this env place x =
   let a = Atom.fresh x in
   { env with current = {env.current with this=Env.add x a env.current.this}}, a 
@@ -180,31 +187,45 @@ let bind_eventdef (env:env) place (label:Atom.atom) : env =
     { env with component = {env.component with eventdef_from_labels=Env.add key edef env.component.eventdef_from_labels}}
 
 
+module StringMap = Map.Make(String)
+
 (*****************************************************************************)
 
-(* Built a env in order to link mutual binding between component and mutual binding methods *)
-let rec shallow_scan_component_item env ({place; value}: S.component_item) : env = 
+(* Built a env in order to link mutual binding between component and mutual binding methods 
+    @param (set,env) -> [set] items name of the current component (used to prevent multiple definition with the same name) ; [env] the current naming environment (including parent's one)
+*)
+let rec shallow_scan_component_item (current_set, env) ({place; value}: S.component_item) : place StringMap.t * env = 
 match value with
-| S.Term t -> shallow_scan_term env t
+| S.Term t -> shallow_scan_term (current_set, env) t
 | S.Method m -> begin 
-    let rec aux (m:S.method0) : env =
+    let rec aux (m:S.method0) : place StringMap.t * env =
     match m.value with 
-    | CustomMethod m -> fst (bind_this env place m.name) 
+    | CustomMethod m -> begin 
+        match StringMap.find_opt m.name current_set with
+        | None -> StringMap.add m.name place current_set, fst (bind_this env place m.name) 
+        | Some p -> Error.error (p@place) "multiple definitions of %s" m.name
+    end
     | OnStartup m | OnDestroy m -> aux m
     in aux m
 end
-| _ -> env
-and shallow_scan_component_dcl env ({place; value}: S.component_dcl) : env = 
+| _ -> current_set, env
+and shallow_scan_component_dcl (current_set, env) ({place; value}: S.component_dcl) : place StringMap.t * env = 
 (* We do not explore the body of a component *)
 match value with
-| S.ComponentStructure cdcl  -> 
-    fst (bind_component env place cdcl.name)
-| S.ComponentAssign cdcl -> 
-    fst (bind_component env place cdcl.name)
-and shallow_scan_term env ({place; value}: S.term) : env = 
+| S.ComponentStructure cdcl -> begin
+    match StringMap.find_opt cdcl.name current_set with
+    | None -> StringMap.add cdcl.name place current_set, fst (bind_component env place cdcl.name)
+    | Some p -> Error.error (p@place) "multiple definitions of %s" cdcl.name
+end
+| S.ComponentAssign cdcl -> begin
+    match StringMap.find_opt cdcl.name current_set with
+    | None -> StringMap.add cdcl.name place current_set, fst (bind_component env place cdcl.name)
+    | Some p -> Error.error (p@place) "multiple definitions of %s" cdcl.name
+end
+and shallow_scan_term ((current_set, env): place StringMap.t * env) ({place; value}: S.term) : place StringMap.t * env = 
 match value with
-| S.Component c -> shallow_scan_component_dcl env c
-| _ -> env
+| S.Component c -> shallow_scan_component_dcl (current_set, env) c
+| _ -> current_set, env
 
 let rec cook_place cook_value env ({ Core.AstUtils.place ; Core.AstUtils.value}: 'a Core.AstUtils.placed) = 
     let env, value = cook_value env place value in
@@ -402,7 +423,7 @@ and cook_expr env place : S._expr -> env * T._expr = function
 | S.AccessExpr ({place=p_t; value=S.This}, {place=p_v; value=S.VarExpr v}) -> env, T.AccessExpr (
     {place=p_t; value=T.This},
     {place=p_v; value= T.VarExpr (cook_var_this env p_v v)}) 
-| S.AccessExpr ({place=_; value=S.This}, _) -> error place "Illformed [this] usage: should be this.<state name>"
+| S.AccessExpr ({place=_; value=S.This}, _) -> error place "Illformed [this] usage: should be this.<state_name/method_name>"
 | S.AccessExpr (e1, e2) -> 
     let env1, e1 = cexpr env e1 in
     let env2, e2 = cexpr env e2 in
@@ -602,7 +623,8 @@ and ccontract env: S.contract -> env * T.contract = cook_place cook_contract env
 
 and cook_method0 env place : S._method0 -> env * T._method0 = function
 | S.CustomMethod m ->
-    let new_env, name = bind_this env place m.name in 
+    (* method name has been already binded when scanning the structure of the component *)
+    let name = cook_var_this env place m.name in 
     let inner_env, args = List.fold_left_map cparam env m.args in
 
     let rec remove_empty_stmt = function
@@ -614,7 +636,7 @@ and cook_method0 env place : S._method0 -> env * T._method0 = function
     let env1, ret_type = cmtype env m.ret_type in
     let env2, body = List.fold_left_map cstmt inner_env (remove_empty_stmt m.abstract_impl) in
 
-    new_env << [inner_env; env1; env2], T.CustomMethod {
+    env << [inner_env; env1; env2], T.CustomMethod {
         ghost = m.ghost;
         ret_type = ret_type;
         name;
@@ -661,9 +683,9 @@ and ccitem env: S.component_item -> env * T.component_item = cook_place cook_com
 and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = function
 | S.ComponentStructure cdcl -> 
     (*
-        Hyp: Exactly one component delcaration per component name at a given layer of the architure -> has to be checked (FIXME/TODO.
+        Hyp: Exactly one component delcaration per component name at a given layer of the architure (checked befor cooking -> cf. shallow_scan).
         Which means that A { B{ } } B {}, A.B and B will be binded to different unique atom.
-        Stmt: shallow_scan_compoent, used for allowing architecture loop i.e. A use B ref and B use A ref, has already attributed an Atom to the current componen t component. Shallow_componen thas been run by the parent or at top-level.
+        Stmt: shallow_scan_compoent, used for allowing architecture loop i.e. A use B ref and B use A ref, has already attributed an Atom to the current componen t component. Shallow_component has been run by the parent or at top-level.
     *)
     let name = cook_var_component env place cdcl.name in
     let new_env = 
@@ -684,8 +706,8 @@ and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = 
 
     let inner_env, args = List.fold_left_map cparam env cdcl.args in
 
-    (* Prepare env for mutual binding between components *)
-    let inner_env = List.fold_left shallow_scan_component_item inner_env cdcl.body in
+    (* Prepare env for mutual binding between components and methods/states *)
+    let (_, inner_env) = List.fold_left shallow_scan_component_item (StringMap.empty,inner_env) cdcl.body in
     let inner_env, body = List.fold_left_map ccitem inner_env cdcl.body in
 
     (* Add collected label events to body *)
@@ -748,8 +770,8 @@ and cook_term env place : S._term -> env * T._term = function
 end
 | Typedef {value= ProtocolDef (x, mt) as tdef; place} -> 
     let new_env1, y = bind_type env place x in
-    (* Type constructor for typedef *)
-    let new_env2, _ = bind_expr new_env1 place (String.lowercase_ascii x) in
+    (* We use resgister_expr y here in order to preserve atom identity between both the world of types and the world of values (type constructor for instance) *)
+    let new_env2 = register_expr new_env1 place y in
     let env3, mt = cmtype env mt in 
 
     new_env2 << [env3], T.Typedef ({ place; value = 
@@ -757,7 +779,8 @@ end
 | Typedef {value= ClassicalDef (x, args) as tdef; place} | Typedef {value= EventDef (x, args) as tdef; place} -> 
     let new_env1, y = bind_type env place x in
     (* Type constructor for typedef *)
-    let new_env2, _ = bind_expr new_env1 place (String.lowercase_ascii x) in
+    (* We use resgister_expr y here in order to preserve atom identity between both the world of types and the world of values (type constructor for instance) *)
+    let new_env2 = register_expr new_env1 place y in
     let envs, args = List.split (List.map (cmtype env) args) in 
 
     new_env2 << envs, T.Typedef ({ place; value = 
@@ -770,11 +793,8 @@ and cterm env: S.term -> env * T.term = cook_place cook_term env
 
 let cook_program places terms =    
     let toplevel_env = {(fresh_env ()) with component = {(fresh_component_env ()) with name = Atom.fresh_builtin "toplevel"}} in
-    let toplevel_env = List.fold_left shallow_scan_term toplevel_env terms in
-    print_string ">>>>";
-    print_env toplevel_env;
+    let (_, toplevel_env) = List.fold_left shallow_scan_term (StringMap.empty,toplevel_env) terms in
     let toplevel_env = refresh_component_env toplevel_env (Atom.fresh_builtin "toplevel") in
-    print_env toplevel_env;
 
     let toplevel_env,  program = (List.fold_left_map cterm toplevel_env terms) in 
     (terms_of_eventdef_from_labels toplevel_env) @ program

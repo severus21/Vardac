@@ -50,13 +50,20 @@ public class Protocol {
             this.name = name;
         }
 
-        public boolean equals(Var obj) {
+        public boolean equals(STVar obj) {
             return this.getClass() == obj.getClass() && this.name == obj.name;
         }
     } 
     // Session types as values
     public static final class ASTStype {
-        public static final class Base {
+        public static class Base {
+            /*
+                Empty continuation <=> End
+                Send and Receive [("", continuation)]
+                Choice and Select [ (label, continuaiton_label); ....]
+                Recursive ????? TODO
+            */
+            public List<Tuple2<Literal, ASTStype>> continuations = new List<>();
 
         }
 
@@ -68,37 +75,43 @@ public class Protocol {
         }
 
         public static final class End extends Base {
-            public End () {}
+            public End () {
+                assert(this.continuations.isEmpty());
+            }
         }
 
         public static final class Send extends Base {
             public Literal msg_type;
-            public ASTStype continuation;
-            public Send(Literal msg_type, ASTStype continutation){
+            public Send(Literal msg_type, List<Tuple2<Literal, ASTStype>> continuattions){
                 this.msg_type = msg_type;
-                this.continuation = continutation;
+                this.continuations = continuattions;
+
+                assert(!this.continuations.isEmpty());
             }
 
         }
         public static final class Receive extends Base {
             public Literal msg_type;
-            public ASTStype continuation;
-            public Receive(Literal msg_type, ASTStype continutation){
+            public Receive(Literal msg_type, List<Tuple2<Literal, ASTStype>> continuations){
                 this.msg_type = msg_type;
-                this.continuation = continutation;
+                this.continuations = continuations;
+
+                assert(!this.continuations.isEmpty());
             }
 
         }
         public static final class Branch extends Base {
-            List<Tuple2<Literal, ASTStype>> branches;
-            public Branch(List<Tuple2<Literal, ASTStype>> branches){
-                this.branches = branches;
+            public Branch(List<Tuple2<Literal, ASTStype>> continuattions){
+                this.continuattions = continuattions;
+
+                assert(!this.continuattions.isEmpty());
             }
         }
         public static final class Select extends Base {
-            List<Tuple2<Literal, ASTStype>> branches;
-            public Select(List<Tuple2<Literal, ASTStype>> branches){
-                this.branches = branches;
+            public Select(List<Tuple2<Literal, ASTStype>> continuations){
+                this.continuations = continuations;
+
+                assert(this.continuations.isEmpty());
             }
         }
         // TODO recursion
@@ -114,13 +127,13 @@ public class Protocol {
 
     }
 
-    public static final class Bridge {
+    public static final class Bridge<P extends PProtocol> {
         String id;
-        Protocol protocol;
+        P protocol;
         
         protected int session_counter = 0;
 
-        public Bridge (Protocol p) {
+        public Bridge (P p) {
             this.id = UUID.randomUUID().toString();
             this.protocol = p;
         }
@@ -128,8 +141,7 @@ public class Protocol {
         public AbstractSession init_session_with(ActorRef<?> right){
             this.session_counter += 1;
 
-            PProtocol pp = new PProtocol();
-            return pp.new Session(this.id, right, this.session_counter, this.protocol.st);
+            return P.new Session(this.id, right, this.session_counter, this.protocol.st);
         }    
     }
 }

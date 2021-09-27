@@ -80,6 +80,7 @@ match Config.provenance_lvl () with
 
 and output_expr out : _expr -> unit = function
     | AccessExpr (e1,e2) -> fprintf out "%a.%a" oexpr e1 oexpr e2
+    | AccessMethod (e1,e2) -> fprintf out "%a::%a" oexpr e1 output_var e2
     | AppExpr (e1, es) -> 
         fprintf out "@[%a(@[<hv>@;<0 3>%a@])@]" oexpr e1 oexprs es
     | AssertExpr e -> fprintf out "assert(%a)" oexpr e                   
@@ -197,6 +198,7 @@ and output_jtype out : _jtype -> unit = function
     | ClassOrInterfaceType (x, params) -> fprintf out "%a<@[<hv>%a@]>" output_var x output_type_params params
     | TAtomic str -> pp_print_string out str
     | TVar x -> output_var out x 
+    | TAccess (t1, t2) -> fprintf out "%a.%a" ojtype t1 ojtype t2
 and ojtype out : jtype -> unit = function jt ->
     match Config.provenance_lvl () with
     | Config.None | Config.Medium -> output_jtype out jt.value
@@ -215,7 +217,7 @@ and oitem out : str_items -> unit = function item ->
     | Config.Medium | Config.Full -> output_placed out output_item item 
 and output_items out : str_items list -> unit = pp_break_list "" oitem out 
 
-let output_program outpath items : unit =
+let output_program package_name outpath items : unit =
     let outfile = (Fpath.to_string outpath)^".java" in
     let parentdir = (Fpath.parent outpath) in
     Utils.create_directory_hierarchy parentdir;
@@ -230,7 +232,7 @@ let output_program outpath items : unit =
         value
     } in
     let items = (List.map mock_placed [
-        JModule (mock_placed (PackageDeclaration (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ()))));
+        JModule (mock_placed (PackageDeclaration (String.lowercase_ascii package_name)));
 
         (* Java *)
         JModule (mock_placed(ImportDirective "java.util.List"));
@@ -246,6 +248,9 @@ let output_program outpath items : unit =
         JModule (mock_placed(ImportDirective "akka.actor.typed.javadsl.Behaviors"));
         JModule (mock_placed(ImportDirective "akka.actor.typed.javadsl.Receive"));
         JModule (mock_placed(ImportDirective "akka.actor.typed.receptionist.Receptionist"));
+        JModule (mock_placed(ImportDirective "akka.cluster.ClusterEvent"));
+        JModule (mock_placed(ImportDirective "akka.cluster.typed.Cluster"));
+        JModule (mock_placed(ImportDirective "akka.cluster.typed.Subscribe"));
 
         (* Other dependencies *)
         JModule (mock_placed(ImportDirective "io.vavr.*"));

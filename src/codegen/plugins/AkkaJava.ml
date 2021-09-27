@@ -54,6 +54,7 @@ and stage_entry = {
 
     imports: Rt.Ast.term list;
     file: Fpath.t option;
+    package_name: string option;
     (* such that 
         import parents stages
         import substages
@@ -80,7 +81,7 @@ let print_stages stages =
 (** Split Akka.AST in multiple file then convert it to Java AST *)
 (* - One actor per file *)
 (* map : filename java_ast *)
-let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.program) : (Fpath.t * Rt.Ast.term list) list = 
+let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.program) : (string * Fpath.t * Rt.Ast.term list) list = 
     (*(* Some string -> implies that the file is a main file where string is the name of the main class/and of the file *)
     let tbl_files2program : (Fpath.t, string option * Rt.Ast.term list) Hashtbl.t = Hashtbl.create 256 in
     let add_to_files2program file main_name_opt terms = 
@@ -148,7 +149,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
     let group_per_stage_or_component terms : stage_entry list = 
         let rec _group_per_stage_or_component acc_current_stage : Rt.Ast.term list -> stage_entry list = 
             let stageofacc () = 
-                let stage_name = Atom.fresh "stage" in
+                let stage_name = Atom.fresh "Stage" in
                 wrap_stage_ast {
                     kind = AnonymousStage;
                     name = stage_name;
@@ -157,6 +158,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
                     
                     imports = [];
                     file = None;
+                    package_name = None;
                 }
             in    
 
@@ -164,6 +166,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
             | [] -> [stageofacc ()]
             | term::ts -> begin
                 match term.value with
+                (* the events of an actor should not be defined externaly
                 | Rt.Ast.Event e -> begin
                     (* No sub-stages *)
                     
@@ -178,6 +181,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
                     } in 
                     (stageofacc ()) :: event_stage :: (_group_per_stage_or_component [] ts)
                 end
+                *)
                 | Rt.Ast.ClassOrInterfaceDeclaration cid -> begin
                     (* No sub-stages *)
                     
@@ -189,6 +193,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
 
                         imports = [];
                         file = None;
+                        package_name = None;
                     } in 
                     (stageofacc ()) :: cid_stage :: (_group_per_stage_or_component [] ts)
                 end
@@ -212,6 +217,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
 
                         imports = [];
                         file = None;
+                        package_name = None;
                     } in 
                     (stageofacc ()) :: actor_stage :: (_group_per_stage_or_component [] ts)
                 end
@@ -223,17 +229,21 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
 
     let stages = group_per_stage_or_component akka_program.terms in
 
-    let external_binders_of_stage stage = 
-        List.map Option.get (List.filter (function x -> x <> None) (
-            List.map (function t -> 
-                match t.value with
-                | Rt.Ast.Actor a -> Some a.value.name
-                | Rt.Ast.ClassOrInterfaceDeclaration cid -> Some cid.name
-                | Rt.Ast.Event e -> Some e.value.name
-                | Rt.Ast.Stmt {value = LetStmt (_,x,_);} -> Some x
-                | t -> None
-            ) stage.ast
-        ))
+    let rec external_binders_of_stage stage : Rt.Ast.variable list = 
+        let aux t : Rt.Ast.variable list = 
+            match t.value with
+            | Rt.Ast.Actor a -> [a.value.name]
+            | Rt.Ast.ClassOrInterfaceDeclaration cid when (Atom.hint cid.name) = "Stage"-> begin 
+                let mock_stage = {stage with ast = cid.body } in
+                external_binders_of_stage mock_stage
+            end
+            | Rt.Ast.ClassOrInterfaceDeclaration cid -> [cid.name]
+            | Rt.Ast.Event e -> [e.value.name]
+            | Rt.Ast.Stmt {value = LetStmt (_,x,_);} -> [x]
+            | t -> []
+        in
+
+        List.flatten (List.map aux stage.ast)
     in
 
     let apply_rename_stage renaming stage = 
@@ -241,13 +251,26 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
     in
 
     (* No clash of variables - since they are unique -> Atom *)
-    let rec rename_stages : stage_entry list -> stage_entry list = function
+    let rec rename_stages : stage_entry list -> stage_entry list = 
+        (*let base_rename = (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ())) in*)
+        let hydrate_state stage state x = 
+            Hashtbl.add state x (
+                if stage.name = x then (
+                    Atom.refresh_hint x (Option.get stage.package_name^"."^(Atom.hint x))
+                ) else (
+                    Atom.refresh_hint x (Option.get stage.package_name^"."^(Atom.to_string stage.name)^"."^(Atom.hint x))
+                )
+            ) 
+        in
+
+    function
     | [] -> []
     | stage :: stages ->
         (*** rename subsequent stages - that may depends of the variables binded by the current stage ***)
         let to_rename1 = external_binders_of_stage stage in
         let _state1 : (Atom.atom, Atom.atom) Hashtbl.t = Hashtbl.create (List.length to_rename1) in
-        List.iter (function y -> Hashtbl.add _state1 y (Atom.refresh_hint y ((Atom.to_string stage.name)^"."^(Atom.hint y)))) to_rename1;
+        List.iter (hydrate_state stage _state1) to_rename1;
+        (*List.iter (function y -> Hashtbl.add _state1 y (Atom.refresh_hint y (base_rename^"."^(if Atom.hint stage.name = "Stage" then String.capitalize_ascii (Atom.to_string stage.name) else (Atom.to_string stage.name) )^"."^(Atom.hint y)))) to_rename1;*)
         let renaming1 (x:Atom.atom) : Atom.atom = 
             match Hashtbl.find_opt _state1 x with 
             | None -> x
@@ -260,7 +283,9 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
         let make_subrenaming sub_stage =
             let to_rename2 = external_binders_of_stage sub_stage in
             let _state2 : (Atom.atom, Atom.atom) Hashtbl.t  = Hashtbl.create (List.length to_rename2) in
-            List.iter (function y -> Hashtbl.add _state2 y (Atom.refresh_hint y ((Atom.to_string sub_stage.name)^"."^(Atom.hint y)))) to_rename2;
+
+            List.iter (hydrate_state sub_stage _state2) to_rename2;
+            (*List.iter (function y -> Hashtbl.add _state2 y (Atom.refresh_hint y (base_rename^"."^(if Atom.hint stage.name = "Stage" then String.capitalize_ascii (Atom.to_string sub_stage.name) else (Atom.to_string sub_stage.name) )^"."^(Atom.hint y)))) to_rename2;*)
             let renaming2 (x:Atom.atom) : Atom.atom = 
                 match Hashtbl.find_opt _state2 x with 
                 | None -> x
@@ -280,7 +305,6 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
         (* TODO deals with children*)
     in
 
-    let stages = rename_stages stages in
 
     let generate_file_of_stage (parent_opt:stage_entry option) stage = 
         let parent_dir = match parent_opt with
@@ -297,39 +321,44 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
             (* parentdir/main_actor/{main_actor.java, nested_actor1.java, nested_actor_n.java}
             where main_actor will only store the glue and not the subactor/components
             *)
-            Fpath.add_seg (Fpath.add_seg parent_dir (Atom.to_string stage.name))  (Atom.to_string stage.name)
+            Fpath.add_seg (Fpath.add_seg parent_dir (String.lowercase_ascii (Atom.to_string stage.name)))  (Atom.to_string stage.name)
     in
 
     (* Generating stage imports and file name 
+        @param package_name - package_name of the parent stage
         @param imports - list of imports from predecessing stages (in reverse order)
         @return - (import list of the last processed stage, stages annotated with imports)
     *)
-    let rec hydrate_stages (imports:Rt.Ast.term list) parent_opt : stage_entry list -> Rt.Ast.term list * stage_entry list= function
+    let rec hydrate_stages (package_name:string) (imports:Rt.Ast.term list) parent_opt : stage_entry list -> Rt.Ast.term list * stage_entry list= function
     | [] -> imports, []
     | stage :: stages ->
         let stage = {stage with file = Some (generate_file_of_stage parent_opt stage)} in
-        let sub_imports, sub_stages = hydrate_stages imports (Some stage) stage.sub_stages in
+        let sub_imports, sub_stages = hydrate_stages (package_name^"."^(Atom.to_string stage.name)) imports (Some stage) stage.sub_stages in
         let stage = { stage with 
             imports = List.rev sub_imports;
+            package_name = if stage.sub_stages = [] then Some package_name else Some (package_name^"."^(String.lowercase_ascii (Atom.to_string stage.name)));
             sub_stages
         } in
 
         (* Design choice: subcomponents/stages are private - i.e. do not reuse sub_imports for stages*)
         let current_import = 
+            let base_import = (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ())) in
             if stage.kind <> AnonymousStage then
-                auto_place (Rt.Ast.Import ((Atom.to_string stage.name)^"."^(Atom.to_string stage.name)))
+                auto_place (Rt.Ast.Import (base_import^"."^(String.lowercase_ascii (Atom.to_string stage.name))^"."^(Atom.to_string stage.name)))
             else
-                auto_place (Rt.Ast.Import ((Atom.to_string stage.name)^"."^(Atom.to_string stage.name)^".*"))
+                auto_place (Rt.Ast.Import (base_import^"."^(String.lowercase_ascii (Atom.to_string stage.name))^".*"))
         in
-            
-        let imports = current_import::imports in
+
+        (* TODO Get ride of import logic *) 
+        (*let imports = current_import::imports in*)
        
-        let _, stages = (hydrate_stages imports parent_opt stages) in
+        let _, stages = (hydrate_stages package_name imports parent_opt stages) in
         imports, stage::stages
     in
    
     (* Stages with imports and files *)
-    let _, stages = hydrate_stages [] None stages in
+    let _, stages = hydrate_stages (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ())) [] None stages in
+
 
     (* TODO Add stages for mains ?? *)
 
@@ -337,129 +366,20 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
         let imports, others = extract_imports terms in
         imports @ others
     in
+    
+    (* Renaming needs that package_name is set for each stage *)
+    let stages = rename_stages stages in
 
     (* Generate the output *)
-    let rec flatten_stages : stage_entry list -> (Fpath.t * Rt.Ast.term list) list = function
+    let rec flatten_stages : stage_entry list -> (string * Fpath.t * Rt.Ast.term list) list = function
     | [] -> []
     | stage::stages -> 
         let tmps = flatten_stages stage.sub_stages in
         let new_ast = put_imports_first (stage.imports@stage.ast) in 
 
-        ((Option.get stage.file), new_ast) :: tmps @ (flatten_stages stages)
+        (Option.get stage.package_name, (Option.get stage.file), new_ast) :: tmps @ (flatten_stages stages)
     in
     flatten_stages stages
-
-    (******************)
-(*
-
-    let rec imports_toplevel_actors = function
-        | [] -> []
-        | {value=Rt.Ast.Actor a;}::ts -> 
-            auto_place (Rt.Ast.Import ((Atom.to_string a.value.name)^"."^(Atom.to_string a.value.name))) :: (imports_toplevel_actors ts)
-        | _::ts -> (imports_toplevel_actors ts) 
-    in
-
-    (**
-        @param stages - Atom.t list - the head is the current stage
-        every definition that can be used inside underlying component are group into the stage file and load into the subsequent subcomponent and the parent component.
-    *)
-    let rec split_term_to_files current_file (parent_stages: Atom.atom list) term : unit = 
-    match term.value with
-    | Rt.Ast.Actor a  -> 
-
-        let sub_actors = List.filter (function | {AstUtils.value=Rt.Ast.Actor _ } -> true | _-> false) a.value.nested_items in 
-        let sub_items = List.filter (function | {AstUtils.value=Rt.Ast.Actor _ } -> false | _-> true) a.value.nested_items in 
-
-        
-        let a_current_file = if sub_actors = [] then 
-                (* parentdir/main_actor.java*)
-                Fpath.add_seg (Fpath.parent current_file) (Atom.to_string a.value.name)
-            else 
-                (* parentdir/main_actor/{main_actor.java, nested_actor1.java, nested_actor_n.java}
-                where main_actor will only store the glue and not the subactor/components
-                *)
-                Fpath.add_seg (Fpath.add_seg (Fpath.parent current_file) (Atom.to_string a.value.name))  (Atom.to_string a.value.name)
-        in
-        
-        let imports : Rt.Ast.term list =  
-            (* importing parent stages *)
-            (List.map (function name -> 
-                auto_place (Rt.Ast.Import (Atom.to_string name))
-            ) parent_stages)
-            @
-            (* importing dependencies (subactors only) that have been move elsewhere *)
-            (List.map (function 
-                | {AstUtils.value=Rt.Ast.Actor a } ->  
-                    auto_place (Rt.Ast.Import ((Atom.to_string a.value.name)^"."^(Atom.to_string a.value.name))) 
-                | _-> raise (Error.DeadbranchError "sub_actors only contains actor term")
-            ) sub_actors)
-        in
-
-
-
-        (* add sub actor def to dedicated sub files*)
-        List.iter (split_term_to_files a_current_file) a.value.nested_items;
-
-        (* removes subactors, they have been put in other files *)
-        let new_term = {
-            place = term.place;
-            value =  Rt.Ast.Actor {
-                place = a.place; value = {
-                    a.value with nested_items = sub_items
-                }
-            }
-        } in
-
-        add_to_files2program a_current_file None (imports @ [new_term])
-    | _ -> add_to_files2program current_file None [term]
-    in
-
-    (* Entrypoint/main *)
-    List.iter ( function {Core.Target.name; component} -> begin
-        let main_file = List.fold_left Fpath.add_seg (Fpath.v "src/main/java")  [Config.author (); Config.project_name (); name] in 
-        add_to_files2program main_file (Some name) (imports_toplevel_actors akka_program.terms);
-        List.iter (split_term_to_files main_file) akka_program.terms;
-    end
-    ) target.value.codegen.mains;
-
-    (*TODO finish entrypoint/system*)
-    (*let main_file = List.fold_left Fpath.add_seg (Fpath.v "src/main/java")  [Config.author (); Config.project_name (); "main"] in 
-    add_to_files2program main_file (imports_toplevel_actors akka_program.terms);*)
-
-
-    (* Correct terms order *)
-    let wrap (ast:Rt.Ast.term list) : string option -> Rt.Ast.term list = function
-    | None -> ast
-    | Some main_name ->
-        let rec split_in_out_terms : Rt.Ast.term list -> Rt.Ast.term list * Rt.Ast.term list = function
-        | [] -> [], []
-        | t::ts -> begin
-            let oterms, iterms = split_in_out_terms ts in
-            match t.value with
-            | Rt.Ast.Import _ -> t::oterms, iterms 
-            | _ -> oterms, t::iterms
-        end
-        in
-        let oterms, iterms =  split_in_out_terms ast in
-        let oterms, iterms = List.rev oterms, List.rev iterms in
-
-        oterms @ [
-            auto_place (Rt.Ast.ClassOrInterfaceDeclaration {
-                isInterface = false;
-                annotations = [Rt.Ast.Visibility Rt.Ast.Public];
-                name = Atom.fresh_builtin main_name;
-                extended_types = [];
-                implemented_types = [];
-                body = iterms
-            })
-        ]
-    in
-    
-
-    Seq.map (function (target, (main_name_opt, ast)) -> 
-        (target, wrap ast main_name_opt)
-    ) (Hashtbl.to_seq tbl_files2program)
-*)
 
 let rec finish_place finish_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
     let value = finish_value place value in
@@ -482,6 +402,7 @@ let rec finish_ctype place : S._ctype -> T._jtype = function
     | S.TList t1 -> T.ClassOrInterfaceType  (Atom.fresh_builtin "List", [fctype t1])
     | S.TMap (t1, t2) -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Map", [fctype t1; fctype t2])
     | S.TOption t1 -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Optional", [fctype t1]) 
+    | S.TAccess (t1, t2) -> T.TAccess (fctype t1, fctype t2)
     | S.TParam ({value=S.TVar x;_}, t_args) -> T.ClassOrInterfaceType (x, List.map fctype t_args)
     | S.TParam _ -> failwith "Akka -> java, tparam with non VAR ctype is not yet supported" 
     | S.TResult (t1, t2) -> 
@@ -528,8 +449,10 @@ and fliteral lit : T.literal = finish_place finish_literal lit
 
 and finish_expr place : S._expr -> T._expr = function
     | S.AccessExpr (e1,e2) -> T.AccessExpr (fexpr e1, fexpr e2)
+    | S.AccessMethod (e1,x) -> T.AccessMethod (fexpr e1, x)
     | S.AssertExpr e -> T.AssertExpr (fexpr e)                   
-    | S.BinopExpr (e1, op, e2) -> T.BinaryExpr ( fexpr e1, op, fexpr e2) 
+    | S.BinopExpr (e1, op, e2) -> 
+        T.BinaryExpr ( fexpr e1, op, fexpr e2) 
     | S.CallExpr (e1,e2) -> T.AppExpr(fexpr e1, List.map fexpr e2) 
     | S.ClassOf ct -> begin
         match ct.value with
@@ -705,18 +628,32 @@ and finish_method place ({annotations; ret_type; name; body; args; is_constructo
 and fmethod m : T.str_items = {place=m.place; value=T.Body (finish_place finish_method m)}
 
 and finish_actor place ({name; methods; states; events; nested_items; receiver}: S._actor): T._str_items =
+    let fplace = place@(Error.forge_place "Plg=Akka/finish_actor" 0 0) in
+    let auto_place smth = {place = fplace; value=smth} in
+
     (* At most one constructor *)
     assert( List.length (List.filter (function (m:S.method0) -> m.value.is_constructor) methods) <= 1);
 
     (** FIXME public/protected/private should parametrized*)
 
-    let extended_type = T.ClassOrInterfaceType (
+    let extended_type = auto_place (T.ClassOrInterfaceType (
         Atom.fresh_builtin "AbstractBehavior", 
-        [ { 
-            place;
-            value = T.TAtomic ((Atom.p_to_string builtin_eval name)^".Command")
-        }]) in
-    let extended_type = {place; value = extended_type} in
+        [ 
+            fctype (Rt.Misc.t_command_of_actor place name)     
+        ]) 
+    ) in
+
+    let command_cl = auto_place ( T.Body (
+        auto_place (T.ClassOrInterfaceDeclaration {
+            isInterface = true;
+            annotations = [T.Visibility T.Public];
+            name = Rt.Misc.a_command; 
+            parameters = [];
+            extended_types = [];
+            implemented_types = [];
+            body = [];
+        })
+    )) in
 
     let body : T.str_items list ref = ref [] in
     (* FIXME issue with the type of body*)
@@ -727,7 +664,7 @@ and finish_actor place ({name; methods; states; events; nested_items; receiver}:
     body := !body @ [{place; value=T.Comments (IR.LineComment "Actor internal logics")}];
     body := !body @ (List.map fmethod methods);
     body := !body @ [{place; value=T.Comments (IR.LineComment "Nested structures")}];
-    body := !body @ (List.map fterm nested_items);
+    body := command_cl :: (!body @ (List.map fterm nested_items));
     begin match receiver with
     | Some receiver  ->     
         body := !body @ [{place; value=T.Comments (IR.LineComment "Receiver")}];
@@ -798,25 +735,25 @@ and finish_term place : S._term -> T._str_items = function
     | TemplateClass raw -> T.Raw raw.value (* TODO FIXME we should  keep raw.place here *) 
 and fterm t : T.str_items = finish_place finish_term t
 
-and finish_program target (program:S.program): (Fpath.t * T.program) List.t = 
+and finish_program target (program:S.program): (string * Fpath.t * T.program) List.t = 
     (*TODO finish entrypoint/system*)
     program
     |> split_akka_ast_to_files target
-    |> List.map (function file, terms -> file, List.map fterm terms)
+    |> List.map (function package_name, file, terms -> package_name, file, List.map fterm terms)
 
-let finish_ir_program target (ir_program: Plugin.S.program) : (Fpath.t * T.program) List.t =
+let finish_ir_program target (ir_program: Plugin.S.program) : (string * Fpath.t * T.program) List.t =
     ir_program
     |> Rt.Finish.finish_program  
     |> dump "Runtime AST" Rt.Ast.show_program  
     |> finish_program target
-    |> List.map (function file, program -> file, dump "Language AST" Lg.Ast.show_program program)
+    |> List.map (function package_name, file, program -> package_name, file, dump "Language AST" Lg.Ast.show_program program)
 
 
 (** Output program*)
 let output_program target build_dir ir_program =
     ir_program
     |> finish_ir_program target
-    |> List.iter (function (file,program) -> Lg.Output.output_program (Fpath.append build_dir file) program)
+    |> List.iter (function (package_name, file, program) -> Lg.Output.output_program package_name (Fpath.append build_dir file) program)
 
 let jingoo_env (target:Core.Target.target) = [
     ("compiler_version", Jg_types.Tstr Config.version);

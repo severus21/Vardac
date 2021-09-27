@@ -14,6 +14,8 @@
       - check that the two followings patterns do not occured (not supported by the implem)
          - (recrusive st) (timeout 10 st)
          - st (timeout 10 (recusive st))
+   - check that method and subcomponent name are unique in a given component
+      TODO do the same for states and ports (bridge + session should be unique)
 
 *)
 

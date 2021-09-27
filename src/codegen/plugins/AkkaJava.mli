@@ -6,8 +6,8 @@ module Rt = Akka
 module Lg = Java 
 
 (* file * program in file *)
-val finish_program : Core.Target.target -> Rt.Ast.program -> (Fpath.t * Lg.Ast.program) list  
-val finish_ir_program : Core.Target.target -> Plugin.S.program ->  (Fpath.t * Lg.Ast.program) list 
+val finish_program : Core.Target.target -> Rt.Ast.program -> (string * Fpath.t * Lg.Ast.program) list  
+val finish_ir_program : Core.Target.target -> Plugin.S.program ->  (string * Fpath.t * Lg.Ast.program) list 
 val output_program : Core.Target.target -> Fpath.t -> Plugin.S.program -> unit
 
 

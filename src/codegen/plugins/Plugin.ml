@@ -26,7 +26,7 @@ module type Lg_plg = sig
     module Ast : S_Ast
 
     module Output: sig
-        val output_program : Fpath.t -> Ast.program -> unit 
+        val output_program : string -> Fpath.t -> Ast.program -> unit 
     end
 end
 
@@ -35,8 +35,8 @@ module type Cg_plg = sig
     module Rt : Rt_plg
     module Lg : Lg_plg
     
-    val finish_program : Core.Target.target -> Rt.Ast.program -> (Fpath.t * Lg.Ast.program) list 
-    val finish_ir_program : Core.Target.target -> S.program -> (Fpath.t * Lg.Ast.program) list 
+    val finish_program : Core.Target.target -> Rt.Ast.program -> (string * Fpath.t * Lg.Ast.program) list 
+    val finish_ir_program : Core.Target.target -> S.program -> (string * Fpath.t * Lg.Ast.program) list 
     val output_program : Core.Target.target -> Fpath.t -> S.program -> unit
 
     val custom_template_rules : Core.Target.target -> (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) list

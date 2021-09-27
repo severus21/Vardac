@@ -24,6 +24,7 @@ and _ctype =
     | TVar of variable
     | TVoid
 
+    | TAccess of ctype * ctype (* t1.t2 *)
     | TParam of ctype * ctype list (* Type parametric (ct, [arg_1; .. arg_n]) -> ct<arg_1, .., arg_n>*)
     | TRaw of string
 and ctype =_ctype placed
@@ -45,6 +46,7 @@ and parameter = ctype * variable
 
 and _expr =                  
     | AccessExpr of expr * expr
+    | AccessMethod of expr * variable
     | AssertExpr of expr 
     | BinopExpr of expr * binop * expr 
     | CallExpr of expr * expr list
@@ -231,13 +233,17 @@ and _apply_rename_expr (renaming : Atom.atom -> Atom.atom) place = function
         apply_rename_expr renaming e1,
         apply_rename_expr renaming e2
     )
+    | AccessMethod (e1, x) -> AccessMethod (
+        apply_rename_expr renaming e1,
+        renaming x 
+    )
     | AssertExpr e -> AssertExpr (
         apply_rename_expr renaming e
     ) 
     | BinopExpr (e1, binop, e2) -> BinopExpr (
         apply_rename_expr renaming e1,
         binop,
-        apply_rename_expr renaming e1
+        apply_rename_expr renaming e2
     ) 
     | CallExpr (e,es) -> CallExpr (
         apply_rename_expr renaming e,

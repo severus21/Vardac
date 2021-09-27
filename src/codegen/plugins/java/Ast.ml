@@ -56,6 +56,7 @@ and comments = Core.IR._comments
 
 and _expr = 
     | AccessExpr of expr * expr (*e1.e2*)
+    | AccessMethod of expr * variable (*e1::m*)
     | AppExpr of expr * expr list (*e1 e2*)
     | AssertExpr of expr 
     | AssignExpr of expr * assign_operator * expr (* target value*)
@@ -91,6 +92,7 @@ and _jtype =
     | ClassOrInterfaceType of variable * jtype list (* name * args *) 
     | TAtomic of string
     | TVar of variable
+    | TAccess of jtype * jtype
 and jtype = _jtype placed
 
 and _str_items =
