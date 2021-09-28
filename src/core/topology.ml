@@ -82,19 +82,24 @@ generate_slt_ctype { AstUtils.place ; AstUtils.value}= match value with
 | TList mt | TOption mt | TSet mt -> generate_slt_mtype mt
 | TTuple mts -> List.iter generate_slt_mtype mts
 | TBridge {in_type; out_type; protocol} ->
-    let left = match in_type.value with
-    | CType {value=TVar x} -> x 
-    | CompType {value=CompTUid cname} -> cname 
-    | _ -> Error.error (in_type.place) "bridge fst type parameter must be a component type (name, union, universal)"
+    let rec explore error_header { AstUtils.place ; AstUtils.value} =
+        match value with
+        | CType {value=TVar x} -> [x] 
+        | CType {value=TUnion (nt1, nt2)} -> (explore error_header nt1) @(explore error_header nt2) 
+        | CompType {value=CompTUid cname} -> [cname] 
+        | _ -> Error.error (out_type.place) "bridge %s type parameter must be a component type (name, union, universal)" error_header
     in
+    let lefts = explore "fst" in_type in 
+    let rights = explore "snd" out_type in 
     
-    let right = match out_type.value with
-    | CType {value=TVar x} -> x 
-    | CompType {value=CompTUid cname} -> cname 
-    | _ -> Error.error (out_type.place) "bridge snd type parameter must be a component type (name, union, universal)"
-    in
+    List.iter (function left ->
+        (List.iter 
+            (function right -> G.add_edge_e g (G.E.create left (Some {in_type; out_type; protocol}) right) )
+            rights
+        )
+    ) lefts
 
-    G.add_edge_e g (G.E.create left (Some {in_type; out_type; protocol}) right) 
+   
 and generate_slt_mtype { AstUtils.place ; AstUtils.value}= match value with
 | CType ct -> generate_slt_ctype ct 
 | SType _ -> ()

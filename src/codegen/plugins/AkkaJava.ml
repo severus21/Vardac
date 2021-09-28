@@ -17,6 +17,8 @@ module S = Rt.Ast
 (* The target calculus. *)
 module T = Lg.Ast 
 
+let cstate : Rt.Finish.collected_state ref = ref (Rt.Finish.empty_cstate ())
+
 
 let fplace = (Error.forge_place "Plg=AkkaJava" 0 0)
 let auto_place smth = {place = fplace; value=smth}
@@ -397,7 +399,6 @@ let builtin_eval =
 let rec finish_ctype place : S._ctype -> T._jtype = function 
     | S.Atomic s -> T.TAtomic s 
     | S.ActorRef t -> T.ClassOrInterfaceType  (Atom.fresh_builtin "ActorRef", [fctype t])  
-    | S.Behavior x -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Behavior", [{place; value=T.TAtomic x}]) 
     | S.TFunction (t1, t2) -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Function", [fctype t1; fctype t2]) 
     | S.TList t1 -> T.ClassOrInterfaceType  (Atom.fresh_builtin "List", [fctype t1])
     | S.TMap (t1, t2) -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Map", [fctype t1; fctype t2])
@@ -530,6 +531,9 @@ match state.value with
     | s -> List.map (function x -> {place = state.place; value=T.Stmt x}) (List.map fstmt s.stmts)
 
 and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items = 
+    let fplace = place@(Error.forge_place "Plg=AkkaJava/finish_event" 0 0) in
+    let auto_place smth = {place = fplace; value=smth} in
+
     let generate_field (ct, x) = 
         {place=ct.place; value = T.Body ({place = ct.place; value = T.FieldDeclaration {
             annotations = [T.Visibility T.Public; T.Final];
@@ -568,13 +572,24 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
         }})}
     in
 
+    (* Compute implemented types 
+        pong implements Actor1.Command, Actor2.Command, ...
+    *)
+    
+    let implemented_types = 
+        match Hashtbl.find_opt (!cstate).event2receptionists name with
+        | None -> Error.plog_warning logger fplace "Event %s can not be received by any component" (Atom.hint name); [] (*FIXME do this check inside the IR *) 
+        | Some actor_names -> 
+            List.map fctype (List.map (Akka.Misc.t_command_of_actor fplace) actor_names)
+    in
+
     T.Body ({place; value = T.ClassOrInterfaceDeclaration {
         isInterface         = false;
         annotations         = [T.Visibility (finish_visibility vis); T.Static; T.Final];
         name                = name;
         parameters          = []; 
         extended_types      = [];
-        implemented_types   = [ {place; value=T.TAtomic "Command"} ]; 
+        implemented_types   = implemented_types; 
         body                = constructor::fields
     }})
 and fevent e : T.str_items = finish_place finish_event e
@@ -685,8 +700,8 @@ and factor a : T.str_items = finish_place finish_actor a
 
 and finish_term place : S._term -> T._str_items = function
     | Comments c -> T.Comments c
-    | Import s -> T.JModule ({place; value=T.ImportDirective s})
     | Actor a  -> (factor a).value
+    | Import s -> T.JModule ({place; value=T.ImportDirective s})
     | Event e  ->  (fevent e).value
     | Stmt s -> T.Stmt (fstmt s)
     | Class x -> T.Body (
@@ -735,7 +750,8 @@ and finish_term place : S._term -> T._str_items = function
     | TemplateClass raw -> T.Raw raw.value (* TODO FIXME we should  keep raw.place here *) 
 and fterm t : T.str_items = finish_place finish_term t
 
-and finish_program target (program:S.program): (string * Fpath.t * T.program) List.t = 
+and finish_program target (_cstate, program): (string * Fpath.t * T.program) List.t = 
+    cstate := _cstate;
     (*TODO finish entrypoint/system*)
     program
     |> split_akka_ast_to_files target
@@ -744,7 +760,7 @@ and finish_program target (program:S.program): (string * Fpath.t * T.program) Li
 let finish_ir_program target (ir_program: Plugin.S.program) : (string * Fpath.t * T.program) List.t =
     ir_program
     |> Rt.Finish.finish_program  
-    |> dump "Runtime AST" Rt.Ast.show_program  
+    |> (function (cstate,ast) -> cstate, (dump "Runtime AST" Rt.Ast.show_program ast))
     |> finish_program target
     |> List.map (function package_name, file, program -> package_name, file, dump "Language AST" Lg.Ast.show_program program)
 

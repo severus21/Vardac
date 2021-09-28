@@ -20,6 +20,12 @@ let t_command_of_actor place actor_name =
         auto_place (Ast.TVar actor_name),
         auto_place (Ast.TVar a_command) 
     ))
+let t_behavior_of_actor place actor_name = 
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TParam (
+        auto_place (Ast.TVar (Atom.fresh_builtin "Behavior")),
+        [ t_command_of_actor place actor_name ]
+    ))
 
 (* Helper exprs *)
 let e_get_context place = 

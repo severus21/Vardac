@@ -13,6 +13,8 @@ any_comments_:
 any_composed_type_:
 | t1 = any_type SIMPLE_RARROW t2 = any_type
     { TArrow (t1, t2) }
+| t1 = any_type MID t2 = any_type
+    { TUnion (t1, t2) }
 | x = LID | x = UID 
     { TVar x }
 | flat_type = PTYPE

@@ -44,6 +44,8 @@ and _composed_type =
     | TSet of main_type
     | TTuple of main_type list
 
+    | TUnion of main_type * main_type
+
 
     (** Message-passing *)
     | TBridge of tbridge

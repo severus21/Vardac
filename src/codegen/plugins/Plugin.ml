@@ -18,7 +18,8 @@ module type Rt_plg = sig
     module Ast : S_Ast
 
     module Finish: sig 
-        val finish_program : S.program -> Ast.program
+        type collected_state
+        val finish_program : S.program -> Finish.collected_state * Ast.program
     end
 end
 module type Lg_plg = sig
@@ -33,9 +34,9 @@ end
 module type Cg_plg = sig
     val name: string
     module Rt : Rt_plg
-    module Lg : Lg_plg
+    module Lg : Lg_plg 
     
-    val finish_program : Core.Target.target -> Rt.Ast.program -> (string * Fpath.t * Lg.Ast.program) list 
+    val finish_program : Core.Target.target -> Rt.Finish.collected_state * Rt.Ast.program -> (string * Fpath.t * Lg.Ast.program) list 
     val finish_ir_program : Core.Target.target -> S.program -> (string * Fpath.t * Lg.Ast.program) list 
     val output_program : Core.Target.target -> Fpath.t -> S.program -> unit
 

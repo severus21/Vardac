@@ -76,6 +76,10 @@ let error place format =
     "Error: "
     place format
 
+let plog_warning (logger:Easy_logging.Logging.logger) place (format:('a, unit, string, unit) format4) = 
+  logger#warning "%s\n" (show place);
+  logger#warning format 
+
 exception SyntaxError of place 
 exception DeadbranchError of string 
 exception PlacedDeadbranchError of place * string 

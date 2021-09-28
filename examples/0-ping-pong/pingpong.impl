@@ -8,3 +8,5 @@ impl component B {
 }
 
 impl component A::C {}
+
+impl component C {}

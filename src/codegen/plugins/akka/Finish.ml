@@ -14,6 +14,27 @@ module S = IRI
 (* The target calculus. *)
 module T = Ast 
 
+(*** Global state *)
+type collected_state = {
+    event2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
+}
+let empty_cstate () : collected_state = {
+    event2receptionists = Hashtbl.create 0
+}
+(*
+    event -> list of components that can receive it 
+*)
+let event2receptionists : (Atom.t, Atom.t list) Hashtbl.t= Hashtbl.create 64
+let add_event_e2rs event component : unit = 
+    let vs = 
+        try
+            Hashtbl.find event2receptionists event
+        with Not_found -> []
+    in
+    Hashtbl.add event2receptionists event (component::vs)
+
+(*****)
+
 (* The translation of a complete program. *)
 
 let fst3 (x,y,z) = x
@@ -666,7 +687,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     List.iter hydrate_env grp_items.ports;
 
     (* Step 2 - Generate a receiver per event *)
-    let generate_event_receiver (event_name:Atom.atom) (inner_env:(T.expr * S.session_type, T.expr) Hashtbl.t) : T.stmt =
+    let generate_event_receiver (event_name:Atom.atom) (inner_env:(T.expr * S.session_type, T.expr) Hashtbl.t) : T.stmt list =
         (* Helpers *)
         let bridgeid (bridge: T.expr) = auto_place (T.AccessExpr (
             bridge,
@@ -684,6 +705,14 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
 
         (* Creating the statement*)
         (* TODO do it with a switch ??? *)
+        (*
+            if(e.bridge_id == port_bridge.id && e.current_set == 
+            current_aststype){
+                this.handle_ping46(e);
+            }else{
+                ...
+            }
+        *)
         let add_case (bridge, st) (callback:T.expr) acc : T.stmt =
             auto_place (T.IfStmt (
                 auto_place (T.BinopExpr(
@@ -700,7 +729,17 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                 Some acc
             ))
         in
-        Hashtbl.fold add_case inner_env (auto_place (T.EmptyStmt))
+
+        (* return Behaviors.same(); *)
+        let ret_stmt = T.ReturnStmt (auto_place (T.CallExpr ( 
+            auto_place (T.AccessExpr (
+                auto_place (T.VarExpr (Atom.fresh_builtin "Behaviors")),
+                auto_place (T.VarExpr (Atom.fresh_builtin "same"))
+            )),
+            []
+        ))) in
+
+        [ Hashtbl.fold add_case inner_env (auto_place (T.EmptyStmt)) ] @ [auto_place ret_stmt]
     in
 
     (* Step3 - Generate the component receiver *)
@@ -715,9 +754,9 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             let _m_name = Atom.fresh "event_dispatcher" in
             let _m : T.method0 = auto_place {
                 T.annotations = [T.Visibility T.Public];
-                T.ret_type = auto_place (T.TVar (Atom.fresh_builtin "Behavior"));
+                T.ret_type = t_behavior_of_actor fplace name;
                 T.name = _m_name;
-                T.body = AbstractImpl [generate_event_receiver event_name inner_env];
+                T.body = AbstractImpl (generate_event_receiver event_name inner_env);
                 T.args = [(auto_place (T.TVar event_name), l_event_name)];
                 T.is_constructor = false;
             } in
@@ -757,11 +796,16 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                 {place; value=T.ReturnStmt receiver_expr}
             ]);
             name            = Atom.fresh_builtin "createReceive";
-            ret_type        = {place; value=T.Behavior "Command"};
+            ret_type        = t_behavior_of_actor place name;
             annotations     = [ T.Visibility T.Public ];
             is_constructor  = false
         }
     } in
+
+    (* Step 4 - Prepare parent_env for updating event definition in order to
+        event Pong implements C.Command for all C that can receive a Pong event
+    *)
+    Hashtbl.iter (fun event _ -> add_event_e2rs event name) env;
     
     (***** Building methods *****)
     let methods = receiver_methods @ (List.flatten (List.map (fmethod name) grp_items.methods)) in 
@@ -1317,7 +1361,9 @@ let finish_program terms =
     let terms = clean_terms terms in
     let terms = List.flatten (List.rev(List.map fterm terms)) in
 
-    { 
+    {
+        event2receptionists;
+    }, { 
         T.entrypoint = [];
         T.system = {
             place = Error.forge_place "Plg=Akka/finish_program" 0 0;

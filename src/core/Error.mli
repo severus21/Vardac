@@ -36,6 +36,7 @@ val show : ?display_line:bool -> place -> string
    is composed based on [format] and the extra arguments [...]. *)
 
 val error: place -> ('a, out_channel, unit, 'b) format4 -> 'a
+val plog_warning: Easy_logging.Logging.logger -> place -> ('a, unit, string, unit) format4  -> 'a 
 
 (* [pp_place formatter place] prints a place. It is used by
    [@@deriving show] for data structures that contain places.

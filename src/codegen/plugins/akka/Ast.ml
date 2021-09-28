@@ -12,7 +12,6 @@ and comments = Core.IR._comments
 (************************************ Types **********************************)
 and _ctype = 
     | Atomic of string (*int, float, ?, ..*)           
-    | Behavior of string 
     | ActorRef of ctype
     | TFunction of ctype * ctype
     | TList of ctype 
@@ -193,7 +192,6 @@ let rec apply_rename_place (apply_rename : Core.Error.place -> 'a -> 'a) ({ Core
     {Core.AstUtils.place; Core.AstUtils.value}
 let rec _apply_rename_ctype (renaming : Atom.atom -> Atom.atom) place : _ctype -> _ctype = function
     | Atomic s -> Atomic s
-    | Behavior s -> Behavior s
     | ActorRef ct -> ActorRef (apply_rename_ctype renaming ct)
     | TFunction (ct1, ct2) -> TFunction (
         apply_rename_ctype renaming ct1,
@@ -221,11 +219,16 @@ let rec _apply_rename_ctype (renaming : Atom.atom -> Atom.atom) place : _ctype -
     ) 
     | TVar x -> TVar (renaming x) 
     | TVoid -> TVoid
+    | TAccess (ct1, ct2) -> TAccess (
+        apply_rename_ctype renaming ct1,
+        apply_rename_ctype renaming ct2
+    )
     | TParam (ct, cts) -> TParam (
         apply_rename_ctype renaming ct,
         List.map (apply_rename_ctype renaming) cts
     )
     | TRaw s -> TRaw s
+    | cy -> print_string (show__ctype cy);failwith "";
 and apply_rename_ctype renaming (ct:ctype) = apply_rename_place (_apply_rename_ctype renaming) ct
 
 and _apply_rename_expr (renaming : Atom.atom -> Atom.atom) place = function

@@ -277,13 +277,14 @@ and cook_composed_type (env:env) place: S._composed_type -> env * T._composed_ty
         | S.TOption _ -> T.TOption mt 
         | S.TSet _ -> T.TSet mt 
     )
-| (S.TArrow (mt1, mt2) as ct) | (S.TDict (mt1, mt2) as ct) | (S.TResult (mt1, mt2) as ct) -> 
+| (S.TArrow (mt1, mt2) as ct) | (S.TDict (mt1, mt2) as ct) | (S.TResult (mt1, mt2) as ct) | (S.TUnion (mt1, mt2) as ct)-> 
     let env1, mt1 = cmtype env mt1 in
     let env2, mt2 = cmtype env mt2 in
     env << [env1; env2], (match ct with 
         | S.TArrow _ -> T.TArrow (mt1, mt2) 
         | S.TDict _ -> T.TDict (mt1, mt2) 
         | S.TResult _ -> T.TResult (mt1, mt2)
+        | S.TUnion _ -> T.TUnion (mt1, mt2)
     )
 | S.TBridge {in_type; out_type; protocol } -> 
     let env1, in_type = cmtype env in_type in

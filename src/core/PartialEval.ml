@@ -51,10 +51,12 @@ let rec peval_place peval_value env ({ AstUtils.place ; AstUtils.value}: 'a AstU
 
 let rec peval_composed_type env place : _composed_type -> env * _composed_type = function
 | TActivationInfo mt -> env, TActivationInfo ((snd <-> pe_mtype env) mt)
-| TArrow (mt1, mt2) -> 
+| (TArrow (mt1, mt2) as ct) | (TUnion (mt1, mt2) as ct)-> 
     let _, mt1 = pe_mtype env mt1 in
     let _, mt2 = pe_mtype env mt2 in
-    env, TArrow (mt1, mt2)
+    env, (match ct with 
+        | TArrow _ -> TArrow (mt1, mt2)
+        | TUnion _ -> TUnion (mt1, mt2)) 
 | TVar x ->  env, TVar x (*TVar is process by the pe_main_type because it should be able to be evaluated to any type*)
 
 | TFlatType ft -> env, TFlatType ft 
