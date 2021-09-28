@@ -10,3 +10,5 @@ impl component B {
 impl component A::C {}
 
 impl component C {}
+
+impl component Orchestrator {}

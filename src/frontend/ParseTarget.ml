@@ -52,17 +52,28 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
                     |`O _body -> begin 
                         let _table = tableof _body in
 
-                        let name : string = match Hashtbl.find _table "name" with 
-                            | `String x -> x 
-                            |_ -> Error.error mock_place "Syntax error in [name] definition of mains of target [%s]\n" name 
+                        let main_name : string = try begin
+                            match Hashtbl.find _table "name" with 
+                                | `String x -> x 
+                                |_ -> Error.error mock_place "Syntax error in [name] definition of mains of target [%s]\n" name 
+                        end with Not_found -> Error.error mock_place "Target [%s] has an un-named main\n" name 
                         in
 
-                        let component : string = match Hashtbl.find _table "component" with
-                            |`String x -> x 
-                            |_ -> Error.error mock_place "Syntax error in [component] definition of mains of target [%s]\n" name 
+                        let component : string = try begin
+                            match Hashtbl.find _table "component" with
+                                |`String x -> x 
+                                |_ -> Error.error mock_place "Syntax error in [component] definition of mains of target [%s]\n" name 
+                        end with Not_found -> Error.error mock_place "Target [%s] do not have [component] definition for main [%s]\n" name main_name 
                         in 
 
-                        {Core.Target.name=name; component}  
+                        let entrypoint : string = try begin
+                            match Hashtbl.find _table "entrypoint" with
+                                |`String x -> x 
+                                |_ -> Error.error mock_place "Syntax error in [entrypoint] definition of mains of target [%s]\n" name 
+                        end with Not_found -> Error.error mock_place "Target [%s] do not have [entrypoint] definition for main [%s]\n" name main_name 
+                        in 
+
+                        {Core.Target.name=main_name; component; entrypoint}  
                     end
                     |_ -> Error.error mock_place "Syntax error in [mains] definition of target [%s]\n" name 
                     in

@@ -4,7 +4,8 @@ type maindef = {
     (* main name *)
     name: string; 
     (* init component - toplevel is magic component name *)
-    component: string
+    component: string;
+    entrypoint: string;
 }
 and codegen_info = {
     runtime_plg: string; 

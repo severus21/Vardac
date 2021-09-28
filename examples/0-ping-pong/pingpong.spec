@@ -108,10 +108,16 @@ component C () {
     }
 }
 
+
+component Orchestrator () {
+    void toto (string args) {
+        activation_info<C> c = (spawn C());
+        activation_info<A> a2 = (spawn A(c));  
+    }
+}
+
 activation_info<B> b = (spawn B()); (* B() -> call the oncreate method of B with the argument whereas B(A) will be a functor application TODO fix the syntax *) 
-activation_info<C> c = (spawn C());
 activation_info<A> a1 = (spawn A(b));  
-activation_info<A> a2 = (spawn A(c));  
 
 
 

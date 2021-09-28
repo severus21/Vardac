@@ -57,6 +57,7 @@ and stage_entry = {
     imports: Rt.Ast.term list;
     file: Fpath.t option;
     package_name: string option;
+    main: Target.maindef option;
     (* such that 
         import parents stages
         import substages
@@ -122,11 +123,57 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
     in
     
     let wrap_stage_ast (stage: stage_entry) : stage_entry =
+
+        let wrap_main (_main:Rt.Ast.method0) = auto_place ( Rt.Ast.MethodDeclaration (auto_place {
+            Rt.Ast.annotations = [Rt.Ast.Visibility Rt.Ast.Public; Rt.Ast.Static];
+            ret_type = auto_place Rt.Ast.TVoid;    
+            name = Atom.fresh_builtin "main";
+            args= [auto_place (Rt.Ast.Atomic "String[]"), Atom.fresh_builtin "args"];
+            is_constructor = false;
+            body = _main.value.body 
+        })) in
+
+        let body = match stage.main with
+        | None -> stage.ast
+        | Some mdef -> (* wrap inside a main function *)
+            logger#error "stage %s searching for %s" (Atom.to_string stage.name) mdef.entrypoint;
+            let rec _extract_method : Rt.Ast.term list -> bool * Rt.Ast.term list * Rt.Ast.method0 option * Rt.Ast.term list = function
+            | [] -> false, [], None, []
+            | [{value=Rt.Ast.Actor a;place=_place}] when (Atom.hint a.value.name) = mdef.component -> 
+                let _, xs, Some _main, ys = _extract_method (List.map 
+                    (function m -> auto_place(Rt.Ast.MethodDeclaration m))
+                    a.value.methods) in
+                let transform = function | {value=Rt.Ast.MethodDeclaration m;} -> m in
+                let xs, ys = List.map transform xs, List.map transform ys in 
+                let {value=Rt.Ast.MethodDeclaration wraped_main; place=_} = wrap_main _main in
+                true, [{
+                    value=Rt.Ast.Actor {
+                        place=a.place;
+                        value={a.value with methods = xs@[wraped_main]@ys}
+                    };
+                    place=_place
+                };], None, []
+            | ({value=Rt.Ast.MethodDeclaration m;} as t)::xs when (Atom.hint m.value.name) = mdef.entrypoint -> 
+                true, [], Some m, xs 
+            | x::xs ->
+                let flag, ys1, t, ys2 = _extract_method xs in
+                flag, x::ys1, t, ys2
+            in
+
+            let flag,xs, _main_opt, ys = _extract_method stage.ast in
+            if flag = false then Error.error target.place "Entrypoint [%s::%s] not found" mdef.component mdef.entrypoint;
+
+            match _main_opt with
+            | Some _main -> xs @ [ wrap_main _main ] @ ys 
+            | None -> xs @ ys
+        in
+        let stage = { stage with ast = body } in
+
         if stage.kind <> AnonymousStage then stage
         else 
             let imports, others = extract_imports stage.ast in
             if others = [] then stage
-            else 
+            else begin 
             {
                 stage with ast = 
                 imports @ 
@@ -141,6 +188,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
                     })
                 ]
             }
+            end
     in
 
 
@@ -152,7 +200,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
         let rec _group_per_stage_or_component acc_current_stage : Rt.Ast.term list -> stage_entry list = 
             let stageofacc () = 
                 let stage_name = Atom.fresh "Stage" in
-                wrap_stage_ast {
+                {
                     kind = AnonymousStage;
                     name = stage_name;
                     ast = List.rev acc_current_stage; 
@@ -161,6 +209,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
                     imports = [];
                     file = None;
                     package_name = None;
+                    main = None;
                 }
             in    
 
@@ -172,7 +221,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
                 | Rt.Ast.Event e -> begin
                     (* No sub-stages *)
                     
-                    let event_stage = wrap_stage_ast {
+                    let event_stage = {
                         kind = EventStage;
                         name = e.value.name;
                         ast = [term];
@@ -180,6 +229,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
 
                         imports = [];
                         file = None;
+                        main = None;
                     } in 
                     (stageofacc ()) :: event_stage :: (_group_per_stage_or_component [] ts)
                 end
@@ -187,7 +237,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
                 | Rt.Ast.ClassOrInterfaceDeclaration cid -> begin
                     (* No sub-stages *)
                     
-                    let cid_stage = wrap_stage_ast {
+                    let cid_stage = {
                         kind = ClassOrInterfaceDeclarationStage;
                         name = cid.name;
                         ast = [term];
@@ -196,6 +246,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
                         imports = [];
                         file = None;
                         package_name = None;
+                        main = None ;
                     } in 
                     (stageofacc ()) :: cid_stage :: (_group_per_stage_or_component [] ts)
                 end
@@ -205,7 +256,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
                     in
                     let sub_stages = List.filter (function stage -> stage.ast <> []) sub_stages in
 
-                    let actor_stage = wrap_stage_ast {
+                    let actor_stage = {
                         kind = ActorStage;
                         name = a.value.name;
                         ast = [{
@@ -220,6 +271,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
                         imports = [];
                         file = None;
                         package_name = None;
+                        main = None;
                     } in 
                     (stageofacc ()) :: actor_stage :: (_group_per_stage_or_component [] ts)
                 end
@@ -339,7 +391,16 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
         let stage = { stage with 
             imports = List.rev sub_imports;
             package_name = if stage.sub_stages = [] then Some package_name else Some (package_name^"."^(String.lowercase_ascii (Atom.to_string stage.name)));
-            sub_stages
+            sub_stages;
+            main = (
+                match stage.kind with 
+                | ActorStage ->    
+                    logger#error "hydrate main %s" (Atom.to_string stage.name);
+                    if parent_opt = None then logger#error "eee %s" (Atom.to_string stage.name);
+                    List.find_opt (function (main:Target.maindef) -> main.component = Atom.hint stage.name && parent_opt = None) target.value.codegen.mains
+                | _ ->
+                   None 
+            )
         } in
 
         (* Design choice: subcomponents/stages are private - i.e. do not reuse sub_imports for stages*)
@@ -360,6 +421,13 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:Rt.Ast.pro
    
     (* Stages with imports and files *)
     let _, stages = hydrate_stages (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ())) [] None stages in
+
+    (* Wrap stages *)
+    let rec wrap_stage stage =
+        let stage = wrap_stage_ast stage in
+        { stage with sub_stages = List.map wrap_stage stage.sub_stages; }
+    in
+    let stages = List.map wrap_stage stages in
 
 
     (* TODO Add stages for mains ?? *)

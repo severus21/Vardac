@@ -5,5 +5,8 @@
     mains: 
       - name: main 
         component: toplevel
+        entrypoint: laststage
       - name: consol
-        component: A
+        component: Orchestrator 
+        entrypoint: toto 
+      
