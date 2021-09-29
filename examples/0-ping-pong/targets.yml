@@ -4,9 +4,9 @@
     runtime: Akka
     mains: 
       - name: main 
-        component: toplevel
-        entrypoint: laststage
-      - name: consol
-        component: Orchestrator 
-        entrypoint: toto 
+        bootstrap: laststage
+        entrypoint: no_main 
+      #- name: mainWithGuardian 
+      #  bootstrap: Orchestrator 
+      #  entrypoint:  no_main 
       

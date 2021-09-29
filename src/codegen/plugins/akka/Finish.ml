@@ -398,6 +398,25 @@ match body with
             }
         }
 
+and finish_function place : S._function_dcl -> T.method0 list = function
+    | f ->
+        let body = T.AbstractImpl (List.map fstmt f.body)
+        in
+
+        let new_function : T.method0 = {
+            place;
+            value = { 
+                annotations     = [ T.Visibility T.Public ]; 
+                ret_type        = fmtype f.ret_type;
+                name            = f.name;
+                args            = (List.map fparam f.args);
+                body            = body; 
+                is_constructor  = false 
+            }
+        } in
+
+        [new_function]
+and ffunction : S.function_dcl -> T.method0 list = function m -> finish_function m.place m.value
 (************************************ Component *****************************)
 
 
@@ -605,6 +624,7 @@ and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._m
     | S.OnStartup m0 -> finish_method m0.place actor_name ~is_constructor:true m0.value   
     | S.OnDestroy _ -> failwith "ondestroy is not yet supported"
 and fmethod actor_name : S.method0 -> T.method0 list = function m -> finish_method m.place actor_name m.value
+
 
 
 and finish_component_dcl place : S._component_dcl -> T.actor list = function
@@ -849,6 +869,10 @@ and finish_term place : S._term -> T.term list = function
     place; 
     value = T.Stmt (fstmt stmt)
 }]
+| S.Function f -> List.map (function m -> {
+    place; 
+    value = T.MethodDeclaration m
+}) (ffunction f)
 | S.Typedef {value=S.ProtocolDef (name, {value=S.SType st; _});_} -> 
     (*** Helpers ***)
     let fplace = (Error.forge_place "Plg=Akka/finish_term/protocoldef" 0 0) in

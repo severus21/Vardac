@@ -149,6 +149,7 @@ and paired_term parents place : S2._term -> T._term = function
 | S2.Comments c -> T.Comments c
 | S2.Component c -> T.Component (ccdcl parents c)
 | S2.Stmt stmt -> T.Stmt stmt
+| S2.Function f  -> T.Function f
 | S2.Typealias (x, None) -> begin
     try 
         let key = List.rev ((Atom.hint x)::parents) in

@@ -59,11 +59,11 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
                         end with Not_found -> Error.error mock_place "Target [%s] has an un-named main\n" name 
                         in
 
-                        let component : string = try begin
-                            match Hashtbl.find _table "component" with
+                        let bootstrap : string = try begin
+                            match Hashtbl.find _table "bootstrap" with
                                 |`String x -> x 
-                                |_ -> Error.error mock_place "Syntax error in [component] definition of mains of target [%s]\n" name 
-                        end with Not_found -> Error.error mock_place "Target [%s] do not have [component] definition for main [%s]\n" name main_name 
+                                |_ -> Error.error mock_place "Syntax error in [bootstrap] definition of mains of target [%s]\n" name 
+                        end with Not_found -> Error.error mock_place "Target [%s] do not have [bootstrap] definition for main [%s]\n" name main_name 
                         in 
 
                         let entrypoint : string = try begin
@@ -73,7 +73,7 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
                         end with Not_found -> Error.error mock_place "Target [%s] do not have [entrypoint] definition for main [%s]\n" name main_name 
                         in 
 
-                        {Core.Target.name=main_name; component; entrypoint}  
+                        {Core.Target.name=main_name; bootstrap; entrypoint}  
                     end
                     |_ -> Error.error mock_place "Syntax error in [mains] definition of target [%s]\n" name 
                     in

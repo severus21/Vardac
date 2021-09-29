@@ -34,7 +34,7 @@ let make_contract x binders cfs =
 (* A toplevel phrase is just a term. *)
 
 entry:
-  t = list(any_term) EOF
+  t = list(any_toplevel_term) EOF
     { t }
 
 (* -------------------------------------------------------------------------- *)

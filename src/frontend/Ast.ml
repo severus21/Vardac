@@ -167,6 +167,16 @@ and _stmt =
     | GhostStmt of stmt
 and stmt = _stmt placed
 
+
+and _function_dcl = {
+    name: variable;
+    ret_type: main_type;
+    args: param list;
+    abstract_impl: stmt list;
+}
+and function_dcl = _function_dcl placed
+
+
 (************************************ Component *****************************)
 and state_kind =IR.state_kind 
 
@@ -270,6 +280,7 @@ and _term =
 
     (** Structure part*)
     | Component of component_dcl
+    | Function of function_dcl
 
     (* Static part*)
     (*TODO | SignatureDcl of signature_dcl*)   

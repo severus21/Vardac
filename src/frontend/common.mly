@@ -352,6 +352,25 @@ any_stmt_:
   t = placed(any_stmt_)
     { t }
 
+any_function_:
+(* Abstract method *)
+| ret_type=any_type name=LID LPAREN args=right_flexible_list(COMMA, any_param) RPAREN SEMICOLON
+    { {
+        ret_type=ret_type;
+        name=name;
+        args=args;
+        abstract_impl = []
+    } }
+| ret_type=any_type name=LID LPAREN args=right_flexible_list(COMMA, any_param) RPAREN LCURLYBRACKET stmts=flexible_sequence(any_stmt) RCURLYBRACKET 
+    { {
+        ret_type=ret_type;
+        name=name;
+        args=args;
+        abstract_impl= stmts
+    } }
+%public %inline any_function:
+  t = placed(any_function_)
+    { t }
 (************************************ Component *****************************)
 atomic_state_kind:
 | GLOBAL
@@ -545,6 +564,15 @@ any_term_:
     { t_dcl }
 %public %inline any_term:
     t = placed(any_term_)
+    { t }
+
+any_toplevel_term_:
+| t = any_term_ 
+    { t }
+| f=any_function (* Only top level function are allowed *)
+    { Function f}
+%public %inline any_toplevel_term:
+    t = placed(any_toplevel_term_)
     { t }
 
 (*

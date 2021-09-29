@@ -97,6 +97,7 @@ module Make (Params : IRParams) = struct
       | Include of component_expr
   and component_item = _component_item placed
 
+
   and _component_dcl = 
       (* 
       component X args = {
@@ -152,6 +153,7 @@ module Make (Params : IRParams) = struct
 
         (** Structure part*)
         | Component of component_dcl
+        | Function of function_dcl
 
         (* Static part*)
         (*TODO | SignatureDcl of signature_dcl*)   

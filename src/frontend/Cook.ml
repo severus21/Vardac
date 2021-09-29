@@ -754,6 +754,29 @@ and cook_term env place : S._term -> env * T._term = function
 | S.Stmt stmt ->
     let new_env, new_stmt = cstmt env stmt in
     new_env, T.Stmt new_stmt
+| S.Function f -> 
+    (* TODO create an aux function finish_fct_decl*)
+    let new_env, name = bind_expr env place f.value.name in
+    let inner_env, args = List.fold_left_map cparam env f.value.args in
+
+    let rec remove_empty_stmt = function
+        | [] -> []
+        | {AstUtils.place=_;value=S.EmptyStmt}::stmts -> remove_empty_stmt stmts
+        | stmt::stmts -> stmt::(remove_empty_stmt stmts)
+    in
+
+    let env1, ret_type = cmtype env f.value.ret_type in
+    let env2, body = List.fold_left_map cstmt inner_env (remove_empty_stmt f.value.abstract_impl) in
+
+    new_env << [inner_env; env1; env2], T.Function {
+        place = f.place;
+        value = {
+            ret_type = ret_type;
+            name;
+            args;
+            body = body 
+        }
+    } 
 
 | S.Component c ->
     let new_env, new_c = ccdcl env c in

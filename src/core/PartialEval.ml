@@ -560,6 +560,14 @@ and peval_term env place : _term -> env * _term = function
 | Comments c -> env, Comments c
 | Stmt stmt -> map_snd (fun x -> Stmt x) (pe_stmt env stmt)
 | Component comp -> map_snd (fun x -> Component x) (pe_component_dcl env comp)
+| Function f -> env, Function {
+    place = f.place;
+    value = { f.value with
+        ret_type = snd(pe_mtype env f.value.ret_type);
+        args = List.map (function param -> snd(pe_param env param)) f.value.args;
+        body = List.map (snd <-> pe_stmt env) f.value.body;
+    }
+}
 | Typealias (x, mt_opt) -> begin
     match mt_opt with
     | None -> 
