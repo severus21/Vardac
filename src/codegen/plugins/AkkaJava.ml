@@ -167,7 +167,8 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
             implemented_types = [];
             body = [
                 auto_place ( S.MethodDeclaration (auto_place {
-                    S.annotations = [S.Visibility S.Public; S.Static];
+                    S.decorators = [];
+                    annotations = [S.Visibility S.Public; S.Static];
                     ret_type = auto_place S.TVoid;    
                     name = Atom.fresh_builtin "main";
                     args= [auto_place (S.Atomic "String[]"), Atom.fresh_builtin "args"];
@@ -365,7 +366,8 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
             S.name = name;
             methods = [
                 auto_place {
-                    S.annotations = [S.Visibility S.Public];
+                    S.decorators = [];
+                    annotations = [S.Visibility S.Public];
                     ret_type = auto_place S.TVoid;
                     name = name;
                     args = [];
@@ -424,7 +426,8 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
 
         (* Just starts the actor system with the specific guardian i.e. mdef.bootstrap *)
         wrap_main mdef.name (auto_place (S.VarExpr (guardian_name_of mdef))) (auto_place {
-            S.annotations = [];
+            S.decorators = [];
+            annotations = [];
             ret_type = auto_place S.TVoid;
             name = Atom.fresh_builtin (String.capitalize_ascii (Atom.hint mdef.entrypoint));
             body = AbstractImpl [];
@@ -760,6 +763,11 @@ let rec finish_visibility = function
     | S.Private -> T.Private
     | S.Protected -> T.Protected
     | S.Public -> T.Public
+
+and finish_decorator = function
+| S.Override -> T.Override
+and finish_decorators decorators = List.map finish_decorator decorators
+
 and finish_annotation = function
 | S.Visibility vis -> T.Visibility (finish_visibility vis)
 | S.Static -> T.Static
@@ -893,6 +901,7 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
 
     let constructor = 
         { place; value=T.Body ({place; value=T.MethodDeclaration {
+            decorators  = [];
             annotations = [T.Visibility T.Public];   
             ret_type    = None;
             name        = name;
@@ -926,11 +935,12 @@ and fevent e : T.str_items = finish_place finish_event e
 
 and finish_arg ((ctype,variable):(S.ctype * Atom.atom)) : T.parameter =
     (fctype ctype, variable)
-and finish_method place ({annotations; ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
+and finish_method place ({decorators; annotations; ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
     match body with
     | S.AbstractImpl stmts when is_constructor ->
         (* FIXME check in IR that onstratup no type i.e. void*)
         T.MethodDeclaration {
+            decorators  = finish_decorators decorators;
             annotations = finish_annotations annotations;   
             ret_type    = None;
             name        = name;
@@ -942,6 +952,7 @@ and finish_method place ({annotations; ret_type; name; body; args; is_constructo
         }
     | S.AbstractImpl stmts ->
         T.MethodDeclaration {
+            decorators  = finish_decorators decorators;
             annotations = finish_annotations annotations;   
             ret_type    = Some (fctype ret_type);
             name        =  name;
@@ -976,6 +987,7 @@ and finish_method place ({annotations; ret_type; name; body; args; is_constructo
         let body = [{place = bbterm.place; value = body }] in
 
         T.MethodDeclaration {
+            decorators  = finish_decorators decorators;
             annotations = finish_annotations annotations;   
             ret_type    = if is_constructor then None else Some (fctype ret_type);
             name;
@@ -1029,7 +1041,8 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     | Some _ -> methods
     | None -> (* add a default constructor, will be hydrated with context when running fmethod *)
         auto_place ({
-            S.annotations = [S.Visibility S.Public];   
+            S.decorators = [];
+            annotations = [S.Visibility S.Public];   
             ret_type    = auto_place S.TVoid;
             name        = name;
             args        = []; 
@@ -1059,11 +1072,12 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
         ])
     )) in
     let m_create : S.method0 = auto_place {
+        S.decorators = [S.Override];
         S.annotations = [S.Visibility S.Public; S.Static];
         ret_type = Rt.Misc.t_behavior_of_actor place name;
         name = Rt.Misc.a_create_method;
         body = S.AbstractImpl [auto_place (S.ReturnStmt (Rt.Misc.e_setup_behaviors place [arg_lambda]))];
-        args = (Rt.Misc.t_actor_context place None, Rt.Misc.a_context)::constructor_args;
+        args = constructor_args;
         is_constructor = false;
     } in
     let methods = methods @ [m_create] in

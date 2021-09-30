@@ -118,6 +118,12 @@ and ostmt out: stmt -> unit = function stmt ->
     | Config.None | Config.Medium -> output_stmt out stmt.value
     | Config.Full -> output_placed out output_stmt stmt 
 
+and output_decorator out: decorator -> unit = function
+    | Override -> pp_print_string out "@Override" 
+and output_decorators out = function
+    | [] -> ()
+    | l -> fprintf out "@[<h>%a@] " (pp_list "@ " output_decorator) l
+
 and output_annotation out: annotation -> unit = function
     | Visibility vis -> output_visibility out vis 
     | Static -> pp_print_string out "static" 
@@ -172,7 +178,8 @@ and output_body out : _body -> unit = function
         assert(m.annotations <> []);
 
         fprintf out 
-            "%a%a%a(@[<hv 3>%a@]) {@;@[<v 3>@;%a@]@;}"
+            "%a@;%a%a%a(@[<hv 3>%a@]) {@;@[<v 3>@;%a@]@;}"
+            output_decorators m.decorators 
             output_annotations m.annotations 
             (fun out opt-> ignore (Option.map (fprintf out "%a " ojtype) opt)) m.ret_type 
             output_var m.name 

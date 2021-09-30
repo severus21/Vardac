@@ -23,6 +23,8 @@ and annotation =
     | Visibility of visibility
     | Static 
     | Final
+and decorator = 
+    | Override
 [@@deriving show { with_path = false }]
 
 type variable =
@@ -39,6 +41,7 @@ and _body =
         implemented_types: jtype list;
         body: str_items list} (*parameters extends .... implements interfaces*)(* TODO GADT should guarantee that jtype is ClassOrInterfaceDeclaration*)
     | MethodDeclaration of { 
+        decorators: decorator list;
         annotations: annotation list;
         ret_type: jtype option; (* None for constructor, Some _ otherwise *)
         name: variable;

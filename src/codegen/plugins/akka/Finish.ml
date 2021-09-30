@@ -408,6 +408,7 @@ and finish_function place : S._function_dcl -> T.method0 list = function
         let new_function : T.method0 = {
             place;
             value = { 
+                decorators      = [];
                 annotations     = [ T.Visibility T.Public ]; 
                 ret_type        = fmtype f.ret_type;
                 name            = f.name;
@@ -471,6 +472,7 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
         let ensures_method : T.method0 = {
             place = ensures_expr.place;
             value = {
+                decorators       = [];
                 annotations     = [ T.Visibility T.Private ];
                 ret_type        = { place; value=T.Atomic "boolean"};
                 name            = ensures_name;
@@ -521,6 +523,7 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
         let returns_method  : T.method0 = {
             place = returns_expr.place;
             value = {
+                decorators      = [];
                 annotations     = [ T.Visibility T.Private ];
                 ret_type        = { place = returns_expr.place; value=T.Atomic "boolean"};
                 name            = returns_name;
@@ -579,6 +582,7 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
     let main_method : T.method0 = {
         place = method0.place@place;
         value = {
+            decorators      = method0.value.decorators;
             annotations     = method0.value.annotations;
             ret_type        = method0.value.ret_type;
             name            = method0.value.name;
@@ -608,6 +612,7 @@ and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._m
         let new_method : T.method0 = {
             place;
             value = { 
+                decorators      = []; 
                 annotations     = [ T.Visibility T.Public ]; 
                 ret_type        = fmtype m0.ret_type;
                 name            = if is_constructor then actor_name else m0.name;
@@ -775,12 +780,13 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         let add_case event_name inner_env (acc, acc_methods) =
             let _m_name = Atom.fresh "event_dispatcher" in
             let _m : T.method0 = auto_place {
-                T.annotations = [T.Visibility T.Public];
-                T.ret_type = t_behavior_of_actor fplace name;
-                T.name = _m_name;
-                T.body = AbstractImpl (generate_event_receiver event_name inner_env);
-                T.args = [(auto_place (T.TVar event_name), l_event_name)];
-                T.is_constructor = false;
+                T.decorators = [];
+                annotations = [T.Visibility T.Public];
+                ret_type = t_behavior_of_actor fplace name;
+                name = _m_name;
+                body = AbstractImpl (generate_event_receiver event_name inner_env);
+                args = [(auto_place (T.TVar event_name), l_event_name)];
+                is_constructor = false;
             } in
 
             ({place; value=T.AccessExpr(
@@ -813,6 +819,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     let receiver : T.method0 = { 
         place;
         value = {
+            decorators      = [];
             args            = [];
             body            = T.AbstractImpl ([
                 {place; value=T.ReturnStmt receiver_expr}
@@ -962,7 +969,8 @@ and finish_term place : S._term -> T.term list = function
             auto_place (T.Atomic "Msg"), (Atom.fresh_builtin "msg");
         ] in
         let m_constructor = { 
-            T.annotations = [T.Visibility T.Public];
+            T.decorators      = [];
+            annotations = [T.Visibility T.Public];
                 ret_type = auto_place T.TVoid;
                 name = cl_event_name;
                 body = AbstractImpl (List.map (function (_, name) -> (auto_place (T.AssignExpr (
@@ -1032,7 +1040,8 @@ and finish_term place : S._term -> T.term list = function
             (auto_place (T.TVar (a_ASTStype_of ""))), l_st;
         ] in
         let m_constructor = { 
-            T.annotations = [T.Visibility T.Public];
+            T.decorators      = [];
+            annotations = [T.Visibility T.Public];
                 ret_type = auto_place T.TVoid;
                 name = cl_session_name;
                 body = AbstractImpl (List.map (function (_, name) -> (auto_place (T.AssignExpr (
@@ -1061,7 +1070,9 @@ and finish_term place : S._term -> T.term list = function
             let cl_msg_name = Atom.fresh_builtin "Msg" in  
             let l_e = Atom.fresh_builtin "e" in
             { 
-                T.annotations = [T.Visibility T.Public];
+
+                T.decorators      = [];
+                annotations = [T.Visibility T.Public];
                 ret_type = auto_place (T.TVar cl_session_name);
                 name = m_fire_name;
                 body = AbstractImpl ([
@@ -1128,7 +1139,8 @@ and finish_term place : S._term -> T.term list = function
             let l_e = Atom.fresh_builtin "e" in
 
             { 
-                T.annotations = [T.Visibility T.Public];
+                T.decorators = [];
+                annotations = [T.Visibility T.Public];
                 ret_type = auto_place (T.TTuple [ 
                     auto_place (T.TVar (Atom.fresh_builtin "Object"));
                     auto_place (T.TVar cl_session_name)
@@ -1345,6 +1357,7 @@ and finish_term place : S._term -> T.term list = function
 
     let constructor = { place = place @ (Error.forge_place "Plg=Akka/finish_term/typedef/implicit_constructor" 0 0); value= 
         T.MethodDeclaration { place; value = {
+            decorators = [];
             annotations = [T.Visibility T.Public];
             ret_type = {place; value = T.TVoid}; (* removed by the is_constructor *)
             name;

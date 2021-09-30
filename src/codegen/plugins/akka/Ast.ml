@@ -88,11 +88,14 @@ and annotation =
     | Visibility of visibility
     | Static 
     | Final
+and decorator = 
+    | Override
 and method0_body = 
 | AbstractImpl of stmt list
 | BBImpl of Impl_common.blackbox_term
 
 and _method0 = {
+    decorators: decorator list;
     annotations: annotation list;
     ret_type: ctype;
     name: variable;
@@ -305,6 +308,7 @@ and apply_rename_method0_body (renaming : Atom.atom -> Atom.atom) = function
 
 and _apply_rename_method0 (renaming : Atom.atom -> Atom.atom) place m0 =
     {
+        decorators = m0.decorators;
         annotations = m0.annotations;
         ret_type =  apply_rename_ctype renaming m0.ret_type;
         name = renaming m0.name;
