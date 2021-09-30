@@ -91,14 +91,19 @@ let process_compile places targets_file impl_filename filename =
     Printf.eprintf "Codegeneration directory is \"%s\":\n" (Fpath.to_string build_dir);
     let project_dir = Fpath.parent (Fpath.v filename) in
 
-    (* extract targets definitions from file *)
-    let targets = Frontend.Main.process_target targets_file in
 
-    Frontend.Main.to_ir places filename 
-    |> Core.PartialEval.peval_program 
-    |> function x-> logger#sinfo "IR has been partially evaluated";x
-    |> Core.AstUtils.dump "pevaled IR" IR.show_program 
-    |> function x -> Topology.generate_static_logical_topology build_dir x; x
+    let ir = 
+        Frontend.Main.to_ir places filename 
+        |> Core.PartialEval.peval_program 
+        |> function x-> logger#sinfo "IR has been partially evaluated";x
+        |> Core.AstUtils.dump "pevaled IR" IR.show_program 
+        |> function x -> Topology.generate_static_logical_topology build_dir x; x 
+    in
+
+    (* extract targets definitions from file *)
+    let targets = Frontend.Main.process_target ir targets_file in
+
+    ir
     |> Frontend.Main.to_impl targets impl_filename  
     |> Codegen.codegen project_dir build_dir targets
 

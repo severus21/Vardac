@@ -4,8 +4,8 @@ type maindef = {
     (* main name *)
     name: string; 
     (* init component - toplevel is magic bootstrap name *)
-    bootstrap: string;
-    entrypoint: string;
+    bootstrap: Atom.atom;
+    entrypoint: Atom.atom;
 }
 and codegen_info = {
     runtime_plg: string; 

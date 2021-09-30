@@ -240,7 +240,8 @@ let output_atom out builtin_eval (x:atom)=
     fprintf out "%s%d" (hint x) (identity x)
 
 let to_string (x:atom)=
-  (hint x)^(string_of_int (identity x))
+    if is_builtin x then hint x
+    else (hint x)^(string_of_int (identity x))
 
 let p_to_string builtin_eval (x:atom)=
   if is_builtin x then (builtin_eval x)

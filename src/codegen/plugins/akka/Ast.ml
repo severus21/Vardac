@@ -367,3 +367,19 @@ and _apply_rename_term (renaming : Atom.atom -> Atom.atom ) place = function
 | Stmt stmt -> Stmt (apply_rename_stmt renaming stmt)
 | TemplateClass raw -> TemplateClass raw 
 and apply_rename_term renaming t = apply_rename_place (_apply_rename_term renaming) t 
+
+let rec _replaceterm_term selector replace place = function
+| t when selector t -> replace t
+| Actor a -> Actor {
+    place = a.place; 
+    value = {a.value with
+        nested_items = List.map (replaceterm_term selector replace) a.value.nested_items;
+    }
+} 
+| ClassOrInterfaceDeclaration cdcl -> ClassOrInterfaceDeclaration
+    {
+        cdcl with 
+        body = List.map (replaceterm_term selector replace) cdcl.body; 
+    }
+| t -> t
+and replaceterm_term (selector : _term -> bool) (replace : _term -> _term) t = apply_rename_place (_replaceterm_term selector replace) t

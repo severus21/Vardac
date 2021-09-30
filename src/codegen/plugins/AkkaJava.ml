@@ -37,6 +37,19 @@ let auto_place smth = {place = fplace; value=smth}
     *)
 
 (*
+    @return n-elmts, List.length-n elmts
+    TODO move it in some lib files
+*)
+let rec split_list n = assert(n>=0); function
+| [] -> assert(n=0); [], []
+| x::xs when n > 0-> 
+    let ys1, ys2 = split_list (n-1) xs in
+    x::ys1, ys2
+| x::xs when n = 0 ->
+    [], x::xs
+| _ -> failwith "deadbranch see assert n>=0"
+
+(*
     flag_stage_or_component (true=component, false=intermediate stage), 
     stage_name or component_name,
     file,
@@ -48,6 +61,7 @@ type stage_kind =
 | ClassOrInterfaceDeclarationStage
 | EventStage
 | AnonymousStage
+| MainStage
 and stage_entry = {
     kind: stage_kind;
     name: Atom.atom;
@@ -114,7 +128,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
         imports, others 
     in
 
-    let wrap_main (guardian:S.expr) (_main:S.method0) = 
+    let wrap_main (name:string) (guardian:S.expr) (_main:S.method0) = 
         (* e.g. ActorSystem<?> system = ActorSystem.create(KeyValueStoreActorSystem.create(),
             KeyValueStoreActorSystem.NAME,
             config.withFallback(ConfigFactory.load()));*)
@@ -145,14 +159,24 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
             )))
         )) in        
 
-        auto_place ( S.MethodDeclaration (auto_place {
-            S.annotations = [S.Visibility S.Public; S.Static];
-            ret_type = auto_place S.TVoid;    
-            name = Atom.fresh_builtin "main";
-            args= [auto_place (S.Atomic "String[]"), Atom.fresh_builtin "args"];
-            is_constructor = false;
-            body = match _main.value.body with |S.AbstractImpl stmts -> S.AbstractImpl (actor_system::stmts) | _ -> _main.value.body 
-        })) 
+        auto_place ( S.ClassOrInterfaceDeclaration {
+            isInterface = false;
+            annotations = [S.Visibility S.Public; S.Static];
+            name = Atom.fresh_builtin (String.capitalize_ascii name);
+            extended_types = [];
+            implemented_types = [];
+            body = [
+                auto_place ( S.MethodDeclaration (auto_place {
+                    S.annotations = [S.Visibility S.Public; S.Static];
+                    ret_type = auto_place S.TVoid;    
+                    name = Atom.fresh_builtin "main";
+                    args= [auto_place (S.Atomic "String[]"), Atom.fresh_builtin "args"];
+                    is_constructor = false;
+                    body = match _main.value.body with |S.AbstractImpl stmts -> S.AbstractImpl (actor_system::stmts) | _ -> _main.value.body 
+                })) 
+            ]
+            
+        })
     in
     
     let wrap_stage_ast (stage: stage_entry) : stage_entry =
@@ -335,6 +359,166 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
 
     let stages = group_per_stage_or_component akka_program.terms in
 
+    (**** Handle the nomain + laststage main ****)
+    let generate_guardian name stmts : S.term = 
+        auto_place(S.Actor ( auto_place({
+            S.name = name;
+            methods = [
+                auto_place {
+                    S.annotations = [S.Visibility S.Public];
+                    ret_type = auto_place S.TVoid;
+                    name = name;
+                    args = [];
+                    is_constructor = true;
+                    body = AbstractImpl stmts
+                }
+            ];
+            receiver = None;
+            states = [];
+            events = [];
+            nested_items = [];
+        })))
+    in
+
+    let add_guardian (mdef:Target.maindef) stage : stage_entry list =
+        assert(stage.sub_stages = [] && (Atom.hint mdef.bootstrap = "laststage"));
+
+        let getlasts_stmts terms : S.stmt list * S.term list= 
+            (* aux is tail rec *)
+            let rec aux collected_stmts = function
+            | [] -> collected_stmts, []
+            | {value=S.Stmt stmt}::xs -> 
+                aux (stmt::collected_stmts) xs
+            | ts -> collected_stmts, ts
+            in
+            let last_stmts, previous_terms = aux [] (List.rev terms) in
+            List.rev last_stmts, List.rev previous_terms
+        in
+
+        let last_stmts, previous_terms = getlasts_stmts stage.ast in
+        let actor_name = Atom.fresh_builtin "Laststage" in
+        [
+            {   stage with 
+                ast = previous_terms
+            };
+            {   
+                kind = ActorStage;
+                name = actor_name;
+                sub_stages = []; 
+                ast = (fst (extract_imports stage.ast)) @ [generate_guardian actor_name last_stmts];
+                imports = [];
+                file = None;
+                package_name = None;
+            };
+        ]
+    in
+
+    let guardian_name_of (mdef:Target.maindef) = 
+        if Atom.hint mdef.bootstrap = "laststage" then
+            Atom.fresh_builtin (String.capitalize_ascii (Atom.hint mdef.bootstrap))
+        else mdef.bootstrap
+    in
+
+    let generate_no_main (mdef:Target.maindef) = 
+        assert(Atom.is_builtin mdef.entrypoint && Atom.hint mdef.entrypoint = "no_main");
+
+        (* Just starts the actor system with the specific guardian i.e. mdef.bootstrap *)
+        wrap_main mdef.name (auto_place (S.VarExpr (guardian_name_of mdef))) (auto_place {
+            S.annotations = [];
+            ret_type = auto_place S.TVoid;
+            name = Atom.fresh_builtin (String.capitalize_ascii (Atom.hint mdef.entrypoint));
+            body = AbstractImpl [];
+            args = [];
+            is_constructor = false; 
+        }) 
+    in
+
+    let add_no_main mdef stage = 
+        { stage with ast = stage.ast @ [generate_no_main mdef] }
+    in
+
+    let prepare_stage stages (mdef: Target.maindef) : stage_entry list =
+        let add_guardians stages = match Atom.hint mdef.bootstrap with
+            | "laststage" -> 
+                let _stages, [laststage] = split_list (List.length stages - 1) stages in
+                assert("Stage" = Atom.hint laststage.name); (* FIXME fragile *)
+                _stages @  (add_guardian mdef laststage)
+            | _ -> stages
+        in
+
+        let add_main_classes stages = match Atom.hint mdef.entrypoint with
+            | "no_main" -> 
+                let _stages, [laststage] = split_list (List.length stages - 1) stages in
+                _stages @ [add_no_main mdef laststage]
+            | _ -> 
+                let selector = function 
+                    | S.MethodDeclaration x -> x.value.name = mdef.entrypoint 
+                    | _-> false
+                in
+                let replace = function
+                    | S.MethodDeclaration m0 -> 
+                        (wrap_main mdef.name (auto_place (S.VarExpr (guardian_name_of mdef))) m0).value 
+                in
+                List.map (function stage -> {stage with ast = List.map (S.replaceterm_term selector replace) stage.ast }) stages 
+        in
+        add_main_classes (add_guardians stages)
+    in
+
+    let stages = List.fold_left prepare_stage stages target.value.codegen.mains in
+    (********************)
+
+    (***** Create dedicated stage for main cl - assuming no one depends on them ******)
+    let make_is_main () : Atom.atom -> bool =
+        let state : (string, unit) Hashtbl.t = Hashtbl.create (List.length target.value.codegen.mains) in
+        List.iter (function (mdef:Target.maindef) -> Hashtbl.add state (String.capitalize_ascii mdef.name) ()) target.value.codegen.mains;
+
+        function name -> (Atom.is_builtin name) && (None <> Hashtbl.find_opt state (Atom.hint name)) 
+    in 
+    let is_main : Atom.atom -> bool = make_is_main () in
+
+    let rec extract_main_terms = function
+    | [] -> [], []
+    | ({value=S.ClassOrInterfaceDeclaration cid} as t)::ts when is_main cid.name -> 
+        let mains, others = extract_main_terms ts in
+        t::mains, others
+    | ({value=S.ClassOrInterfaceDeclaration cid} as t)::ts-> 
+        let mains, others = extract_main_terms ts in
+        mains, t::others
+    | t::ts -> 
+        let mains, others = extract_main_terms ts in
+        mains, t::others
+    in
+
+    let rec extract_main_stages = function
+    | [] ->  [], []
+    | stage::stages ->
+        let mains_t, others_t = extract_main_terms stage.ast in
+        let submains, subothers = extract_main_stages stage.sub_stages in
+        let stage = {stage with
+            sub_stages = subothers;
+            ast = others_t;
+        } in
+        let current_mains = List.map (function ({value=S.ClassOrInterfaceDeclaration cid} as t) -> {
+            kind = MainStage;
+            name = cid.name;
+            sub_stages = [];
+            ast = [t];
+            imports = [];
+            file = None;
+            package_name = None;
+        }) mains_t in
+        
+        let mains, others = extract_main_stages stages in
+
+        mains@submains@current_mains, stage::others
+    in
+    let mains, others = extract_main_stages stages in
+    let stages = others@mains in
+
+    (********************)
+    
+    (***** Hydrate stages *****)
+
     let rec external_binders_of_stage stage : S.variable list = 
         let aux t : S.variable list = 
             match t.value with
@@ -379,7 +563,8 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
         let renaming1 (x:Atom.atom) : Atom.atom = 
             match Hashtbl.find_opt _state1 x with 
             | None -> x
-            | Some new_x -> new_x
+            | Some new_x ->
+                 new_x
         in
 
         let stages = List.map (apply_rename_stage renaming1) stages in
@@ -471,18 +656,6 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
     (* Stages with imports, files and main *)
     let _, stages = hydrate_stages (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ())) [] None stages in
 
-    (*
-        @return n-elmts, List.length-n elmts
-        TODO move it in some lib files
-    *)
-    let rec split_list n = assert(n>=0); function
-    | [] -> assert(n=0); [], []
-    | x::xs when n > 0-> 
-        let ys1, ys2 = split_list (n-1) xs in
-        x::ys1, ys2
-    | x::xs when n = 0 ->
-        [], x::xs
-    in
 
     (*
     let toplevel_mains = List.filter (function (main:Target.maindef) -> main.component = "toplevel") target.value.codegen.mains in
@@ -503,62 +676,6 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
     let stages = hydrate_from_tlmains stages toplevel_mains in
     *)
 
-    (**** Handle the nomain + laststage main ****)
-    let wrap_into_guardian guardian_name stage =
-        assert(stage.sub_stages = []);
-
-        let getlasts_stmts terms : S.stmt list * S.term list= 
-            (* aux is tail rec *)
-            let rec aux collected_stmts = function
-            | [] -> collected_stmts, []
-            | {value=S.Stmt stmt}::xs -> 
-                aux (stmt::collected_stmts) xs
-            | ts -> collected_stmts, ts
-            in
-            let last_stmts, previous_terms = aux [] (List.rev terms) in
-            List.rev last_stmts, List.rev previous_terms
-        in
-
-        let m_main = wrap_main (auto_place (S.VarExpr guardian_name)) (auto_place {
-            S.annotations = [];
-            ret_type = auto_place S.TVoid;
-            name = Atom.fresh_builtin "main";
-            body = AbstractImpl [];
-            args = [];
-            is_constructor = false; 
-        }) in
-
-        let last_stmts, previous_terms = getlasts_stmts stage.ast in
-        { stage with 
-            ast = previous_terms @ [auto_place(S.Actor ( auto_place({
-                S.name = guardian_name;
-                methods = [
-                    auto_place {
-                        S.annotations = [S.Visibility S.Public];
-                        ret_type = auto_place S.TVoid;
-                        name = guardian_name;
-                        args = [];
-                        is_constructor = true;
-                        body = AbstractImpl last_stmts
-                    }
-                ];
-                receiver = None;
-                states = [];
-                events = [];
-                nested_items = [];
-            })))] @ [m_main]
-        }
-    in
-
-    let toplvl_guardian_main = List.find_opt (function (main:Target.maindef) -> main.bootstrap = "laststage" && main.entrypoint = "no_main") target.value.codegen.mains in
-
-    let stages = match toplvl_guardian_main with
-    | Some _ -> begin
-        let _stages, [laststage] = split_list (List.length stages - 1) stages in
-        assert("Stage" = Atom.hint laststage.name); (* FIXME fragile -> should be part of the stage selection *)
-        _stages @ [ wrap_into_guardian  (Atom.fresh_builtin "laststage") laststage]
-    end in
-    (********************)
 
     (* Wrap stages *)
     let rec wrap_stage stage =

@@ -6,12 +6,12 @@ open Easy_logging
 
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
-let process_target (filename:string) =
+let process_target ir (filename:string) =
   filename
   |> ParseTarget.parse_targets
   |> function x-> logger#sinfo "Target file has been parsed"; x
   |> dump "RawTarget" RawTarget.show_targets
-  |> CookTarget.cook_targets   
+  |> CookTarget.cook_targets ir  
   |> function x-> logger#sinfo "Targets has been cooked"; x
   |> dump "Target" Target.show_targets 
 

@@ -46,7 +46,7 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
                 |_ -> Error.error mock_place "Syntax error in [runtime] definition of target [%s]\n" name 
             in 
             
-            let mains : Core.Target.maindef list = match Hashtbl.find table "mains" with
+            let mains : RawTarget.maindef list = match Hashtbl.find table "mains" with
                 |`A ms -> begin 
                     let build_main = function
                     |`O _body -> begin 
@@ -73,7 +73,7 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
                         end with Not_found -> Error.error mock_place "Target [%s] do not have [entrypoint] definition for main [%s]\n" name main_name 
                         in 
 
-                        {Core.Target.name=main_name; bootstrap; entrypoint}  
+                        {RawTarget.name=main_name; bootstrap; entrypoint}  
                     end
                     |_ -> Error.error mock_place "Syntax error in [mains] definition of target [%s]\n" name 
                     in
@@ -82,7 +82,7 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
                 |_ -> Error.error mock_place "Syntax error in [mains] definition of target [%s]\n" name 
             in 
 
-                {Core.Target.language_plg=language; runtime_plg=runtime; mains=mains}  
+                {RawTarget.language_plg=language; runtime_plg=runtime; mains=mains}  
             )
             |_ -> Error.error mock_place "Ill-formed target [%s]\n" name                
         in
