@@ -513,6 +513,12 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
         mains@submains@current_mains, stage::others
     in
     let mains, others = extract_main_stages stages in
+    let mains = List.map ( function stage ->
+        { stage with ast = [
+                auto_place (S.Import "akka.actor.typed.ActorSystem")
+            ] @ stage.ast
+        }
+    ) mains in
     let stages = others@mains in
 
     (********************)
@@ -922,10 +928,22 @@ and finish_arg ((ctype,variable):(S.ctype * Atom.atom)) : T.parameter =
     (fctype ctype, variable)
 and finish_method place ({annotations; ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
     match body with
+    | S.AbstractImpl stmts when is_constructor ->
+        (* FIXME check in IR that onstratup no type i.e. void*)
+        T.MethodDeclaration {
+            annotations = finish_annotations annotations;   
+            ret_type    = None;
+            name        = name;
+            parameters  = 
+                List.map 
+                finish_arg 
+                ((Rt.Misc.t_actor_context place None, Rt.Misc.a_context)::args);
+            body        = List.map fstmt (auto_place ( S.ExpressionStmt (Rt.Misc.e_super place [auto_place(S.VarExpr Rt.Misc.a_context)]))::stmts);
+        }
     | S.AbstractImpl stmts ->
         T.MethodDeclaration {
             annotations = finish_annotations annotations;   
-            ret_type    = if is_constructor then None else Some (fctype ret_type);
+            ret_type    = Some (fctype ret_type);
             name        =  name;
             parameters  = List.map finish_arg args;
             body        = List.map fstmt stmts;
@@ -993,6 +1011,65 @@ and finish_actor place ({name; methods; states; events; nested_items; receiver}:
             body = [];
         })
     )) in
+
+    (**** generate actor create method ****)
+    (* public static <K, V> Behavior<Command> create(int transactionId,
+    ActorRef<TransactionManagerActor.BeginTransactionReplyEvent> replyTo,
+    ActorRef<ShardingEnvelope<JournalActor.Command>> journalShard) {
+return Behaviors.setup(context -> {
+context.getLog().debug("TransactionCoordinatorActor::create()");
+return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, journalShard);
+});
+}*)
+    (* TODO check in IR at most once constructor/destructor *)
+    let constructor_opt  = List.find_opt (function (m:S.method0) -> m.value.is_constructor) methods in
+    let constructor_args = match constructor_opt with | None -> [] |Some constructor -> constructor.value.args in 
+
+    let methods = match constructor_opt with
+    | Some _ -> methods
+    | None -> (* add a default constructor, will be hydrated with context when running fmethod *)
+        auto_place ({
+            S.annotations = [S.Visibility S.Public];   
+            ret_type    = auto_place S.TVoid;
+            name        = name;
+            args        = []; 
+            body        = AbstractImpl []; 
+            is_constructor = true;
+        })::methods
+    in
+
+    let arg_lambda = auto_place (S.LambdaExpr (
+        [Rt.Misc.a_context],
+        auto_place (S.BlockStmt [
+            auto_place (S.ExpressionStmt (
+                Rt.Misc.e_debug_of 
+                    place 
+                    (auto_place (S.VarExpr Rt.Misc.a_context)) 
+                    [
+                        auto_place (S.LitExpr (auto_place (S.StringLit (Atom.to_string name^"::create"))))
+                    ]
+            ));
+            auto_place (S.ReturnStmt (auto_place (
+                S.NewExpr (
+                    auto_place (S.VarExpr name),
+                    List.map (function x -> auto_place (S.VarExpr x)) (Rt.Misc.a_context::(List.map snd constructor_args))
+
+                )
+            )));
+        ])
+    )) in
+    let m_create : S.method0 = auto_place {
+        S.annotations = [S.Visibility S.Public; S.Static];
+        ret_type = Rt.Misc.t_behavior_of_actor place name;
+        name = Rt.Misc.a_create_method;
+        body = S.AbstractImpl [auto_place (S.ReturnStmt (Rt.Misc.e_setup_behaviors place [arg_lambda]))];
+        args = (Rt.Misc.t_actor_context place None, Rt.Misc.a_context)::constructor_args;
+        is_constructor = false;
+    } in
+    let methods = methods @ [m_create] in
+    
+
+    (*************)
 
     let body : T.str_items list ref = ref [] in
     (* FIXME issue with the type of body*)
