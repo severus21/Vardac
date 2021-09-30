@@ -37,6 +37,10 @@ any_blackbox_term_:
   t = placed(any_blackbox_term_)
     {t}
 
+any_function_impl:
+| IMPL FUNCTION name=any_var body = any_blackbox_term 
+    { {name; body} }
+
 any_type_impl:
 | IMPL TYPE name=any_var body = any_blackbox_term 
     { {name; body} }
@@ -72,6 +76,8 @@ any_term_:
     { CurrentDefaultTarget target }
 | c=any_component_impl
     { ComponentImpl c }
+| f_impl = any_function_impl
+    { TypeImpl f_impl }
 | t_impl = any_type_impl
     { TypeImpl t_impl }
 %inline any_term:

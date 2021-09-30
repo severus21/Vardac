@@ -543,6 +543,29 @@ end
     env << [env1], T.GhostStmt stmt
 and cstmt env : S.stmt -> env * T.stmt = cook_place cook_stmt env
 
+and cook_function env place : S._function_dcl -> env * T._function_dcl = function
+| f -> 
+    let new_env, name = bind_expr env place f.name in
+    let inner_env, args = List.fold_left_map cparam env f.args in
+
+    (* FIXME duplicated in cook_method*)
+    let rec remove_empty_stmt = function
+        | [] -> []
+        | {AstUtils.place=_;value=S.EmptyStmt}::stmts -> remove_empty_stmt stmts
+        | stmt::stmts -> stmt::(remove_empty_stmt stmts)
+    in
+
+    let env1, ret_type = cmtype env f.ret_type in
+    let env2, body = List.fold_left_map cstmt inner_env (remove_empty_stmt f.abstract_impl) in
+
+    new_env << [inner_env; env1; env2], {
+            ret_type = ret_type;
+            name;
+            args;
+            body = body 
+    } 
+and cfdcl env: S.function_dcl -> env * T.function_dcl = cook_place cook_function env
+
 (************************************ Component *****************************)
 and cook_state env place : S._state -> env * T._state = function
 | S.StateDcl sdcl ->
@@ -755,29 +778,8 @@ and cook_term env place : S._term -> env * T._term = function
     let new_env, new_stmt = cstmt env stmt in
     new_env, T.Stmt new_stmt
 | S.Function f -> 
-    (* TODO create an aux function finish_fct_decl*)
-    let new_env, name = bind_expr env place f.value.name in
-    let inner_env, args = List.fold_left_map cparam env f.value.args in
-
-    let rec remove_empty_stmt = function
-        | [] -> []
-        | {AstUtils.place=_;value=S.EmptyStmt}::stmts -> remove_empty_stmt stmts
-        | stmt::stmts -> stmt::(remove_empty_stmt stmts)
-    in
-
-    let env1, ret_type = cmtype env f.value.ret_type in
-    let env2, body = List.fold_left_map cstmt inner_env (remove_empty_stmt f.value.abstract_impl) in
-
-    new_env << [inner_env; env1; env2], T.Function {
-        place = f.place;
-        value = {
-            ret_type = ret_type;
-            name;
-            args;
-            body = body 
-        }
-    } 
-
+    let new_env, new_f = cfdcl env f in
+    new_env, T.Function new_f
 | S.Component c ->
     let new_env, new_c = ccdcl env c in
     (* Restaure component env *)

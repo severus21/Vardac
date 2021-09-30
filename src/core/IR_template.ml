@@ -8,6 +8,7 @@ module type IRParams = sig
   type target_name
   type _state_dcl_body
   type _custom_method0_body
+  type _custom_function_body
   type _typealias_body
   type _typedef_body
   val show_target_name :  target_name -> Ppx_deriving_runtime.string
@@ -15,11 +16,13 @@ module type IRParams = sig
   val show__typedef_body :  _typedef_body -> Ppx_deriving_runtime.string
   val show__state_dcl_body :  _state_dcl_body -> Ppx_deriving_runtime.string
   val show__custom_method0_body : _custom_method0_body ->  Ppx_deriving_runtime.string
+  val show__custom_function_body : _custom_function_body ->  Ppx_deriving_runtime.string
   val pp_target_name : Ppx_deriving_runtime.Format.formatter -> target_name -> Ppx_deriving_runtime.unit
   val pp__typealias_body : Ppx_deriving_runtime.Format.formatter -> _typealias_body -> Ppx_deriving_runtime.unit
   val pp__typedef_body : Ppx_deriving_runtime.Format.formatter -> _typedef_body -> Ppx_deriving_runtime.unit
   val pp__state_dcl_body : Ppx_deriving_runtime.Format.formatter -> _state_dcl_body -> Ppx_deriving_runtime.unit
   val pp__custom_method0_body : Ppx_deriving_runtime.Format.formatter -> _custom_method0_body -> Ppx_deriving_runtime.unit
+  val pp__custom_function_body : Ppx_deriving_runtime.Format.formatter -> _custom_function_body -> Ppx_deriving_runtime.unit
 end
 
 include IR_common
@@ -29,6 +32,7 @@ module Make (Params : IRParams) = struct
   type target_name = Params.target_name
   type _state_dcl_body = Params._state_dcl_body
   type _custom_method0_body = Params._custom_method0_body
+  type _custom_function_body = Params._custom_function_body
   type _typealias_body = Params._typealias_body
   type _typedef_body = Params._typedef_body
   let show_target_name = Params.show_target_name
@@ -36,11 +40,13 @@ module Make (Params : IRParams) = struct
   let show__typedef_body = Params.show__typedef_body
   let show__state_dcl_body = Params.show__state_dcl_body
   let show__custom_method0_body = Params.show__custom_method0_body
+  let show__custom_function_body = Params.show__custom_function_body
   let pp_target_name = Params.pp_target_name
   let pp__typealias_body = Params.pp__typealias_body
   let pp__typedef_body = Params.pp__typedef_body
   let pp__state_dcl_body = Params.pp__state_dcl_body
   let pp__custom_method0_body = Params.pp__custom_method0_body
+  let pp__custom_function_body = Params.pp__custom_function_body
 
   (************************************ Component *****************************)
 
@@ -138,6 +144,14 @@ module Make (Params : IRParams) = struct
   *)
     
     (************************************ Program *****************************)
+    and _function_dcl = {
+        name: variable;
+        ret_type: main_type;
+        args: param list;
+        body: _custom_function_body;
+    }
+    and function_dcl = _function_dcl placed
+
     and _typedef = (* Two kind for type *) 
     | ClassicalDef of variable * main_type list * _typedef_body
     | EventDef of variable * main_type list * _typedef_body

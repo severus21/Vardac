@@ -12,6 +12,10 @@ and method_impl = {
         (*args: Ast.param list;*)
         body: blackbox_term;
     }
+and function_impl = {
+        name: variable;
+        body: blackbox_term;
+    }
 and state_impl = {
         (*type0: Ast.main_type;*)
         name: variable;
@@ -27,6 +31,7 @@ and type_impl = {name: variable; body: blackbox_term}
 and _term =
     | ComponentImpl of component_impl
     | CurrentDefaultTarget of string 
+    | FunctionImpl of function_impl
     | TypeImpl of type_impl
 
 and term = _term placed

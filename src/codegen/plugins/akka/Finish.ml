@@ -400,7 +400,9 @@ match body with
 
 and finish_function place : S._function_dcl -> T.method0 list = function
     | f ->
-        let body = T.AbstractImpl (List.map fstmt f.body)
+        let body = match f.body with
+            | S.AbstractImpl stmts -> T.AbstractImpl (List.map fstmt stmts)
+            | S.BBImpl body -> T.BBImpl body
         in
 
         let new_function : T.method0 = {

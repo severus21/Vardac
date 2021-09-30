@@ -72,6 +72,9 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "Ok", OK;
     "Some", SOME;
 
+    (* *)
+    "function", FUNCTION;
+
     (* XXX *)
     "ghost", GHOST;
 

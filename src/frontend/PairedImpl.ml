@@ -25,6 +25,10 @@ let check_seen_all seen_set htbl : unit =
         | None -> Error.error value.place "%s is not defined in the spec" (key_to_string key)
     ) htbl
 
+let functions_seen = ref SeenSet.empty
+let mark_function key = 
+    functions_seen := SeenSet.add key !functions_seen
+let function_impls : (string list, S1.function_impl AstUtils.placed) Hashtbl.t = Hashtbl.create 256
 let methods_seen = ref SeenSet.empty
 let mark_method key = 
     methods_seen := SeenSet.add key !methods_seen
@@ -74,6 +78,7 @@ match value with
     Hashtbl.add component2target (parents@c.name) c.target;
     List.iter (scan_component_item_impl (parents@c.name)) c.body
 | S1.TypeImpl tdef -> Hashtbl.add type_impls (parents@tdef.name) {place; value = tdef}
+| S1.FunctionImpl fdef -> Hashtbl.add function_impls (parents@fdef.name) {place; value = fdef}
 
 let scan_program terms =    
     List.iter (scan_term []) terms  
@@ -144,12 +149,31 @@ end
 | S2.ComponentAssign {name; args; value} -> T.ComponentAssign {name; args; value} 
 and ccdcl parents: S2.component_dcl -> T.component_dcl = paired_place paired_component_dcl parents 
 
+and paired_function_dcl parents place : S2._function_dcl -> T._function_dcl = function
+| {ret_type; name; args; body=[] } -> begin
+    try 
+        let key = List.rev ((Atom.hint name)::parents) in 
+        mark_function key;
+        let bb_impl = Hashtbl.find function_impls key in
+        { ret_type; name; args; body= T.BBImpl bb_impl.value.body }
+    with Not_found -> Error.error place "Function \"%s\" has no implementation (neither abstract nor blackbox)" (Atom.hint name) 
+end
+| { ret_type; name; args; body= body } -> begin 
+    try 
+        let key = List.rev ((Atom.hint name)::parents) in 
+        mark_function key;
+        let bb_impl = Hashtbl.find function_impls key in
+        Error.error (place@bb_impl.place) "Function has two implementations : one abstract and one blackbox"
+    with | Not_found -> { ret_type; name; args; body= T.AbstractImpl body }
+end
+and ufunction_dcl parents: S2.function_dcl -> T.function_dcl = paired_place paired_function_dcl parents
+
 and paired_term parents place : S2._term -> T._term = function
 | S2.EmptyTerm -> T.EmptyTerm
 | S2.Comments c -> T.Comments c
 | S2.Component c -> T.Component (ccdcl parents c)
 | S2.Stmt stmt -> T.Stmt stmt
-| S2.Function f  -> T.Function f
+| S2.Function f  -> T.Function (ufunction_dcl parents f)
 | S2.Typealias (x, None) -> begin
     try 
         let key = List.rev ((Atom.hint x)::parents) in

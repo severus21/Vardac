@@ -235,13 +235,6 @@ and stmt = _stmt placed
 and _param = main_type * variable
 and param = _param placed
 
-and _function_dcl = {
-    name: variable;
-    ret_type: main_type;
-    args: param list;
-    body: stmt list;
-}
-and function_dcl = _function_dcl placed
 (******************************** Component **********************************)
 and state_kind = Global | Local | Shared
 

@@ -9,6 +9,8 @@ and iri_custom_method0_body =
 | AbstractImpl of IR_common.stmt list
 | BBImpl of Impl_common.blackbox_term
 
+and iri_custom_function_body = iri_custom_method0_body
+
 and iri_typealias_body = 
 | AbstractTypealias of IR_common.main_type
 | BBTypealias of Impl_common.blackbox_term 
@@ -20,12 +22,14 @@ module Params : (
         type target_name = iri_target_name and
         type _state_dcl_body = iri_state_dcl_body and 
         type _custom_method0_body = iri_custom_method0_body and 
+        type _custom_function_body = iri_custom_function_body and 
         type _typealias_body = iri_typealias_body and
         type _typedef_body = iri_typedef_body
 ) = struct
     type target_name = iri_target_name
     and _state_dcl_body = iri_state_dcl_body 
     and _custom_method0_body = iri_custom_method0_body 
+    and _custom_function_body = iri_custom_function_body 
     and _typealias_body = iri_typealias_body
     and _typedef_body = iri_typedef_body
     [@@deriving show { with_path = false }]
