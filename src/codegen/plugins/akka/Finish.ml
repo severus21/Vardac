@@ -14,6 +14,12 @@ module S = IRI
 (* The target calculus. *)
 module T = Ast 
 
+let to_capitalize_variables = Hashtbl.create 64
+let make_capitalize_renaming = function x ->
+    match Hashtbl.find_opt to_capitalize_variables x with 
+    | None -> x
+    | Some _ -> Atom.refresh_hint x (String.capitalize_ascii (Atom.hint x))
+
 (*** Global state *)
 type collected_state = {
     event2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
@@ -256,7 +262,7 @@ and finish_mtype place : S._main_type -> T.ctype = function
     value = T.TParam (
         { 
             place;
-            value = T.TVar (Atom.fresh_builtin "ASTStype")
+            value = T.TVar (a_ASTStype_of "")
         },
         [ fstype st]
     )
@@ -638,6 +644,9 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
 | S.ComponentStructure {name; args; body} -> begin 
     assert( args == []); (* Not supported yet, maybe one day *)
 
+    (* Registration *)
+    Hashtbl.add to_capitalize_variables name ();
+
     (****** Helpers *****)
     let fplace = (Error.forge_place "Plg=Akka/finish_term/protocoldef" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
@@ -819,13 +828,13 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     let receiver : T.method0 = { 
         place;
         value = {
-            decorators      = [];
+            decorators      = [Override];
             args            = [];
             body            = T.AbstractImpl ([
                 {place; value=T.ReturnStmt receiver_expr}
             ]);
             name            = Atom.fresh_builtin "createReceive";
-            ret_type        = t_behavior_of_actor place name;
+            ret_type        = t_receive_of_actor place name;
             annotations     = [ T.Visibility T.Public ];
             is_constructor  = false
         }
@@ -888,6 +897,10 @@ and finish_term place : S._term -> T.term list = function
     let auto_place smth = {place = fplace; value=smth} in
     let expr2stmt e : T.stmt = auto_place (T.ExpressionStmt e) in
     let exprs2stmts es : T.stmt list = List.map expr2stmt es in
+
+    (* Registration *)
+    Hashtbl.add to_capitalize_variables name ();
+
 
     (* TODO generalize the usage of auto place *)
 
@@ -1322,11 +1335,17 @@ and finish_term place : S._term -> T.term list = function
 | S.Typealias (v, S.AbstractTypealias body) -> raise (Error.PlacedDeadbranchError (place, "partial evaluation should have removed type alias exept those from impl"))
 | S.Typealias (v, S.BBTypealias body) as term -> raise (Error.PlacedDeadbranchError (place, "should have been removed (and replaced) by clean_terms"))
 |Typedef {value= EventDef (name, mts, None) as tdef; place = inner_place} ->
+    (* Registration *)
+    Hashtbl.add to_capitalize_variables name ();
+
     [{
         place;
         value = T.Event (finish_eventdef inner_place (name, mts, None)) 
     }]
 | S.Typedef  {value= ClassicalDef (name, args, None) as tdef; place} -> (* implicit constructor should translate to akka *)
+    (* Registration *)
+    Hashtbl.add to_capitalize_variables name ();
+
     let args = List.map (function (arg:T.ctype) -> (arg, Atom.fresh "arg")) (List.map fmtype args) in
     let constructor_body = 
         let place = (Error.forge_place "Plg=Akka/finish_term/typedef/implicit_constructor" 0 0) in
@@ -1379,6 +1398,9 @@ and finish_term place : S._term -> T.term list = function
         }
     }]
 | S.Typedef {value = ClassicalDef (v, _, Some body); _} ->
+    (* Registration *)
+    Hashtbl.add to_capitalize_variables v ();
+
     if not body.value.template then (
         [{place; value = T.RawClass (v, {place = body.place; value = body.value.body})}] 
     ) else (
@@ -1399,6 +1421,7 @@ and clean_terms : S.term list -> S.term list = function
 let finish_program terms = 
     let terms = clean_terms terms in
     let terms = List.flatten (List.rev(List.map fterm terms)) in
+    let terms = List.map (T.apply_rename_term (make_capitalize_renaming)) terms in 
 
     {
         event2receptionists;

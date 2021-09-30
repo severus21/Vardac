@@ -17,6 +17,8 @@ module S = Rt.Ast
 (* The target calculus. *)
 module T = Lg.Ast 
 
+
+
 let cstate : Rt.Finish.collected_state ref = ref (Rt.Finish.empty_cstate ())
 
 
@@ -1072,7 +1074,7 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
         ])
     )) in
     let m_create : S.method0 = auto_place {
-        S.decorators = [S.Override];
+        S.decorators = [];
         S.annotations = [S.Visibility S.Public; S.Static];
         ret_type = Rt.Misc.t_behavior_of_actor place name;
         name = Rt.Misc.a_create_method;
