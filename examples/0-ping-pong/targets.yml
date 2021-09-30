@@ -3,10 +3,9 @@
     language: Java
     runtime: Akka
     mains: 
-      - name: main 
+      main:
         bootstrap: laststage
         entrypoint: no_main 
-      #- name: mainWithGuardian 
-      #  bootstrap: Orchestrator 
-      #  entrypoint:  no_main 
-      
+      mainWithGuardian:
+        bootstrap: Orchestrator 
+        entrypoint: titi 

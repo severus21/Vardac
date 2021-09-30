@@ -41,7 +41,7 @@ let show_loc ?display_line:(display_line=true) loc : string =
   let show_line= 
     if display_line  then (
       if (Sys.file_exists (fst loc).pos_fname) then 
-        Printf.sprintf ":\027[0m\n\t> \027[1;31m%s\027[0m" (get_line loc) 
+        Format.sprintf ":\027[0m\n\t> \027[1;31m%s\027[0m" (get_line loc) 
       else
         ":\027[0m\n\t> \027[1;31mcompilation pass is involved\027[0m"
     ) else (* if the location is abstract or the displaying of the line is disabled *)
@@ -49,7 +49,7 @@ let show_loc ?display_line:(display_line=true) loc : string =
   in
   let startp, endp = loc in
   assert(startp.pos_fname = endp.pos_fname);
-  Printf.sprintf "\027[1mFile \"%s\", line %d, characters %d-%d%s"
+  Format.sprintf "\027[1mFile \"%s\", line %d, characters %d-%d%s"
     startp.pos_fname
     (line startp)
     (column startp)
@@ -64,10 +64,10 @@ let show ?display_line:(display_line=true) place : string =
   ) "Locations:\n" (List.map (show_loc ~display_line:display_line) place)  
 
 let display continuation header place format =
-  Printf.fprintf stderr "%s:\n" (show place);
-  Printf.kfprintf
+  Format.fprintf Format.err_formatter  "%s:\n" (show place);
+  Format.kfprintf
     continuation
-    stderr
+    Format.err_formatter 
     (header ^^ format ^^ "\n%!")
 
 let error place format =
@@ -96,3 +96,7 @@ let set_filename lexbuf filename =
 
 let pp_place formatter _place =
   Format.fprintf formatter "<>"
+
+let pp_list sep ppx out l = 
+    let pp_sep out () = Format.fprintf out "%s@ " sep in
+    Format.pp_print_list ~pp_sep ppx out l

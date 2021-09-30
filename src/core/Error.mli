@@ -35,7 +35,7 @@ val show : ?display_line:bool -> place -> string
    The error message is located at [place]. The error message
    is composed based on [format] and the extra arguments [...]. *)
 
-val error: place -> ('a, out_channel, unit, 'b) format4 -> 'a
+val error: place -> ('a, Format.formatter, unit, unit, unit, 'b) format6  -> 'a
 val plog_warning: Easy_logging.Logging.logger -> place -> ('a, unit, string, unit) format4  -> 'a 
 
 (* [pp_place formatter place] prints a place. It is used by
@@ -43,3 +43,7 @@ val plog_warning: Easy_logging.Logging.logger -> place -> ('a, unit, string, uni
    As of now, it prints nothing. *)
 
 val pp_place: Format.formatter -> place -> unit
+
+val pp_list: string ->
+   (Format.formatter -> 'a -> unit) ->
+   Format.formatter -> 'a list -> unit 
