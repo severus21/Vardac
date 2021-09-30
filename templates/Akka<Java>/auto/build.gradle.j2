@@ -73,7 +73,7 @@ test {
  */
 {% for name in target_mains %}
 task jar{{name|capitalize}}(type: ShadowJar) {
-    archiveBaseName.set('{{name}}')
+    archiveBaseName.set('{{name|capitalize}}')
     archiveClassifier.set('')
     archiveVersion.set('')
     configurations = [project.configurations.compileClasspath]
