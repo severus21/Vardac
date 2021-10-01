@@ -77,6 +77,10 @@ any_st_match:
     { (x,st, Some c) }
 
 any_session_type_:
+| SESSION LANGLEBRACKET x=LID RANGLEBRACKET
+    { STInline x }
+| SESSION LANGLEBRACKET st=any_session_type_ RANGLEBRACKET
+    { st }
 |DOT
     {STEnd}
 |op=BINOP x = LID |op=BINOP x = UID

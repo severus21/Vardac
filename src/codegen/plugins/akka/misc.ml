@@ -41,7 +41,18 @@ let t_actor_context place actor_name_opt =
             | Some actor_name -> actor_name 
         ]
     ))
-
+let t_event_general place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TAccess (
+        auto_place (Ast.TVar (Atom.fresh_builtin "Protocol")),
+        auto_place (Ast.TVar (Atom.fresh_builtin "Event")) 
+    ))
+let t_session_general place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TAccess (
+        auto_place (Ast.TVar (Atom.fresh_builtin "Protocol")),
+        auto_place (Ast.TVar (Atom.fresh_builtin "Session")) 
+    ))
 let t_session_of_protocol place protocol_name = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (

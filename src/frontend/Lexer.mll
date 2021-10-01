@@ -186,6 +186,8 @@ rule entry = parse
     {SELECT}
 | "µ"
     {RECST}
+| "session"
+    {SESSION}
 | "timeout"
     {TIMEOUT}
 

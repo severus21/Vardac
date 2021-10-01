@@ -201,8 +201,8 @@ and ojmodule out : jmodule -> unit = function jm ->
 and output_type_params out : jtype list -> unit = pp_list ", " ojtype out   
 
 and output_jtype out : _jtype -> unit = function
-    | ClassOrInterfaceType (x, []) ->  output_var out x    
-    | ClassOrInterfaceType (x, params) -> fprintf out "%a<@[<hv>%a@]>" output_var x output_type_params params
+    | ClassOrInterfaceType (t, []) ->  ojtype out t  
+    | ClassOrInterfaceType (t, params) -> fprintf out "%a<@[<hv>%a@]>" ojtype t output_type_params params
     | TAtomic str -> pp_print_string out str
     | TVar x -> output_var out x 
     | TAccess (t1, t2) -> fprintf out "%a.%a" ojtype t1 ojtype t2

@@ -59,13 +59,15 @@ bridge<A, B, !ping?pong, TLS> b1 = tlsbridge('xxx.cert');*)
 *)
 component A () {
     onstartup void toto (activation_info<B> b) {
-        (* s0 should be considered as a session types -> inline for now otherwise it is a classical CType 
-            FIXME find a better notation
-         *)
-       inline p_pingpong s0 = initiate_session_with(b0, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationInfo<'A> -> 'st *)
+        session<p_pingpong> s0 = initiate_session_with(b0, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationInfo<'A> -> 'st *)
 
        ?pong. s1 = fire(s0, ping()); (* fire : !'a 'st -> 'a -> Result<'st, error> *)
-       Tuple<pong, .> res = s1.receive(); (* receive : ?a 'st -> Result<Tuple<'a, 'st>, error> *)
+       
+       
+       
+       (* 
+       FIXME receiv not yet supported by Akka
+       Tuple<pong, .> res = s1.receive(); *) (* receive : ?a 'st -> Result<Tuple<'a, 'st>, error> *)
     }
     component C () {
         void toto () {

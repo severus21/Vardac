@@ -255,7 +255,9 @@ and finish_component_type place : S._component_type -> T._ctype = function
 | S.CompTUid x -> T.TVar x 
 and fcctype ct : T.ctype = finish_place finish_component_type ct
 
-and finish_mtype place : S._main_type -> T.ctype = function
+and finish_mtype place : S._main_type -> T.ctype = 
+let fplace = place@(Error.forge_place "Plg=Akka/finish_mtype" 0 0) in
+function
 | S.CType ct -> fctype ct 
 (* TODO FIXME URGENT
         Type de session dans Akka 
@@ -266,10 +268,7 @@ and finish_mtype place : S._main_type -> T.ctype = function
 | S.SType st -> {
     place; 
     value = T.TParam (
-        { 
-            place;
-            value = T.TVar (a_ASTStype_of "toto")
-        },
+        t_session_general fplace,
         [ ] (* FIXME at this point we do not parametrize session with session types since 
                 do not compile yet
                 if we can exhange session by message-passing Java loose the generic parameter types dynamically 
@@ -740,9 +739,12 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     (* Step 2 - Generate a receiver per event *)
     let generate_event_receiver (event_name:Atom.atom) (inner_env:(T.expr * S.session_type, T.expr) Hashtbl.t) : T.stmt list =
         (* Helpers *)
-        let bridgeid (bridge: T.expr) = auto_place (T.AccessExpr (
-            bridge,
-            auto_place (T.VarExpr (Atom.fresh_builtin "id"))
+        let bridgeid (bridge: T.expr) = auto_place( T.CallExpr(
+            auto_place (T.AccessExpr (
+                bridge,
+                auto_place (T.VarExpr (Atom.fresh_builtin "get_id"))
+            )),
+            []
         )) in
         let e_bridgeid e = auto_place (T.AccessExpr (
             e,
@@ -757,7 +759,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         (* Creating the statement*)
         (* TODO do it with a switch ??? *)
         (*
-            if(e.bridge_id == port_bridge.id && e.current_set == 
+            if(e.bridge_id == port_bridge.get_id() && e.current_set == 
             current_aststype){
                 this.handle_ping46(e);
             }else{
@@ -809,7 +811,16 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                 ret_type = t_behavior_of_actor fplace name;
                 name = _m_name;
                 body = AbstractImpl (generate_event_receiver event_name inner_env);
-                args = [(auto_place (T.TVar event_name), l_event_name)];
+                args = [
+                    (
+                        auto_place (T.TParam (
+                            t_event_general fplace,
+                            [ auto_place(T.TVar event_name) ]
+                        )), 
+                        l_event_name
+                    )
+
+                ];
                 is_constructor = false;
             } in
 

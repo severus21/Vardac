@@ -92,7 +92,7 @@ and _stmt =
 and stmt = _stmt placed
 
 and _jtype =
-    | ClassOrInterfaceType of variable * jtype list (* name * args *) 
+    | ClassOrInterfaceType of jtype * jtype list (* name * args *) 
     | TAtomic of string
     | TVar of variable
     | TAccess of jtype * jtype

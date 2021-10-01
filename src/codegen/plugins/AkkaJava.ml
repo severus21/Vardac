@@ -730,30 +730,31 @@ let builtin_eval =
     BuiltinMap.find (Atom.value x) translation
   with Not_found ->Atom.value x
 
-let rec finish_ctype place : S._ctype -> T._jtype = function 
+let rec finish_ctype place : S._ctype -> T._jtype = 
+    let fplace = place@(Error.forge_place "Plg=AkkaJava/finish_event" 0 0) in
+    let auto_place smth = {place = fplace; value=smth} in
+function 
     | S.Atomic s -> T.TAtomic s 
-    | S.ActorRef t -> T.ClassOrInterfaceType  (Atom.fresh_builtin "ActorRef", [fctype t])  
-    | S.TFunction (t1, t2) -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Function", [fctype t1; fctype t2]) 
-    | S.TList t1 -> T.ClassOrInterfaceType  (Atom.fresh_builtin "List", [fctype t1])
-    | S.TMap (t1, t2) -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Map", [fctype t1; fctype t2])
-    | S.TOption t1 -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Optional", [fctype t1]) 
+    | S.ActorRef t -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActorRef"), [fctype t])  
+    | S.TFunction (t1, t2) -> T.ClassOrInterfaceType  ( auto_place (T.TAtomic "Function"), [fctype t1; fctype t2]) 
+    | S.TList t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "List"), [fctype t1])
+    | S.TMap (t1, t2) -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "Map"), [fctype t1; fctype t2])
+    | S.TOption t1 -> T.ClassOrInterfaceType  (auto_place(T.TAtomic "Optional"), [fctype t1]) 
     | S.TAccess (t1, t2) -> T.TAccess (fctype t1, fctype t2)
-    | S.TParam ({value=S.TVar x;_}, t_args) -> T.ClassOrInterfaceType (x, List.map fctype t_args)
-    | S.TParam ({value=S.Atomic x;_}, t_args) -> T.ClassOrInterfaceType (Atom.fresh_builtin x, List.map fctype t_args)
-    | S.TParam _ -> failwith "Akka -> java, tparam with non VAR ctype is not yet supported" 
+    | S.TParam (t, t_args) -> T.ClassOrInterfaceType (fctype t, List.map fctype t_args)
     | S.TResult (t1, t2) -> 
         (* 
             Encoding as the Either<left, right> for Vavr,
             left denotes the Err and right denotes the Ok
         *)
-        T.ClassOrInterfaceType  (Atom.fresh_builtin "Either", [fctype t2; fctype t1]) 
-    | S.TSet t1 -> T.ClassOrInterfaceType  (Atom.fresh_builtin "Set", [fctype t1])
+        T.ClassOrInterfaceType  (auto_place (T.TAtomic "Either"), [fctype t2; fctype t1]) 
+    | S.TSet t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "Set"), [fctype t1])
     | S.TTuple cts -> begin 
         let cls_name = match List.length cts with
         | n when n < 9 -> "Tuple"^(string_of_int n) 
         | _ -> failwith "Tuple with length > 8 are not supported by the Vavr library."
         in 
-        T.ClassOrInterfaceType (Atom.fresh_builtin cls_name, List.map fctype cts)
+        T.ClassOrInterfaceType (auto_place(T.TAtomic cls_name), List.map fctype cts)
     end 
     | S.TVar v -> T.TVar v
     | S.TVoid -> T.TAtomic "Void"
@@ -1008,7 +1009,7 @@ and finish_actor place ({name; methods; states; events; nested_items; receiver}:
     (** FIXME public/protected/private should parametrized*)
 
     let extended_type = auto_place (T.ClassOrInterfaceType (
-        Atom.fresh_builtin "AbstractBehavior", 
+        auto_place (T.TAtomic "AbstractBehavior"), 
         [ 
             fctype (Rt.Misc.t_command_of_actor place name)     
         ]) 
