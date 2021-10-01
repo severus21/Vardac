@@ -32,6 +32,7 @@ and tbridge = {
 
 and _composed_type =
     | TActivationInfo of main_type
+    (*| TSession of session_type * variable*)
     | TArrow of main_type * main_type
 
     | TVar of variable

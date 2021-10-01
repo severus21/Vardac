@@ -3,11 +3,17 @@ open Utils
 open AstUtils
 
 (* Helper name *)
-let a_ASTStype_of (s:string) =
-    if s <> "" then
-        Atom.fresh_builtin ("Protocol.ASTStype.Base."^s)
-    else
-        Atom.fresh_builtin "Protocol.ASTStype.Base"
+let a_ASTStype_of = function
+| "" | "Base" -> Atom.fresh_builtin "Protocol.ASTStype.Base"
+| "MsgT" as s-> Atom.fresh_builtin ("Protocol.ASTStype."^s)
+| s -> Atom.fresh_builtin ("Protocol.ASTStype."^s)
+
+let a_SType_of = function
+| "" | "SType" -> Atom.fresh_builtin "Protocol.SType.SType"
+| "STLabel" as s-> Atom.fresh_builtin ("Protocol.SType."^s)
+| s -> Atom.fresh_builtin ("Protocol.SType."^s)
+
+        
 (*let a_protocol_inner_bridge = Atom.fresh_builtin "Bridge" *)
 
 (* Helper types *)
@@ -19,6 +25,12 @@ let a_context =
     Atom.fresh_builtin "context"
     
 
+let t_SType_of place name tparam1 tparam2 = 
+    let auto_place smth = {place; value=smth} in
+    Ast.TParam (
+        auto_place (Ast.TVar (a_SType_of name)),
+        [tparam1; tparam2]
+    )
 let t_actor_context place actor_name_opt = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam (
@@ -30,6 +42,12 @@ let t_actor_context place actor_name_opt =
         ]
     ))
 
+let t_session_of_protocol place protocol_name = 
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TAccess (
+        auto_place (Ast.TVar protocol_name),
+        auto_place (Ast.TVar (Atom.fresh_builtin "Session")) 
+    ))
 let t_command_of_actor place actor_name = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
@@ -107,4 +125,11 @@ let e_super place args =
     auto_place (Ast.CallExpr (
         auto_place (Ast.VarExpr (Atom.fresh_builtin "super")),
         args
+    ))
+
+let e_ASTStype_MsgT_of place (e:Ast.expr) =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.NewExpr (
+        auto_place (Ast.VarExpr (a_ASTStype_of "MsgT")),
+       [e] 
     ))

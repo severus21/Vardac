@@ -152,7 +152,7 @@ and finish_stype place : S._session_type -> T._ctype = function
             T.TParam (
                 {
                     place;
-                    value =  T.TVar (Atom.fresh_builtin (match st0 with | S.STSend _ -> "Protocol.STSend" | STRecv _ -> "Protcol.STRecv"))
+                    value =  T.TVar (Atom.fresh_builtin (match st0 with | S.STSend _ -> "Protocol.STSend" | STRecv _ -> "Protocol.STRecv"))
                 },
                 [ct; fstype st]
             )
@@ -209,7 +209,7 @@ let  encodectype = function
 | {value=T.TVar x; place} -> {value=T.VarExpr x; place} 
 in
 function 
-    | S.STEnd -> T.VarExpr (a_ASTStype_of "End")
+    | S.STEnd -> T.NewExpr (auto_place (T.VarExpr (a_ASTStype_of "End")), [])
     | (S.STSend (mt, st) as st0) | (S.STRecv (mt, st) as st0) -> begin 
         match fmtype mt with
         | ct ->
@@ -218,10 +218,10 @@ function
             | STRecv _ -> T.VarExpr (a_ASTStype_of "Receive")
             ) in
 
-            T.CallExpr (
+            T.NewExpr (
                 constructor,
                 [
-                    encodectype ct;
+                    e_ASTStype_MsgT_of place (auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.fresh_builtin "class")))));
                     fvstype st
                 ]
             )
@@ -233,7 +233,7 @@ function
         | STRecv _ -> T.VarExpr (a_ASTStype_of "Select")
         ) in
 
-        T.CallExpr (
+        T.NewExpr (
             constructor,
             [
                 auto_place (T.BlockExpr (
@@ -257,14 +257,23 @@ and fcctype ct : T.ctype = finish_place finish_component_type ct
 
 and finish_mtype place : S._main_type -> T.ctype = function
 | S.CType ct -> fctype ct 
+(* TODO FIXME URGENT
+        Type de session dans Akka 
+        actuellement encapsuler dans le protocol pb pour la creation après
+        puisque dans le language on utilise le protocol que pour le initiate_sesion et les autres types de sessions sont indépendants du protocol.
+*)
+| S.SType {value=S.STInline x} -> t_session_of_protocol place x
 | S.SType st -> {
     place; 
     value = T.TParam (
         { 
             place;
-            value = T.TVar (a_ASTStype_of "")
+            value = T.TVar (a_ASTStype_of "toto")
         },
-        [ fstype st]
+        [ ] (* FIXME at this point we do not parametrize session with session types since 
+                do not compile yet
+                if we can exhange session by message-passing Java loose the generic parameter types dynamically 
+                [fstype st] *)
     )
 }
 | S.CompType ct -> fcctype ct
