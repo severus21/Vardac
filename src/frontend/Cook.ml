@@ -19,14 +19,16 @@ module Env = Map.Make(String)
 
 (*********** Entity level environment - each entity create its own ************)
 type entity_env = {
-    components: IR.variable Env.t; 
-    exprs:      IR.variable  Env.t; 
-    this:       IR.variable  Env.t; 
-    types:      IR.variable  Env.t} [@@deriving fields] 
+    components:     IR.variable Env.t; 
+    exprs:          IR.variable  Env.t; 
+    instanciations: bool  Env.t; 
+    this:           IR.variable  Env.t; 
+    types:          IR.variable  Env.t} [@@deriving fields] 
 
 let fresh_entity_env () = {
     components              = Env.empty;
     exprs                   = Env.empty;
+    instanciations          = Env.empty;
     this                    = Env.empty; (* current state*)
     types                   = Env.empty}
 
@@ -131,29 +133,38 @@ let terms_of_eventdef_from_labels env = _terms_of_eventdef_from_labels env.compo
 
 let citems_of_eventdef_from_labels env = _citems_of_eventdef_from_labels env.component
 (*****************************************************************************)
-
 let bind_component env place name =
     if is_builtin_component name then
         error place "Component Keyword %s is reserved." name;
 
     let a_name = Atom.fresh name in
     {env with 
-        current = {env.current with components=Env.add name a_name env.current.components};
+        current = {
+            env.current with components=Env.add name a_name env.current.components;
+            instanciations= Env.add name true env.current.instanciations;
+        };
         component = { (fresh_component_env ()) with  name = a_name}
     }, a_name
 
 let bind_expr env place x =
-  if is_builtin_expr x then
-    error place "Keyword %s is reserved." x;
+    if is_builtin_expr x then
+        error place "Keyword %s is reserved." x;
 
-  let a = Atom.fresh x in
-  { env with current = {env.current with exprs=Env.add x a env.current.exprs}}, a
+    let a = Atom.fresh x in
+    { env with current = {env.current with 
+        exprs=Env.add x a env.current.exprs;
+    }}, a
 
-let register_expr env place atom =
+let register_expr env place ?create_instance:(create_instance=false) atom =
   if is_builtin_expr (Atom.hint atom) then
     error place "Keyword %s is reserved." (Atom.hint atom);
 
-  { env with current = {env.current with exprs=Env.add (Atom.hint atom) atom env.current.exprs}}
+    {   env with current = {
+            env.current with 
+                exprs=Env.add (Atom.hint atom) atom env.current.exprs;
+                instanciations= Env.add (Atom.hint atom) create_instance env.current.instanciations;
+        }
+    }
 
 
 let bind_this env place x =
@@ -231,16 +242,33 @@ let rec cook_place cook_value env ({ Core.AstUtils.place ; Core.AstUtils.value}:
     let env, value = cook_value env place value in
     env, {Core.AstUtils.place; Core.AstUtils.value}
 
-let rec cook_var_expr env place x = 
+(*
+        @return flag; flag = true if it is a component like (instanciation needed)
+*)
+let rec is_instance_var env place x : bool = 
     if is_builtin_expr x then
-        Atom.fresh_builtin x
+        false (* FIXME builtin flag_create_instance should be extracted from a DB *)
     else (
-    try
-        Env.find x env.current.exprs
-    with Not_found ->
-        error place "Unbound variable: %s" x
+        try
+            Env.find x env.current.instanciations
+        with Not_found ->
+           false 
     )
-and cook_var_type env place x = 
+and is_instance_expr env (e:S.expr) : bool = 
+match e.value with
+| S.VarExpr x -> is_instance_var env e.place x
+| _ -> false (* TODO *)
+
+let rec cook_var_expr env place x : Atom.atom = 
+    if is_builtin_expr x then
+        Atom.fresh_builtin x (* FIXME builtin flag_create_instance should be extracted from a DB *)
+    else (
+        try
+            Env.find x env.current.exprs
+        with Not_found ->
+            error place "Unbound variable: %s" x
+    )
+and cook_var_type env place x : Atom.atom = 
     if Str.string_match (Str.regexp "^[A-Z].*") x 0 then
         cook_var_component env place x (* hack, FIXME add a specific type for container ???*)
     else begin
@@ -418,6 +446,9 @@ and cook_literal env place : S._literal -> env * T._literal = function
 | S.ActivationInfo _ -> env, T.ActivationInfo () (* TODO *)
 and cliteral env lit: env * T.literal = cook_place cook_literal env lit
 
+(*
+ bool parameter - create_instance_flag
+*)
 and cook_expr env place : S._expr -> env * T._expr = function 
 (* No binding done in an expression can be propagated outside this expression *)
 | S.VarExpr x -> (env, T.VarExpr (cook_var_expr env place x))
@@ -444,13 +475,24 @@ and cook_expr env place : S._expr -> env * T._expr = function
 | S.UnopExpr (op, e) -> 
     let env1, e = cexpr env e in
     env << [env1], T.UnopExpr (op, e) 
+| S.CallExpr (e1, es) when is_instance_expr env e1 -> 
+    List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) es;
+
+    let env1, e1 = cexpr env e1 in
+    let envs, es = List.split (List.map (cexpr env) es) in
+
+    env << (env1::envs), T.NewExpr (e1, es)
 | S.CallExpr (e1, es) -> 
+    List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) es;
+
     let env1, e1 = cexpr env e1 in
     let envs, es = List.split (List.map (cexpr env) es) in
 
     env << (env1::envs), T.CallExpr (e1, es)
 | S.This -> env, T.This
 | S.Spawn spawn -> begin 
+    List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) spawn.args;
+
     let env1, c = ccexpr env spawn.c in
     let env_args, args = List.split (List.map (cexpr env) spawn.args) in
     match spawn.at with 
@@ -498,6 +540,8 @@ and cook_stmt env place: S._stmt -> env * T._stmt = function
     let env1, e = cexpr env e in 
     env << [env1], T.AssignThisExpr (y, e) 
 | S.LetExpr (mt, x, e) ->
+    if is_instance_expr env e then error place "constructor can not be aliased";
+
     let env1, mt = cmtype env mt in
     let new_env, y = bind_expr env place x in
     let env2, e = cexpr new_env e in
@@ -507,6 +551,8 @@ and cook_stmt env place: S._stmt -> env * T._stmt = function
 | S.ContinueStmt -> env, T.ContinueStmt
 | S.ExitStmt i -> env, T.ExitStmt i
 | S.ForStmt (x, e, stmt) ->
+    if is_instance_expr env e then error place "constructor can not be aliased";
+
     (* [new env] applies to [stmt] only and [stmt_env] does not applies outside the for*)
     let env1, e = cexpr env e in
     let inner_env, y = bind_expr env place x in
@@ -797,7 +843,7 @@ end
 | Typedef {value= ProtocolDef (x, mt) as tdef; place} -> 
     let new_env1, y = bind_type env place x in
     (* We use resgister_expr y here in order to preserve atom identity between both the world of types and the world of values (type constructor for instance) *)
-    let new_env2 = register_expr new_env1 place y in
+    let new_env2 = register_expr new_env1 place ~create_instance:false y in 
     let env3, mt = cmtype env mt in 
 
     new_env2 << [env3], T.Typedef ({ place; value = 
@@ -806,7 +852,7 @@ end
     let new_env1, y = bind_type env place x in
     (* Type constructor for typedef *)
     (* We use resgister_expr y here in order to preserve atom identity between both the world of types and the world of values (type constructor for instance) *)
-    let new_env2 = register_expr new_env1 place y in
+    let new_env2 = register_expr new_env1 place ~create_instance:true y in
     let envs, args = List.split (List.map (cmtype env) args) in 
 
     new_env2 << envs, T.Typedef ({ place; value = 

@@ -6,6 +6,6 @@
       main:
         bootstrap: laststage
         entrypoint: no_main 
-      mainWithGuardian:
-        bootstrap: Orchestrator 
-        entrypoint: titi 
+      #mainWithGuardian:
+      #  bootstrap: Orchestrator 
+      #  entrypoint: titi 

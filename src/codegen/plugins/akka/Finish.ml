@@ -313,6 +313,12 @@ function
             Encode.encode_builtin_fct e1.place (Atom.value x) (List.map fexpr es)
         | _ -> T.CallExpr (fexpr e1, List.map fexpr es)
     end
+    | S.NewExpr (e1, es) -> begin 
+        match e1.value with 
+        | S.VarExpr x when Atom.is_builtin x ->
+            Encode.encode_builtin_fct e1.place (Atom.value x) (List.map fexpr es)
+        | _ -> T.NewExpr (fexpr e1, List.map fexpr es)
+    end
     | S.This -> T.This
     | S.Spawn {c; args; at=None} ->
         T.Spawn {

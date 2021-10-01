@@ -16,6 +16,9 @@
          - st (timeout 10 (recusive st))
    - check that method and subcomponent name are unique in a given component
       TODO do the same for states and ports (bridge + session should be unique)
+   - event creation or type creation are rewritten as NewExpr (semantics needed for instance we translating Java)
+      only for CallExpr (VarExpr, ....)
+      prevent constructor aliasing except for protocoldef (FIXME)
 
 *)
 

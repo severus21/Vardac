@@ -186,6 +186,7 @@ and _expr =
     (** *)
     (* TODO closure/lamba*)
     | CallExpr of expr * expr list(** method and fct can be recursive *)
+    | NewExpr of expr * expr list                   
 
     (** Control flow *)
 
