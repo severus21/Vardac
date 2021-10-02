@@ -5,6 +5,23 @@ open Easy_logging
 
 let logger = Logging.make_logger ("_1_ compspec.plg.Java") Debug [];;
 
+module AnnotationOrder = struct
+  type t = annotation
+  let compare = compare
+end
+module DecoratorOrder = struct
+  type t = decorator
+  let compare = compare
+end
+module SAnnotation = Set.Make(AnnotationOrder)
+module SDecorator = Set.Make(DecoratorOrder)
+
+let deduplicate_annotations annots = 
+    SAnnotation.elements (SAnnotation.of_list annots)
+
+let deduplicate_decorators dcs = 
+SDecorator.elements (SDecorator.of_list dcs)
+
 let rec clean_place clean_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
     let value = clean_value place value in
     {AstUtils.place; AstUtils.value}
@@ -35,12 +52,12 @@ let rec clean_body_v place : _body -> _body = function
     in
 
     ClassOrInterfaceDeclaration { cid with 
-        body = List.map transform_citem cid.body
+        body = List.map transform_citem body
     }
 | tmp -> tmp
 and clean_body place {annotations; decorators; v} = { 
-    annotations;
-    decorators;
+    annotations = deduplicate_annotations annotations;
+    decorators = deduplicate_decorators decorators;
     v = clean_body_v place v;
 }
 and cbody b = clean_place clean_body b 
