@@ -93,25 +93,6 @@ let print_stages stages =
 (* - One actor per file *)
 (* map : filename java_ast *)
 let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program) : (string * Fpath.t * S.term list) list = 
-    (*(* Some string -> implies that the file is a main file where string is the name of the main class/and of the file *)
-    let tbl_files2program : (Fpath.t, string option * S.term list) Hashtbl.t = Hashtbl.create 256 in
-    let add_to_files2program file main_name_opt terms = 
-        try 
-            let _main_name_opt, ast = Hashtbl.find tbl_files2program file in 
-
-            (* _main_name_opt must be used since subsequent call with the main file will have a None parameter *)
-            match _main_name_opt with
-            | Some _ -> Hashtbl.replace tbl_files2program file (_main_name_opt, (terms @ ast))
-            | None -> 
-                (* 
-                    Make the effect of the  fct on tbl_files2program idempotent when processing multiple time the same components
-                    Since it will be called 1 time per main of the target - potentially on the same AST => multiple call for a component
-                *)
-                () 
-
-        with | Not_found -> Hashtbl.add tbl_files2program file (main_name_opt, terms) 
-    in
-    *)
     let generation_dir = List.fold_left Fpath.add_seg (Fpath.v "src/main/java")  [Config.author (); Config.project_name ()] in
 
     (********* Stage spliting *********)
@@ -121,7 +102,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
         | [] -> [], []
         | t::ts -> begin
             let imports, others = _extract_imports ts in
-            match t.value with
+            match t.value.v with
             | S.Import _ -> t::imports, others 
             | _ -> imports, t::others
         end
@@ -130,7 +111,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
         imports, others 
     in
 
-    let wrap_main (name:string) (guardian:S.expr) (_main:S.method0) = 
+    let wrap_main (name:string) (guardian:S.expr) (_main:S.method0) : S.term= 
         (* e.g. ActorSystem<?> system = ActorSystem.create(KeyValueStoreActorSystem.create(),
             KeyValueStoreActorSystem.NAME,
             config.withFallback(ConfigFactory.load()));*)
@@ -161,116 +142,70 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
             )))
         )) in        
 
-        auto_place ( S.ClassOrInterfaceDeclaration {
-            isInterface = false;
-            annotations = [S.Visibility S.Public; S.Static];
-            name = Atom.fresh_builtin (String.capitalize_ascii name);
-            extended_types = [];
-            implemented_types = [];
-            body = [
-                auto_place ( S.MethodDeclaration (auto_place {
-                    S.decorators = [];
-                    annotations = [S.Visibility S.Public; S.Static];
-                    ret_type = auto_place S.TVoid;    
-                    name = Atom.fresh_builtin "main";
-                    args= [auto_place (S.Atomic "String[]"), Atom.fresh_builtin "args"];
-                    is_constructor = false;
-                    body = match _main.value.body with |S.AbstractImpl stmts -> S.AbstractImpl (actor_system::stmts) | _ -> _main.value.body 
-                })) 
-            ]
-            
+        auto_place ( {
+            S.annotations = [S.Visibility S.Public; S.Static];
+            decorators = [];
+            v = S.ClassOrInterfaceDeclaration {
+                isInterface = false;
+                name = Atom.fresh_builtin (String.capitalize_ascii name);
+                extended_types = [];
+                implemented_types = [];
+                body = [
+                    auto_place ({
+                        S.annotations = [S.Visibility S.Public; S.Static];
+                        decorators = [];
+                        v = S.MethodDeclaration (auto_place {
+                            S.annotations = [];
+                            decorators = [];
+                            v = {
+                                S.ret_type = auto_place S.TVoid;    
+                                name = Atom.fresh_builtin "main";
+                                args= [auto_place (S.Atomic "String[]"), Atom.fresh_builtin "args"];
+                                is_constructor = false;
+                                body = match _main.value.v.body with 
+                                    |S.AbstractImpl stmts -> S.AbstractImpl (actor_system::stmts) 
+                                    | _ -> _main.value.v.body 
+                            }
+                        }) 
+                    })
+                ]
+            }
         })
     in
     
     let wrap_stage_ast (stage: stage_entry) : stage_entry =
-
-
-        (*
-        get ride of 
-        let body : S.term list = match stage.main with
-        | None -> stage.ast
-        | Some mdef when mdef.component <> "toplevel" -> 
-        begin
-            (* Search for the target main method *)
-            logger#error "stage %s searching for %s" (Atom.to_string stage.name) mdef.entrypoint;
-            
-            let rec _extract_method : S.term list -> bool * S.term list * S.method0 option * S.term list = function
-            | [] -> false, [], None, []
-            | [{value=S.Actor a;place=_place}] when (Atom.hint a.value.name) = mdef.component -> 
-                let _, xs, Some _main, ys = _extract_method (List.map 
-                    (function m -> auto_place(S.MethodDeclaration m))
-                    a.value.methods) in
-                let transform = function | {value=S.MethodDeclaration m;} -> m in
-                let xs, ys = List.map transform xs, List.map transform ys in 
-                let {value=S.MethodDeclaration wraped_main; place=_} = wrap_main _main in
-                true, [{
-                    value=S.Actor {
-                        place=a.place;
-                        value={a.value with methods = xs@[wraped_main]@ys}
-                    };
-                    place=_place
-                };], None, []
-            | ({value=S.MethodDeclaration m;} as t)::xs when (Atom.hint m.value.name) = mdef.entrypoint -> 
-                true, [], Some m, xs 
-            | x::xs ->
-                let flag, ys1, t, ys2 = _extract_method xs in
-                flag, x::ys1, t, ys2
-            in
-
-            let flag,xs, _main_opt, ys = _extract_method stage.ast in
-            if flag = false then Error.error target.place "Entrypoint [%s::%s] not found" mdef.component mdef.entrypoint;
-            match _main_opt with
-            | Some _main -> xs @ [ wrap_main _main ] @ ys 
-            | None -> xs @ ys
-        end
-        | Some mdef when mdef.component = "toplevel" -> begin 
-            let getlasts_stmts terms : S.stmt list * S.term list= 
-                (* aux is tail rec *)
-                let rec aux collected_stmts = function
-                | [] -> collected_stmts, []
-                | {value=S.Stmt stmt}::xs -> 
-                    aux (stmt::collected_stmts) xs
-                | ts -> collected_stmts, ts
-                in
-                let last_stmts, previous_terms = aux [] (List.rev terms) in
-                List.rev last_stmts, List.rev previous_terms
-            in
-            let last_stmts, previous_terms = getlasts_stmts stage.ast in
-
-            let m_main = auto_place {
-                S.annotations = [S.Visibility S.Public];
-                ret_type = auto_place S.TVoid;
-                name = Atom.fresh_builtin mdef.entrypoint;
-                body = S.AbstractImpl last_stmts;
-                args = []; (*TODO*)
-                is_constructor = false;
-            } in
-            let wraped_main_dcl = wrap_main m_main in 
-            previous_terms@[wraped_main_dcl]
-        end in
-        let stage = { stage with ast = body } in
-        *)
-
         if stage.kind <> AnonymousStage then stage
         else 
             (* here we could find a main function *)
             let imports, others = extract_imports stage.ast in
             if others = [] then stage
             else begin 
-            {
-                stage with ast = 
-                imports @ 
-                [
-                    auto_place (S.ClassOrInterfaceDeclaration {
-                        isInterface = false;
-                        annotations = [S.Visibility S.Public];
-                        name = stage.name;
-                        extended_types = [];
-                        implemented_types = [];
-                        body = others 
-                    })
-                ]
-            }
+                let others = List.map (function (o:S.term) -> {
+                    o with value = {
+                        S.annotations = [S.Visibility S.Public] @ o.value.annotations;
+                        decorators = o.value.decorators;
+                        v = o.value.v
+                    }
+                }) others in
+                List.iter (function (o:S.term) -> assert(o.value.annotations <> [])) others;
+
+                {
+                    stage with ast = 
+                    imports @ 
+                    [
+                        auto_place ({
+                            S.annotations = [S.Visibility S.Public];
+                            decorators = [];
+                            v = S.ClassOrInterfaceDeclaration {
+                                isInterface = false;
+                                name = stage.name;
+                                extended_types = [];
+                                implemented_types = [];
+                                body = others; 
+                            }
+                        })
+                    ]
+                }
             end
     in
 
@@ -300,22 +235,9 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
             | term::ts -> begin
                 match term.value with
                 (* the events of an actor should not be defined externaly
-                | S.Event e -> begin
-                    (* No sub-stages *)
-                    
-                    let event_stage = {
-                        kind = EventStage;
-                        name = e.value.name;
-                        ast = [term];
-                        sub_stages = [];
-
-                        imports = [];
-                        file = None;
-                    } in 
-                    (stageofacc ()) :: event_stage :: (_group_per_stage_or_component [] ts)
-                end
+                i.e. ignore the S.Event case
                 *)
-                | S.ClassOrInterfaceDeclaration cid -> begin
+                | {v=S.ClassOrInterfaceDeclaration cid} -> begin
                     (* No sub-stages *)
                     
                     let cid_stage = {
@@ -330,7 +252,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                     } in 
                     (stageofacc ()) :: cid_stage :: (_group_per_stage_or_component [] ts)
                 end
-                | S.Actor a -> begin
+                | {v=S.Actor a} -> begin
                     let sub_stages = 
                         _group_per_stage_or_component [] a.value.nested_items
                     in
@@ -341,9 +263,13 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                         name = a.value.name;
                         ast = [{
                             place = term.place;
-                            value = S.Actor { 
-                                place = a.place;
-                                value = {a.value with nested_items = [] }
+                            value = {
+                                annotations = [S.Visibility S.Public];
+                                decorators = [];
+                                v = S.Actor { 
+                                    place = a.place;
+                                    value = {a.value with nested_items = [] }
+                                }
                             }
                         }];
                         sub_stages = sub_stages;
@@ -364,34 +290,40 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
 
     (**** Handle the nomain + laststage main ****)
     let generate_guardian name stmts : S.term = 
-        auto_place(S.Actor ( auto_place({
-            S.name = name;
-            methods = [
-                auto_place {
-                    S.decorators = [];
-                    annotations = [S.Visibility S.Public];
-                    ret_type = auto_place S.TVoid;
-                    name = name;
-                    args = [];
-                    is_constructor = true;
-                    body = AbstractImpl stmts
-                }
-            ];
-            receiver = None;
-            states = [];
-            events = [];
-            nested_items = [];
-        })))
+        auto_place({
+            S.annotations = [S.Visibility S.Public];
+            decorators = []; 
+            v = S.Actor ( auto_place({
+                S.name = name;
+                methods = [
+                    auto_place {
+                        S.decorators = [];
+                        annotations = [S.Visibility S.Public];
+                        v = {
+                            S.ret_type = auto_place S.TVoid;
+                            name = name;
+                            args = [];
+                            is_constructor = true;
+                            body = AbstractImpl stmts
+                        }
+                    }
+                ];
+                receiver = None;
+                states = [];
+                events = [];
+                nested_items = [];
+            }))
+        })
     in
 
     let add_guardian (mdef:Target.maindef) stage : stage_entry list =
         assert(stage.sub_stages = [] && (Atom.hint mdef.bootstrap = "laststage"));
 
-        let getlasts_stmts terms : S.stmt list * S.term list= 
+        let getlasts_stmts (terms:S.term list) : S.stmt list * S.term list= 
             (* aux is tail rec *)
             let rec aux collected_stmts = function
             | [] -> collected_stmts, []
-            | {value=S.Stmt stmt}::xs -> 
+            | {value={S.v=S.Stmt stmt}}::xs -> 
                 aux (stmt::collected_stmts) xs
             | ts -> collected_stmts, ts
             in
@@ -428,13 +360,15 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
 
         (* Just starts the actor system with the specific guardian i.e. mdef.bootstrap *)
         wrap_main mdef.name (auto_place (S.VarExpr (guardian_name_of mdef))) (auto_place {
-            S.decorators = [];
-            annotations = [];
-            ret_type = auto_place S.TVoid;
-            name = Atom.fresh_builtin (String.capitalize_ascii (Atom.hint mdef.entrypoint));
-            body = AbstractImpl [];
-            args = [];
-            is_constructor = false; 
+            S.annotations = [S.Visibility S.Public];
+            decorators = [];
+            v = {
+                S.ret_type = auto_place S.TVoid;
+                name = Atom.fresh_builtin (String.capitalize_ascii (Atom.hint mdef.entrypoint));
+                body = AbstractImpl [];
+                args = [];
+                is_constructor = false; 
+            }
         }) 
     in
 
@@ -457,11 +391,11 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                 _stages @ [add_no_main mdef laststage]
             | _ -> 
                 let selector = function 
-                    | S.MethodDeclaration x -> x.value.name = mdef.entrypoint 
+                    | {S.v=S.MethodDeclaration x} -> x.value.v.name = mdef.entrypoint 
                     | _-> false
                 in
                 let replace = function
-                    | S.MethodDeclaration m0 -> 
+                    | {S.v=S.MethodDeclaration m0} -> 
                         (wrap_main mdef.name (auto_place (S.VarExpr (guardian_name_of mdef))) m0).value 
                 in
                 List.map (function stage -> {stage with ast = List.map (S.replaceterm_term selector replace) stage.ast }) stages 
@@ -483,10 +417,10 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
 
     let rec extract_main_terms = function
     | [] -> [], []
-    | ({value=S.ClassOrInterfaceDeclaration cid} as t)::ts when is_main cid.name -> 
+    | ({value={S.v=S.ClassOrInterfaceDeclaration cid}} as t)::ts when is_main cid.name -> 
         let mains, others = extract_main_terms ts in
         t::mains, others
-    | ({value=S.ClassOrInterfaceDeclaration cid} as t)::ts-> 
+    | ({value={S.v=S.ClassOrInterfaceDeclaration cid}} as t)::ts-> 
         let mains, others = extract_main_terms ts in
         mains, t::others
     | t::ts -> 
@@ -503,7 +437,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
             sub_stages = subothers;
             ast = others_t;
         } in
-        let current_mains = List.map (function ({value=S.ClassOrInterfaceDeclaration cid} as t) -> {
+        let current_mains = List.map (function ({value={S.v=S.ClassOrInterfaceDeclaration cid}} as t) -> {
             kind = MainStage;
             name = cid.name;
             sub_stages = [];
@@ -520,7 +454,11 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
     let mains, others = extract_main_stages stages in
     let mains = List.map ( function stage ->
         { stage with ast = [
-                auto_place (S.Import "akka.actor.typed.ActorSystem")
+                auto_place ({
+                    S.annotations = [];
+                    decorators = [];
+                    v = S.Import "akka.actor.typed.ActorSystem"
+                })
             ] @ stage.ast
         }
     ) mains in
@@ -531,17 +469,17 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
     (***** Hydrate stages *****)
 
     let rec external_binders_of_stage stage : S.variable list = 
-        let aux t : S.variable list = 
-            match t.value with
-            | S.Actor a -> [a.value.name]
-            | S.ClassOrInterfaceDeclaration cid when (Atom.hint cid.name) = "Stage"-> begin 
-                let mock_stage = {stage with ast = cid.body } in
-                external_binders_of_stage mock_stage
-            end
-            | S.ClassOrInterfaceDeclaration cid -> [cid.name]
-            | S.Event e -> [e.value.name]
-            | S.Stmt {value = LetStmt (_,x,_);} -> [x]
-            | t -> []
+        let aux (t:S.term) : S.variable list = 
+            match t.value.v with
+                | S.Actor a -> [a.value.name]
+                | S.ClassOrInterfaceDeclaration cid when (Atom.hint cid.name) = "Stage"-> begin 
+                    let mock_stage = {stage with ast = cid.body } in
+                    external_binders_of_stage mock_stage
+                end
+                | S.ClassOrInterfaceDeclaration cid -> [cid.name]
+                | S.Event e -> [e.value.name]
+                | S.Stmt {value = LetStmt (_,x,_);} -> [x]
+                | t -> []
         in
 
         List.flatten (List.map aux stage.ast)
@@ -638,15 +576,6 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
             imports = List.rev sub_imports;
             package_name = if stage.sub_stages = [] then Some package_name else Some (package_name^"."^(String.lowercase_ascii (Atom.to_string stage.name)));
             sub_stages;
-           (* get ride of
-            main = (
-                match stage.kind with 
-                | ActorStage ->    
-                    List.find_opt (function (main:Target.maindef) -> main.component = Atom.hint stage.name && parent_opt = None) target.value.codegen.mains
-                | _ ->
-                   None 
-            )
-            *)
         } in
 
         (* Design choice: subcomponents/stages are private - i.e. do not reuse sub_imports for stages*)
@@ -667,36 +596,12 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
     (* Stages with imports, files and main *)
     let _, stages = hydrate_stages (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ())) [] None stages in
 
-
-    (*
-    let toplevel_mains = List.filter (function (main:Target.maindef) -> main.component = "toplevel") target.value.codegen.mains in
-    let rec hydrate_from_tlmains stages : Target.maindef list -> stage_entry list = function
-    | [] -> stages 
-    | mdef::tlmains ->
-        logger#error "Balblalalal %s"  mdef.component;
-        assert( mdef.component = "toplevel");
-        let stages = match mdef.entrypoint with
-            | "toplevel_laststage" ->
-                let _stages, [laststage] = split_list (List.length stages - 1) stages in
-                assert("Stage" = Atom.hint laststage.name); (* FIXME fragile -> should be part of the stage selection *)
-                logger#error "Balblalalal %s" (Atom.hint laststage.name);
-                _stages @ [ {laststage with main = Some mdef} ]
-        in
-        hydrate_from_tlmains stages tlmains
-    in
-    let stages = hydrate_from_tlmains stages toplevel_mains in
-    *)
-
-
     (* Wrap stages *)
     let rec wrap_stage stage =
         let stage = wrap_stage_ast stage in
         { stage with sub_stages = List.map wrap_stage stage.sub_stages; }
     in
     let stages = List.map wrap_stage stages in
-
-
-    (* TODO Add stages for mains ?? *)
 
     let put_imports_first terms : S.term list =
         let imports, others = extract_imports terms in
@@ -720,6 +625,28 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
 let rec finish_place finish_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
     let value = finish_value place value in
     {AstUtils.place; AstUtils.value}
+
+
+let rec finish_visibility = function
+    | S.Private -> T.Private
+    | S.Protected -> T.Protected
+    | S.Public -> T.Public
+
+and finish_decorator = function
+| S.Override -> T.Override
+and finish_decorators decorators = List.map finish_decorator decorators
+
+and finish_annotation = function
+| S.Visibility vis -> T.Visibility (finish_visibility vis)
+| S.Static -> T.Static
+| S.Final -> T.Final
+and finish_annotations annotations = List.map finish_annotation annotations
+and finish_annoted (finish_v : Error.place -> 'a -> 'b) place (smth:'a S.annotated) : 'b T.annotated = 
+    {
+        T.annotations = finish_annotations smth.annotations;
+        decorators = finish_decorators smth.decorators;
+        v = finish_v place smth.v
+    }
 
 let builtin_translation = List.to_seq []
 module BuiltinMap = Map.Make(String)                     
@@ -761,21 +688,6 @@ function
     | S.TRaw str -> T.TAtomic str
 and fctype ct : T.jtype = finish_place finish_ctype ct
 
-
-let rec finish_visibility = function
-    | S.Private -> T.Private
-    | S.Protected -> T.Protected
-    | S.Public -> T.Public
-
-and finish_decorator = function
-| S.Override -> T.Override
-and finish_decorators decorators = List.map finish_decorator decorators
-
-and finish_annotation = function
-| S.Visibility vis -> T.Visibility (finish_visibility vis)
-| S.Static -> T.Static
-| S.Final -> T.Final
-and finish_annotations annotations = List.map finish_annotation annotations
 
 
 let finish_unop = Fun.id 
@@ -876,12 +788,18 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
     let auto_place smth = {place = fplace; value=smth} in
 
     let generate_field (ct, x) = 
-        {place=ct.place; value = T.Body ({place = ct.place; value = T.FieldDeclaration {
-            annotations = [T.Visibility T.Public; T.Final];
-            type0 = fctype ct;
-            name  = x;
-            body  = None;
-        }})}
+        {
+            place = ct.place; 
+            value = T.Body ({place = ct.place; value = {
+                T.annotations = [T.Visibility T.Public; T.Final];
+                decorators = [];
+                v = T.FieldDeclaration {
+                    type0 = fctype ct;
+                    name  = x;
+                    body  = None;
+                }
+            }})
+        }
     in
 
     let fields = List.map generate_field args in
@@ -903,15 +821,20 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
     in
 
     let constructor = 
-        { place; value=T.Body ({place; value=T.MethodDeclaration {
-            decorators  = [];
-            annotations = [T.Visibility T.Public];   
-            ret_type    = None;
-            name        = name;
-            parameters  = List.map finish_arg args;
-            body        = List.map generate_constructor_stmt args
-            ;
-        }})}
+        { 
+            place; 
+            value = T.Body ({place; value= {
+                T.annotations = [T.Visibility T.Public];
+                decorators  = [];
+                v = T.MethodDeclaration {
+                    ret_type    = None;
+                    name        = name;
+                    parameters  = List.map finish_arg args;
+                    body        = List.map generate_constructor_stmt args
+                    ;
+                }
+            }})
+        }
     in
 
     (* Compute implemented types 
@@ -925,26 +848,30 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
             List.map fctype (List.map (Akka.Misc.t_command_of_actor fplace) actor_names)
     in
 
-    T.Body ({place; value = T.ClassOrInterfaceDeclaration {
-        isInterface         = false;
-        annotations         = [T.Visibility (finish_visibility vis); T.Static; T.Final];
-        name                = name;
-        parameters          = []; 
-        extended_types      = [];
-        implemented_types   = implemented_types; 
-        body                = constructor::fields
-    }})
+    T.Body {
+        place; 
+        value = {
+            T.annotations         = [T.Visibility (finish_visibility vis); T.Static; T.Final];
+            decorators = [];
+            v = T.ClassOrInterfaceDeclaration {
+                isInterface         = false;
+                name                = name;
+                parameters          = []; 
+                extended_types      = [];
+                implemented_types   = implemented_types; 
+                body                = constructor::fields
+            }
+        }
+    }
 and fevent e : T.str_items = finish_place finish_event e
 
 and finish_arg ((ctype,variable):(S.ctype * Atom.atom)) : T.parameter =
     (fctype ctype, variable)
-and finish_method place ({decorators; annotations; ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
+and finish_method_v place ({ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
     match body with
     | S.AbstractImpl stmts when is_constructor ->
         (* FIXME check in IR that onstratup no type i.e. void*)
         T.MethodDeclaration {
-            decorators  = finish_decorators decorators;
-            annotations = finish_annotations annotations;   
             ret_type    = None;
             name        = name;
             parameters  = 
@@ -955,8 +882,6 @@ and finish_method place ({decorators; annotations; ret_type; name; body; args; i
         }
     | S.AbstractImpl stmts ->
         T.MethodDeclaration {
-            decorators  = finish_decorators decorators;
-            annotations = finish_annotations annotations;   
             ret_type    = Some (fctype ret_type);
             name        =  name;
             parameters  = List.map finish_arg args;
@@ -990,21 +915,19 @@ and finish_method place ({decorators; annotations; ret_type; name; body; args; i
         let body = [{place = bbterm.place; value = body }] in
 
         T.MethodDeclaration {
-            decorators  = finish_decorators decorators;
-            annotations = finish_annotations annotations;   
             ret_type    = if is_constructor then None else Some (fctype ret_type);
             name;
             parameters  = List.map finish_arg args;
             body
         }
-and fmethod m : T.str_items = {place=m.place; value=T.Body (finish_place finish_method m)}
+and fmethod m : T.str_items = {place=m.place; value= T.Body (finish_place (finish_annoted finish_method_v) m)}
 
 and finish_actor place ({name; methods; states; events; nested_items; receiver}: S._actor): T._str_items =
     let fplace = place@(Error.forge_place "Plg=Akka/finish_actor" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
 
     (* At most one constructor *)
-    assert( List.length (List.filter (function (m:S.method0) -> m.value.is_constructor) methods) <= 1);
+    assert( List.length (List.filter (function (m:S.method0) -> m.value.v.is_constructor) methods) <= 1);
 
     (** FIXME public/protected/private should parametrized*)
 
@@ -1016,14 +939,17 @@ and finish_actor place ({name; methods; states; events; nested_items; receiver}:
     ) in
 
     let command_cl = auto_place ( T.Body (
-        auto_place (T.ClassOrInterfaceDeclaration {
-            isInterface = true;
-            annotations = [T.Visibility T.Public];
-            name = Rt.Misc.a_command; 
-            parameters = [];
-            extended_types = [];
-            implemented_types = [];
-            body = [];
+        auto_place ({
+            T.annotations = [T.Visibility T.Public];
+            decorators = [];
+            v = T.ClassOrInterfaceDeclaration {
+                isInterface = true;
+                name = Rt.Misc.a_command; 
+                parameters = [];
+                extended_types = [];
+                implemented_types = [];
+                body = [];
+            }
         })
     )) in
 
@@ -1037,20 +963,22 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
 });
 }*)
     (* TODO check in IR at most once constructor/destructor *)
-    let constructor_opt  = List.find_opt (function (m:S.method0) -> m.value.is_constructor) methods in
-    let constructor_args = match constructor_opt with | None -> [] |Some constructor -> constructor.value.args in 
+    let constructor_opt  = List.find_opt (function (m:S.method0) -> m.value.v.is_constructor) methods in
+    let constructor_args = match constructor_opt with | None -> [] |Some constructor -> constructor.value.v.args in 
 
     let methods = match constructor_opt with
     | Some _ -> methods
     | None -> (* add a default constructor, will be hydrated with context when running fmethod *)
         auto_place ({
-            S.decorators = [];
-            annotations = [S.Visibility S.Public];   
-            ret_type    = auto_place S.TVoid;
-            name        = name;
-            args        = []; 
-            body        = AbstractImpl []; 
-            is_constructor = true;
+            S.annotations = [S.Visibility S.Public];   
+            decorators = [];
+            v = {
+                S.ret_type    = auto_place S.TVoid;
+                name        = name;
+                args        = []; 
+                body        = AbstractImpl []; 
+                is_constructor = true;
+            }
         })::methods
     in
 
@@ -1075,13 +1003,15 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
         ])
     )) in
     let m_create : S.method0 = auto_place {
-        S.decorators = [];
         S.annotations = [S.Visibility S.Public; S.Static];
-        ret_type = Rt.Misc.t_behavior_of_actor place name;
-        name = Rt.Misc.a_create_method;
-        body = S.AbstractImpl [auto_place (S.ReturnStmt (Rt.Misc.e_setup_behaviors place [arg_lambda]))];
-        args = constructor_args;
-        is_constructor = false;
+        decorators = [];
+        v = {
+            S.ret_type = Rt.Misc.t_behavior_of_actor place name;
+            name = Rt.Misc.a_create_method;
+            body = S.AbstractImpl [auto_place (S.ReturnStmt (Rt.Misc.e_setup_behaviors place [arg_lambda]))];
+            args = constructor_args;
+            is_constructor = false;
+        }
     } in
     let methods = methods @ [m_create] in
     
@@ -1105,19 +1035,26 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     | None -> ()
     end;
 
-    T.Body ({ place; value = T.ClassOrInterfaceDeclaration {
-        isInterface= false;
-        annotations = [T.Visibility T.Public];
-        name=name;
-        parameters = [];
-        extended_types = [extended_type] ;
-        implemented_types = [];
-        body = !body 
-    }})
+    T.Body { 
+        place; 
+        value = {
+            T.annotations = [T.Visibility T.Public];
+            decorators = [];
+            v = T.ClassOrInterfaceDeclaration {
+                isInterface= false;
+                name=name;
+                parameters = [];
+                extended_types = [extended_type] ;
+                implemented_types = [];
+                body = !body 
+            }
+        }
+    } 
 and factor a : T.str_items = finish_place finish_actor a
 
-and finish_term place : S._term -> T._str_items = function
-    | Comments c -> T.Comments c
+and finish_term place {S.annotations; decorators; v=t}: T._str_items =
+match t with 
+    | S.Comments c -> T.Comments c
     | Actor a  -> (factor a).value
     | Import s -> T.JModule ({place; value=T.ImportDirective s})
     | Event e  ->  (fevent e).value
@@ -1125,23 +1062,27 @@ and finish_term place : S._term -> T._str_items = function
     | Class x -> T.Body (
         { 
             place; 
-            value = T.ClassOrInterfaceDeclaration {
-                isInterface = false;
-                annotations = [];
-                name = x;
-                parameters = []; 
-                extended_types = [];
-                implemented_types = [];
-                body = [] 
+            value = {
+            T.annotations = finish_annotations annotations;
+            decorators = finish_decorators decorators;
+                v = T.ClassOrInterfaceDeclaration {
+                    isInterface = false;
+                    name = x;
+                    parameters = []; 
+                    extended_types = [];
+                    implemented_types = [];
+                    body = [] 
+                }
             }
         }
     )
-    | ClassOrInterfaceDeclaration cdcl ->T.Body (
-        { 
-            place;
-            value = T.ClassOrInterfaceDeclaration {
+    | ClassOrInterfaceDeclaration cdcl ->T.Body { 
+        place;
+        value = {
+            T.annotations = finish_annotations annotations;
+            decorators = finish_decorators decorators;
+            v = T.ClassOrInterfaceDeclaration {
                 isInterface = cdcl.isInterface;
-                annotations = finish_annotations cdcl.annotations;
                 name = cdcl.name;
                 parameters = []; 
                 extended_types = List.map fctype cdcl.extended_types;
@@ -1149,14 +1090,27 @@ and finish_term place : S._term -> T._str_items = function
                 body = List.map fterm cdcl.body 
             }
         }
-    ) 
-    | MethodDeclaration m -> (fmethod m).value
-    | RawClass (x, raw) ->  T.Body (
-        { 
-            place;
-            value = T.ClassOrInterfaceDeclaration {
+    }
+    | MethodDeclaration m -> 
+        (* Needs to put external annotations/decorators insde the Body of method since str_items can not be annotated *)
+        let external_annotations = finish_annotations annotations in
+        let external_decorators = finish_decorators decorators in
+
+        let ({value=(T.Body body);} as m) = (fmethod m) in
+
+        T.Body { body with
+            value = { body.value with
+                T.annotations = external_annotations @ body.value.annotations;
+                decorators  = external_decorators @ body.value.decorators 
+            }
+        } 
+    | RawClass (x, raw) ->  T.Body { 
+        place;
+        value = { 
+            T.annotations = finish_annotations annotations;
+            decorators = finish_decorators decorators;
+            v = T.ClassOrInterfaceDeclaration {
                 isInterface = false;
-                annotations = [];
                 name = x;
                 parameters = []; 
                 extended_types = [];
@@ -1164,7 +1118,7 @@ and finish_term place : S._term -> T._str_items = function
                 body = [{ place=raw.place; value=T.Raw raw.value}] 
             }
         }
-    ) 
+    }
     | TemplateClass raw -> T.Raw raw.value (* TODO FIXME we should  keep raw.place here *) 
 and fterm t : T.str_items = finish_place finish_term t
 
@@ -1187,6 +1141,10 @@ let finish_ir_program target (ir_program: Plugin.S.program) : (string * Fpath.t 
 let output_program target build_dir ir_program =
     ir_program
     |> finish_ir_program target
+    |> List.map (function (package_name, file, program) -> package_name, file, (dump (Printf.sprintf "Lg AST for file %s" (Fpath.to_string file)) T.show_program program)
+    )
+    |> List.map (function (package_name, file, program) -> (package_name, file, Lg.Clean.clean_program program))
+    |> List.map (function (package_name, file, program) -> package_name, file, (dump (Printf.sprintf "Cleaned Lg AST for file %s" (Fpath.to_string file)) T.show_program program))
     |> List.iter (function (package_name, file, program) -> Lg.Output.output_program package_name (Fpath.append build_dir file) program)
 
 let jingoo_env (target:Core.Target.target) = [

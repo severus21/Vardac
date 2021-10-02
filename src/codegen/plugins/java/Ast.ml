@@ -25,6 +25,11 @@ and annotation =
     | Final
 and decorator = 
     | Override
+and 'a annotated = {
+    annotations: annotation list;
+    decorators: decorator list;
+    v: 'a;
+}
 [@@deriving show { with_path = false }]
 
 type variable =
@@ -34,27 +39,23 @@ and type_parameter = jtype
 and _body =
     | ClassOrInterfaceDeclaration of {
         isInterface:bool; 
-        annotations: annotation list;
         name: variable;
         parameters: type_parameter list;
         extended_types:jtype list;
         implemented_types: jtype list;
         body: str_items list} (*parameters extends .... implements interfaces*)(* TODO GADT should guarantee that jtype is ClassOrInterfaceDeclaration*)
     | MethodDeclaration of { 
-        decorators: decorator list;
-        annotations: annotation list;
         ret_type: jtype option; (* None for constructor, Some _ otherwise *)
         name: variable;
         parameters: parameter list;
         body: stmt list
     } (*GADT stmt of type blockstatemtn*)
     | FieldDeclaration of { 
-        annotations: annotation list;
         type0: jtype;
         name: variable;
         body: expr option 
     }
-and body = _body placed
+and body = (_body annotated) placed
 and comments = Core.IR._comments
 
 and _expr = 

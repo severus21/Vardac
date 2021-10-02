@@ -430,11 +430,13 @@ and finish_function place : S._function_dcl -> T.method0 list = function
             value = { 
                 decorators      = [];
                 annotations     = [ T.Visibility T.Public ]; 
-                ret_type        = fmtype f.ret_type;
-                name            = f.name;
-                args            = (List.map fparam f.args);
-                body            = body; 
-                is_constructor  = false 
+                v = {
+                    ret_type        = fmtype f.ret_type;
+                    name            = f.name;
+                    args            = (List.map fparam f.args);
+                    body            = body; 
+                    is_constructor  = false 
+                }
             }
         } in
 
@@ -471,8 +473,8 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
     let inner_method = {
         place = method0.place;
         value = { method0.value with 
-            name = inner_name; 
-            annotations = [T.Visibility T.Private] 
+            annotations = [T.Visibility T.Private];
+            v = {method0.value.v with name = inner_name; }
         }
     } in
 
@@ -487,21 +489,23 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
     | None -> [], [] 
     | Some ensures_expr -> begin
         let ensures_name    = Atom.fresh ((Atom.hint contract.method_name)^"_ensures") in
-        let ensures_params  = method0.value.args @ with_params in
+        let ensures_params  = method0.value.v.args @ with_params in
 
         let ensures_method : T.method0 = {
             place = ensures_expr.place;
             value = {
                 decorators       = [];
                 annotations     = [ T.Visibility T.Private ];
-                ret_type        = { place; value=T.Atomic "boolean"};
-                name            = ensures_name;
-                body            =  T.AbstractImpl ([{ 
-                    place= ensures_expr.place;
-                    value = T.ReturnStmt (fexpr ensures_expr)
-                }]);
-                args            = ensures_params;
-                is_constructor  = false
+                v = {
+                    ret_type        = { place; value=T.Atomic "boolean"};
+                    name            = ensures_name;
+                    body            =  T.AbstractImpl ([{ 
+                        place= ensures_expr.place;
+                        value = T.ReturnStmt (fexpr ensures_expr)
+                    }]);
+                    args            = ensures_params;
+                    is_constructor  = false
+                }
             }
         } in
 
@@ -531,43 +535,45 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
         {place; value = T.ReturnStmt ( 
             {place; value = T.CallExpr (
                 {place; value=T.VarExpr inner_name},
-                List.map (function param -> {place; value=T.VarExpr (snd param)}) method0.value.args
+                List.map (function param -> {place; value=T.VarExpr (snd param)}) method0.value.v.args
             )})
         }
     ] 
     | Some returns_expr -> begin
         let returns_name    = Atom.fresh ((Atom.hint contract.method_name)^"_returns") in
-        let ret_type_param  = (method0.value.ret_type, Atom.fresh "res") in 
-        let returns_params  = ret_type_param :: method0.value.args @ with_params in
+        let ret_type_param  = (method0.value.v.ret_type, Atom.fresh "res") in 
+        let returns_params  = ret_type_param :: method0.value.v.args @ with_params in
 
         let returns_method  : T.method0 = {
             place = returns_expr.place;
             value = {
                 decorators      = [];
                 annotations     = [ T.Visibility T.Private ];
-                ret_type        = { place = returns_expr.place; value=T.Atomic "boolean"};
-                name            = returns_name;
-                body            = T.AbstractImpl ([
-                    {place = returns_expr.place; value= T.ReturnStmt (
-                        {place = returns_expr.place; value=T.CallExpr(
-                            fexpr returns_expr,
-                            [{place = returns_expr.place; value=T.VarExpr (snd ret_type_param)}]
-                            )
-                        })
-                    }
-                ]);
-                args            = returns_params;
-                is_constructor  = false
+                v = {
+                    ret_type        = { place = returns_expr.place; value=T.Atomic "boolean"};
+                    name            = returns_name;
+                    body            = T.AbstractImpl ([
+                        {place = returns_expr.place; value= T.ReturnStmt (
+                            {place = returns_expr.place; value=T.CallExpr(
+                                fexpr returns_expr,
+                                [{place = returns_expr.place; value=T.VarExpr (snd ret_type_param)}]
+                                )
+                            })
+                        }
+                    ]);
+                    args            = returns_params;
+                    is_constructor  = false
+                }
             }
         } in
 
         [returns_method], [ 
             {place; value= T.LetStmt (
-                method0.value.ret_type,
+                method0.value.v.ret_type,
                 (snd ret_type_param),
                 Some ({place; value=T.CallExpr (
                     {place; value=T.VarExpr inner_name},
-                    List.map (function param -> {place; value=T.VarExpr (snd param)}) method0.value.args
+                    List.map (function param -> {place; value=T.VarExpr (snd param)}) method0.value.v.args
                 )})
             )};
             {place; value=T.IfStmt (
@@ -604,11 +610,13 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
         value = {
             decorators      = method0.value.decorators;
             annotations     = method0.value.annotations;
-            ret_type        = method0.value.ret_type;
-            name            = method0.value.name;
-            body            = T.AbstractImpl main_stmts;
-            args            = method0.value.args;
-            is_constructor  = method0.value.is_constructor 
+            v = {
+                ret_type        = method0.value.v.ret_type;
+                name            = method0.value.v.name;
+                body            = T.AbstractImpl main_stmts;
+                args            = method0.value.v.args;
+                is_constructor  = method0.value.v.is_constructor 
+            }
         }
     } in 
 
@@ -634,11 +642,13 @@ and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._m
             value = { 
                 decorators      = []; 
                 annotations     = [ T.Visibility T.Public ]; 
-                ret_type        = fmtype m0.ret_type;
-                name            = if is_constructor then actor_name else m0.name;
-                args            = (List.map fparam m0.args);
-                body            = body; 
-                is_constructor  = is_constructor 
+                v = {
+                    ret_type        = fmtype m0.ret_type;
+                    name            = if is_constructor then actor_name else m0.name;
+                    args            = (List.map fparam m0.args);
+                    body            = body; 
+                    is_constructor  = is_constructor 
+                }
             }
         } in
 
@@ -808,20 +818,22 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             let _m : T.method0 = auto_place {
                 T.decorators = [];
                 annotations = [T.Visibility T.Public];
-                ret_type = t_behavior_of_actor fplace name;
-                name = _m_name;
-                body = AbstractImpl (generate_event_receiver event_name inner_env);
-                args = [
-                    (
-                        auto_place (T.TParam (
-                            t_event_general fplace,
-                            [ auto_place(T.TVar event_name) ]
-                        )), 
-                        l_event_name
-                    )
+                v = {
+                    T.ret_type = t_behavior_of_actor fplace name;
+                    name = _m_name;
+                    body = AbstractImpl (generate_event_receiver event_name inner_env);
+                    args = [
+                        (
+                            auto_place (T.TParam (
+                                t_event_general fplace,
+                                [ auto_place(T.TVar event_name) ]
+                            )), 
+                            l_event_name
+                        )
 
-                ];
-                is_constructor = false;
+                    ];
+                    is_constructor = false;
+                }
             } in
 
             ({place; value=T.AccessExpr(
@@ -854,15 +866,17 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     let receiver : T.method0 = { 
         place;
         value = {
-            decorators      = [Override];
-            args            = [];
-            body            = T.AbstractImpl ([
-                {place; value=T.ReturnStmt receiver_expr}
-            ]);
-            name            = Atom.fresh_builtin "createReceive";
-            ret_type        = t_receive_of_actor place name;
             annotations     = [ T.Visibility T.Public ];
-            is_constructor  = false
+            decorators      = [Override];
+            v = {
+                args            = [];
+                body            = T.AbstractImpl ([
+                    {place; value=T.ReturnStmt receiver_expr}
+                ]);
+                name            = Atom.fresh_builtin "createReceive";
+                ret_type        = t_receive_of_actor place name;
+                is_constructor  = false
+            }
         }
     } in
 
@@ -883,7 +897,20 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             T.methods; 
             T.states;
             T.events;
-            T.nested_items= (List.map (function x -> { place = x.place; value=T.Actor x})) (List.flatten (List.map fcdcl grp_items.nested)); 
+            T.nested_items= List.map 
+                (function (x: T.actor) -> { 
+                    place = x.place; 
+                    value={ 
+                        T.annotations=[ T.Visibility T.Public ];
+                        decorators= [];
+                        v = T.Actor {
+                            place=x.place; 
+                            value=x.value
+                        }
+                    }
+                })
+                (List.flatten (List.map fcdcl grp_items.nested)
+            ); 
             T.receiver = Some receiver
         }
     }]
@@ -903,19 +930,35 @@ and fcexpr ce : T.expr = finish_place finish_component_expr ce
 and finish_term place : S._term -> T.term list = function
 | S.Comments c -> [{
     place;
-    value=T.Comments c.value
+    value= {
+        T.annotations = [];
+        decorators = [];
+        v = T.Comments c.value
+    }
 }]
 | S.Component cdcl -> List.map (function a -> {
     place=a.place; 
-    value=T.Actor a
+    value= {
+        T.annotations = [];
+        decorators = [];
+        v=T.Actor a
+    }
 }) (fcdcl cdcl)
 | S.Stmt stmt -> [{
     place; 
-    value = T.Stmt (fstmt stmt)
+    value= {
+        T.annotations = [];
+        decorators = [];
+        v = T.Stmt (fstmt stmt)
+    }
 }]
 | S.Function f -> List.map (function m -> {
     place; 
-    value = T.MethodDeclaration m
+    value= {
+        T.annotations = [];
+        decorators = [];
+        v = T.MethodDeclaration m
+    }
 }) (ffunction f)
 | S.Typedef {value=S.ProtocolDef (name, {value=S.SType st; _});_} -> 
     (*** Helpers ***)
@@ -978,16 +1021,17 @@ and finish_term place : S._term -> T.term list = function
             }
         }:: (extract_events st_next.place (k+1) st_next.value)
     in
-    let sub_class_command = 
-        T.ClassOrInterfaceDeclaration {
+    let sub_class_command = {
+        T.annotations = [T.Visibility T.Public];
+        decorators = [];
+        v = T.ClassOrInterfaceDeclaration {
             isInterface = true;
-            annotations = [T.Visibility T.Public];
             name = Atom.fresh_builtin "Command";
             extended_types = [auto_place (T.Atomic "CborSerializable")];
             implemented_types = [];
             body = [] 
         }
-    in
+    } in
 
 
     (*** Inner class: Event<Msg> ***)
@@ -1007,10 +1051,11 @@ and finish_term place : S._term -> T.term list = function
             (auto_place (T.Atomic "ASTStype")), (Atom.fresh_builtin "st");
             auto_place (T.Atomic "Msg"), (Atom.fresh_builtin "msg");
         ] in
-        let m_constructor = { 
-            T.decorators      = [];
-            annotations = [T.Visibility T.Public];
-                ret_type = auto_place T.TVoid;
+        let m_constructor : T._method0 T.annotated = { 
+            T.annotations = [T.Visibility T.Public];
+            decorators      = [];
+            v = {
+                T.ret_type = auto_place T.TVoid;
                 name = cl_event_name;
                 body = AbstractImpl (List.map (function (_, name) -> (auto_place (T.AssignExpr (
                         auto_place (T.AccessExpr (
@@ -1023,24 +1068,38 @@ and finish_term place : S._term -> T.term list = function
                 ))) constructor_args);
                 args = constructor_args;
                 is_constructor = true;
+            }
         } in
 
         let methods : T.method0 list = List.map auto_place [ m_constructor ] in
-        let methods = List.map (function m -> auto_place (T.MethodDeclaration m)) methods in
+        let methods = List.map (function m -> auto_place ({
+            T.annotations = [];
+            decorators = [];
+            v = T.MethodDeclaration m
+        })) methods in
 
         (*** Attributes ***)
         let stmts = List.map (function (t, name) -> T.LetStmt (t, name, None)) constructor_args in
-        let stmts = List.map (function stmt -> auto_place(T.Stmt (auto_place stmt))) stmts in
+        let stmts = List.map (function stmt -> auto_place({
+            T.annotations = [];
+            decorators = [];
+            v = T.Stmt (auto_place stmt)
+        })) stmts in
 
 
         (*** CL Def ***)
-        T.ClassOrInterfaceDeclaration {
-            isInterface = false;
-            annotations = [T.Visibility T.Public];
-            name = Atom.fresh_builtin "Event<Msg>";
-            extended_types = [];
-            implemented_types = [auto_place (T.Atomic "Command")];
-            body = stmts @ methods 
+
+        {
+            T.annotations = [T.Visibility T.Public];
+            decorators = [];
+            v = 
+            T.ClassOrInterfaceDeclaration {
+                isInterface = false;
+                name = Atom.fresh_builtin "Event<Msg>";
+                extended_types = [];
+                implemented_types = [auto_place (T.Atomic "Command")];
+                body = stmts @ methods 
+            }
         }
     end
     in
@@ -1081,7 +1140,8 @@ and finish_term place : S._term -> T.term list = function
         let m_constructor = { 
             T.decorators      = [];
             annotations = [T.Visibility T.Public];
-                ret_type = auto_place T.TVoid;
+            v = {
+                T.ret_type = auto_place T.TVoid;
                 name = cl_session_name;
                 body = AbstractImpl (List.map (function (_, name) -> (auto_place (T.AssignExpr (
                         auto_place (T.AccessExpr (
@@ -1094,6 +1154,7 @@ and finish_term place : S._term -> T.term list = function
                 ))) constructor_args);
                 args = constructor_args;
                 is_constructor = true;
+            }
         } in
 
 
@@ -1112,56 +1173,58 @@ and finish_term place : S._term -> T.term list = function
 
                 T.decorators      = [];
                 annotations = [T.Visibility T.Public];
-                ret_type = auto_place (T.TVar cl_session_name);
-                name = m_fire_name;
-                body = AbstractImpl ([
-                    (* Event<Msg> e = Event(this.bridge_id, this.session_id, msg); *)
-                    (auto_place (T.LetStmt (
-                        auto_place (T.TParam 
-                        (auto_place (T.TVar cl_event_name),
-                        [ (auto_place (T.TVar cl_msg_name)) ]
-                        )),
-                        l_e,
-                        Some (auto_place (T.CallExpr (
-                            auto_place (T.VarExpr cl_event_name),
+                v = {
+                    T.ret_type = auto_place (T.TVar cl_session_name);
+                    name = m_fire_name;
+                    body = AbstractImpl ([
+                        (* Event<Msg> e = Event(this.bridge_id, this.session_id, msg); *)
+                        (auto_place (T.LetStmt (
+                            auto_place (T.TParam 
+                            (auto_place (T.TVar cl_event_name),
+                            [ (auto_place (T.TVar cl_msg_name)) ]
+                            )),
+                            l_e,
+                            Some (auto_place (T.CallExpr (
+                                auto_place (T.VarExpr cl_event_name),
+                                [
+                                    auto_place this_bridge_id;
+                                    auto_place this_session_id;
+                                    auto_place this_st;
+                                    auto_place l_msg;
+                                ]
+                            ))
+                        ))));
+                        
+                        (* this.right.tell(e,  getContext().getSelf()); *)
+                        expr2stmt (auto_place (T.CallExpr (
+                            auto_place (T.AccessExpr (
+                                auto_place this_right,
+                                auto_place (T.VarExpr (Atom.fresh_builtin "tell"))
+                                )
+                            ),
                             [
-                                auto_place this_bridge_id;
-                                auto_place this_session_id;
-                                auto_place this_st;
-                                auto_place l_msg;
+                                auto_place (T.VarExpr l_e);
+                                e_get_self fplace (auto_place l_context)
                             ]
-                        ))
-                    ))));
-                    
-                    (* this.right.tell(e,  getContext().getSelf()); *)
-                    expr2stmt (auto_place (T.CallExpr (
-                        auto_place (T.AccessExpr (
-                            auto_place this_right,
-                            auto_place (T.VarExpr (Atom.fresh_builtin "tell"))
-                            )
-                        ),
-                        [
-                            auto_place (T.VarExpr l_e);
-                            e_get_self fplace (auto_place l_context)
-                        ]
-                    )));
+                        )));
 
-                    (* this.st = st.continuation *)
-                    (auto_place (T.AssignExpr (
-                        auto_place this_st,
-                        auto_place (T.AccessExpr (
+                        (* this.st = st.continuation *)
+                        (auto_place (T.AssignExpr (
                             auto_place this_st,
-                            auto_place (T.VarExpr (Atom.fresh_builtin "continuation"))
-                        ))
-                    )));
-                    (* return e.msg; *)
-                    (auto_place (T.ReturnStmt (
-                        auto_place (T.This)
-                    )))
-                ]);
-                args = fire_args;
-                is_constructor = false;
-            } 
+                            auto_place (T.AccessExpr (
+                                auto_place this_st,
+                                auto_place (T.VarExpr (Atom.fresh_builtin "continuation"))
+                            ))
+                        )));
+                        (* return e.msg; *)
+                        (auto_place (T.ReturnStmt (
+                            auto_place (T.This)
+                        )))
+                    ]);
+                    args = fire_args;
+                    is_constructor = false;
+                } 
+            }
         in
 
         (*** Method: receive ***)
@@ -1180,115 +1243,128 @@ and finish_term place : S._term -> T.term list = function
             { 
                 T.decorators = [];
                 annotations = [T.Visibility T.Public];
-                ret_type = auto_place (T.TTuple [ 
-                    auto_place (T.TVar (Atom.fresh_builtin "Object"));
-                    auto_place (T.TVar cl_session_name)
-                ]);
-                name = m_receive_name;
-                body = AbstractImpl ([
-                    (* final Duration timeout = Duration.ofSeconds(3); *)
-                    (auto_place (T.LetStmt (
-                        (auto_place (T.TVar (Atom.fresh_builtin "Duration"))),
-                        l_timeout,
-                        Some (auto_place (T.CallExpr (
-                            auto_place (T.VarExpr (Atom.fresh_builtin "Duration.ofSeconds")),
-                            [
-                                auto_place (T.LitExpr (auto_place(T.IntLit 3)));
-                            ]
-                        ))
-                    ))));
-
-                    (* CompletableFuture<Event<Object>> future = ask(actorB, msg, timeout).toCompletableFuture(); *)
-                    (auto_place (T.LetStmt (
-                        (auto_place (T.TParam(
-                            auto_place (T.TVar (Atom.fresh_builtin "CompletableFuture")),
-                            [ 
-                                auto_place (T.TVar (Atom.fresh_builtin "Event<Object>"))
-                            ]
-                        ))),
-                        l_future,
-                        Some (auto_place (T.AccessExpr ( 
-                            auto_place (T.CallExpr (
-                                auto_place (T.VarExpr (Atom.fresh_builtin "ask")),
+                v = {
+                    T.ret_type = auto_place (T.TTuple [ 
+                        auto_place (T.TVar (Atom.fresh_builtin "Object"));
+                        auto_place (T.TVar cl_session_name)
+                    ]);
+                    name = m_receive_name;
+                    body = AbstractImpl ([
+                        (* final Duration timeout = Duration.ofSeconds(3); *)
+                        (auto_place (T.LetStmt (
+                            (auto_place (T.TVar (Atom.fresh_builtin "Duration"))),
+                            l_timeout,
+                            Some (auto_place (T.CallExpr (
+                                auto_place (T.VarExpr (Atom.fresh_builtin "Duration.ofSeconds")),
                                 [
-                                    auto_place this_right;
-                                    auto_place l_msg;
-                                    auto_place (T.VarExpr l_timeout);
+                                    auto_place (T.LitExpr (auto_place(T.IntLit 3)));
                                 ]
-                            )),
-                            auto_place (T.CallExpr (
-                                auto_place (T.VarExpr (Atom.fresh_builtin "toCompletableFuture")),
-                                []
                             ))
-                        ))
-                    ))));
+                        ))));
 
-                    (* Event<Object> msg = (Event<Object>) future.join() *)
-                    (auto_place (T.LetStmt (
-                        (auto_place (T.TParam(
-                            auto_place (T.TVar (Atom.fresh_builtin "Event")),
-                            [
-                                auto_place (T.TVar (Atom.fresh_builtin "Object"))
-                            ]
-                        ))),
-                        l_e,
-                        Some (auto_place (T.CallExpr (
-                            auto_place (T.AccessExpr(
-                                auto_place (T.VarExpr l_future),
-                                auto_place (T.VarExpr (Atom.fresh_builtin "join"))
-                            )),
-                            [
-                                auto_place (T.LitExpr (auto_place(T.IntLit 3)));
-                            ]
-                        ))
-                    ))));
+                        (* CompletableFuture<Event<Object>> future = ask(actorB, msg, timeout).toCompletableFuture(); *)
+                        (auto_place (T.LetStmt (
+                            (auto_place (T.TParam(
+                                auto_place (T.TVar (Atom.fresh_builtin "CompletableFuture")),
+                                [ 
+                                    auto_place (T.TVar (Atom.fresh_builtin "Event<Object>"))
+                                ]
+                            ))),
+                            l_future,
+                            Some (auto_place (T.AccessExpr ( 
+                                auto_place (T.CallExpr (
+                                    auto_place (T.VarExpr (Atom.fresh_builtin "ask")),
+                                    [
+                                        auto_place this_right;
+                                        auto_place l_msg;
+                                        auto_place (T.VarExpr l_timeout);
+                                    ]
+                                )),
+                                auto_place (T.CallExpr (
+                                    auto_place (T.VarExpr (Atom.fresh_builtin "toCompletableFuture")),
+                                    []
+                                ))
+                            ))
+                        ))));
 
-                    (* this.st = st.continuation *)
-                    (auto_place (T.AssignExpr (
-                        auto_place this_st,
-                        auto_place (T.AccessExpr (
+                        (* Event<Object> msg = (Event<Object>) future.join() *)
+                        (auto_place (T.LetStmt (
+                            (auto_place (T.TParam(
+                                auto_place (T.TVar (Atom.fresh_builtin "Event")),
+                                [
+                                    auto_place (T.TVar (Atom.fresh_builtin "Object"))
+                                ]
+                            ))),
+                            l_e,
+                            Some (auto_place (T.CallExpr (
+                                auto_place (T.AccessExpr(
+                                    auto_place (T.VarExpr l_future),
+                                    auto_place (T.VarExpr (Atom.fresh_builtin "join"))
+                                )),
+                                [
+                                    auto_place (T.LitExpr (auto_place(T.IntLit 3)));
+                                ]
+                            ))
+                        ))));
+
+                        (* this.st = st.continuation *)
+                        (auto_place (T.AssignExpr (
                             auto_place this_st,
-                            auto_place (T.VarExpr (Atom.fresh_builtin "continuation"))
-                        ))
-                    )));
+                            auto_place (T.AccessExpr (
+                                auto_place this_st,
+                                auto_place (T.VarExpr (Atom.fresh_builtin "continuation"))
+                            ))
+                        )));
 
-                (* return Tuple2(e.msg, this); *)
-                    (auto_place (T.ReturnStmt (
-                        auto_place ( T.NewExpr (
-                            auto_place ( T.VarExpr (Atom.fresh_builtin "Tuple2")),
-                            [
-                                auto_place ( T.AccessExpr(
-                                    auto_place (T.VarExpr l_e),
-                                    auto_place (T.VarExpr (Atom.fresh_builtin "msg"))
-                                ));
-                                auto_place ( T.This)
-                            ]
-                        ))
-                    )))
-                ]);
-                args = receive_args;
-                is_constructor = false;
-            } 
+                    (* return Tuple2(e.msg, this); *)
+                        (auto_place (T.ReturnStmt (
+                            auto_place ( T.NewExpr (
+                                auto_place ( T.VarExpr (Atom.fresh_builtin "Tuple2")),
+                                [
+                                    auto_place ( T.AccessExpr(
+                                        auto_place (T.VarExpr l_e),
+                                        auto_place (T.VarExpr (Atom.fresh_builtin "msg"))
+                                    ));
+                                    auto_place ( T.This)
+                                ]
+                            ))
+                        )))
+                    ]);
+                    args = receive_args;
+                    is_constructor = false;
+                } 
+            }
         in
         
         (*** Other communication methods ***)
 
         let methods : T.method0 list = List.map auto_place [ m_constructor; m_fire; m_receive ] in
-        let methods = List.map (function m -> auto_place (T.MethodDeclaration m)) methods in
+        let methods = List.map (function m -> auto_place ({
+            T.annotations = [];
+            decorators =[];
+            v = T.MethodDeclaration m
+        })) methods in
 
         (*** Attributes ***)
         let stmts = List.map (function (t, name) -> auto_place(T.LetStmt (t, name, None))) constructor_args in
-        let stmts = List.map (function stmt -> auto_place(T.Stmt (stmt))) stmts in
+        let stmts = List.map (function stmt -> auto_place({
+            T.annotations = [];
+            decorators = [];
+            v = T.Stmt (stmt)
+        })) stmts in
 
 
         (*** CL Def ***)
-        T.ClassOrInterfaceDeclaration {
-            isInterface = false;
-            annotations = [T.Visibility T.Public];
-            name = Atom.fresh_builtin "Session";
-            extended_types = [];
-            implemented_types = [auto_place (T.Atomic "Command")];
-            body = stmts @ methods 
+        {
+            T.annotations = [T.Visibility T.Public];
+            decorators = [];
+            v = T.ClassOrInterfaceDeclaration {
+                isInterface = false;
+                name = Atom.fresh_builtin "Session";
+                extended_types = [t_session_general place];
+                implemented_types = [auto_place (T.Atomic "Command")];
+                body = stmts @ methods 
+            }
         }
     end
     in
@@ -1343,18 +1419,32 @@ and finish_term place : S._term -> T.term list = function
     let sub_classes = List.map (function cl -> auto_place cl) [sub_class_command; sub_class_event; sub_class_session] in
 
     let methods : T.method0 list = List.map auto_place [] in
-    let methods = List.map (function m -> auto_place (T.MethodDeclaration m)) methods in
+    let methods = List.map (function m -> auto_place ({
+        T.annotations = [];
+        decorators = [];
+        v = T.MethodDeclaration m
+    })) methods in
 
-    let stmts = List.map (function stmt -> auto_place (T.Stmt stmt)) [] in
+    let stmts = List.map (function stmt -> auto_place ({
+        T.annotations = [];
+        decorators = [];
+        v = T.Stmt stmt
+    })) [] in
 
-    [{place; value=T.ClassOrInterfaceDeclaration {
-        isInterface = false;
-        annotations = [T.Visibility T.Public];
-        extended_types = [auto_place (T.Atomic "Protocol")];
-        implemented_types = [];
-        name = name;
-        body = stmts @ sub_classes @ methods (*@ events*)
-    }}]
+    [{
+        place; 
+        value = {
+            T.annotations = [T.Visibility T.Public];
+            decorators = [];
+            v = T.ClassOrInterfaceDeclaration {
+                isInterface = false;
+                extended_types = [auto_place (T.Atomic "Protocol")];
+                implemented_types = [];
+                name = name;
+                body = stmts @ sub_classes @ methods (*@ events*)
+            }
+        }
+    }]
 
     (* TODO generate the dynamic checking of protocol order if needed *)
 
@@ -1366,7 +1456,11 @@ and finish_term place : S._term -> T.term list = function
 
     [{
         place;
-        value = T.Event (finish_eventdef inner_place (name, mts, None)) 
+        value = {
+            T.annotations = [];
+            decorators = [];
+            v = T.Event (finish_eventdef inner_place (name, mts, None)) 
+        }
     }]
 | S.Typedef  {value= ClassicalDef (name, args, None) as tdef; place} -> (* implicit constructor should translate to akka *)
     (* Registration *)
@@ -1388,50 +1482,70 @@ and finish_term place : S._term -> T.term list = function
     in
     let fields = 
         let place = (Error.forge_place "Plg=Akka/finish_term/typedef/implicit_constructor" 0 0) in
-        let aux (arg_ctype, arg_name) = 
-            { place; value = T.Stmt (
-                { place; value = T.LetStmt (
-                    arg_ctype, 
-                    name,
-                    None 
-                )}
-            )}
-        in
+        let aux (arg_ctype, arg_name) = { 
+            place; 
+            value = {
+                T.annotations = [];
+                decorators = [];
+                v = T.Stmt { 
+                    place; 
+                    value = T.LetStmt (
+                        arg_ctype, 
+                        name,
+                        None 
+                    )
+                }
+            }
+        } in
         List.map aux args
     in
 
-    let constructor = { place = place @ (Error.forge_place "Plg=Akka/finish_term/typedef/implicit_constructor" 0 0); value= 
-        T.MethodDeclaration { place; value = {
+    let constructor = { place = place @ (Error.forge_place "Plg=Akka/finish_term/typedef/implicit_constructor" 0 0); value= {
+        T.annotations = [];
+        decorators = [];
+        v = T.MethodDeclaration { place; value = {
+            T.annotations = [T.Visibility T.Public];
             decorators = [];
-            annotations = [T.Visibility T.Public];
-            ret_type = {place; value = T.TVoid}; (* removed by the is_constructor *)
-            name;
-            body = T.AbstractImpl [{place; value  = constructor_body}];
-            args = args;
-            is_constructor = true
+            v = {
+                T.ret_type = {place; value = T.TVoid}; (* removed by the is_constructor *)
+                name;
+                body = T.AbstractImpl [{place; value  = constructor_body}];
+                args = args;
+                is_constructor = true
+            }
         }}
-    }
-    in
+    }} in
 
-    [{place; value =
-        T.ClassOrInterfaceDeclaration {
-            isInterface = false;
-            annotations = [T.Visibility T.Public];
-            extended_types = [];
-            implemented_types = [];
-            name;
-            body = fields @ [constructor] 
+    [{
+        place; 
+        value = {
+            T.annotations = [T.Visibility T.Public];
+            decorators = [];
+            v = T.ClassOrInterfaceDeclaration {
+                isInterface = false;
+                extended_types = [];
+                implemented_types = [];
+                name;
+                body = fields @ [constructor] 
+            }
         }
     }]
 | S.Typedef {value = ClassicalDef (v, _, Some body); _} ->
     (* Registration *)
     Hashtbl.add to_capitalize_variables v ();
-
-    if not body.value.template then (
-        [{place; value = T.RawClass (v, {place = body.place; value = body.value.body})}] 
-    ) else (
-        [{place; value = T.TemplateClass {place=body.place; value = body.value.body}}]
-    )
+    [{
+        place; 
+        value = {
+            T.annotations = [];
+            T.decorators = [];
+            v = begin
+                if not body.value.template then
+                    T.RawClass (v, {place = body.place; value = body.value.body})
+                else
+                    T.TemplateClass {place=body.place; value = body.value.body}
+            end
+        }
+    }]
 | S.Typedef {value = EventDef (v, _, Some body); _} -> Error.error place "eventdef with body is not yet supported by the akka.finish"
 
 and fterm : S.term -> T.term list = function t -> finish_term t.place t.value

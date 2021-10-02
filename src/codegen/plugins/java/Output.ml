@@ -141,7 +141,7 @@ and output_arg out (jt, var): unit =
     fprintf out "%a %a" ojtype jt output_var var
 and output_args out: (jtype * variable) list -> unit = pp_list ", " output_arg out  
 
-and output_body out : _body -> unit = function 
+and output_body_v out : _body -> unit = function 
     | ClassOrInterfaceDeclaration cl -> 
         let output_cl_params out = function 
             | [] -> ()
@@ -160,8 +160,7 @@ and output_body out : _body -> unit = function
             | params -> fprintf out " implements %a" output_type_params params
         in
         fprintf out 
-            "%a%a %a%a%a%a {@;@[<v 3>@;%a@]@;}" 
-            output_annotations cl.annotations
+            "%a %a%a%a%a {@;@[<v 3>@;%a@]@;}" 
             output_kind cl.isInterface
             output_var cl.name 
             output_cl_params cl.parameters
@@ -169,22 +168,23 @@ and output_body out : _body -> unit = function
             output_cl_implements cl.implemented_types
             output_items cl.body
     | FieldDeclaration f -> 
-        fprintf out "%a%a %a%a;@;"
-            output_annotations f.annotations 
+        fprintf out "%a %a%a;@;"
             ojtype f.type0
             output_var f.name
             (fun out opt-> ignore (Option.map (fprintf out " = %a" oexpr) opt)) f.body
     | MethodDeclaration m ->
-        assert(m.annotations <> []);
-
         fprintf out 
-            "%a@;%a%a%a(@[<hv 3>%a@]) {@;@[<v 3>@;%a@]@;}"
-            output_decorators m.decorators 
-            output_annotations m.annotations 
+            "%a%a(@[<hv 3>%a@]) {@;@[<v 3>@;%a@]@;}"
             (fun out opt-> ignore (Option.map (fprintf out "%a " ojtype) opt)) m.ret_type 
             output_var m.name 
             output_args m.parameters 
             (pp_list "" ostmt) m.body 
+and output_body out {annotations; decorators; v}: unit =
+    fprintf out 
+        "%a@;%a%a"
+        output_decorators decorators 
+        output_annotations annotations 
+        output_body_v v
 and obody out : body -> unit = function b ->
     match Config.provenance_lvl () with
     | Config.None -> output_body out b.value

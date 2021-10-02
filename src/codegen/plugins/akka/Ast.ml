@@ -90,20 +90,23 @@ and annotation =
     | Final
 and decorator = 
     | Override
+and 'a annotated = {
+    annotations: annotation list;
+    decorators: decorator list;
+    v: 'a;
+}
 and method0_body = 
 | AbstractImpl of stmt list
 | BBImpl of Impl_common.blackbox_term
 
 and _method0 = {
-    decorators: decorator list;
-    annotations: annotation list;
     ret_type: ctype;
     name: variable;
     body: method0_body;
     args: (ctype * variable) list;
     is_constructor: bool
 }
-and method0 = _method0 placed
+and method0 = (_method0 annotated) placed
 (************************************ Akka Actors **********************************)
 
 (** Akka specific primitives *)
@@ -161,7 +164,6 @@ and _term =
 | Class of variable 
 | ClassOrInterfaceDeclaration of {
     isInterface:bool; 
-    annotations: annotation list;
     name: variable;
     extended_types: ctype list;
     implemented_types: ctype list;
@@ -174,7 +176,7 @@ and _term =
 (** Akka structure *)
 | Actor of actor
 | Event of event
-and term = _term placed
+and term = (_term annotated) placed
 
 (**  Main function*)
 and entrypoint = expr list
@@ -310,14 +312,16 @@ and _apply_rename_method0 (renaming : Atom.atom -> Atom.atom) place m0 =
     {
         decorators = m0.decorators;
         annotations = m0.annotations;
-        ret_type =  apply_rename_ctype renaming m0.ret_type;
-        name = renaming m0.name;
-        body = apply_rename_method0_body renaming m0.body;
-        args = List.map (function (ct, x) -> (
-            apply_rename_ctype renaming ct,
-            renaming x
-        )) m0.args;
-        is_constructor = m0.is_constructor
+        v = {
+            ret_type =  apply_rename_ctype renaming m0.v.ret_type;
+            name = renaming m0.v.name;
+            body = apply_rename_method0_body renaming m0.v.body;
+            args = List.map (function (ct, x) -> (
+                apply_rename_ctype renaming ct,
+                renaming x
+            )) m0.v.args;
+            is_constructor = m0.v.is_constructor
+        }
 }
 and apply_rename_method0 renaming m0 = apply_rename_place (_apply_rename_method0 renaming) m0 
 
@@ -351,39 +355,51 @@ and _apply_rename_actor (renaming : Atom.atom -> Atom.atom) place (a:_actor) =
 }
 and apply_rename_actor renaming a = apply_rename_place (_apply_rename_actor renaming) a 
 
-and _apply_rename_term (renaming : Atom.atom -> Atom.atom ) place = function
-| Actor a -> Actor (apply_rename_actor renaming a)
-| Class x -> Class (renaming x) 
-| ClassOrInterfaceDeclaration cdcl -> ClassOrInterfaceDeclaration
-    {
-        isInterface = cdcl.isInterface; 
-        annotations = cdcl.annotations;
-        name = renaming cdcl.name;
-        extended_types = List.map (apply_rename_ctype renaming) cdcl.extended_types;
-        implemented_types = List.map (apply_rename_ctype renaming) cdcl.implemented_types;
-        body = List.map (apply_rename_term renaming) cdcl.body; 
-    }
-| Comments c -> Comments c 
-| Event e -> Event (apply_rename_event renaming e)
-| Import s -> Import s 
-| MethodDeclaration m0 -> MethodDeclaration (apply_rename_method0 renaming m0)
-| RawClass (x,raw) -> RawClass (renaming x, raw)
-| Stmt stmt -> Stmt (apply_rename_stmt renaming stmt)
-| TemplateClass raw -> TemplateClass raw 
+and _apply_rename_term (renaming : Atom.atom -> Atom.atom ) place {annotations; decorators;v} = 
+{
+    annotations = annotations;
+    decorators = decorators;
+    v = match v with
+        | Actor a -> Actor (apply_rename_actor renaming a)
+        | Class x -> Class (renaming x) 
+        | ClassOrInterfaceDeclaration cdcl -> ClassOrInterfaceDeclaration
+            {
+                isInterface = cdcl.isInterface; 
+                name = renaming cdcl.name;
+                extended_types = List.map (apply_rename_ctype renaming) cdcl.extended_types;
+                implemented_types = List.map (apply_rename_ctype renaming) cdcl.implemented_types;
+                body = List.map (apply_rename_term renaming) cdcl.body; 
+            }
+        | Comments c -> Comments c 
+        | Event e -> Event (apply_rename_event renaming e)
+        | Import s -> Import s 
+        | MethodDeclaration m0 -> MethodDeclaration (apply_rename_method0 renaming m0)
+        | RawClass (x,raw) -> RawClass (renaming x, raw)
+        | Stmt stmt -> Stmt (apply_rename_stmt renaming stmt)
+        | TemplateClass raw -> TemplateClass raw 
+}
 and apply_rename_term renaming t = apply_rename_place (_apply_rename_term renaming) t 
 
-let rec _replaceterm_term selector replace place = function
-| t when selector t -> replace t
-| Actor a -> Actor {
-    place = a.place; 
-    value = {a.value with
-        nested_items = List.map (replaceterm_term selector replace) a.value.nested_items;
+let rec _replaceterm_term selector replace place : _term annotated -> _term annotated = function
+| t when selector t -> replace t 
+| {annotations; decorators; v=Actor a} -> 
+    {    
+        annotations;
+        decorators;
+        v = Actor {
+            place = a.place; 
+            value = {a.value with
+                nested_items = List.map (replaceterm_term selector replace) a.value.nested_items;
+            }
+        } 
     }
-} 
-| ClassOrInterfaceDeclaration cdcl -> ClassOrInterfaceDeclaration
-    {
-        cdcl with 
+| {annotations; decorators; v = ClassOrInterfaceDeclaration cdcl} -> 
+    {    
+        annotations;
+        decorators;
+        v = ClassOrInterfaceDeclaration {cdcl with 
         body = List.map (replaceterm_term selector replace) cdcl.body; 
+        }
     }
 | t -> t
-and replaceterm_term (selector : _term -> bool) (replace : _term -> _term) t = apply_rename_place (_replaceterm_term selector replace) t
+and replaceterm_term (selector : _term annotated -> bool) (replace : _term annotated-> _term annotated) t = apply_rename_place (_replaceterm_term selector replace) t
