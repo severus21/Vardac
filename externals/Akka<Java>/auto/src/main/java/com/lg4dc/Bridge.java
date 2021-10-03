@@ -5,7 +5,7 @@ import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.ActorContext;
 import com.bmartin.*;
 
-public final class Bridge<P extends PProtocol> {
+public final class Bridge<P extends Protocol> {
     UUID id;
     
     //private Supplier<P> protocol_supplier;

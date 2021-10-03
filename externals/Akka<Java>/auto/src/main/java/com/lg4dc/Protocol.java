@@ -10,7 +10,23 @@ import akka.actor.typed.javadsl.ActorContext;
 
 import com.bmartin.*;
 
-public class Protocol {
+public abstract class Protocol {
+    public interface Command extends CborSerializable {
+    }
+   
+    public class Event<Msg> extends com.lg4dc.Event implements Command {
+        public Event(UUID bridge_id,  UUID session_id,  ASTStype st,  Msg msg) {
+            super(bridge_id,  session_id,  st,  msg);
+        }
+    }
+   
+    public class Session extends com.lg4dc.Session implements Command {
+        public Session(UUID bridge_id,  ActorRef<?> right,  ASTStype.Base st) {
+            super(bridge_id,  right,  st);
+        }
+    }
+
+    public abstract ASTStype.Base get_st();
 }
 /*
 //https://apocalisp.wordpress.com/2008/10/23/heterogeneous-lists-and-the-limits-of-the-java-type-system/

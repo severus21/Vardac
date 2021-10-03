@@ -189,9 +189,6 @@ and program = {
 
 [@@deriving show { with_path = false }]
 
-(* No issues with binders since atom are uniques !!  No clash
-Binders can be rename*)
-
 let rec apply_rename_place (apply_rename : Core.Error.place -> 'a -> 'a) ({ Core.AstUtils.place ; Core.AstUtils.value}: 'a Core.AstUtils.placed) = 
     let value = apply_rename place value in
     {Core.AstUtils.place; Core.AstUtils.value}
@@ -236,86 +233,86 @@ let rec _apply_rename_ctype (renaming : Atom.atom -> Atom.atom) place : _ctype -
     | cy -> print_string (show__ctype cy);failwith "";
 and apply_rename_ctype renaming (ct:ctype) = apply_rename_place (_apply_rename_ctype renaming) ct
 
-and _apply_rename_expr (renaming : Atom.atom -> Atom.atom) place = function
+and _apply_rename_expr rename_binders (renaming : Atom.atom -> Atom.atom) place = function
     | AccessExpr (e1, e2) -> AccessExpr (
-        apply_rename_expr renaming e1,
-        apply_rename_expr renaming e2
+        apply_rename_expr rename_binders renaming e1,
+        apply_rename_expr rename_binders renaming e2
     )
     | AccessMethod (e1, x) -> AccessMethod (
-        apply_rename_expr renaming e1,
+        apply_rename_expr rename_binders renaming e1,
         renaming x 
     )
     | AssertExpr e -> AssertExpr (
-        apply_rename_expr renaming e
+        apply_rename_expr rename_binders renaming e
     ) 
     | BinopExpr (e1, binop, e2) -> BinopExpr (
-        apply_rename_expr renaming e1,
+        apply_rename_expr rename_binders renaming e1,
         binop,
-        apply_rename_expr renaming e2
+        apply_rename_expr rename_binders renaming e2
     ) 
     | CallExpr (e,es) -> CallExpr (
-        apply_rename_expr renaming e,
-        List.map (apply_rename_expr renaming) es
+        apply_rename_expr rename_binders renaming e,
+        List.map (apply_rename_expr rename_binders renaming) es
     )
     | LambdaExpr (xs, stmt) -> LambdaExpr (
-        List.map renaming xs, (* binders can be renamed, see comments at the begining *)
-        apply_rename_stmt renaming stmt
+        (if rename_binders then List.map renaming xs else xs),
+        apply_rename_stmt rename_binders renaming stmt
     ) 
     | LitExpr l -> LitExpr l
     | This -> This
     | UnopExpr (unop, e) -> UnopExpr (
         unop, 
-        apply_rename_expr renaming e
+        apply_rename_expr rename_binders renaming e
     )         
     | VarExpr x -> VarExpr (renaming  x)                   
-    | NewExpr (e, es) -> NewExpr (apply_rename_expr renaming e, List.map (apply_rename_expr renaming) es)                   
+    | NewExpr (e, es) -> NewExpr (apply_rename_expr rename_binders renaming e, List.map (apply_rename_expr rename_binders renaming) es)                   
     | ClassOf ct -> ClassOf (apply_rename_ctype renaming ct)
 
     | BlockExpr (b, es) -> BlockExpr (
         b,
-        List.map (apply_rename_expr renaming) es
+        List.map (apply_rename_expr rename_binders renaming) es
     ) 
     | Spawn s -> Spawn {
-        context = apply_rename_expr renaming s.context;
-        actor_expr = apply_rename_expr renaming s.actor_expr }
+        context = apply_rename_expr rename_binders renaming s.context;
+        actor_expr = apply_rename_expr rename_binders renaming s.actor_expr }
     | CurrentContext -> CurrentContext
     | CurrentSystem -> CurrentSystem
     | RawExpr s -> RawExpr s 
-and apply_rename_expr renaming e = apply_rename_place (_apply_rename_expr renaming) e
+and apply_rename_expr rename_binders renaming e = apply_rename_place (_apply_rename_expr rename_binders renaming) e
 
-and _apply_rename_stmt (renaming : Atom.atom -> Atom.atom) place = function
-    | AssignExpr (e1, e2) -> AssignExpr (apply_rename_expr renaming e1, apply_rename_expr renaming e2)
-    | BlockStmt stmts -> BlockStmt (List.map (apply_rename_stmt renaming) stmts)
+and _apply_rename_stmt rename_binders (renaming : Atom.atom -> Atom.atom) place = function
+    | AssignExpr (e1, e2) -> AssignExpr (apply_rename_expr rename_binders renaming e1, apply_rename_expr rename_binders renaming e2)
+    | BlockStmt stmts -> BlockStmt (List.map (apply_rename_stmt rename_binders renaming) stmts)
     | BreakStmt -> BreakStmt
     | EmptyStmt -> EmptyStmt
     | LetStmt (ct, x, e_opt) -> LetStmt (
         apply_rename_ctype renaming ct,
-        renaming x, (* binder can be rename see comments at the begining*)
-        Option.map (apply_rename_expr renaming) e_opt
+        (if rename_binders then renaming x else x),
+        Option.map (apply_rename_expr rename_binders renaming) e_opt
     )
     | CommentsStmt c -> CommentsStmt c
     | ContinueStmt -> ContinueStmt
-    | ExpressionStmt e -> ExpressionStmt (apply_rename_expr renaming e)
+    | ExpressionStmt e -> ExpressionStmt (apply_rename_expr rename_binders renaming e)
     | IfStmt (e, stmt1, stmt2_opt) -> IfStmt (
-        apply_rename_expr renaming e,
-        apply_rename_stmt renaming stmt1,
-        Option.map (apply_rename_stmt renaming) stmt2_opt    
+        apply_rename_expr rename_binders renaming e,
+        apply_rename_stmt rename_binders renaming stmt1,
+        Option.map (apply_rename_stmt rename_binders renaming) stmt2_opt    
     )
-    | ReturnStmt e -> ReturnStmt (apply_rename_expr renaming e)
-and apply_rename_stmt renaming stmt = apply_rename_place (_apply_rename_stmt renaming) stmt 
+    | ReturnStmt e -> ReturnStmt (apply_rename_expr rename_binders renaming e)
+and apply_rename_stmt rename_binders renaming stmt = apply_rename_place (_apply_rename_stmt rename_binders renaming) stmt 
 
-and apply_rename_method0_body (renaming : Atom.atom -> Atom.atom) = function
-| AbstractImpl stmts -> AbstractImpl (List.map (apply_rename_stmt renaming) stmts) 
+and apply_rename_method0_body rename_binders (renaming : Atom.atom -> Atom.atom) = function
+| AbstractImpl stmts -> AbstractImpl (List.map (apply_rename_stmt rename_binders renaming) stmts) 
 | BBImpl bbterm -> BBImpl bbterm
 
-and _apply_rename_method0 (renaming : Atom.atom -> Atom.atom) place m0 =
+and _apply_rename_method0 rename_binders (renaming : Atom.atom -> Atom.atom) place m0 =
     {
         decorators = m0.decorators;
         annotations = m0.annotations;
         v = {
             ret_type =  apply_rename_ctype renaming m0.v.ret_type;
-            name = renaming m0.v.name;
-            body = apply_rename_method0_body renaming m0.v.body;
+            name = (if rename_binders then renaming m0.v.name else m0.v.name);
+            body = apply_rename_method0_body rename_binders renaming m0.v.body;
             args = List.map (function (ct, x) -> (
                 apply_rename_ctype renaming ct,
                 renaming x
@@ -323,64 +320,64 @@ and _apply_rename_method0 (renaming : Atom.atom -> Atom.atom) place m0 =
             is_constructor = m0.v.is_constructor
         }
 }
-and apply_rename_method0 renaming m0 = apply_rename_place (_apply_rename_method0 renaming) m0 
+and apply_rename_method0 rename_binders renaming m0 = apply_rename_place (_apply_rename_method0 rename_binders renaming) m0 
 
-and _apply_rename_event (renaming : Atom.atom -> Atom.atom) place e =
+and _apply_rename_event rename_binders (renaming : Atom.atom -> Atom.atom) place e =
 {
     vis = e.vis;
-    name = renaming e.name;
+    name = if rename_binders then renaming e.name else e.name;
     kind = e.kind; 
     args = List.map (function (ct, x) ->
         apply_rename_ctype renaming ct,
         renaming x
     ) e.args
 }
-and apply_rename_event renaming e = apply_rename_place (_apply_rename_event renaming) e 
+and apply_rename_event rename_binders renaming e = apply_rename_place (_apply_rename_event rename_binders renaming) e 
 
-and _apply_rename_state (renaming : Atom.atom -> Atom.atom) place s =
+and _apply_rename_state rename_binders (renaming : Atom.atom -> Atom.atom) place s =
 {
     persistent = s.persistent;
-    stmts = List.map (apply_rename_stmt renaming) s.stmts
+    stmts = List.map (apply_rename_stmt rename_binders renaming) s.stmts
 }
-and apply_rename_state renaming s = apply_rename_place (_apply_rename_state renaming) s 
+and apply_rename_state rename_binders renaming s = apply_rename_place (_apply_rename_state rename_binders renaming) s 
 
-and _apply_rename_actor (renaming : Atom.atom -> Atom.atom) place (a:_actor) =
+and _apply_rename_actor rename_binders (renaming : Atom.atom -> Atom.atom) place (a:_actor) =
 {
-    name = renaming a.name;
-    methods = List.map (apply_rename_method0 renaming) a.methods;
-    receiver = Option.map (apply_rename_method0 renaming) a.receiver;
-    states = List.map (apply_rename_state renaming) a.states;
-    events = List.map (apply_rename_event renaming) a.events; 
-    nested_items = List.map (apply_rename_term renaming) a.nested_items;
+    name = if rename_binders then renaming a.name else a.name;
+    methods = List.map (apply_rename_method0 rename_binders renaming) a.methods;
+    receiver = Option.map (apply_rename_method0 rename_binders renaming) a.receiver;
+    states = List.map (apply_rename_state rename_binders renaming) a.states;
+    events = List.map (apply_rename_event rename_binders renaming) a.events; 
+    nested_items = List.map (apply_rename_term rename_binders renaming) a.nested_items;
 }
-and apply_rename_actor renaming a = apply_rename_place (_apply_rename_actor renaming) a 
+and apply_rename_actor rename_binders renaming a = apply_rename_place (_apply_rename_actor rename_binders renaming) a 
 
-and _apply_rename_term (renaming : Atom.atom -> Atom.atom ) place {annotations; decorators;v} = 
+and _apply_rename_term rename_binders (renaming : Atom.atom -> Atom.atom ) place {annotations; decorators;v} = 
 {
     annotations = annotations;
     decorators = decorators;
     v = match v with
-        | Actor a -> Actor (apply_rename_actor renaming a)
+        | Actor a -> Actor (apply_rename_actor rename_binders renaming a)
         | Class x -> Class (renaming x) 
         | ClassOrInterfaceDeclaration cdcl -> ClassOrInterfaceDeclaration
             {
                 isInterface = cdcl.isInterface; 
-                name = renaming cdcl.name;
+                name = if rename_binders then renaming cdcl.name else cdcl.name;
                 extended_types = List.map (apply_rename_ctype renaming) cdcl.extended_types;
                 implemented_types = List.map (apply_rename_ctype renaming) cdcl.implemented_types;
-                body = List.map (apply_rename_term renaming) cdcl.body; 
+                body = List.map (apply_rename_term rename_binders renaming) cdcl.body; 
             }
         | Comments c -> Comments c 
-        | Event e -> Event (apply_rename_event renaming e)
+        | Event e -> Event (apply_rename_event rename_binders renaming e)
         | Import s -> Import s 
-        | MethodDeclaration m0 -> MethodDeclaration (apply_rename_method0 renaming m0)
+        | MethodDeclaration m0 -> MethodDeclaration (apply_rename_method0 rename_binders renaming m0)
         | RawClass (x,raw) -> RawClass (renaming x, raw)
-        | Stmt stmt -> Stmt (apply_rename_stmt renaming stmt)
+        | Stmt stmt -> Stmt (apply_rename_stmt rename_binders renaming stmt)
         | TemplateClass raw -> TemplateClass raw 
 }
-and apply_rename_term renaming t = apply_rename_place (_apply_rename_term renaming) t 
+and apply_rename_term rename_binders renaming t = apply_rename_place (_apply_rename_term rename_binders renaming) t 
 
-let rec _replaceterm_term selector replace place : _term annotated -> _term annotated = function
+let rec _replaceterm_term (rename_binders:bool) selector replace place : _term annotated -> _term annotated = function
 | t when selector t -> replace t 
 | {annotations; decorators; v=Actor a} -> 
     {    
@@ -389,7 +386,7 @@ let rec _replaceterm_term selector replace place : _term annotated -> _term anno
         v = Actor {
             place = a.place; 
             value = {a.value with
-                nested_items = List.map (replaceterm_term selector replace) a.value.nested_items;
+                nested_items = List.map (replaceterm_term rename_binders selector replace) a.value.nested_items;
             }
         } 
     }
@@ -398,8 +395,8 @@ let rec _replaceterm_term selector replace place : _term annotated -> _term anno
         annotations;
         decorators;
         v = ClassOrInterfaceDeclaration {cdcl with 
-        body = List.map (replaceterm_term selector replace) cdcl.body; 
+        body = List.map (replaceterm_term rename_binders selector replace) cdcl.body; 
         }
     }
 | t -> t
-and replaceterm_term (selector : _term annotated -> bool) (replace : _term annotated-> _term annotated) t = apply_rename_place (_replaceterm_term selector replace) t
+and replaceterm_term (rename_binders:bool) (selector : _term annotated -> bool) (replace : _term annotated-> _term annotated) t = apply_rename_place (_replaceterm_term rename_binders selector replace) t

@@ -266,7 +266,7 @@ let output_program package_name outpath items : unit =
 
         (* Plugin (external) libs imports *)
         JModule (mock_placed(ImportDirective "com.lg4dc.*"));
-        JModule (mock_placed(ImportDirective "com.bmartin.SpawnProtocol"));
+        JModule (mock_placed(ImportDirective "com.bmartin.*"));
     ])@ items in
 
     (* Configure formatter *)

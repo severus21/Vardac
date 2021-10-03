@@ -397,7 +397,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                     | {S.v=S.MethodDeclaration m0} -> 
                         (wrap_main mdef.name (auto_place (S.VarExpr (guardian_name_of mdef))) m0).value 
                 in
-                List.map (function stage -> {stage with ast = List.map (S.replaceterm_term selector replace) stage.ast }) stages 
+                List.map (function stage -> {stage with ast = List.map (S.replaceterm_term false selector replace) stage.ast }) stages 
         in
         add_main_classes (add_guardians stages)
     in
@@ -484,27 +484,67 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
         List.flatten (List.map aux stage.ast)
     in
 
-    let apply_rename_stage renaming stage = 
-        {stage with ast = List.map (S.apply_rename_term renaming) stage.ast}
+    let rec apply_rename_stage renaming stage = 
+        {stage with 
+            ast = List.map (S.apply_rename_term false renaming) stage.ast;
+            sub_stages = List.map (apply_rename_stage renaming) stage.sub_stages
+        }
     in
 
+    let main_state_rename = Hashtbl.create 128 in
+
     (* No clash of variables - since they are unique -> Atom *)
-    let rec rename_stages : stage_entry list -> stage_entry list = 
+    let rec collect_renaming_stage (stage : stage_entry) : unit = 
         (*let base_rename = (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ())) in*)
         let hydrate_state stage state x = 
             Hashtbl.add state x (
+                let tmp = 
                 if stage.name = x then (
                     Atom.refresh_hint x (Option.get stage.package_name^"."^(Atom.hint x))
                 ) else (
                     Atom.refresh_hint x (Option.get stage.package_name^"."^(Atom.to_string stage.name)^"."^(Atom.hint x))
                 )
+                in
+                logger#error ">> %s -> %s" (Atom.to_string x) (Atom.to_string tmp);
+                tmp
+            ) 
+        in
+        (*** 
+            - rename subsequent stages - that may depends of the variables binded by the current stage 
+            - previous stages can also depend on current stage renaming since component dependencies can be circular
+            - substage renaming is encapsulated
+        ***)
+        let to_rename1 = external_binders_of_stage stage in
+        List.iter (hydrate_state stage main_state_rename) to_rename1;
+        List.iter collect_renaming_stage stage.sub_stages;
+    in
+
+    let rec collect_renaming_stages stages : unit = List.iter collect_renaming_stage stages in
+
+    (*let rec rename_stages : stage_entry list ->  'a * stage_entry list = 
+        (*let base_rename = (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ())) in*)
+        let hydrate_state stage state x = 
+            Hashtbl.add state x (
+                let tmp = 
+                if stage.name = x then (
+                    Atom.refresh_hint x (Option.get stage.package_name^"."^(Atom.hint x))
+                ) else (
+                    Atom.refresh_hint x (Option.get stage.package_name^"."^(Atom.to_string stage.name)^"."^(Atom.hint x))
+                )
+                in
+                logger#error ">> %s -> %s" (Atom.to_string x) (Atom.to_string tmp);
+                tmp
             ) 
         in
 
     function
     | [] -> []
     | stage :: stages ->
-        (*** rename subsequent stages - that may depends of the variables binded by the current stage ***)
+        (*** 
+            - rename subsequent stages - that may depends of the variables binded by the current stage 
+            - previous stages can also depend on current stage renaming since component dependencies can be circular
+            - substage renaming is encapsulated
+        ***)
         let to_rename1 = external_binders_of_stage stage in
         let _state1 : (Atom.atom, Atom.atom) Hashtbl.t = Hashtbl.create (List.length to_rename1) in
         List.iter (hydrate_state stage _state1) to_rename1;
@@ -538,8 +578,20 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
 
 
         (*** Recursive call on the tail ***)
-        stage::(rename_stages stages)
-        (* TODO deals with children*)
+        renaming1, stage::(rename_stages stages)
+    in*)
+
+    let rec rename_stages (stages:stage_entry list) : stage_entry list = 
+        collect_renaming_stages stages;
+        logger#error "main %d" (Hashtbl.length main_state_rename);
+
+        let main_renaming (x:Atom.atom) : Atom.atom = 
+            match Hashtbl.find_opt main_state_rename x with 
+            | None -> x
+            | Some new_x ->
+                    new_x
+        in
+        List.map (apply_rename_stage main_renaming) stages 
     in
 
 

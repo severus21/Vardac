@@ -43,6 +43,20 @@ let t_actor_context place actor_name_opt =
             | Some actor_name -> actor_name 
         ]
     ))
+
+let t_lg4dc_protocol place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TAccess (
+        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.fresh_builtin "Protocol")) 
+    ))
+
+let t_lg4dc_bridge place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TAccess (
+        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.fresh_builtin "Bridge")) 
+    ))
 let t_event_general place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (

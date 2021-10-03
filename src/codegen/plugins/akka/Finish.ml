@@ -139,7 +139,7 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
     | S.TResult (m1, m2) -> T.TResult (fmtype m1, fmtype m2)
     | S.TSet mt -> T.TSet (fmtype mt)
     | S.TTuple mts ->  T.TTuple (List.map (fun x -> (fmtype x)) mts)
-    | S.TBridge b -> T.Atomic "Protocol.Bridge"
+    | S.TBridge b -> (t_lg4dc_bridge place).value
     | S.TRaw bbraw -> T.TRaw bbraw.value.body
 and fctype ct :  T.ctype = finish_place finish_ctype ct
 
@@ -1451,7 +1451,7 @@ and finish_term place : S._term -> T.term list = function
             decorators = [];
             v = T.ClassOrInterfaceDeclaration {
                 isInterface = false;
-                extended_types = [auto_place (T.Atomic "Protocol")];
+                extended_types = [t_lg4dc_protocol place];
                 implemented_types = [];
                 name = name;
                 body = stmts @ sub_classes @ methods (*@ events*)
@@ -1574,7 +1574,7 @@ and clean_terms : S.term list -> S.term list = function
 let finish_program terms = 
     let terms = clean_terms terms in
     let terms = List.flatten (List.rev(List.map fterm terms)) in
-    let terms = List.map (T.apply_rename_term (make_capitalize_renaming)) terms in 
+    let terms = List.map (T.apply_rename_term true (make_capitalize_renaming)) terms in 
 
     {
         event2receptionists;
