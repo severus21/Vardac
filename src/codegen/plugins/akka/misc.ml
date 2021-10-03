@@ -2,16 +2,18 @@ open Core
 open Utils
 open AstUtils
 
+let lg4dc_package = "com.lg4dc"
+
 (* Helper name *)
 let a_ASTStype_of = function
-| "" | "Base" -> Atom.fresh_builtin "Protocol.ASTStype.Base"
-| "MsgT" as s-> Atom.fresh_builtin ("Protocol.ASTStype."^s)
-| s -> Atom.fresh_builtin ("Protocol.ASTStype."^s)
+| "" | "Base" -> Atom.fresh_builtin "ASTStype.Base"
+| "MsgT" as s-> Atom.fresh_builtin ("ASTStype."^s)
+| s -> Atom.fresh_builtin ("ASTStype."^s)
 
 let a_SType_of = function
-| "" | "SType" -> Atom.fresh_builtin "Protocol.SType.SType"
-| "STLabel" as s-> Atom.fresh_builtin ("Protocol.SType."^s)
-| s -> Atom.fresh_builtin ("Protocol.SType."^s)
+| "" | "SType" -> Atom.fresh_builtin "SType.SType"
+| "STLabel" as s-> Atom.fresh_builtin ("SType."^s)
+| s -> Atom.fresh_builtin ("SType."^s)
 
         
 (*let a_protocol_inner_bridge = Atom.fresh_builtin "Bridge" *)
@@ -44,13 +46,13 @@ let t_actor_context place actor_name_opt =
 let t_event_general place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.fresh_builtin "Protocol")),
+        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
         auto_place (Ast.TVar (Atom.fresh_builtin "Event")) 
     ))
 let t_session_general place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.fresh_builtin "Protocol")),
+        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
         auto_place (Ast.TVar (Atom.fresh_builtin "Session")) 
     ))
 let t_session_of_protocol place protocol_name = 
@@ -143,4 +145,11 @@ let e_ASTStype_MsgT_of place (e:Ast.expr) =
     auto_place (Ast.NewExpr (
         auto_place (Ast.VarExpr (a_ASTStype_of "MsgT")),
        [e] 
+    ))
+
+let e_bridge_of_protocol place (protocol_e:Ast.expr) =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.NewExpr (
+        auto_place (Ast.VarExpr (Atom.fresh_builtin "Bridge")),
+       [e_session_of_protocol place protocol_e] 
     ))

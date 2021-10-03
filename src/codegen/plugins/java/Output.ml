@@ -245,6 +245,7 @@ let output_program package_name outpath items : unit =
         JModule (mock_placed(ImportDirective "java.util.List"));
         JModule (mock_placed(ImportDirective "java.time.Duration"));
         JModule (mock_placed(ImportDirective "java.util.concurrent.CompletableFuture"));
+        JModule (mock_placed(ImportDirective "java.util.UUID"));
 
 
         (* Akka imports *)
@@ -264,7 +265,7 @@ let output_program package_name outpath items : unit =
         JModule (mock_placed(ImportDirective "io.vavr.control.*"));
 
         (* Plugin (external) libs imports *)
-        JModule (mock_placed(ImportDirective "com.lg4dc.protocol.*"));
+        JModule (mock_placed(ImportDirective "com.lg4dc.*"));
         JModule (mock_placed(ImportDirective "com.bmartin.SpawnProtocol"));
     ])@ items in
 

@@ -306,12 +306,8 @@ function
     | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
     | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
     | S.LambdaExpr (x, stmt) -> T.LambdaExpr ([x], fstmt stmt) 
-    | S.LitExpr {value=S.Bridge b; place=lit_place} -> T.NewExpr(
-        auto_place (T.VarExpr (a_ASTStype_of "Bridge")),
-        [
-            e_session_of_protocol fplace (auto_place (T.VarExpr b.protocol_name))
-        ]
-    )
+    | S.LitExpr {value=S.Bridge b; place=lit_place} -> 
+       (e_bridge_of_protocol lit_place (auto_place (T.VarExpr b.protocol_name))).value 
     | S.LitExpr lit -> T.LitExpr (fliteral lit)
     | S.UnopExpr (op, e) -> T.UnopExpr (op, fexpr e)
 
@@ -763,13 +759,13 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         let remaining_stepof st = fvstype st in
         let e_remaining_step e = auto_place (T.AccessExpr (
             e,
-            auto_place (T.VarExpr (Atom.fresh_builtin "current_set"))
+            auto_place (T.VarExpr (Atom.fresh_builtin "st"))
         )) in
 
         (* Creating the statement*)
         (* TODO do it with a switch ??? *)
         (*
-            if(e.bridge_id == port_bridge.get_id() && e.current_set == 
+            if(e.bridge_id == port_bridge.get_id() && e.st == 
             current_aststype){
                 this.handle_ping46(e);
             }else{
@@ -1046,8 +1042,8 @@ and finish_term place : S._term -> T.term list = function
 
         (*** Constructor ***)
         let constructor_args = [ 
-            auto_place (T.Atomic "String"), (Atom.fresh_builtin "bridge_id");
-            auto_place (T.Atomic "int"), (Atom.fresh_builtin "session_id");
+            auto_place (T.Atomic "UUID"), (Atom.fresh_builtin "bridge_id");
+            auto_place (T.Atomic "UUID"), (Atom.fresh_builtin "session_id");
             (auto_place (T.Atomic "ASTStype")), (Atom.fresh_builtin "st");
             auto_place (T.Atomic "Msg"), (Atom.fresh_builtin "msg");
         ] in
@@ -1057,6 +1053,15 @@ and finish_term place : S._term -> T.term list = function
             v = {
                 T.ret_type = auto_place T.TVoid;
                 name = cl_event_name;
+                body  = AbstractImpl [
+                    auto_place(T.ExpressionStmt (
+                        auto_place(T.CallExpr (
+                            auto_place (T.VarExpr (Atom.fresh_builtin "super")),
+                            List.map (function (_,name) -> auto_place (T.VarExpr name)) constructor_args
+                        ))
+                    ))
+                ];
+                (*
                 body = AbstractImpl (List.map (function (_, name) -> (auto_place (T.AssignExpr (
                         auto_place (T.AccessExpr (
                             auto_place T.This, 
@@ -1066,6 +1071,7 @@ and finish_term place : S._term -> T.term list = function
                         auto_place (T.VarExpr name)
                     )
                 ))) constructor_args);
+                *)
                 args = constructor_args;
                 is_constructor = true;
             }
@@ -1077,7 +1083,7 @@ and finish_term place : S._term -> T.term list = function
             decorators = [];
             v = T.MethodDeclaration m
         })) methods in
-
+        (*
         (*** Attributes ***)
         let stmts = List.map (function (t, name) -> T.LetStmt (t, name, None)) constructor_args in
         let stmts = List.map (function stmt -> auto_place({
@@ -1085,7 +1091,7 @@ and finish_term place : S._term -> T.term list = function
             decorators = [];
             v = T.Stmt (auto_place stmt)
         })) stmts in
-
+        *)
 
         (*** CL Def ***)
 
@@ -1096,9 +1102,9 @@ and finish_term place : S._term -> T.term list = function
             T.ClassOrInterfaceDeclaration {
                 isInterface = false;
                 name = Atom.fresh_builtin "Event<Msg>";
-                extended_types = [];
+                extended_types = [t_event_general place];
                 implemented_types = [auto_place (T.Atomic "Command")];
-                body = stmts @ methods 
+                body = methods(*stmts @ methods *)
             }
         }
     end
@@ -1132,9 +1138,8 @@ and finish_term place : S._term -> T.term list = function
 
         (*** Constructor ***)
         let constructor_args = [ 
-            auto_place (T.Atomic "String"), l_bridge_id;
+            auto_place (T.Atomic "UUID"), l_bridge_id;
             auto_place (T.ActorRef (auto_place(T.Atomic "?"))), l_right;
-            auto_place (T.Atomic "int"), l_session_id;
             (auto_place (T.TVar (a_ASTStype_of ""))), l_st;
         ] in
         let m_constructor = { 
@@ -1143,7 +1148,15 @@ and finish_term place : S._term -> T.term list = function
             v = {
                 T.ret_type = auto_place T.TVoid;
                 name = cl_session_name;
-                body = AbstractImpl (List.map (function (_, name) -> (auto_place (T.AssignExpr (
+                body  = AbstractImpl [
+                    auto_place(T.ExpressionStmt (
+                        auto_place(T.CallExpr (
+                            auto_place (T.VarExpr (Atom.fresh_builtin "super")),
+                            List.map (function (_,name) -> auto_place (T.VarExpr name)) constructor_args
+                        ))
+                    ))
+                ];
+                (*body = AbstractImpl (List.map (function (_, name) -> (auto_place (T.AssignExpr (
                         auto_place (T.AccessExpr (
                             auto_place T.This, 
                             auto_place (T.VarExpr name)
@@ -1151,13 +1164,13 @@ and finish_term place : S._term -> T.term list = function
                         ),
                         auto_place (T.VarExpr name)
                     )
-                ))) constructor_args);
+                ))) constructor_args);*)
                 args = constructor_args;
                 is_constructor = true;
             }
         } in
 
-
+        (*
         (*** Method: fire ***)
         let m_fire_name = Atom.fresh_builtin "fire" in
         let fire_args = [
@@ -1337,14 +1350,14 @@ and finish_term place : S._term -> T.term list = function
         in
         
         (*** Other communication methods ***)
-
-        let methods : T.method0 list = List.map auto_place [ m_constructor; m_fire; m_receive ] in
+        *)
+        let methods : T.method0 list = List.map auto_place [ m_constructor;(* m_fire; m_receive*) ] in
         let methods = List.map (function m -> auto_place ({
             T.annotations = [];
             decorators =[];
             v = T.MethodDeclaration m
         })) methods in
-
+        (*
         (*** Attributes ***)
         let stmts = List.map (function (t, name) -> auto_place(T.LetStmt (t, name, None))) constructor_args in
         let stmts = List.map (function stmt -> auto_place({
@@ -1353,7 +1366,7 @@ and finish_term place : S._term -> T.term list = function
             v = T.Stmt (stmt)
         })) stmts in
 
-
+        *)
         (*** CL Def ***)
         {
             T.annotations = [T.Visibility T.Public];
@@ -1363,7 +1376,7 @@ and finish_term place : S._term -> T.term list = function
                 name = Atom.fresh_builtin "Session";
                 extended_types = [t_session_general place];
                 implemented_types = [auto_place (T.Atomic "Command")];
-                body = stmts @ methods 
+                body = methods (*stmts @ methods*)
             }
         }
     end

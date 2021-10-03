@@ -143,7 +143,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
         )) in        
 
         auto_place ( {
-            S.annotations = [S.Visibility S.Public; S.Static];
+            S.annotations = [S.Visibility S.Public];
             decorators = [];
             v = S.ClassOrInterfaceDeclaration {
                 isInterface = false;
@@ -327,8 +327,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                 aux (stmt::collected_stmts) xs
             | ts -> collected_stmts, ts
             in
-            let last_stmts, previous_terms = aux [] (List.rev terms) in
-            List.rev last_stmts, List.rev previous_terms
+            aux [] (List.rev terms) 
         in
 
         let last_stmts, previous_terms = getlasts_stmts stage.ast in
@@ -867,18 +866,26 @@ and fevent e : T.str_items = finish_place finish_event e
 
 and finish_arg ((ctype,variable):(S.ctype * Atom.atom)) : T.parameter =
     (fctype ctype, variable)
-and finish_method_v place ({ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
+and finish_method_v is_actor_method place ({ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
     match body with
     | S.AbstractImpl stmts when is_constructor ->
+        let args = match is_actor_method with
+        | true -> ((Rt.Misc.t_actor_context place None, Rt.Misc.a_context)::args)
+        | false -> args
+        in
+        
+        let stmts = match is_actor_method with
+        | true -> auto_place ( S.ExpressionStmt (Rt.Misc.e_super place [auto_place(S.VarExpr Rt.Misc.a_context)]))::stmts
+        | false ->  stmts
+        in
+
+
         (* FIXME check in IR that onstratup no type i.e. void*)
         T.MethodDeclaration {
             ret_type    = None;
             name        = name;
-            parameters  = 
-                List.map 
-                finish_arg 
-                ((Rt.Misc.t_actor_context place None, Rt.Misc.a_context)::args);
-            body        = List.map fstmt (auto_place ( S.ExpressionStmt (Rt.Misc.e_super place [auto_place(S.VarExpr Rt.Misc.a_context)]))::stmts);
+            parameters  = List.map finish_arg args;
+            body        = List.map fstmt stmts;
         }
     | S.AbstractImpl stmts ->
         T.MethodDeclaration {
@@ -920,7 +927,7 @@ and finish_method_v place ({ret_type; name; body; args; is_constructor}: S._meth
             parameters  = List.map finish_arg args;
             body
         }
-and fmethod m : T.str_items = {place=m.place; value= T.Body (finish_place (finish_annoted finish_method_v) m)}
+and fmethod is_actor_method m : T.str_items = {place=m.place; value= T.Body (finish_place (finish_annoted (finish_method_v is_actor_method)) m)}
 
 and finish_actor place ({name; methods; states; events; nested_items; receiver}: S._actor): T._str_items =
     let fplace = place@(Error.forge_place "Plg=Akka/finish_actor" 0 0) in
@@ -1025,13 +1032,13 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     body := !body @ [{place; value=T.Comments (IR.LineComment "Actor events")}];
     body := !body @ (List.map fevent events);
     body := !body @ [{place; value=T.Comments (IR.LineComment "Actor internal logics")}];
-    body := !body @ (List.map fmethod methods);
+    body := !body @ (List.map (fmethod true) methods);
     body := !body @ [{place; value=T.Comments (IR.LineComment "Nested structures")}];
     body := command_cl :: (!body @ (List.map fterm nested_items));
     begin match receiver with
     | Some receiver  ->     
         body := !body @ [{place; value=T.Comments (IR.LineComment "Receiver")}];
-        body := !body @ [fmethod receiver];
+        body := !body @ [fmethod true receiver];
     | None -> ()
     end;
 
@@ -1096,7 +1103,7 @@ match t with
         let external_annotations = finish_annotations annotations in
         let external_decorators = finish_decorators decorators in
 
-        let ({value=(T.Body body);} as m) = (fmethod m) in
+        let ({value=(T.Body body);} as m) = (fmethod false m) in
 
         T.Body { body with
             value = { body.value with
