@@ -14,8 +14,8 @@ public abstract class Protocol {
     public interface Command extends CborSerializable {
     }
    
-    public class Event<Msg> extends com.lg4dc.Event implements Command {
-        public Event(UUID bridge_id,  UUID session_id,  ASTStype st,  Msg msg) {
+    public class Event<Msg extends CborSerializable> extends com.lg4dc.Event<Msg> implements Command {
+        public Event(UUID bridge_id,  UUID session_id,  ASTStype.Base st,  Msg msg) {
             super(bridge_id,  session_id,  st,  msg);
         }
     }

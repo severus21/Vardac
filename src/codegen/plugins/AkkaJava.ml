@@ -498,15 +498,11 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
         (*let base_rename = (Printf.sprintf "%s.%s" (Config.author ()) (Config.project_name ())) in*)
         let hydrate_state stage state x = 
             Hashtbl.add state x (
-                let tmp = 
                 if stage.name = x then (
                     Atom.refresh_hint x (Option.get stage.package_name^"."^(Atom.hint x))
                 ) else (
-                    Atom.refresh_hint x (Option.get stage.package_name^"."^(String.lowercase_ascii (Atom.to_string stage.name))^"."^(Atom.hint x))
+                    Atom.refresh_hint x (Option.get stage.package_name^"."^(Atom.to_string stage.name)^"."^(Atom.hint x))
                 )
-                in
-                logger#error ">> %s -> %s" (Atom.to_string x) (Atom.to_string tmp);
-                tmp
             ) 
         in
         (*** 
@@ -523,7 +519,6 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
 
     let rec rename_stages (stages:stage_entry list) : stage_entry list = 
         collect_renaming_stages stages;
-        logger#error "main %d" (Hashtbl.length main_state_rename);
 
         let main_renaming (x:Atom.atom) : Atom.atom = 
             match Hashtbl.find_opt main_state_rename x with 
