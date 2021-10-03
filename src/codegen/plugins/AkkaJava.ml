@@ -502,7 +502,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                 if stage.name = x then (
                     Atom.refresh_hint x (Option.get stage.package_name^"."^(Atom.hint x))
                 ) else (
-                    Atom.refresh_hint x (Option.get stage.package_name^"."^(Atom.to_string stage.name)^"."^(Atom.hint x))
+                    Atom.refresh_hint x (Option.get stage.package_name^"."^(String.lowercase_ascii (Atom.to_string stage.name))^"."^(Atom.hint x))
                 )
                 in
                 logger#error ">> %s -> %s" (Atom.to_string x) (Atom.to_string tmp);
@@ -534,7 +534,6 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
         List.map (apply_rename_stage main_renaming) stages 
     in
 
-
     let generate_file_of_stage (parent_opt:stage_entry option) stage = 
         let parent_dir = match parent_opt with
             | None -> generation_dir
@@ -562,7 +561,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
     | [] -> imports, []
     | stage :: stages ->
         let stage = {stage with file = Some (generate_file_of_stage parent_opt stage)} in
-        let sub_imports, sub_stages = hydrate_stages (package_name^"."^(Atom.to_string stage.name)) imports (Some stage) stage.sub_stages in
+        let sub_imports, sub_stages = hydrate_stages (package_name^"."^(String.lowercase_ascii(Atom.to_string stage.name))) imports (Some stage) stage.sub_stages in
         let stage = { stage with 
             imports = List.rev sub_imports;
             package_name = if stage.sub_stages = [] then Some package_name else Some (package_name^"."^(String.lowercase_ascii (Atom.to_string stage.name)));
