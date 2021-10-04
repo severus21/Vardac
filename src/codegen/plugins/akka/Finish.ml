@@ -24,6 +24,8 @@ let make_capitalize_renaming = function x ->
 type collected_state = {
     event2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
 }
+
+
 let empty_cstate () : collected_state = {
     event2receptionists = Hashtbl.create 0
 }
@@ -39,6 +41,11 @@ let add_event_e2rs event component : unit =
     in
     Hashtbl.add event2receptionists event (component::vs)
 
+let rename_collected_state renaming = 
+    let e2rs = Hashtbl.to_seq event2receptionists in
+    let e2rs = Seq.map (function (k,v) -> renaming k, List.map renaming v) e2rs in
+
+    Hashtbl.replace_seq event2receptionists e2rs 
 (*****)
 
 (* The translation of a complete program. *)
@@ -264,11 +271,11 @@ function
         actuellement encapsuler dans le protocol pb pour la creation après
         puisque dans le language on utilise le protocol que pour le initiate_sesion et les autres types de sessions sont indépendants du protocol.
 *)
-| S.SType {value=S.STInline x} -> t_session_of_protocol place x
+| S.SType {value=S.STInline _} -> t_lg4dc_session place (* FIXME x not used *)
 | S.SType st -> {
     place; 
     value = T.TParam (
-        t_session_general fplace,
+        t_lg4dc_session fplace,
         [ ] (* FIXME at this point we do not parametrize session with session types since 
                 do not compile yet
                 if we can exhange session by message-passing Java loose the generic parameter types dynamically 
@@ -756,6 +763,10 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             e,
             auto_place (T.VarExpr (Atom.fresh_builtin "bridge_id"))
         )) in
+        let e_replyto e = auto_place (T.AccessExpr (
+            e,
+            auto_place (T.VarExpr (Atom.fresh_builtin "replyTo"))
+        )) in
         let remaining_stepof st = fvstype st in
         let e_remaining_step e = auto_place (T.AccessExpr (
             e,
@@ -765,13 +776,19 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         (* Creating the statement*)
         (* TODO do it with a switch ??? *)
         (*
-            if(e.bridge_id == port_bridge.get_id() && e.st == 
-            current_aststype){
-                this.handle_ping46(e);
+            if(e.bridge_id == author.project_name.Stage219.b36.get_id() && e.st == current_aststype){
+                author.project_name.Session<?> s = new Session(e.bridge_id, e.replyTo, e.st);
+                s.set_id(e.session_id);
+
+                this.handle_ping61(s);
             }else{
                 ...
             }
         *)
+
+        let a_session = Atom.fresh_builtin "s" in
+        let l_session = auto_place (T.VarExpr a_session) in
+
         let add_case (bridge, st) (callback:T.expr) acc : T.stmt =
             auto_place (T.IfStmt (
                 auto_place (T.BinopExpr(
@@ -779,12 +796,26 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                     S.And,
                     auto_place (T.BinopExpr (e_remaining_step l_event, S.Equal, remaining_stepof st))
                 )),
-                auto_place (T.ExpressionStmt (auto_place (
-                    T.CallExpr(
-                        callback,
-                        [ l_event ]
-                    )
-                ))),
+                auto_place (T.BlockStmt [
+                    auto_place (T.LetStmt (
+                        t_lg4dc_session place,
+                        a_session,
+                        Some (auto_place (T.NewExpr(
+                            e_lg4dc_session place,
+                            [
+                                e_bridgeid l_event;
+                                e_replyto l_event;
+                                e_remaining_step l_event
+                            ]
+                        )))
+                    ));
+                    auto_place (T.ExpressionStmt (auto_place (
+                        T.CallExpr(
+                            callback,
+                            [ l_session ]
+                        )
+                    )))
+                ]),
                 Some acc
             ))
         in
@@ -821,8 +852,8 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                     args = [
                         (
                             auto_place (T.TParam (
-                                t_event_general fplace,
-                                [ auto_place(T.TVar event_name) ]
+                                auto_place(T.TVar event_name),
+                                [ ] (* FIXME for now metadata is fixed per type of event and cannot be changed in a per channel basis TODO t_lg4dc_nometadata fplace ]*)
                             )), 
                             l_event_name
                         )
@@ -879,7 +910,8 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     (* Step 4 - Prepare parent_env for updating event definition in order to
         event Pong implements C.Command for all C that can receive a Pong event
     *)
-    Hashtbl.iter (fun event _ -> add_event_e2rs event name) env;
+
+    Hashtbl.iter (fun event _ -> logger#warning ">>> %s %s" (Atom.to_string event) (Atom.to_string name);add_event_e2rs event name) env;
     
     (***** Building methods *****)
     let methods = receiver_methods @ (List.flatten (List.map (fmethod name) grp_items.methods)) in 
@@ -907,7 +939,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                 })
                 (List.flatten (List.map fcdcl grp_items.nested)
             ); 
-            T.receiver = Some receiver
+            T.receiver = receiver
         }
     }]
 end 
@@ -1017,372 +1049,7 @@ and finish_term place : S._term -> T.term list = function
             }
         }:: (extract_events st_next.place (k+1) st_next.value)
     in
-    let sub_class_command = {
-        T.annotations = [T.Visibility T.Public];
-        decorators = [];
-        v = T.ClassOrInterfaceDeclaration {
-            isInterface = true;
-            name = Atom.fresh_builtin "Command";
-            extended_types = [auto_place (T.Atomic "CborSerializable")];
-            implemented_types = [];
-            body = [] 
-        }
-    } in
 
-
-    (*** Inner class: Event<Msg> ***)
-    let cl_event_name = Atom.fresh_builtin "Event" in
-    let sub_class_event = 
-    begin
-        let l_st = Atom.fresh_builtin "st" in
-        let this_st = T.AccessExpr (
-                            auto_place T.This, 
-                            auto_place (T.VarExpr l_st)
-                            ) in
-
-        (*** Constructor ***)
-        let constructor_args = [ 
-            auto_place (T.Atomic "UUID"), (Atom.fresh_builtin "bridge_id");
-            auto_place (T.Atomic "UUID"), (Atom.fresh_builtin "session_id");
-            (auto_place (T.Atomic "ASTStype")), (Atom.fresh_builtin "st");
-            auto_place (T.Atomic "Msg"), (Atom.fresh_builtin "msg");
-        ] in
-        let m_constructor : T._method0 T.annotated = { 
-            T.annotations = [T.Visibility T.Public];
-            decorators      = [];
-            v = {
-                T.ret_type = auto_place T.TVoid;
-                name = cl_event_name;
-                body  = AbstractImpl [
-                    auto_place(T.ExpressionStmt (
-                        auto_place(T.CallExpr (
-                            auto_place (T.VarExpr (Atom.fresh_builtin "super")),
-                            List.map (function (_,name) -> auto_place (T.VarExpr name)) constructor_args
-                        ))
-                    ))
-                ];
-                (*
-                body = AbstractImpl (List.map (function (_, name) -> (auto_place (T.AssignExpr (
-                        auto_place (T.AccessExpr (
-                            auto_place T.This, 
-                            auto_place (T.VarExpr name)
-                            )
-                        ),
-                        auto_place (T.VarExpr name)
-                    )
-                ))) constructor_args);
-                *)
-                args = constructor_args;
-                is_constructor = true;
-            }
-        } in
-
-        let methods : T.method0 list = List.map auto_place [ m_constructor ] in
-        let methods = List.map (function m -> auto_place ({
-            T.annotations = [];
-            decorators = [];
-            v = T.MethodDeclaration m
-        })) methods in
-        (*
-        (*** Attributes ***)
-        let stmts = List.map (function (t, name) -> T.LetStmt (t, name, None)) constructor_args in
-        let stmts = List.map (function stmt -> auto_place({
-            T.annotations = [];
-            decorators = [];
-            v = T.Stmt (auto_place stmt)
-        })) stmts in
-        *)
-
-        (*** CL Def ***)
-
-        {
-            T.annotations = [T.Visibility T.Public];
-            decorators = [];
-            v = 
-            T.ClassOrInterfaceDeclaration {
-                isInterface = false;
-                name = Atom.fresh_builtin "Event<Msg>";
-                extended_types = [t_event_general place];
-                implemented_types = [auto_place (T.Atomic "Command")];
-                body = methods(*stmts @ methods *)
-            }
-        }
-    end
-    in
-
-    (*** Inner class: Session ***)
-    let cl_session_name = Atom.fresh_builtin "Session" in
-    let sub_class_session = 
-    begin
-        (*** Helpers ***)
-        let l_bridge_id = Atom.fresh_builtin "bridge_id" in
-        let l_session_id = Atom.fresh_builtin "session_id" in
-        let l_right = Atom.fresh_builtin "right" in
-        let l_st = Atom.fresh_builtin "st" in
-        let this_bridge_id = T.AccessExpr (
-                            auto_place T.This, 
-                            auto_place (T.VarExpr l_bridge_id)
-                            ) in
-        let this_session_id = T.AccessExpr (
-                            auto_place T.This, 
-                            auto_place (T.VarExpr l_session_id)
-                            ) in
-        let this_right = T.AccessExpr (
-                            auto_place T.This, 
-                            auto_place (T.VarExpr l_right)
-                            ) in
-        let this_st = T.AccessExpr (
-                            auto_place T.This, 
-                            auto_place (T.VarExpr l_st)
-                            ) in
-
-        (*** Constructor ***)
-        let constructor_args = [ 
-            auto_place (T.Atomic "UUID"), l_bridge_id;
-            auto_place (T.ActorRef (auto_place(T.Atomic "?"))), l_right;
-            (auto_place (T.TVar (a_ASTStype_of ""))), l_st;
-        ] in
-        let m_constructor = { 
-            T.decorators      = [];
-            annotations = [T.Visibility T.Public];
-            v = {
-                T.ret_type = auto_place T.TVoid;
-                name = cl_session_name;
-                body  = AbstractImpl [
-                    auto_place(T.ExpressionStmt (
-                        auto_place(T.CallExpr (
-                            auto_place (T.VarExpr (Atom.fresh_builtin "super")),
-                            List.map (function (_,name) -> auto_place (T.VarExpr name)) constructor_args
-                        ))
-                    ))
-                ];
-                (*body = AbstractImpl (List.map (function (_, name) -> (auto_place (T.AssignExpr (
-                        auto_place (T.AccessExpr (
-                            auto_place T.This, 
-                            auto_place (T.VarExpr name)
-                            )
-                        ),
-                        auto_place (T.VarExpr name)
-                    )
-                ))) constructor_args);*)
-                args = constructor_args;
-                is_constructor = true;
-            }
-        } in
-
-        (*
-        (*** Method: fire ***)
-        let m_fire_name = Atom.fresh_builtin "fire" in
-        let fire_args = [
-            auto_place (T.Atomic "Msg"), (Atom.fresh_builtin "msg");
-            auto_place (T.Atomic "ActorContext"), (Atom.fresh_builtin "context");
-        ] in
-        let m_fire = 
-            let l_msg = T.VarExpr (Atom.fresh_builtin "msg") in  
-            let l_context = T.VarExpr (Atom.fresh_builtin "context") in  
-            let cl_msg_name = Atom.fresh_builtin "Msg" in  
-            let l_e = Atom.fresh_builtin "e" in
-            { 
-
-                T.decorators      = [];
-                annotations = [T.Visibility T.Public];
-                v = {
-                    T.ret_type = auto_place (T.TVar cl_session_name);
-                    name = m_fire_name;
-                    body = AbstractImpl ([
-                        (* Event<Msg> e = Event(this.bridge_id, this.session_id, msg); *)
-                        (auto_place (T.LetStmt (
-                            auto_place (T.TParam 
-                            (auto_place (T.TVar cl_event_name),
-                            [ (auto_place (T.TVar cl_msg_name)) ]
-                            )),
-                            l_e,
-                            Some (auto_place (T.CallExpr (
-                                auto_place (T.VarExpr cl_event_name),
-                                [
-                                    auto_place this_bridge_id;
-                                    auto_place this_session_id;
-                                    auto_place this_st;
-                                    auto_place l_msg;
-                                ]
-                            ))
-                        ))));
-                        
-                        (* this.right.tell(e,  getContext().getSelf()); *)
-                        expr2stmt (auto_place (T.CallExpr (
-                            auto_place (T.AccessExpr (
-                                auto_place this_right,
-                                auto_place (T.VarExpr (Atom.fresh_builtin "tell"))
-                                )
-                            ),
-                            [
-                                auto_place (T.VarExpr l_e);
-                                e_get_self fplace (auto_place l_context)
-                            ]
-                        )));
-
-                        (* this.st = st.continuation *)
-                        (auto_place (T.AssignExpr (
-                            auto_place this_st,
-                            auto_place (T.AccessExpr (
-                                auto_place this_st,
-                                auto_place (T.VarExpr (Atom.fresh_builtin "continuation"))
-                            ))
-                        )));
-                        (* return e.msg; *)
-                        (auto_place (T.ReturnStmt (
-                            auto_place (T.This)
-                        )))
-                    ]);
-                    args = fire_args;
-                    is_constructor = false;
-                } 
-            }
-        in
-
-        (*** Method: receive ***)
-        let m_receive_name = Atom.fresh_builtin "receive" in
-        let receive_args = [
-            auto_place (T.Atomic "ActorContext"), (Atom.fresh_builtin "context");
-        ] in
-        let m_receive = 
-            let l_msg = T.VarExpr (Atom.fresh_builtin "msg") in  
-            let l_context = T.VarExpr (Atom.fresh_builtin "context") in  
-            let l_timeout = (Atom.fresh_builtin "timeout") in (* TODO deals with user defined timeout + load timeout from config *) 
-            let l_future = (Atom.fresh_builtin "future") in 
-            let cl_msg_name = Atom.fresh_builtin "Msg" in  
-            let l_e = Atom.fresh_builtin "e" in
-
-            { 
-                T.decorators = [];
-                annotations = [T.Visibility T.Public];
-                v = {
-                    T.ret_type = auto_place (T.TTuple [ 
-                        auto_place (T.TVar (Atom.fresh_builtin "Object"));
-                        auto_place (T.TVar cl_session_name)
-                    ]);
-                    name = m_receive_name;
-                    body = AbstractImpl ([
-                        (* final Duration timeout = Duration.ofSeconds(3); *)
-                        (auto_place (T.LetStmt (
-                            (auto_place (T.TVar (Atom.fresh_builtin "Duration"))),
-                            l_timeout,
-                            Some (auto_place (T.CallExpr (
-                                auto_place (T.VarExpr (Atom.fresh_builtin "Duration.ofSeconds")),
-                                [
-                                    auto_place (T.LitExpr (auto_place(T.IntLit 3)));
-                                ]
-                            ))
-                        ))));
-
-                        (* CompletableFuture<Event<Object>> future = ask(actorB, msg, timeout).toCompletableFuture(); *)
-                        (auto_place (T.LetStmt (
-                            (auto_place (T.TParam(
-                                auto_place (T.TVar (Atom.fresh_builtin "CompletableFuture")),
-                                [ 
-                                    auto_place (T.TVar (Atom.fresh_builtin "Event<Object>"))
-                                ]
-                            ))),
-                            l_future,
-                            Some (auto_place (T.AccessExpr ( 
-                                auto_place (T.CallExpr (
-                                    auto_place (T.VarExpr (Atom.fresh_builtin "ask")),
-                                    [
-                                        auto_place this_right;
-                                        auto_place l_msg;
-                                        auto_place (T.VarExpr l_timeout);
-                                    ]
-                                )),
-                                auto_place (T.CallExpr (
-                                    auto_place (T.VarExpr (Atom.fresh_builtin "toCompletableFuture")),
-                                    []
-                                ))
-                            ))
-                        ))));
-
-                        (* Event<Object> msg = (Event<Object>) future.join() *)
-                        (auto_place (T.LetStmt (
-                            (auto_place (T.TParam(
-                                auto_place (T.TVar (Atom.fresh_builtin "Event")),
-                                [
-                                    auto_place (T.TVar (Atom.fresh_builtin "Object"))
-                                ]
-                            ))),
-                            l_e,
-                            Some (auto_place (T.CallExpr (
-                                auto_place (T.AccessExpr(
-                                    auto_place (T.VarExpr l_future),
-                                    auto_place (T.VarExpr (Atom.fresh_builtin "join"))
-                                )),
-                                [
-                                    auto_place (T.LitExpr (auto_place(T.IntLit 3)));
-                                ]
-                            ))
-                        ))));
-
-                        (* this.st = st.continuation *)
-                        (auto_place (T.AssignExpr (
-                            auto_place this_st,
-                            auto_place (T.AccessExpr (
-                                auto_place this_st,
-                                auto_place (T.VarExpr (Atom.fresh_builtin "continuation"))
-                            ))
-                        )));
-
-                    (* return Tuple2(e.msg, this); *)
-                        (auto_place (T.ReturnStmt (
-                            auto_place ( T.NewExpr (
-                                auto_place ( T.VarExpr (Atom.fresh_builtin "Tuple2")),
-                                [
-                                    auto_place ( T.AccessExpr(
-                                        auto_place (T.VarExpr l_e),
-                                        auto_place (T.VarExpr (Atom.fresh_builtin "msg"))
-                                    ));
-                                    auto_place ( T.This)
-                                ]
-                            ))
-                        )))
-                    ]);
-                    args = receive_args;
-                    is_constructor = false;
-                } 
-            }
-        in
-        
-        (*** Other communication methods ***)
-        *)
-        let methods : T.method0 list = List.map auto_place [ m_constructor;(* m_fire; m_receive*) ] in
-        let methods = List.map (function m -> auto_place ({
-            T.annotations = [];
-            decorators =[];
-            v = T.MethodDeclaration m
-        })) methods in
-        (*
-        (*** Attributes ***)
-        let stmts = List.map (function (t, name) -> auto_place(T.LetStmt (t, name, None))) constructor_args in
-        let stmts = List.map (function stmt -> auto_place({
-            T.annotations = [];
-            decorators = [];
-            v = T.Stmt (stmt)
-        })) stmts in
-
-        *)
-        (*** CL Def ***)
-        {
-            T.annotations = [T.Visibility T.Public];
-            decorators = [];
-            v = T.ClassOrInterfaceDeclaration {
-                isInterface = false;
-                name = Atom.fresh_builtin "Session";
-                extended_types = [t_session_general place];
-                implemented_types = [auto_place (T.Atomic "Command")];
-                body = methods (*stmts @ methods*)
-            }
-        }
-    end
-    in
-
-    
     (*let events = extract_events st.place 0 st.value in
     let events = List.map (function e -> {place=e.place@fplace; value=T.Event e}) events in*)
 
@@ -1393,45 +1060,27 @@ and finish_term place : S._term -> T.term list = function
         auto_place (T.VarExpr l_st)
     ) in
 
-    (*** Constructor ***)
-    let event_constructor_args = [ 
-        auto_place (T.Atomic "String"), (Atom.fresh_builtin "bridge_id");
-        auto_place (T.Atomic "int"), (Atom.fresh_builtin "session_id");
-        auto_place (T.ActorRef (auto_place(T.Atomic "?"))), (Atom.fresh_builtin "right")
-    ] in
-(*    let m_event_constructor = { 
-        T.annotations = [T.Visibility T.Public];
-            ret_type = auto_place T.TVoid;
-            name = name;
-            body = AbstractImpl (
-                (List.map (function (_, name) -> (auto_place (T.AssignExpr (
-                        auto_place (T.AccessExpr (
-                            auto_place T.This, 
-                            auto_place (T.VarExpr name)
-                            )
-                        ),
-                        auto_place (T.VarExpr name)
-                    )
-                ))) event_constructor_args)
-                @
-                [
-                    (* this.st = encoding *)
-                    auto_place (T.AssignExpr (
-                        auto_place this_st,
-                        fvstype st
-                    ))
-                ]
-            );
-            args = event_constructor_args;
-            is_constructor = true;
+    (* com.lg4dc.Protocol *)
+    let m_get_st = {
+        T.decorators = [];
+        annotations = [T.Visibility T.Public];
+        v = {
+            T.ret_type = auto_place (T.TVar (a_ASTStype_of ""));
+            name = Atom.fresh_builtin "get_st";
+            body = AbstractImpl [
+                auto_place (T.ReturnStmt (
+                    fvstype st
+                ))
+            ];
+            args = [];
+            is_constructor = false;
+        }
     } in
-*)
-    (* TODO with ports *)
 
     (*** Body assembly ***)
-    let sub_classes = List.map (function cl -> auto_place cl) [sub_class_command; sub_class_event; sub_class_session] in
+    let sub_classes = List.map (function cl -> auto_place cl) [] in
 
-    let methods : T.method0 list = List.map auto_place [] in
+    let methods : T.method0 list = List.map auto_place [m_get_st] in
     let methods = List.map (function m -> auto_place ({
         T.annotations = [];
         decorators = [];
@@ -1451,8 +1100,8 @@ and finish_term place : S._term -> T.term list = function
             decorators = [];
             v = T.ClassOrInterfaceDeclaration {
                 isInterface = false;
-                extended_types = [t_lg4dc_protocol place];
-                implemented_types = [];
+                extended_types = [];
+                implemented_types = [t_lg4dc_protocol place];
                 name = name;
                 body = stmts @ sub_classes @ methods (*@ events*)
             }
@@ -1574,21 +1223,16 @@ and clean_terms : S.term list -> S.term list = function
 let finish_program terms = 
     let terms = clean_terms terms in
     let terms = List.flatten (List.rev(List.map fterm terms)) in
+    
+    (* Apply renaming *)
     let terms = List.map (T.apply_rename_term true (make_capitalize_renaming)) terms in 
+    rename_collected_state (make_capitalize_renaming);  
+    
 
     {
         event2receptionists;
     }, { 
         T.entrypoint = [];
-        T.system = {
-            place = Error.forge_place "Plg=Akka/finish_program" 0 0;
-            value = {
-            name=Atom.fresh "AkkaSystem";
-            methods= []; 
-            states= []; 
-            events=[]; 
-            receiver = None;
-            nested_items=[]}
-        };
+        T.system = ();
         T.terms = terms   
     }

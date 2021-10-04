@@ -5,13 +5,13 @@ import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.ActorContext;
 import com.bmartin.*;
 
-public class Session {
+public class Session<Command extends CborSerializable> {
     UUID bridge_id;
-    ActorRef<?> right;
+    ActorRef<Command> right;
     UUID session_id;
     ASTStype.Base st;
 
-    public Session(UUID bridge_id, ActorRef<?> right, ASTStype.Base st) {
+    public Session(UUID bridge_id, ActorRef<Command> right, ASTStype.Base st) {
         this.bridge_id = bridge_id;
         this.session_id = UUID.randomUUID();
         this.right = right;
@@ -19,10 +19,14 @@ public class Session {
         this.st = st;
     }
     
-    public <Msg extends CborSerializable> Session fire(Msg msg,  ActorContext context) {
+    public void set_id(UUID id){
+        this.session_id = id;
+    }
+    
+    public <E extends Event, Command> Session fire(E e,  ActorContext context) {
         assert(this.st.continuations.size() == 1);
-        
-        Event<Msg> e = new Event(this.bridge_id,  this.session_id,  this.st,  msg);
+
+        e.hydrate(this.bridge_id,  this.session_id,  this.right, this.st, new NoMetadata());
         this.right.tell(e, context.getSelf());
 
         this.st = this.st.continuations.get(1)._2;

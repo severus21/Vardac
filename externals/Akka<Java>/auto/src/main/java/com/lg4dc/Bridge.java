@@ -23,7 +23,7 @@ public final class Bridge<P extends Protocol> {
         return this.id;
     }
 
-    public Session init_session_with(ActorRef<?> right){
-        return new Session(this.id, right, this.protocol.st);
+    public Session initiate_session_with(ActorRef<?> right){
+        return new Session(this.id, right, this.protocol.get_st());
     }    
 }

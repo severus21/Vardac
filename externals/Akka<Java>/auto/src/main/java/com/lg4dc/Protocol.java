@@ -10,22 +10,7 @@ import akka.actor.typed.javadsl.ActorContext;
 
 import com.bmartin.*;
 
-public abstract class Protocol {
-    public interface Command extends CborSerializable {
-    }
-   
-    public class Event<Msg extends CborSerializable> extends com.lg4dc.Event<Msg> implements Command {
-        public Event(UUID bridge_id,  UUID session_id,  ASTStype.Base st,  Msg msg) {
-            super(bridge_id,  session_id,  st,  msg);
-        }
-    }
-   
-    public class Session extends com.lg4dc.Session implements Command {
-        public Session(UUID bridge_id,  ActorRef<?> right,  ASTStype.Base st) {
-            super(bridge_id,  right,  st);
-        }
-    }
-
+public abstract interface Protocol {
     public abstract ASTStype.Base get_st();
 }
 /*

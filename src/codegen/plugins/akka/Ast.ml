@@ -143,7 +143,7 @@ and _actor = {
                 .build();
     }
     *)
-    receiver: method0 option;
+    receiver: method0;
     states: state list;
     events: event list; 
     nested_items: term list;
@@ -181,7 +181,7 @@ and term = (_term annotated) placed
 (**  Main function*)
 and entrypoint = expr list
 (** Akka actor system *)
-and system =  actor  
+and system =  unit  
 and program = {
     entrypoint: entrypoint;
     system: system;
@@ -345,7 +345,7 @@ and _apply_rename_actor rename_binders (renaming : Atom.atom -> Atom.atom) place
 {
     name = if rename_binders then renaming a.name else a.name;
     methods = List.map (apply_rename_method0 rename_binders renaming) a.methods;
-    receiver = Option.map (apply_rename_method0 rename_binders renaming) a.receiver;
+    receiver = (apply_rename_method0 rename_binders renaming) a.receiver;
     states = List.map (apply_rename_state rename_binders renaming) a.states;
     events = List.map (apply_rename_event rename_binders renaming) a.events; 
     nested_items = List.map (apply_rename_term rename_binders renaming) a.nested_items;

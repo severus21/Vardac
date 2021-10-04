@@ -182,7 +182,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
             else begin 
                 let others = List.map (function (o:S.term) -> {
                     o with value = {
-                        S.annotations = [S.Visibility S.Public] @ o.value.annotations;
+                        S.annotations = [S.Visibility S.Public; S.Static] @ o.value.annotations;
                         decorators = o.value.decorators;
                         v = o.value.v
                     }
@@ -308,7 +308,34 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                         }
                     }
                 ];
-                receiver = None;
+                receiver = auto_place {
+                    S.annotations     = [ S.Visibility S.Public ];
+                    decorators      = [ S.Override];
+                    v = {
+                        S.args            = [];
+                        body            = S.AbstractImpl ([
+                            auto_place (S.ReturnStmt(
+                                auto_place(S.CallExpr(
+                                    auto_place(S.AccessExpr(
+                                        auto_place(S.CallExpr(
+                                            auto_place(S.VarExpr (
+                                                Atom.fresh_builtin "newReceiveBuilder"
+                                            )),
+                                            []
+                                        )), 
+                                        auto_place(S.VarExpr (
+                                            Atom.fresh_builtin "build"
+                                        ))
+                                    )),
+                                    []
+                                ))
+                            ))
+                        ]);
+                        name            = Atom.fresh_builtin "createReceive";
+                        ret_type        = Rt.Misc.t_receive_of_actor fplace name;
+                        is_constructor  = false
+                    }
+                };
                 states = [];
                 events = [];
                 nested_items = [];
@@ -643,7 +670,7 @@ let builtin_eval =
   with Not_found ->Atom.value x
 
 let rec finish_ctype place : S._ctype -> T._jtype = 
-    let fplace = place@(Error.forge_place "Plg=AkkaJava/finish_event" 0 0) in
+    let fplace = place@(Error.forge_place "Plg=AkkaJava/finish_ctype" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
 function 
     | S.Atomic s -> T.TAtomic s 
@@ -832,6 +859,8 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
         | Some actor_names -> 
             List.map fctype (List.map (Akka.Misc.t_command_of_actor fplace) actor_names)
     in
+    
+    logger#error "event %s can be received by up to %d" (Atom.to_string name) (List.length implemented_types);
 
     T.Body {
         place; 
@@ -842,7 +871,7 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
                 isInterface         = false;
                 name                = name;
                 parameters          = []; 
-                extended_types      = [];
+                extended_types      = [fctype (Rt.Misc.t_lg4dc_event fplace None)];
                 implemented_types   = implemented_types; 
                 body                = constructor::fields
             }
@@ -1021,12 +1050,8 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     body := !body @ (List.map (fmethod true) methods);
     body := !body @ [{place; value=T.Comments (IR.LineComment "Nested structures")}];
     body := command_cl :: (!body @ (List.map fterm nested_items));
-    begin match receiver with
-    | Some receiver  ->     
-        body := !body @ [{place; value=T.Comments (IR.LineComment "Receiver")}];
-        body := !body @ [fmethod true receiver];
-    | None -> ()
-    end;
+    body := !body @ [{place; value=T.Comments (IR.LineComment "Receiver")}];
+    body := !body @ [fmethod true receiver];
 
     T.Body { 
         place; 
@@ -1045,12 +1070,29 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     } 
 and factor a : T.str_items = finish_place finish_actor a
 
-and finish_term place {S.annotations; decorators; v=t}: T._str_items =
+(*
+    is_cl_toplevel
+*)
+and finish_term is_cl_toplevel place {S.annotations; decorators; v=t}: T._str_items =
 match t with 
     | S.Comments c -> T.Comments c
     | Actor a  -> (factor a).value
     | Import s -> T.JModule ({place; value=T.ImportDirective s})
     | Event e  ->  (fevent e).value
+    | Stmt {place=p2; value= S.LetStmt(t, x, e_opt)} when is_cl_toplevel -> 
+        (* Toplevel stmt -> FieldDeclaration *)
+        T.Body {
+            place = p2;
+            value = {
+                annotations = [T.Visibility T.Public] @ (finish_annotations annotations);
+                decorators = finish_decorators decorators;
+                v = FieldDeclaration {
+                    type0 = fctype t;
+                    name = x;
+                    body = Option.map fexpr e_opt
+                }
+            }
+        }
     | Stmt s -> T.Stmt (fstmt s)
     | Class x -> T.Body (
         { 
@@ -1069,21 +1111,23 @@ match t with
             }
         }
     )
-    | ClassOrInterfaceDeclaration cdcl ->T.Body { 
-        place;
-        value = {
-            T.annotations = finish_annotations annotations;
-            decorators = finish_decorators decorators;
-            v = T.ClassOrInterfaceDeclaration {
-                isInterface = cdcl.isInterface;
-                name = cdcl.name;
-                parameters = []; 
-                extended_types = List.map fctype cdcl.extended_types;
-                implemented_types = List.map fctype cdcl.implemented_types;
-                body = List.map fterm cdcl.body 
+    | ClassOrInterfaceDeclaration cdcl -> begin
+        T.Body { 
+            place;
+            value = {
+                T.annotations = finish_annotations annotations;
+                decorators = finish_decorators decorators;
+                v = T.ClassOrInterfaceDeclaration {
+                    isInterface = cdcl.isInterface;
+                    name = cdcl.name;
+                    parameters = []; 
+                    extended_types = List.map fctype cdcl.extended_types;
+                    implemented_types = List.map fctype cdcl.implemented_types;
+                    body = List.map (fterm ~is_cl_toplevel:true) cdcl.body 
+                }
             }
         }
-    }
+    end
     | MethodDeclaration m -> 
         (* Needs to put external annotations/decorators insde the Body of method since str_items can not be annotated *)
         let external_annotations = finish_annotations annotations in
@@ -1113,7 +1157,7 @@ match t with
         }
     }
     | TemplateClass raw -> T.Raw raw.value (* TODO FIXME we should  keep raw.place here *) 
-and fterm t : T.str_items = finish_place finish_term t
+and fterm ?(is_cl_toplevel=false) t : T.str_items = finish_place (finish_term is_cl_toplevel) t
 
 and finish_program target (_cstate, program): (string * Fpath.t * T.program) List.t = 
     cstate := _cstate;

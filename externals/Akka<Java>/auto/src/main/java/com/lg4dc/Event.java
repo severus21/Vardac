@@ -1,18 +1,23 @@
 package com.lg4dc;
 
+import akka.actor.typed.ActorRef;
 import java.util.UUID;
 import com.bmartin.*;
 
-public class Event<Msg extends CborSerializable> implements CborSerializable {
+public class Event<T extends AbstractMetadata> implements CborSerializable {
     public UUID bridge_id;
     public UUID session_id;
+    public ActorRef<?> replyTo;
     public ASTStype.Base st;
-    public Msg msg;
+    public AbstractMetadata metadata;
     
-    public Event(UUID bridge_id, UUID session_id, ASTStype.Base st, Msg msg) {
+    public Event() {}
+
+    public void hydrate(UUID bridge_id, UUID session_id, ActorRef<?> replyTo, ASTStype.Base st, AbstractMetadata metadata) {
         this.bridge_id = bridge_id;
         this.session_id = session_id;
+        this.replyTo = replyTo;
         this.st = st;
-        this.msg = msg;
+        this.metadata = metadata;
     }
 }

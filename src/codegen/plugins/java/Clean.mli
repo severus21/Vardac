@@ -1,5 +1,5 @@
 (*
     Clean Java AST:
-    - rewrite toplevel, inside class, let stmt to field declarations  
+    - deduplicate annotations and decorators  
 *)
 val clean_program : Ast.program -> Ast.program 

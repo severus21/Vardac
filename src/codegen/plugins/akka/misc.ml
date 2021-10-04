@@ -57,22 +57,31 @@ let t_lg4dc_bridge place =
         auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
         auto_place (Ast.TVar (Atom.fresh_builtin "Bridge")) 
     ))
-let t_event_general place =
+
+let t_lg4dc_nometadata place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
         auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
-        auto_place (Ast.TVar (Atom.fresh_builtin "Event")) 
+        auto_place (Ast.TVar (Atom.fresh_builtin "NoMetadata")) 
     ))
-let t_session_general place =
+
+let t_lg4dc_event place metadata_opt =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TParam(
+        auto_place (Ast.TAccess (
+            auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
+            auto_place (Ast.TVar (Atom.fresh_builtin "Event")) 
+        )),
+        [
+            match metadata_opt with 
+            | None -> t_lg4dc_nometadata place
+            | Some ct -> ct
+        ]
+    ))
+let t_lg4dc_session place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
         auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
-        auto_place (Ast.TVar (Atom.fresh_builtin "Session")) 
-    ))
-let t_session_of_protocol place protocol_name = 
-    let auto_place smth = {place; value=smth} in
-    auto_place (Ast.TAccess (
-        auto_place (Ast.TVar protocol_name),
         auto_place (Ast.TVar (Atom.fresh_builtin "Session")) 
     ))
 let t_command_of_actor place actor_name = 
@@ -112,11 +121,20 @@ let e_get_self place context =
         ))
     ))
 
+let e_lg4dc_session place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr (
+        auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package)),
+        auto_place (Ast.VarExpr (Atom.fresh_builtin "Session")) 
+    ))
 let e_session_of_protocol place protocol = 
     let auto_place smth = {place; value=smth} in
-    auto_place ( Ast.AccessExpr (
-        protocol,
-        auto_place ( Ast.VarExpr (Atom.fresh_builtin "st"))
+    auto_place ( Ast.CallExpr (
+        auto_place ( Ast.AccessExpr (
+            auto_place (Ast.NewExpr (protocol, [])),
+            auto_place ( Ast.VarExpr (Atom.fresh_builtin "get_st"))
+        )),
+        []
     ))
 
 let e_setup_behaviors place args =
@@ -165,5 +183,5 @@ let e_bridge_of_protocol place (protocol_e:Ast.expr) =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.NewExpr (
         auto_place (Ast.VarExpr (Atom.fresh_builtin "Bridge")),
-       [e_session_of_protocol place protocol_e] 
+       [ auto_place (Ast.NewExpr (protocol_e,[]))] 
     ))
