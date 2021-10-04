@@ -83,3 +83,21 @@ docker-compose up
 
 * Static logic topology
 after compilation (that generate the .dot file) run ``make sltopology``
+
+## Akka target
+
+### Requirements
+```
+------------------------------------------------------------
+Gradle 7.1.1
+------------------------------------------------------------
+
+Build time:   2021-07-02 12:16:43 UTC
+Revision:     774525a055494e0ece39f522ac7ad17498ce032c
+
+Kotlin:       1.4.31
+Groovy:       3.0.7
+Ant:          Apache Ant(TM) version 1.10.9 compiled on September 27 2020
+JVM:          11.0.12 (Debian 11.0.12+7-post-Debian-2)
+OS:           Linux 5.10.0-6-amd64 amd64
+```

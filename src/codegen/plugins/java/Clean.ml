@@ -26,10 +26,32 @@ let rec clean_place clean_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils
     let value = clean_value place value in
     {AstUtils.place; AstUtils.value}
 
+
+let clean_return_type stmts ret_type = 
+    match ret_type.value with
+    | TAtomic "Void" ->
+        let rec search_return flag stmt = 
+            match stmt.value with
+            | BlockStmt stmts -> List.fold_left search_return flag stmts
+            | IfStmt (_, stmt1, stmt2_opt) ->
+                (search_return flag stmt1) ||
+                (match Option.map (search_return flag) stmt2_opt with | Some f -> f | None -> flag)
+            | ReturnStmt _ -> true
+            | _ -> flag
+        in
+
+        let flag = List.fold_left search_return false stmts in
+        if flag then ret_type else {ret_type with value = TAtomic "void"}
+    | _ -> ret_type
+
 let rec clean_body_v place : _body -> _body = function 
 | ClassOrInterfaceDeclaration cid ->
     ClassOrInterfaceDeclaration { cid with 
         body = List.map citem cid.body
+    }
+| MethodDeclaration m0 ->
+    MethodDeclaration { m0 with
+        ret_type = Option.map (clean_return_type m0.body) m0.ret_type
     }
 | tmp -> tmp
 and clean_body place {annotations; decorators; v} = { 

@@ -11,7 +11,7 @@ and comments = Core.IR._comments
 
 (************************************ Types **********************************)
 and _ctype = 
-    | Atomic of string (*int, float, ?, ..*)           
+    | Atomic of string (*void, Void, int, float, ?, ..*)           
     | ActorRef of ctype
     | TFunction of ctype * ctype
     | TList of ctype 
@@ -21,7 +21,6 @@ and _ctype =
     | TSet of ctype (*Set<String> set =  new HashSet<String>() ;*)
     | TTuple of ctype list 
     | TVar of variable
-    | TVoid
 
     | TAccess of ctype * ctype (* t1.t2 *)
     | TParam of ctype * ctype list (* Type parametric (ct, [arg_1; .. arg_n]) -> ct<arg_1, .., arg_n>*)
@@ -220,7 +219,6 @@ let rec _apply_rename_ctype (renaming : Atom.atom -> Atom.atom) place : _ctype -
         List.map (apply_rename_ctype renaming) cts
     ) 
     | TVar x -> TVar (renaming x) 
-    | TVoid -> TVoid
     | TAccess (ct1, ct2) -> TAccess (
         apply_rename_ctype renaming ct1,
         apply_rename_ctype renaming ct2

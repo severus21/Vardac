@@ -158,7 +158,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                             S.annotations = [];
                             decorators = [];
                             v = {
-                                S.ret_type = auto_place S.TVoid;    
+                                S.ret_type = auto_place (S.Atomic "void");    
                                 name = Atom.fresh_builtin "main";
                                 args= [auto_place (S.Atomic "String[]"), Atom.fresh_builtin "args"];
                                 is_constructor = false;
@@ -300,7 +300,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                         S.decorators = [];
                         annotations = [S.Visibility S.Public];
                         v = {
-                            S.ret_type = auto_place S.TVoid;
+                            S.ret_type = auto_place (S.Atomic "void");
                             name = name;
                             args = [];
                             is_constructor = true;
@@ -389,7 +389,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
             S.annotations = [S.Visibility S.Public];
             decorators = [];
             v = {
-                S.ret_type = auto_place S.TVoid;
+                S.ret_type = auto_place (S.Atomic "void");
                 name = Atom.fresh_builtin (String.capitalize_ascii (Atom.hint mdef.entrypoint));
                 body = AbstractImpl [];
                 args = [];
@@ -674,7 +674,8 @@ let rec finish_ctype place : S._ctype -> T._jtype =
     let auto_place smth = {place = fplace; value=smth} in
 function 
     | S.Atomic s -> T.TAtomic s 
-    | S.ActorRef t -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActorRef"), [fctype t])  
+    | S.ActorRef {value=S.TVar x} -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActorRef"), [fctype (Rt.Misc.t_command_of_actor place x)])  
+    | S.ActorRef _ -> Error.error place "ActorRef only supports TVar currently!" (* TODO does it makes sens to support more ??? *)
     | S.TFunction (t1, t2) -> T.ClassOrInterfaceType  ( auto_place (T.TAtomic "Function"), [fctype t1; fctype t2]) 
     | S.TList t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "List"), [fctype t1])
     | S.TMap (t1, t2) -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "Map"), [fctype t1; fctype t2])
@@ -696,7 +697,6 @@ function
         T.ClassOrInterfaceType (auto_place(T.TAtomic cls_name), List.map fctype cts)
     end 
     | S.TVar v -> T.TVar v
-    | S.TVoid -> T.TAtomic "Void"
     | S.TRaw str -> T.TAtomic str
 and fctype ct : T.jtype = finish_place finish_ctype ct
 
@@ -995,7 +995,7 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
             S.annotations = [S.Visibility S.Public];   
             decorators = [];
             v = {
-                S.ret_type    = auto_place S.TVoid;
+                S.ret_type    = auto_place (S.Atomic "void");
                 name        = name;
                 args        = []; 
                 body        = AbstractImpl []; 

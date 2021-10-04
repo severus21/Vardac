@@ -137,7 +137,7 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
         | S.TInt -> T.Atomic "int"
         | S.TFloat -> T.Atomic "float"
         | S.TStr -> T.Atomic "String"
-        | S.TVoid -> TVoid
+        | S.TVoid -> T.Atomic "Void" 
         | _ -> Core.Error.error place "TActivationInfo/Place/VPlace/Label type not yey supported."
     end
     | S.TDict (m1, m2) -> T.TMap (fmtype m1, fmtype m2)
@@ -1169,7 +1169,7 @@ and finish_term place : S._term -> T.term list = function
             T.annotations = [T.Visibility T.Public];
             decorators = [];
             v = {
-                T.ret_type = {place; value = T.TVoid}; (* removed by the is_constructor *)
+                T.ret_type = {place; value = T.Atomic "void"}; (* removed by the is_constructor *)
                 name;
                 body = T.AbstractImpl [{place; value  = constructor_body}];
                 args = args;

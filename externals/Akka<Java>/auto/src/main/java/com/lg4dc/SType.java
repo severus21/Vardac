@@ -1,5 +1,6 @@
 package com.lg4dc;
 
+/*
 // Session type encoded as type parameter + empty values 
 public final class SType {
     public abstract class BaseSType<T, ST extends BaseSType<?, ?> > {
@@ -49,3 +50,4 @@ public final class SType {
         }
     } 
 }
+*/
