@@ -165,10 +165,22 @@ let filter_custom root path =
 
         (* auto_templates *)
         let _auto_templates_dir = auto_templates_dir root in
+
+
+        (* Collect templates and create intermediate directories *)
+        let rec explore path= 
+            match Bos.OS.Dir.exists (Fpath.v path) with 
+            | Rresult.Ok true ->
+                Bos.OS.Dir.create (Fpath.v path);
+                List.flatten (List.map explore (FileUtil.ls path)) 
+            | Rresult.Ok false -> [path]
+        in
+
         begin
             match Bos.OS.Dir.exists _auto_templates_dir with 
             | Rresult.Ok true -> begin 
                 FileUtil.ls (Fpath.to_string _auto_templates_dir)
+                |> function x -> List.flatten (List.map explore x)
                 |> List.map Fpath.v
                 |> List.map (preprocess_auto_template target root build_dir)
                 |> List.iter resolve_template;

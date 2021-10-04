@@ -137,7 +137,16 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                         )),
                         []
                     ));
-                    auto_place (S.LitExpr (auto_place (S.StringLit system_name)))
+                    auto_place (S.LitExpr (auto_place (S.StringLit system_name)));
+                    auto_place (S.CallExpr (
+                        auto_place (S.AccessExpr(
+                            auto_place (S.VarExpr (Atom.fresh_builtin "AbstractMain")),
+                            auto_place (S.VarExpr (Atom.fresh_builtin "get_config"))
+                        )),
+                        [
+                            auto_place (S.VarExpr (Atom.fresh_builtin "args"))
+                        ]
+                    ))
                 ]
             )))
         )) in        
