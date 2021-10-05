@@ -104,7 +104,7 @@ component B () {
 }
 
 component Orchestrator () {
-    void toto (string args) {
+    onstartup void toto () {
         activation_info<B> c = (spawn B());
         activation_info<A> a2 = (spawn A(c));  
     }

@@ -453,7 +453,65 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                 let _stages, [laststage] = split_list (List.length stages - 1) stages in
                 assert("Stage" = Atom.hint laststage.name); (* FIXME fragile *)
                 _stages @  (add_guardian mdef laststage)
-            | _ -> stages
+            | _ -> 
+                let rec update_guardian = function
+                | [] -> []
+                | stage::stages when stage.name = mdef.bootstrap -> 
+                    assert( List.length stage.ast = 1);
+                    let {place; value={annotations; decorators; v=S.Actor guardian}} = List.hd stage.ast in
+
+                    let rec change_constructor : S.method0 list -> S.method0 list = function
+                    | [] -> []
+                    | m::ms when m.value.v.is_constructor ->
+                        let m = { m with
+                            value = { m.value with
+                                annotations = S.Static :: m.value.annotations;
+                                v = { m.value.v with
+                                    S.ret_type = auto_place (S.Atomic "void");
+                                    name = Atom.fresh_builtin "start_guardian";
+                                    args = (
+                                        auto_place (S.Atomic "ActorContext"), Atom.fresh_builtin "context"
+                                    )::m.value.v.args;
+                                    is_constructor = false;
+                                    body = match m.value.v.body with
+                                    | AbstractImpl stmts -> AbstractImpl (
+                                        List.map 
+                                            (S.rewriteexpr_stmt (function 
+                                                |CurrentContext -> true 
+                                                |_-> false
+                                                ) 
+                                                (function 
+                                                |CurrentContext -> S.VarExpr (Atom.fresh_builtin "context")
+                                                )
+                                            )
+                                            stmts 
+                                    )
+                                    | b -> b
+                                }
+                            }  
+                        } in
+                        m::ms
+                    | m::ms -> m::(change_constructor ms)
+                    in
+
+                    
+                    let guardian = {
+                        guardian with 
+                            value = {guardian.value with 
+                                is_guardian = true;
+                                extended_types = [Rt.Misc.t_lg4dc_abstract_system fplace];
+                                methods = change_constructor guardian.value.methods;
+                            }
+                        }
+                    in
+
+                    let ast = {place; value={S.annotations; decorators; v=S.Actor guardian}} in
+                    let stage = { stage with ast = [ast]} in
+                    stage::stages
+                | stage::stages -> stage:: (update_guardian stages)
+                in
+
+                update_guardian stages
         in
 
         let add_main_classes stages = match Atom.hint mdef.entrypoint with
