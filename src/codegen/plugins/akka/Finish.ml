@@ -24,7 +24,16 @@ let make_capitalize_renaming = function x ->
 type collected_state = {
     event2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
 }
-
+ 
+let print_cstate cstate = 
+    Format.fprintf Format.std_formatter "Cstate.event2receptionists\n";
+    Hashtbl.iter (fun k v -> 
+        Format.fprintf 
+            Format.std_formatter "+ %s -> @[<hv>%a@]\n" 
+            (Atom.to_string k) 
+            (Error.pp_list ";" (fun out x-> Format.fprintf out "%s" (Atom.to_string x))) 
+            v
+    ) cstate.event2receptionists
 
 let empty_cstate () : collected_state = {
     event2receptionists = Hashtbl.create 0
@@ -43,9 +52,11 @@ let add_event_e2rs event component : unit =
 
 let rename_collected_state renaming = 
     let e2rs = Hashtbl.to_seq event2receptionists in
-    let e2rs = Seq.map (function (k,v) -> renaming k, List.map renaming v) e2rs in
+    let e2rs = List.of_seq (Seq.map (function (k,v) -> renaming k, List.map renaming v) e2rs) in
 
-    Hashtbl.replace_seq event2receptionists e2rs 
+    (* Since we change the keys *)
+    Hashtbl.reset event2receptionists; 
+    Hashtbl.add_seq event2receptionists (List.to_seq e2rs)
 (*****)
 
 (* The translation of a complete program. *)
@@ -781,7 +792,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         (* TODO do it with a switch ??? *)
         (*
             if(e.bridge_id == author.project_name.Stage219.b36.get_id() && e.st == current_aststype){
-                author.project_name.Session<?> s = new Session(e.bridge_id, e.replyTo, e.st);
+                author.project_name.Session<?> s = new Session(e.bridge_id, getContext().getSelf(), e.replyTo, e.st);
                 s.set_id(e.session_id);
         
                 this.handle_ping61(s);
@@ -808,6 +819,10 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                             e_lg4dc_session place,
                             [
                                 e_bridgeid l_event;
+                                auto_place (T.CastExpr(
+                                    auto_place (T.TVar (Atom.fresh_builtin "ActorRef")),
+                                    e_get_self place (e_get_context place)
+                                ));
                                 e_replyto l_event;
                                 fvstype remaining_st
                             ]
@@ -822,7 +837,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                     auto_place (T.ExpressionStmt (auto_place (
                         T.CallExpr(
                             callback,
-                            [ l_session ]
+                            [ l_event; l_session ]
                         )
                     )))
                 ]),

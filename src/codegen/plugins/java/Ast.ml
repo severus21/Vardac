@@ -65,6 +65,7 @@ and _expr =
     | AssertExpr of expr 
     | AssignExpr of expr * assign_operator * expr (* target value*)
     | BinaryExpr of expr * binop * expr
+    | CastExpr of jtype * expr
     | LiteralExpr of literal
     | LambdaExpr of variable list * stmt 
     | NewExpr of expr * expr list

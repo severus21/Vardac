@@ -19,6 +19,9 @@ let a_SType_of = function
 (*let a_protocol_inner_bridge = Atom.fresh_builtin "Bridge" *)
 
 (* Helper types *)
+
+let a_cborserializable = 
+    Atom.fresh_builtin "CborSerializable"
 let a_command = 
     Atom.fresh_builtin "Command"
 let a_create_method = 
@@ -26,6 +29,10 @@ let a_create_method =
 let a_context = 
     Atom.fresh_builtin "context"
     
+
+let t_cborserializable place= 
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TVar a_cborserializable) 
 
 let t_SType_of place name tparam1 tparam2 = 
     let auto_place smth = {place; value=smth} in

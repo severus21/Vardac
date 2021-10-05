@@ -57,6 +57,10 @@ let encode_builtin_fct place name (args:T.expr list) =
             T.CallExpr (
                 auto_place (T.AccessExpr (bridge, auto_place (T.VarExpr (Atom.fresh_builtin "initiate_session_with")))),
                 [
+                    auto_place(T.CastExpr(
+                        auto_place (T.TVar (Atom.fresh_builtin "ActorRef")),
+                        Misc.e_get_self place (Misc.e_get_context place)
+                    ));
                     right 
                 ]
             )

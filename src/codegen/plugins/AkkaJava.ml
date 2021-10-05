@@ -20,7 +20,11 @@ module T = Lg.Ast
 
 
 let cstate : Rt.Finish.collected_state ref = ref (Rt.Finish.empty_cstate ())
-
+let rename_cstate renaming = 
+    let e2rs = Hashtbl.to_seq (!cstate).event2receptionists in
+    let e2rs = Seq.map (function (k,v) -> k, List.map renaming v) e2rs in
+    (* No Hashtbl.reset since we do not alter the keys *)
+    Hashtbl.replace_seq (!cstate).event2receptionists e2rs
 
 let fplace = (Error.forge_place "Plg=AkkaJava" 0 0)
 let auto_place smth = {place = fplace; value=smth}
@@ -578,6 +582,8 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
             | Some new_x ->
                     new_x
         in
+
+        rename_cstate main_renaming;
         List.map (apply_rename_stage main_renaming) stages 
     in
 
@@ -745,6 +751,7 @@ and finish_expr place : S._expr -> T._expr = function
     | S.BinopExpr (e1, op, e2) -> 
         T.BinaryExpr ( fexpr e1, op, fexpr e2) 
     | S.CallExpr (e1,e2) -> T.AppExpr(fexpr e1, List.map fexpr e2) 
+    | S.CastExpr (ct,e) -> T.CastExpr(fctype ct, fexpr e) 
     | S.ClassOf ct -> begin
         match ct.value with
         | S.Atomic x -> T.VarExpr (Atom.fresh_builtin x)
@@ -885,7 +892,7 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
             List.map fctype (List.map (Akka.Misc.t_command_of_actor fplace) actor_names)
     in
     
-    logger#error "event %s can be received by up to %d" (Atom.to_string name) (List.length implemented_types);
+    logger#info "event %s can be received by up to %d" (Atom.to_string name) (List.length implemented_types);
 
     T.Body {
         place; 
@@ -998,7 +1005,7 @@ and finish_actor place ({is_guardian; extended_types; implemented_types; name; m
                 isInterface = true;
                 name = Rt.Misc.a_command; 
                 parameters = [];
-                extended_types = [];
+                extended_types = [fctype (Rt.Misc.t_cborserializable fplace)];
                 implemented_types = [];
                 body = [];
             }

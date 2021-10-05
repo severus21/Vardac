@@ -12,7 +12,6 @@ public final class ASTStype {
         }
 
         public boolean equals(Object obj) {
-            System.out.println(">>>> equals MsgT");
             if (obj == this) {
                 return true;
             }
@@ -22,7 +21,6 @@ public final class ASTStype {
             }   
 
             MsgT b = (MsgT) obj;
-            System.out.printf(">>>> equals MsgT %b %s %s", this.value.equals(b.value), this.value.toString(), b.value.toString());
             return this.value.equals(b.value);
         }
 
@@ -56,12 +54,6 @@ public final class ASTStype {
         public End () {
             assert(this.continuations.isEmpty());
         }
-
-        public boolean equals(End obj) {
-            System.out.println(">>>> equals End");
-            assert(false);
-            return true; 
-        }
     }
 
     public static final class Send extends Base {
@@ -72,13 +64,6 @@ public final class ASTStype {
 
             assert(!this.continuations.isEmpty());
         }
-
-        public boolean equals(Send obj) {
-            System.out.println(">>>> equals send");
-            assert(false);
-            return this.msg_type.equals(obj.msg_type) && this.continuations.equals(obj.continuations); 
-        }
-
     }
     public static final class Receive extends Base {
         public MsgT msg_type;

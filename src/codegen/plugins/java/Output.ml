@@ -86,6 +86,7 @@ and output_expr out : _expr -> unit = function
     | AssertExpr e -> fprintf out "assert(%a)" oexpr e                   
     | AssignExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_assignop op oexpr e2
     | BinaryExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_binop op oexpr e2
+    | CastExpr (ct, e) -> fprintf out "(%a) %a" ojtype ct oexpr e
     | LiteralExpr lit -> oliteral out lit
     | LambdaExpr (variables, stmt) -> fprintf out "( (%a) -> { %a } )" output_vars variables ostmt stmt
     | NewExpr (e1, es) -> fprintf out "new @[%a(@[<hv>@;<0 3>%a@])@]" oexpr e1 oexprs es

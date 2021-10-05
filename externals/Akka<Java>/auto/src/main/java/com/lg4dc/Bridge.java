@@ -23,7 +23,9 @@ public final class Bridge<P extends Protocol> {
         return this.id;
     }
 
-    public Session initiate_session_with(ActorRef<CborSerializable> right){
-        return new Session(this.id, right, this.protocol.get_st());
+    public Session initiate_session_with(
+        ActorRef<CborSerializable> from, 
+        ActorRef<CborSerializable> to){
+        return new Session(this.id, from, to, this.protocol.get_st());
     }    
 }

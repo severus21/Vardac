@@ -8,5 +8,6 @@ type collected_state = {
     event2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
 }
 val empty_cstate : unit -> collected_state
+val print_cstate : collected_state -> unit
 
 val finish_program: IRI.program -> collected_state * Ast.program
