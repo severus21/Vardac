@@ -14,6 +14,7 @@ and _ctype =
     | Atomic of string (*void, Void, int, float, ?, ..*)           
     | ActorRef of ctype
     | TFunction of ctype * ctype
+    | TArray of ctype 
     | TList of ctype 
     | TMap of ctype * ctype (*Map<String, String> map = new HashMap<String, String>();*)
     | TOption of ctype (*https://www.touilleur-express.fr/2014/11/07/optional-en-java-8/*)
@@ -202,6 +203,9 @@ let rec _apply_rename_ctype (renaming : Atom.atom -> Atom.atom) place : _ctype -
         apply_rename_ctype renaming ct1,
         apply_rename_ctype renaming ct2
     )
+    | TArray ct -> TArray (
+        apply_rename_ctype renaming ct
+    )
     | TList ct -> TList (
         apply_rename_ctype renaming ct
     )
@@ -232,7 +236,6 @@ let rec _apply_rename_ctype (renaming : Atom.atom -> Atom.atom) place : _ctype -
         List.map (apply_rename_ctype renaming) cts
     )
     | TRaw s -> TRaw s
-    | cy -> print_string (show__ctype cy);failwith "";
 and apply_rename_ctype renaming (ct:ctype) = apply_rename_place (_apply_rename_ctype renaming) ct
 
 and _apply_rename_expr rename_binders (renaming : Atom.atom -> Atom.atom) place = function

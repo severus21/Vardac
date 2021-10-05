@@ -37,7 +37,7 @@ protocol p_pingpong = !ping?pong. ;
 
 (* b0 can de defined globaly or passed as a spawn argument *)
 (* TODO fixme do i need inline, seems to be correctly handle by partial eval *)
-Bridge<A, B, inline p_pingpong> b0 = bridge(p_pingpong);
+bridge<A, B, inline p_pingpong> b0 = bridge(p_pingpong);
 (*bridge<A, B, !ping?pong, None> b0 = bridge();
 bridge<A, B, !ping?pong, TLS> b1 = tlsbridge('xxx.cert');*)
 
@@ -72,7 +72,7 @@ component A () {
        Tuple<pong, .> res = s1.receive(); *) (* receive : ?a 'st -> Result<Tuple<'a, 'st>, error> *)
     }
 
-    Result<void, error> handle_pong (pong msg, . s1) {
+    result<void, error> handle_pong (pong msg, . s1) {
         print("pong");
         //fire(s1, pong()); 
 
@@ -95,7 +95,7 @@ component B () {
     *)
     port truc on b0 expecting ?ping!pong. = this.handle_ping;
 
-    Result<void, error> handle_ping (ping msg, !pong. s1) {
+    result<void, error> handle_ping (ping msg, !pong. s1) {
         print("ping");
         fire(s1, pong()); 
 
@@ -110,9 +110,8 @@ component Orchestrator () {
     }
 }
 
-void titi (){
+void titi (array<string> args){
     print("apossiblemain");
-    return ();
 }
 
 activation_info<B> b = (spawn B()); (* B() -> call the oncreate method of B with the argument whereas B(A) will be a functor application TODO fix the syntax *) 

@@ -167,6 +167,11 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                     auto_place ({
                         S.annotations = [S.Visibility S.Public; S.Static];
                         decorators = [];
+                        v = S.MethodDeclaration _main 
+                    });
+                    auto_place ({
+                        S.annotations = [S.Visibility S.Public; S.Static];
+                        decorators = [];
                         v = S.MethodDeclaration (auto_place {
                             S.annotations = [];
                             decorators = [];
@@ -176,7 +181,18 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                                 args= [auto_place (S.Atomic "String[]"), Atom.fresh_builtin "args"];
                                 is_constructor = false;
                                 body = match _main.value.v.body with 
-                                    |S.AbstractImpl stmts -> S.AbstractImpl (actor_system::stmts) 
+                                    |S.AbstractImpl _ -> S.AbstractImpl (
+                                        auto_place(S.ExpressionStmt(
+                                            auto_place (S.CallExpr (
+                                                auto_place (S.VarExpr _main.value.v.name),
+                                                [
+                                                    auto_place (S.VarExpr (Atom.fresh_builtin "args"))
+                                                ]
+                                            ))
+                                        ))
+                                        :: actor_system
+                                        :: []
+                                    ) 
                                     | _ -> _main.value.v.body 
                             }
                         }) 
@@ -421,7 +437,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                 S.ret_type = auto_place (S.Atomic "void");
                 name = Atom.fresh_builtin (String.capitalize_ascii (Atom.hint mdef.entrypoint));
                 body = AbstractImpl [];
-                args = [];
+                args = [auto_place (S.Atomic "String[]"), Atom.fresh_builtin "args"];
                 is_constructor = false; 
             }
         }) 
@@ -708,6 +724,7 @@ function
     | S.ActorRef {value=S.TVar x} -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActorRef"), [fctype (Rt.Misc.t_command_of_actor place x)])  
     | S.ActorRef _ -> Error.error place "ActorRef only supports TVar currently!" (* TODO does it makes sens to support more ??? *)
     | S.TFunction (t1, t2) -> T.ClassOrInterfaceType  ( auto_place (T.TAtomic "Function"), [fctype t1; fctype t2]) 
+    | S.TArray t1 -> T.ClassOrInterfaceType  (auto_place (T.TArray (fctype t1)), [])
     | S.TList t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "List"), [fctype t1])
     | S.TMap (t1, t2) -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "Map"), [fctype t1; fctype t2])
     | S.TOption t1 -> T.ClassOrInterfaceType  (auto_place(T.TAtomic "Optional"), [fctype t1]) 

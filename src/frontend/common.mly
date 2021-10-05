@@ -24,22 +24,27 @@ any_composed_type_:
         (* TODO Dict and co -> to lower *)
         match ct.value with
         (* Primitive types *)
-        | TVar "Dict" -> begin
+        | TVar "array" -> begin
+            match args with
+            | [x] -> TArray x
+            | _ -> Core.Error.error ct.place "Array type excepts exactly one type parameter, gets %d !" (List.length args)
+        end
+        | TVar "dict" -> begin
             match args with
             | x::y::[] -> TDict (x,y)
             | _ -> Core.Error.error ct.place "Dict type excepts exactly two type parameters (key * value), gets %d !" (List.length args)
         end
-        | TVar "List" -> begin
+        | TVar "list" -> begin
             match args with
             | [x] -> TList x
             | _ -> Core.Error.error ct.place "List type excepts exactly one type parameter, gets %d !" (List.length args)
         end
-        | TVar "Option" -> begin
+        | TVar "option" -> begin
             match args with
             | [x] -> TOption x
             | _ -> Core.Error.error ct.place "Option type excepts exactly one type parameter, gets %d !" (List.length args)
         end
-        | TVar "Result" -> begin
+        | TVar "result" -> begin
             match args with
             | x::y::[] -> TResult (x,y)
             | _ -> Core.Error.error ct.place "Result type excepts exactly two type parameters, gets %d !" (List.length args)
@@ -49,12 +54,12 @@ any_composed_type_:
             | [x] -> TSet x
             | _ -> Core.Error.error ct.place "Result type excepts exactly one type parameter, gets %d !" (List.length args)
         end
-        | TVar "Bridge" -> begin
+        | TVar "bridge" -> begin
             match args with
             | [in_type; out_type; protocol] -> TBridge {in_type; out_type; protocol}
             | _ -> Core.Error.error ct.place "Bridge type excepts exactly tree type parameters, gets %d !" (List.length args)
         end
-        | TVar "Tuple" -> TTuple args
+        | TVar "tuple" -> TTuple args
         | TVar "activation_info" -> begin 
             match args with
             | [arg] -> TActivationInfo arg 

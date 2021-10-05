@@ -297,9 +297,10 @@ and cook_var_this env place x =
         error place "Unbound this variable: %s" x
 (************************************ Types **********************************)
 and cook_composed_type (env:env) place: S._composed_type -> env * T._composed_type = function
-| (S.TActivationInfo mt as ct) | (S.TList mt as ct) | (S.TOption mt as ct) | (S.TSet mt as ct) -> 
+| (S.TActivationInfo mt as ct) | (S.TArray mt as ct) | (S.TList mt as ct) | (S.TOption mt as ct) | (S.TSet mt as ct) -> 
     let (env1:env), mt = cmtype env mt in
     (env << [env1]), (match ct with 
+        | S.TArray _ -> T.TArray mt 
         | S.TActivationInfo _ -> T.TActivationInfo mt 
         | S.TList _ -> T.TList mt 
         | S.TOption _ -> T.TOption mt 

@@ -151,6 +151,7 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
         | S.TVoid -> T.Atomic "Void" 
         | _ -> Core.Error.error place "TActivationInfo/Place/VPlace/Label type not yey supported."
     end
+    | S.TArray mt -> T.TArray (fmtype mt)
     | S.TDict (m1, m2) -> T.TMap (fmtype m1, fmtype m2)
     | S.TList mt -> T.TList (fmtype mt)
     | S.TOption mt -> T.TOption (fmtype mt)

@@ -98,6 +98,7 @@ and _jtype =
     | TAtomic of string
     | TVar of variable
     | TAccess of jtype * jtype
+    | TArray of jtype (* string[] *)
 and jtype = _jtype placed
 
 and _str_items =

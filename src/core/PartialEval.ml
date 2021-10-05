@@ -64,6 +64,9 @@ let rec peval_composed_type env place : _composed_type -> env * _composed_type =
     let _, mt1 = pe_mtype env mt1 in
     let _, mt2 = pe_mtype env mt2 in
     env, TDict (mt1, mt2)
+| TArray mt ->
+    let _, mt = pe_mtype env mt in 
+    env, TArray mt 
 | TList mt ->
     let _, mt = pe_mtype env mt in 
     env, TList mt 

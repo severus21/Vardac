@@ -17,6 +17,7 @@ and _composed_type =
     | TVar of variable
     | TFlatType of flat_type
 
+    | TArray of main_type 
     | TDict of main_type * main_type
     | TList of main_type 
     | TOption of main_type
