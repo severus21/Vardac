@@ -73,12 +73,12 @@ test {
  */
 {% for name in target_mains %}
 task jar{{name|capitalize}}(type: ShadowJar) {
-    archiveBaseName.set('{{name|capitalize}}')
+    archiveBaseName.set('{{name}}')
     archiveClassifier.set('')
     archiveVersion.set('')
     configurations = [project.configurations.compileClasspath]
     manifest {
-        attributes('Main-Class': 'com.{{author}}.{{project_name}}.main')
+        attributes('Main-Class': '{{author}}.{{project_name}}.{{name|capitalize}}')
     }
     transform(AppendingTransformer) {
         resource = 'reference.conf'

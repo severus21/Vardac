@@ -303,17 +303,33 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
             S.annotations = [S.Visibility S.Public];
             decorators = []; 
             v = S.Actor ( auto_place({
-                S.name = name;
+                S.extended_types = [Rt.Misc.t_lg4dc_abstract_system fplace];
+                implemented_types = [];
+                is_guardian = true;
+                name = name;
                 methods = [
                     auto_place {
                         S.decorators = [];
-                        annotations = [S.Visibility S.Public];
+                        annotations = [S.Visibility S.Public; S.Static];
                         v = {
                             S.ret_type = auto_place (S.Atomic "void");
-                            name = name;
-                            args = [];
-                            is_constructor = true;
-                            body = AbstractImpl stmts
+                            name = Atom.fresh_builtin "start_guardian";
+                            args = [
+                                auto_place (S.Atomic "ActorContext"), Atom.fresh_builtin "context"
+                            ];
+                            is_constructor = false;
+                            body = AbstractImpl (
+                                List.map 
+                                    (S.rewriteexpr_stmt (function 
+                                        |CurrentContext -> true 
+                                        |_-> false
+                                        ) 
+                                        (function 
+                                        |CurrentContext -> S.VarExpr (Atom.fresh_builtin "context")
+                                        )
+                                    )
+                                    stmts
+                            )
                         }
                     }
                 ];
@@ -953,7 +969,7 @@ and finish_method_v is_actor_method place ({ret_type; name; body; args; is_const
         }
 and fmethod is_actor_method m : T.str_items = {place=m.place; value= T.Body (finish_place (finish_annoted (finish_method_v is_actor_method)) m)}
 
-and finish_actor place ({name; methods; states; events; nested_items; receiver}: S._actor): T._str_items =
+and finish_actor place ({is_guardian; extended_types; implemented_types; name; methods; states; events; nested_items; receiver}: S._actor): T._str_items =
     let fplace = place@(Error.forge_place "Plg=Akka/finish_actor" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
 
@@ -962,12 +978,17 @@ and finish_actor place ({name; methods; states; events; nested_items; receiver}:
 
     (** FIXME public/protected/private should parametrized*)
 
-    let extended_type = auto_place (T.ClassOrInterfaceType (
-        auto_place (T.TAtomic "AbstractBehavior"), 
-        [ 
-            fctype (Rt.Misc.t_command_of_actor place name)     
-        ]) 
-    ) in
+    let extended_types = match extended_types with
+    | [] -> [ 
+        auto_place (T.ClassOrInterfaceType (
+            auto_place (T.TAtomic "AbstractBehavior"), 
+            [ 
+                fctype (Rt.Misc.t_command_of_actor place name)     
+            ]) 
+        )
+    ]
+    | _ -> List.map fctype extended_types
+    in
 
     let command_cl = auto_place ( T.Body (
         auto_place ({
@@ -998,8 +1019,7 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     let constructor_args = match constructor_opt with | None -> [] |Some constructor -> constructor.value.v.args in 
 
     let methods = match constructor_opt with
-    | Some _ -> methods
-    | None -> (* add a default constructor, will be hydrated with context when running fmethod *)
+    | None when is_guardian = false -> (* add a default constructor, will be hydrated with context when running fmethod *)
         auto_place ({
             S.annotations = [S.Visibility S.Public];   
             decorators = [];
@@ -1011,6 +1031,7 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
                 is_constructor = true;
             }
         })::methods
+    | _ -> methods
     in
 
     let arg_lambda = auto_place (S.LambdaExpr (
@@ -1033,6 +1054,42 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
             )));
         ])
     )) in
+    let arg_lambda_guardian = auto_place (S.LambdaExpr (
+        [Rt.Misc.a_context],
+        auto_place (S.BlockStmt [
+            auto_place (S.ExpressionStmt (
+                Rt.Misc.e_debug_of 
+                    place 
+                    (auto_place (S.VarExpr Rt.Misc.a_context)) 
+                    [
+                        auto_place (S.LitExpr (auto_place (S.StringLit (Atom.to_string name^"::create"))))
+                    ]
+            ));
+            auto_place(S.ExpressionStmt( auto_place (S.CallExpr(
+                auto_place (S.VarExpr (Atom.fresh_builtin "prepare_create")),
+                [
+                    auto_place (S.VarExpr (Atom.fresh_builtin "context"));
+                    auto_place (S.VarExpr (Atom.fresh_builtin "name"));
+                    auto_place (S.VarExpr (Atom.fresh_builtin "wait"))
+                ]
+
+            ))));
+            auto_place(S.ExpressionStmt( auto_place (S.CallExpr(
+                auto_place (S.VarExpr (Atom.fresh_builtin "start_guardian")),
+                [
+                    auto_place (S.VarExpr (Atom.fresh_builtin "context"));
+                ]
+
+            ))));
+            auto_place(S.ReturnStmt( auto_place (S.CallExpr(
+                auto_place (S.VarExpr (Atom.fresh_builtin "finish_create")),
+                [
+                    auto_place (S.VarExpr (Atom.fresh_builtin "wait"))
+                ]
+
+            ))));
+        ])
+    )) in
     let m_create : S.method0 = auto_place {
         S.annotations = [S.Visibility S.Public; S.Static];
         decorators = [];
@@ -1044,7 +1101,66 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
             is_constructor = false;
         }
     } in
-    let methods = methods @ [m_create] in
+
+
+    (*
+    public static Behavior<SpawnProtocol.Command> create() {
+        return create(null, null);
+    }
+    *)
+    let m_create_guadrian1 : S.method0   = auto_place {
+        S.annotations = [S.Visibility S.Public; S.Static];
+        decorators = [];
+        v = {
+            S.ret_type = Rt.Misc.t_behavior_of_spawnprotocol place;
+            name = Rt.Misc.a_create_method;
+            body = S.AbstractImpl [
+                auto_place (S.ReturnStmt( 
+                    auto_place(S.CallExpr(
+                        auto_place (S.VarExpr Rt.Misc.a_create_method),
+                        [
+                            auto_place (S.LitExpr (auto_place(S.VoidLit)));
+                            auto_place (S.LitExpr (auto_place(S.VoidLit)))
+                        ]
+                    ))
+                ))
+            ];
+            args = constructor_args;
+            is_constructor = false;
+        }
+    } in
+
+    (*
+    public static Behavior<SpawnProtocol.Command> create(String name, Wait wait) {
+        return Behaviors.setup(context -> {
+            prepare_create(context, name, wait);
+
+            start_guardian(context); 
+
+            return finish_create(wait);
+        });
+    }
+    *)
+    let m_create_guadrian2 : S.method0   = auto_place {
+        S.annotations = [S.Visibility S.Public; S.Static];
+        decorators = [];
+        v = {
+            S.ret_type = Rt.Misc.t_behavior_of_spawnprotocol place;
+            name = Rt.Misc.a_create_method;
+            body = S.AbstractImpl [auto_place (S.ReturnStmt (Rt.Misc.e_setup_behaviors place [arg_lambda_guardian]))];
+            args = [
+                auto_place (S.Atomic "String"), Atom.fresh_builtin "name";
+                auto_place (S.Atomic "Wait"), Atom.fresh_builtin "wait";
+            ];
+            is_constructor = false;
+        }
+    } in
+    let methods = 
+        if is_guardian then 
+            methods @ [m_create_guadrian1; m_create_guadrian2] 
+        else 
+            methods @ [m_create] 
+    in
     
 
     (*************)
@@ -1058,9 +1174,11 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     body := !body @ [{place; value=T.Comments (IR.LineComment "Actor internal logics")}];
     body := !body @ (List.map (fmethod true) methods);
     body := !body @ [{place; value=T.Comments (IR.LineComment "Nested structures")}];
-    body := command_cl :: (!body @ (List.map fterm nested_items));
-    body := !body @ [{place; value=T.Comments (IR.LineComment "Receiver")}];
-    body := !body @ [fmethod true receiver];
+    body := (if is_guardian then [] else [command_cl]) @ (!body @ (List.map fterm nested_items));
+    if is_guardian = false then begin
+        body := !body @ [{place; value=T.Comments (IR.LineComment "Receiver")}];
+        body := !body @ [fmethod true receiver];
+    end;
 
     T.Body { 
         place; 
@@ -1071,8 +1189,8 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
                 isInterface= false;
                 name=name;
                 parameters = [];
-                extended_types = [extended_type] ;
-                implemented_types = [];
+                extended_types = extended_types;
+                implemented_types = List.map fctype implemented_types;
                 body = !body 
             }
         }

@@ -129,6 +129,9 @@ and _state = {
 and state = _state placed
 
 and _actor = {
+    is_guardian: bool;
+    extended_types: ctype list;
+    implemented_types: ctype list;
     name: variable;
     methods: method0 list;
     (*
@@ -341,6 +344,9 @@ and apply_rename_state rename_binders renaming s = apply_rename_place (_apply_re
 
 and _apply_rename_actor rename_binders (renaming : Atom.atom -> Atom.atom) place (a:_actor) =
 {
+    is_guardian = a.is_guardian;
+    extended_types = List.map (apply_rename_ctype renaming) a.extended_types;
+    implemented_types = List.map (apply_rename_ctype renaming) a.implemented_types;
     name = if rename_binders then renaming a.name else a.name;
     methods = List.map (apply_rename_method0 rename_binders renaming) a.methods;
     receiver = (apply_rename_method0 rename_binders renaming) a.receiver;
@@ -398,3 +404,84 @@ let rec _replaceterm_term (rename_binders:bool) selector replace place : _term a
     }
 | t -> t
 and replaceterm_term (rename_binders:bool) (selector : _term annotated -> bool) (replace : _term annotated-> _term annotated) t = apply_rename_place (_replaceterm_term rename_binders selector replace) t
+
+
+let rec apply_rewrite_place (apply_rewrite : Core.Error.place -> 'a -> 'a) ({ Core.AstUtils.place ; Core.AstUtils.value}: 'a Core.AstUtils.placed) = 
+    let value = apply_rewrite place value in
+    {Core.AstUtils.place; Core.AstUtils.value}
+
+let rec _rewriteexpr_expr selector rewriter place : _expr -> _expr = function 
+| e when selector e -> rewriter e
+| AccessExpr (e1, e2) -> AccessExpr(
+    rewriteexpr_expr selector rewriter e1,
+    rewriteexpr_expr selector rewriter e2
+)
+| AccessMethod (e, x) -> AccessMethod (
+    rewriteexpr_expr selector rewriter e,
+    x
+) 
+| AssertExpr e -> AssertExpr (
+    rewriteexpr_expr selector rewriter e
+) 
+| BinopExpr (e1, op, e2) -> BinopExpr (
+    rewriteexpr_expr selector rewriter e1,
+    op,
+    rewriteexpr_expr selector rewriter e2
+)
+| CallExpr (e, es) -> CallExpr (
+    rewriteexpr_expr selector rewriter e,
+    List.map (rewriteexpr_expr selector rewriter) es
+)
+| LambdaExpr (xs, stmt) -> LambdaExpr (
+    xs,
+    rewriteexpr_stmt selector rewriter stmt
+)
+| LitExpr _ as e -> e
+| This -> This
+| UnopExpr (op, e) -> UnopExpr (
+    op,
+    rewriteexpr_expr selector rewriter e
+)
+| VarExpr _ as e -> e
+| NewExpr (e, es) ->  NewExpr (
+    rewriteexpr_expr selector rewriter e,
+    List.map (rewriteexpr_expr selector rewriter) es
+)
+| ClassOf _ as e -> e
+| BlockExpr (b, es) -> BlockExpr (
+    b,
+    List.map (rewriteexpr_expr selector rewriter) es
+) 
+| Spawn s -> Spawn {
+    context = rewriteexpr_expr selector rewriter s.context;
+    actor_expr = rewriteexpr_expr selector rewriter s.actor_expr;
+}
+| CurrentContext -> CurrentContext
+| CurrentSystem -> CurrentSystem
+| RawExpr _ as e -> e
+and rewriteexpr_expr selector rewriter = apply_rewrite_place (_rewriteexpr_expr selector rewriter)
+and _rewriteexpr_stmt selector rewriter place : _stmt -> _stmt = function
+| AssignExpr (e1, e2) -> AssignExpr (
+    rewriteexpr_expr selector rewriter e1,
+    rewriteexpr_expr selector rewriter e2
+    )
+| BlockStmt stmts -> BlockStmt (List.map (rewriteexpr_stmt selector rewriter) stmts)
+| BreakStmt as stmt -> stmt
+| EmptyStmt as stmt -> stmt
+| LetStmt (ct, x, e_opt) -> LetStmt (
+    ct,
+    x, 
+    Option.map (rewriteexpr_expr selector rewriter) e_opt
+)
+| CommentsStmt _ as stmt -> stmt
+| ContinueStmt as stmt -> stmt
+| ExpressionStmt e -> ExpressionStmt (rewriteexpr_expr selector rewriter e)
+| IfStmt (e, stmt1, stmt2_opt) -> IfStmt (
+    rewriteexpr_expr selector rewriter e,
+    rewriteexpr_stmt selector rewriter stmt1,
+    Option.map (rewriteexpr_stmt selector rewriter) stmt2_opt
+)
+| ReturnStmt e -> ReturnStmt (rewriteexpr_expr selector rewriter e)
+and rewriteexpr_stmt selector rewriter = apply_rewrite_place (_rewriteexpr_stmt selector rewriter)
+
+

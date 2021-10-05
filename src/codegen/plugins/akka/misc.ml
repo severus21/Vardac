@@ -44,6 +44,12 @@ let t_actor_context place actor_name_opt =
         ]
     ))
 
+let t_lg4dc_abstract_system place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TAccess (
+        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.fresh_builtin "AbstractSystem")) 
+    ))
 let t_lg4dc_protocol place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
@@ -96,6 +102,12 @@ let t_behavior_of_actor place actor_name =
         auto_place (Ast.TVar (Atom.fresh_builtin "Behavior")),
         [ t_command_of_actor place actor_name ]
     ))
+let t_behavior_of_spawnprotocol place = 
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TParam (
+        auto_place (Ast.TVar (Atom.fresh_builtin "Behavior")),
+        [ t_command_of_actor place (Atom.fresh_builtin "SpawnProtocol") ]
+    ))
 
 let t_receive_of_actor place actor_name = 
     let auto_place smth = {place; value=smth} in
@@ -105,6 +117,14 @@ let t_receive_of_actor place actor_name =
     ))
 
 (* Helper exprs *)
+
+
+let e_setid_of_session place name =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr (
+        auto_place (Ast.VarExpr name),
+        auto_place (Ast.VarExpr (Atom.fresh_builtin "set_id")) 
+    ))
 let e_get_context place = 
     let auto_place smth = {place; value=smth} in
     auto_place ( Ast.CallExpr (

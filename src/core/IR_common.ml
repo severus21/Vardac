@@ -150,6 +150,7 @@ and binop =
     | Divide
 
     (** Comparison *)
+    | StructuralEqual (*(e.g. like equals in Java or = in Ocaml)*)
     | Equal 
     | GreaterThanEqual
     | LessThanEqual
@@ -271,3 +272,17 @@ and component_expr = _component_expr placed
    function for each of the types defined above.*)
 [@@deriving show { with_path = false }]
 
+
+
+let rec _dual place : _session_type -> _session_type  = function
+| STEnd -> STEnd
+| STVar _ as st -> st
+| STSend (mt, st) -> STRecv (mt, dual st)
+| STRecv (mt, st) -> STSend (mt, dual st)
+| STBranch choices -> STSelect (List.map (function (x, st, c) -> (x, dual st, c)) choices)
+| STSelect choices -> STBranch (List.map (function (x, st, c) -> (x, dual st, c)) choices)
+| STRec (x, st) -> STRec (x, dual st)
+| STInline x -> STInline x
+| STTimeout (e, st) -> STTimeout (e , dual st)
+and dual st : session_type = 
+{ st with value = _dual st.place st.value }

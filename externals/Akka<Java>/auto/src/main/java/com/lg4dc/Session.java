@@ -29,7 +29,7 @@ public class Session {
         e.hydrate(this.bridge_id,  this.session_id,  this.right, this.st, new NoMetadata());
         this.right.tell(e);
 
-        this.st = this.st.continuations.get(1)._2;
+        this.st = this.st.continuations.get(0)._2;
         return this;
     }
     

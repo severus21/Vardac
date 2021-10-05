@@ -10,6 +10,22 @@ public final class ASTStype {
         public MsgT(Object value){
             this.value = value;
         }
+
+        public boolean equals(Object obj) {
+            System.out.println(">>>> equals MsgT");
+            if (obj == this) {
+                return true;
+            }
+
+            if (!(obj instanceof MsgT)) {
+                return false;
+            }   
+
+            MsgT b = (MsgT) obj;
+            System.out.printf(">>>> equals MsgT %b %s %s", this.value.equals(b.value), this.value.toString(), b.value.toString());
+            return this.value.equals(b.value);
+        }
+
     }
     public static class Base {
         /*
@@ -20,12 +36,31 @@ public final class ASTStype {
         */
         public List<Tuple2<MsgT, Base>> continuations = new ArrayList<>();
 
+        public boolean equals(Object obj) {
+            if (obj == this) {
+                return true;
+            }
+
+            if (!(obj instanceof Base)) {
+                return false;
+            }   
+
+            Base b = (Base) obj;
+            return this.continuations.equals(b.continuations); 
+        }
+
     }
 
 
     public static final class End extends Base {
         public End () {
             assert(this.continuations.isEmpty());
+        }
+
+        public boolean equals(End obj) {
+            System.out.println(">>>> equals End");
+            assert(false);
+            return true; 
         }
     }
 
@@ -36,6 +71,12 @@ public final class ASTStype {
             this.continuations.add(new Tuple2(msg_type, continuation));
 
             assert(!this.continuations.isEmpty());
+        }
+
+        public boolean equals(Send obj) {
+            System.out.println(">>>> equals send");
+            assert(false);
+            return this.msg_type.equals(obj.msg_type) && this.continuations.equals(obj.continuations); 
         }
 
     }
@@ -65,4 +106,3 @@ public final class ASTStype {
     }
     // TODO recursion
 }
-    

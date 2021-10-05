@@ -716,11 +716,12 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     let l_event_name : Atom.atom = (Atom.fresh_builtin "e") in
     let l_event : T.expr = auto_place (T.VarExpr l_event_name) in
 
-    (* Step1 - create {event_name: {(bridge_expr, remaining_step i.e st) ->  callbak}} *)
-    let env : (Atom.atom, (T.expr * S.session_type, T.expr) Hashtbl.t) Hashtbl.t = Hashtbl.create 16 in
+    (* Step1 - create {event_name: {(bridge_expr, st, remaining_step i.e st) ->  callbak}} *)
+    let env : (Atom.atom, (T.expr * S.session_type * S.session_type, T.expr) Hashtbl.t) Hashtbl.t = Hashtbl.create 16 in
     let hydrate_env (p: S.port) = 
-        let msg_type, remaining_st = match p.value.expecting_st.value with 
+        let expecting_st, (msg_type, remaining_st) = match p.value.expecting_st.value with 
         | S.SType st -> begin
+            st,
             match st.value with
             | S.STRecv ({value=S.CType {value=S.TVar event_name;};}, st) -> event_name, st
             | S.STRecv _ -> Core.Error.error p.place "only event type supported"
@@ -732,13 +733,13 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         | _ -> Core.Error.error p.value.expecting_st.place "%s plugin do not support main type for port expecting" plg_name  
         in
        
-        let inner_env = begin 
+        let inner_env : (T.expr * S.session_type * S.session_type, T.expr) Hashtbl.t= begin 
             try 
                 Hashtbl.find env msg_type 
             with Not_found -> let _inner_env = Hashtbl.create 8 in Hashtbl.add env msg_type _inner_env; _inner_env
         end in
 
-        let key = (fexpr p.value.input, remaining_st) in
+        let key = (fexpr p.value.input, expecting_st, remaining_st) in
 
         (* check that key are not duplicated for the current event *)
         try
@@ -750,7 +751,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     List.iter hydrate_env grp_items.ports;
 
     (* Step 2 - Generate a receiver per event *)
-    let generate_event_receiver (event_name:Atom.atom) (inner_env:(T.expr * S.session_type, T.expr) Hashtbl.t) : T.stmt list =
+    let generate_event_receiver (event_name:Atom.atom) (inner_env:(T.expr * S.session_type * S.session_type, T.expr) Hashtbl.t) : T.stmt list =
         (* Helpers *)
         let bridgeid (bridge: T.expr) = auto_place( T.CallExpr(
             auto_place (T.AccessExpr (
@@ -763,11 +764,14 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             e,
             auto_place (T.VarExpr (Atom.fresh_builtin "bridge_id"))
         )) in
+        let e_sessionid e = auto_place (T.AccessExpr (
+            e,
+            auto_place (T.VarExpr (Atom.fresh_builtin "session_id"))
+        )) in
         let e_replyto e = auto_place (T.AccessExpr (
             e,
             auto_place (T.VarExpr (Atom.fresh_builtin "replyTo"))
         )) in
-        let remaining_stepof st = fvstype st in
         let e_remaining_step e = auto_place (T.AccessExpr (
             e,
             auto_place (T.VarExpr (Atom.fresh_builtin "st"))
@@ -779,7 +783,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             if(e.bridge_id == author.project_name.Stage219.b36.get_id() && e.st == current_aststype){
                 author.project_name.Session<?> s = new Session(e.bridge_id, e.replyTo, e.st);
                 s.set_id(e.session_id);
-
+        
                 this.handle_ping61(s);
             }else{
                 ...
@@ -789,12 +793,12 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         let a_session = Atom.fresh_builtin "s" in
         let l_session = auto_place (T.VarExpr a_session) in
 
-        let add_case (bridge, st) (callback:T.expr) acc : T.stmt =
+        let add_case (bridge, st, remaining_st) (callback:T.expr) acc : T.stmt =
             auto_place (T.IfStmt (
                 auto_place (T.BinopExpr(
                     auto_place (T.BinopExpr (e_bridgeid l_event, S.Equal, bridgeid bridge)),
                     S.And,
-                    auto_place (T.BinopExpr (e_remaining_step l_event, S.Equal, remaining_stepof st))
+                    auto_place (T.BinopExpr (e_remaining_step l_event, S.StructuralEqual, fvstype (Core.IR_common.dual st)))
                 )),
                 auto_place (T.BlockStmt [
                     auto_place (T.LetStmt (
@@ -805,10 +809,16 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                             [
                                 e_bridgeid l_event;
                                 e_replyto l_event;
-                                e_remaining_step l_event
+                                fvstype remaining_st
                             ]
                         )))
                     ));
+                    auto_place (T.ExpressionStmt (auto_place (
+                        T.CallExpr(
+                            e_setid_of_session fplace a_session,
+                            [ e_sessionid l_event]
+                        )
+                    )));
                     auto_place (T.ExpressionStmt (auto_place (
                         T.CallExpr(
                             callback,
@@ -921,11 +931,14 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     [{
         place;
         value = {   
-            T.name;
-            T.methods; 
-            T.states;
-            T.events;
-            T.nested_items= List.map 
+            T.extended_types = [];
+            implemented_types = [];
+            is_guardian = false;
+            name;
+            methods; 
+            states;
+            events;
+            nested_items= List.map 
                 (function (x: T.actor) -> { 
                     place = x.place; 
                     value={ 
@@ -939,7 +952,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                 })
                 (List.flatten (List.map fcdcl grp_items.nested)
             ); 
-            T.receiver = receiver
+            receiver = receiver
         }
     }]
 end 

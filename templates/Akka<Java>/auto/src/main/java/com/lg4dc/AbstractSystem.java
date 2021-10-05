@@ -2,6 +2,7 @@ package com.lg4dc;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
+import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.receptionist.Receptionist;
 import akka.actor.typed.receptionist.ServiceKey;
@@ -24,58 +25,55 @@ public abstract class AbstractSystem {
 
     public static final class Wait {
     }
-        
-    public static Behavior<SpawnProtocol.Command> create() {
-        return AbstractSystem.create(null, null);
+      
+    public static void prepare_create(ActorContext context, String  name, Wait wait){
+        if (null != name && !name.isEmpty()) {
+            context.setLoggerName(name);
+        }
+        context.getLog().debug(NAME + "::create()");
+
+        // register to receptionist
+        context.getSystem().receptionist().tell(Receptionist.register(SERVICE_KEY, context.getSelf()));
+    /* TODO ask Benoit
+        // Cluster
+        Cluster cluster = Cluster.get(context.getSystem());
+        assert (null != cluster);
+
+        // init cluster listener
+        context.spawn(ClusterListener.create(cluster), "ClusterListener");
+
+        // wait for cluster init. TODO: can this be done in a better way ?
+        short i = 0;
+        do {
+            try {
+                ++i;
+                context.getLog().debug("Cluster state is " + cluster.selfMember().status() +
+                        ". Retry " + i + "/" + MAX_CLUSTER_CONNECT_RETRY);
+
+                if (MAX_CLUSTER_CONNECT_RETRY == i) {
+                    throw new InstantiationException("Could not connect to the cluster.");
+                }
+
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                throw new InstantiationException("Thread sleep was interrupted.");
+            }
+        } while ((cluster.selfMember().status() != MemberStatus.up()));
+
+        context.getLog().debug("Joining cluster");
+        cluster.manager().tell(Join.create(cluster.selfMember().address()));
+
+        ClusterSingleton singleton = ClusterSingleton.get(context.getSystem());
+    */
     }
-    public static <K, V> Behavior<SpawnProtocol.Command> create(String name, Wait wait) {
-        return Behaviors.setup(context -> {
-            if (null != name && !name.isEmpty()) {
-                context.setLoggerName(name);
+
+    public static Behavior<SpawnProtocol.Command> finish_create(Wait wait) {
+        if (null != wait) {
+            synchronized (wait) {
+                wait.notify();
             }
-            context.getLog().debug(NAME + "::create()");
+        }
 
-            // register to receptionist
-            context.getSystem().receptionist().tell(Receptionist.register(SERVICE_KEY, context.getSelf()));
-        /* TODO ask Benoit
-            // Cluster
-            Cluster cluster = Cluster.get(context.getSystem());
-            assert (null != cluster);
-
-            // init cluster listener
-            context.spawn(ClusterListener.create(cluster), "ClusterListener");
-
-            // wait for cluster init. TODO: can this be done in a better way ?
-            short i = 0;
-            do {
-                try {
-                    ++i;
-                    context.getLog().debug("Cluster state is " + cluster.selfMember().status() +
-                            ". Retry " + i + "/" + MAX_CLUSTER_CONNECT_RETRY);
-
-                    if (MAX_CLUSTER_CONNECT_RETRY == i) {
-                        throw new InstantiationException("Could not connect to the cluster.");
-                    }
-
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    throw new InstantiationException("Thread sleep was interrupted.");
-                }
-            } while ((cluster.selfMember().status() != MemberStatus.up()));
-
-            context.getLog().debug("Joining cluster");
-            cluster.manager().tell(Join.create(cluster.selfMember().address()));
-
-            ClusterSingleton singleton = ClusterSingleton.get(context.getSystem());
-        */
-
-            if (null != wait) {
-                synchronized (wait) {
-                    wait.notify();
-                }
-            }
-
-            return SpawnProtocol.create();
-        });
+        return SpawnProtocol.create();
     }
 }
