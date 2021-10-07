@@ -20,6 +20,7 @@ let builtin_fcts = [
     "dict", "() -> dict", "create a new dict";
     "add2dict", "dict<k,v> -> k -> v -> ()", "add in place";
     "get2dict", "dict<k,v> -> k -> v", "get";
+    "remove2dict", "dict<k,v> -> k -> v", "remove and return";
     "sessionid", "session -> id", "TODO";
     "nth", "tuple -> int -> ...", "nème elmt";
 ]

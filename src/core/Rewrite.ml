@@ -340,7 +340,7 @@ module Make (Args : Params ) : Sig = struct
                     (* Load args from state TODO add cleansing when timeout *)
                     body = [
                         auto_fplace (LetExpr (ctype_intermediate_args, tmp_args, (auto_fplace(CallExpr(
-                            auto_fplace(VarExpr (Atom.fresh_builtin "get2dict")),
+                            auto_fplace(VarExpr (Atom.fresh_builtin "remove2dict")),
                             [
                                 auto_fplace(AccessExpr(
                                     auto_fplace This,

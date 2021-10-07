@@ -31,6 +31,18 @@ let encode_builtin_fct place name (args:T.expr list) =
         ) 
         | _ -> Error.error place "add2dict takes three arguments"
     end
+    | "remove2dict" -> begin 
+        (* empty dict *)
+        match args with
+        | [dict; k] -> T.CallExpr( 
+            {
+                place;
+                value = T.AccessExpr (dict, {place; value = T.VarExpr (Atom.fresh_builtin "remove")})
+            },
+            [ k ]
+        ) 
+        | _ -> Error.error place "remove2dict takes two arguments"
+    end
     | "get2dict" -> begin 
         (* empty dict *)
         match args with
