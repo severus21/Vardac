@@ -25,8 +25,7 @@
 open Core
 
 type gamma_t = (IR.variable, IR.main_type) Hashtbl.t
-val gamma : gamma_t
 val print_gamma : gamma_t -> unit
 
 val cook_expression: Ast.expr -> IR.expr
-val cook_program: IR.vplaces -> Ast.program -> IR.program
+val cook_program: IR.vplaces -> Ast.program -> gamma_t * IR.program

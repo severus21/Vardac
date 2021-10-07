@@ -324,7 +324,7 @@ function
     | S.VarExpr x -> T.VarExpr x
     | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
     | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
-    | S.LambdaExpr (x, stmt) -> T.LambdaExpr ([x], fstmt stmt) 
+    | S.LambdaExpr (x, _, stmt) -> T.LambdaExpr ([x], fstmt stmt) 
     | S.LitExpr {value=S.Bridge b; place=lit_place} -> 
        (e_bridge_of_protocol lit_place (auto_place (T.VarExpr b.protocol_name))).value 
     | S.LitExpr lit -> T.LitExpr (fliteral lit)
@@ -414,7 +414,7 @@ and finish_stmt place : S._stmt -> T._stmt = function
     | S.BreakStmt -> T.BreakStmt
     | S.ContinueStmt -> T.ContinueStmt
     | S.ExitStmt _ -> failwith "Exist is not yet supported"
-    | S.ForStmt (_,_,_) -> failwith "For is not yet supported" 
+    | S.ForStmt (_,_,_,_) -> failwith "For is not yet supported" 
     | S.IfStmt (e, s1, s2_opt) -> T.IfStmt (fexpr e, fstmt s1, Option.map fstmt s2_opt)
     | S.MatchStmt (_,_) -> Core.Error.error place "Match is not yet supported"
     | S.ReturnStmt e -> T.ReturnStmt (fexpr e) 

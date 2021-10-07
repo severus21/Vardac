@@ -481,10 +481,14 @@ and cook_expr env place : S._expr -> env * T._expr = function
     let env2, e2 = cexpr env e2 in
     
     env << [env1; env2], T.BinopExpr (e1, op, e2) 
-| S.LambdaExpr (x, stmt) -> 
+| S.LambdaExpr (x, mt, stmt) -> 
     let inner_env, y = bind_expr env place x in 
     let env2, stmt = cstmt inner_env stmt in 
-    env << [env2], T.LambdaExpr (y, stmt)
+    let env3, mt = cmtype env mt in
+
+    register_gamma y mt;
+
+    env << [env2; env3], T.LambdaExpr (y, mt, stmt)
 | S.LitExpr l -> 
     let env1, l = cliteral env l in
     env << [env1], T.LitExpr l
@@ -561,19 +565,26 @@ and cook_stmt env place: S._stmt -> env * T._stmt = function
     let env1, mt = cmtype env mt in
     let new_env, y = bind_expr env place x in
     let env2, e = cexpr new_env e in
+
+    register_gamma y mt;
+
     new_env << [env1; env2], T.LetExpr (mt, y, e)
 | S.CommentsStmt c -> env, T.CommentsStmt c
 | S.BreakStmt -> env, T.BreakStmt
 | S.ContinueStmt -> env, T.ContinueStmt
 | S.ExitStmt i -> env, T.ExitStmt i
-| S.ForStmt (x, e, stmt) ->
+| S.ForStmt (mt, x, e, stmt) ->
     if is_instance_expr env e then error place "constructor can not be aliased";
 
     (* [new env] applies to [stmt] only and [stmt_env] does not applies outside the for*)
+    let env0, mt = cmtype env mt in
     let env1, e = cexpr env e in
     let inner_env, y = bind_expr env place x in
     let env2, stmt = cstmt inner_env stmt in
-    env << [env; inner_env; env2], T.ForStmt (y, e, stmt)
+
+    register_gamma y mt;
+
+    env << [env; env0; env1; inner_env; env2], T.ForStmt (mt, y, e, stmt)
 | S.IfStmt (e, stmt1, stmt2_opt) -> begin
     let env1, e = cexpr env e in
     let env2, stmt1 = cstmt env stmt1 in
@@ -605,10 +616,15 @@ end
     env << [env1], T.GhostStmt stmt
 and cstmt env : S.stmt -> env * T.stmt = cook_place cook_stmt env
 
-and cook_function env place : S._function_dcl -> env * T._function_dcl = function
+and cook_function env place : S._function_dcl -> env * T._function_dcl = 
+let fplace = (Error.forge_place "Coook.cook_function" 0 0) in
+let auto_place smth = {AstUtils.place = place; value=smth} in
+let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
+function
 | f -> 
     let new_env, name = bind_expr env place f.name in
     let inner_env, args = List.fold_left_map cparam env f.args in
+
 
     (* FIXME duplicated in cook_method*)
     let rec remove_empty_stmt = function
@@ -619,6 +635,9 @@ and cook_function env place : S._function_dcl -> env * T._function_dcl = functio
 
     let env1, ret_type = cmtype env f.ret_type in
     let env2, body = List.fold_left_map cstmt inner_env (remove_empty_stmt f.abstract_impl) in
+
+    let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (T.CType (auto_fplace(T.TArrow (t1, t2))))) (List.map (function (arg: T.param) -> fst arg.value) args) ret_type in 
+    register_gamma name fct_sign;
 
     new_env << [inner_env; env1; env2], {
             ret_type = ret_type;
@@ -653,6 +672,9 @@ and cstate env: S.state -> env * T.state = cook_place cook_state env
 and cook_param env place (mt, x) : env * T._param = 
     let env1, mt = cmtype env mt in
     let new_env, y = bind_expr env place x in
+
+    register_gamma y mt;
+    
     new_env<<[env1], (mt, y)
 and cparam env: S.param -> env * T.param = cook_place cook_param env
 
@@ -662,6 +684,9 @@ and cook_contract env place (contract:S._contract): env * T._contract =
         let new_env, y = bind_expr env place x in
         let env1, mt = cmtype env mt in
         let env2, e = cexpr env e in 
+
+        register_gamma y mt;
+
         new_env << [env1; env2], (mt, y, e)
     in
     let inner_env, pre_binders = List.fold_left_map aux_binder env contract.pre_binders in
@@ -707,7 +732,11 @@ and cook_contract env place (contract:S._contract): env * T._contract =
 and ccontract env: S.contract -> env * T.contract = cook_place cook_contract env
 
 
-and cook_method0 env place : S._method0 -> env * T._method0 = function
+and cook_method0 env place : S._method0 -> env * T._method0 = 
+let fplace = (Error.forge_place "Coook.cook_method0" 0 0) in
+let auto_place smth = {AstUtils.place = place; value=smth} in
+let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
+function
 | S.CustomMethod m ->
     (* method name has been already binded when scanning the structure of the component *)
     let name = cook_var_this env place m.name in 
@@ -721,6 +750,9 @@ and cook_method0 env place : S._method0 -> env * T._method0 = function
 
     let env1, ret_type = cmtype env m.ret_type in
     let env2, body = List.fold_left_map cstmt inner_env (remove_empty_stmt m.abstract_impl) in
+
+    let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (T.CType (auto_fplace(T.TArrow (t1, t2))))) (List.map (function (arg: T.param) -> fst arg.value) args) ret_type in 
+    register_gamma name fct_sign;
 
     env << [inner_env; env1; env2], T.CustomMethod {
         ghost = m.ghost;
@@ -832,7 +864,11 @@ and ccexpr env : S.component_expr -> env * T.component_expr = cook_place cook_co
 (********************** Signatures *********************)
 
 (************************************ Program *****************************)
-and cook_term env place : S._term -> env * T._term = function
+and cook_term env place : S._term -> env * T._term = 
+let fplace = (Error.forge_place "Coook.cook_term" 0 0) in
+let auto_place smth = {AstUtils.place = place; value=smth} in
+let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
+function
 | S.Comments c -> env, T.Comments c
 | S.PPTerm _ -> raise (PlacedDeadbranchError (place, "No preprocessing term should remains when cooking the AST."))
 
@@ -862,6 +898,13 @@ end
     let new_env2 = register_expr new_env1 place ~create_instance:false y in 
     let env3, mt = cmtype env mt in 
 
+    (* p : () -> p *)
+    let constructor_type = auto_fplace(T.CType(auto_fplace(T.TArrow(
+        auto_fplace(T.CType(auto_fplace(T.TFlatType T.TVoid))),
+        auto_fplace(T.CType(auto_fplace(T.TVar y)))
+    )))) in
+    register_gamma y constructor_type;
+
     new_env2 << [env3], T.Typedef ({ place; value = 
     ProtocolDef (y, mt) })
 | Typedef {value= ClassicalDef (x, args) as tdef; place} | Typedef {value= EventDef (x, args) as tdef; place} -> 
@@ -870,6 +913,10 @@ end
     (* We use resgister_expr y here in order to preserve atom identity between both the world of types and the world of values (type constructor for instance) *)
     let new_env2 = register_expr new_env1 place ~create_instance:true y in
     let envs, args = List.split (List.map (cmtype env) args) in 
+
+    (* t : args1 -> ... argsn -> t *)
+    let constructor_type = List.fold_right (fun t1 t2 -> auto_fplace (T.CType (auto_fplace(T.TArrow (t1, t2))))) args (auto_fplace(T.CType(auto_fplace(T.TVar y)))) in 
+    register_gamma y constructor_type;
 
     new_env2 << envs, T.Typedef ({ place; value = 
     match tdef with 
@@ -885,4 +932,4 @@ let cook_program places terms =
     let toplevel_env = refresh_component_env toplevel_env (Atom.fresh_builtin "toplevel") in
 
     let toplevel_env,  program = (List.fold_left_map cterm toplevel_env terms) in 
-    (terms_of_eventdef_from_labels toplevel_env) @ program
+    gamma, (terms_of_eventdef_from_labels toplevel_env) @ program

@@ -79,11 +79,12 @@ let process_check places filename =
     let build_dir = Utils.refresh_or_create_build_dir Config.default_build_dir in
     let project_dir = Fpath.parent (Fpath.v filename) in
 
-    Frontend.Main.to_ir places filename 
-    |> Core.PartialEval.peval_program 
+    let (gamma, ir) = Frontend.Main.to_ir places filename in
+    ir
+    |> Core.PartialEval.peval_program
     |> function x-> logger#sinfo "IR has been partially evaluated";x
-    |> Core.AstUtils.dump "pevaled IR" IR.show_program 
-    |> Check.check_program project_dir build_dir 
+    |> Core.AstUtils.dump "pevaled IR" IR.show_program
+    |> Check.check_program project_dir build_dir
 
 let process_compile places targets_file impl_filename filename = 
     (* Prepare dir *)
@@ -92,15 +93,17 @@ let process_compile places targets_file impl_filename filename =
     let project_dir = Fpath.parent (Fpath.v filename) in
 
 
-    let ir = 
-        Frontend.Main.to_ir places filename 
-        |> Core.PartialEval.peval_program 
-        |> function x-> logger#sinfo "IR has been partially evaluated";x
-        |> Core.AstUtils.dump "pevaled IR" IR.show_program 
-        |> function x -> Topology.generate_static_logical_topology build_dir x; x 
-        |> Core.Rewrite.rewrite_program 
+    let (gamma, ir) = Frontend.Main.to_ir places filename in
+    let module Rewrite = ((Core.Rewrite.Make((struct let gamma = gamma end))):Core.Rewrite.Sig) in
+    let ir =
+        ir
+        |> Core.PartialEval.peval_program
+        |> function x-> logger#sinfo "IR has been partially evaluated"; x
+        |> Core.AstUtils.dump "pevaled IR" IR.show_program
+        |> function program -> Topology.generate_static_logical_topology build_dir program; program
+        |> Rewrite.rewrite_program
         |> function x-> logger#sinfo "IR has been rewritten";x
-        |> Core.AstUtils.dump "pevaled IR" IR.show_program 
+        |> Core.AstUtils.dump "pevaled IR" IR.show_program
     in
 
     (* extract targets definitions from file *)

@@ -314,9 +314,10 @@ and peval_expr env place : _expr -> env * _expr = function
     let _, fct = pe_expr env fct in
     let args = List.map (function arg -> snd (pe_expr env arg)) args in
     peval_call env place fct args
-| LambdaExpr (x, stmt) ->
+| LambdaExpr (x, mt, stmt) ->
     let _, stmt = pe_stmt env stmt in
-    env, LambdaExpr (x, stmt)
+    let _, mt = pe_mtype env mt in 
+    env, LambdaExpr (x, mt, stmt)
 | LitExpr lit -> env, LitExpr lit
 | OptionExpr e_opt -> env, OptionExpr (Option.map (function e -> snd(pe_expr env e)) e_opt)
 | ResultExpr (ok_opt, err_opt) -> 
@@ -372,7 +373,7 @@ and peval_stmt env place : _stmt -> env * _stmt = function
 | ContinueStmt -> env, ContinueStmt
 | ExitStmt i -> env, ExitStmt i
 | ExpressionStmt e -> env, ExpressionStmt (snd(pe_expr env e))
-| ForStmt (x, e, stmt) -> env, ForStmt (x, snd (pe_expr env e), snd (pe_stmt env stmt)) (* TODO *)
+| ForStmt (mt, x, e, stmt) -> env, ForStmt (snd (pe_mtype env mt), x, snd (pe_expr env e), snd (pe_stmt env stmt)) (* TODO *)
 | IfStmt (e, stmt, stmt_opt) -> begin 
     let e = snd (pe_expr env e) in
     let stmt = snd (pe_stmt env stmt) in

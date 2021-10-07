@@ -185,7 +185,7 @@ and _expr =
 
     | AccessExpr of expr * expr (*e1.e2*)
     | BinopExpr of expr * binop * expr 
-    | LambdaExpr of variable * stmt 
+    | LambdaExpr of variable * main_type * stmt 
     | LitExpr of literal
     | UnopExpr of unop * expr 
 
@@ -227,7 +227,7 @@ and _stmt =
     | BreakStmt
     | ContinueStmt
     | ExitStmt of int
-    | ForStmt of variable * expr * stmt
+    | ForStmt of main_type * variable * expr * stmt
     | IfStmt of expr * stmt * stmt option
     | MatchStmt of expr * (expr * stmt) list
     | ReturnStmt of expr
@@ -295,7 +295,7 @@ let rec free_variable_place free_variable_value ({ AstUtils.place ; AstUtils.val
     free_variable_value place value
 
 let rec free_vars_expr_ (already_binded:Atom.Set.t) place : _expr -> Atom.Set.t * variable list = function 
-| LambdaExpr (x, stmt) ->
+| LambdaExpr (x, mt, stmt) ->
     already_binded, snd (free_vars_stmt (Atom.Set.add x already_binded) stmt)
 | VarExpr x when Atom.Set.find_opt x already_binded <> None  -> already_binded, [] 
 | VarExpr x when Atom.is_builtin x -> already_binded, [] 
@@ -327,7 +327,7 @@ and free_vars_stmt_ (already_binded:Atom.Set.t) place : _stmt -> Atom.Set.t * va
 | CommentsStmt c -> already_binded, []
 | ContinueStmt -> already_binded, []
 | ExitStmt _ -> already_binded, []
-| ForStmt (x, e, stmt) ->
+| ForStmt (mt, x, e, stmt) ->
     let _, fvars1 = free_vars_expr already_binded e in
     let _, fvars2 = free_vars_stmt (Atom.Set.add x already_binded) stmt in
     already_binded, fvars1@fvars2

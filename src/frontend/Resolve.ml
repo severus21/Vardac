@@ -24,7 +24,7 @@ let rec resolve_list_placed resolve_value ({ Core.AstUtils.place ; Core.AstUtils
 
 let rec resolve_expr : S._expr -> T._expr = 
 function
-| S.LambdaExpr (x, stmt) -> T.LambdaExpr (x, resolve_placed resolve_stmt stmt)
+| S.LambdaExpr (x, mt, stmt) -> T.LambdaExpr (x, mt, resolve_placed resolve_stmt stmt)
 (* Unconcerned constructors *)
 | S.AccessExpr (e1,e2) -> S.AccessExpr (rexpr e1, rexpr e2) 
 | S.BinopExpr (e1, op, e2) -> S.BinopExpr (rexpr e1, op, rexpr e2) 
@@ -48,7 +48,7 @@ and resolve_stmt : S._stmt -> T._stmt = function
 | S.AssignExpr (v, e) -> T.AssignExpr (v, rexpr e)
 | S.AssignThisExpr (v, e) -> T.AssignThisExpr (v, rexpr e)
 | S.LetExpr (mt, v, e) -> T.LetExpr (mt, v, rexpr e)
-| S.ForStmt (v, e, stmt) -> T.ForStmt (v, rexpr e, rstmt stmt)
+| S.ForStmt (mt, v, e, stmt) -> T.ForStmt (mt, v, rexpr e, rstmt stmt)
 | S.IfStmt (e, stmt1, stmt2_opt) -> T.IfStmt (rexpr e, rstmt stmt1,  Option.map rstmt stmt2_opt)
 | S.MatchStmt (e, entries) -> T.MatchStmt (rexpr e, List.map (function (e1, stmt) -> (e1, rstmt stmt)) entries)
 | S.ReturnStmt e -> T.ReturnStmt (rexpr e)
