@@ -255,7 +255,7 @@ module Make (Args : Params ) : Sig = struct
                 ghost = false;
                 kind = Local;
                 type0 = auto_fplace(CType (auto_fplace(TDict(
-                    auto_fplace(CType (auto_fplace(TFlatType(TInt)))), (*session id*)
+                    auto_fplace(CType (auto_fplace(TFlatType(TUUID)))), (*session id*)
                     ctype_intermediate_args
                 ))));
                 name = intermediate_state_name;

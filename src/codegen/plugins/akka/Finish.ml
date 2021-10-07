@@ -149,6 +149,7 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
         | S.TFloat -> T.Atomic "float"
         | S.TStr -> T.Atomic "String"
         | S.TVoid -> T.Atomic "Void" 
+        | S.TUUID -> T.Atomic "UUID" 
         | _ -> Core.Error.error place "TActivationInfo/Place/VPlace/Label type not yey supported."
     end
     | S.TArray mt -> T.TArray (fmtype mt)

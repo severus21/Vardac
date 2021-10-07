@@ -20,6 +20,7 @@ and flat_type =
     (** Literal types *)
     | TBool
     | TInt
+    | TUUID
     | TFloat 
     | TStr
     | TLabel

@@ -32,7 +32,8 @@ let builtin_atomic_types = [
   "bool";
   "place";
   "ipaddress";
-  "place_selector"
+  "place_selector";
+  "uuid";
   ]
 
 module BuiltinSet = Set.Make(String)                     
