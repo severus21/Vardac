@@ -58,26 +58,27 @@ bridge<A, B, !ping?pong, TLS> b1 = tlsbridge('xxx.cert');*)
     - check that the protocols hosted by the logical bridge also match
 *)
 component A () {
-    port truc on b0 expecting ?pong. = this.handle_pong;
+    (*port truc on b0 expecting ?pong. = this.handle_pong;*)
 
     onstartup void toto (activation_info<B> b) {
         session<p_pingpong> s0 = initiate_session_with(b0, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationInfo<'A> -> 'st *)
 
        ?pong. s1 = fire(s0, ping()); (* fire : !'a 'st -> 'a -> Result<'st, error> *)
-       
-       
+
+       tuple<pong, .> res = receive(s1, b0);
+       print("pong_or_timeout");
        
        (* 
        FIXME receiv not yet supported by Akka
-       Tuple<pong, .> res = s1.receive(); *) (* receive : ?a 'st -> Result<Tuple<'a, 'st>, error> *)
+       tuple<pong, .> res = s1.receive(); *) (* receive : ?a 'st -> Result<Tuple<'a, 'st>, error> *)
     }
 
-    result<void, error> handle_pong (pong msg, . s1) {
+    (*result<void, error> handle_pong (pong msg, . s1) {
         print("pong");
         //fire(s1, pong()); 
 
         return Ok(());
-    }
+    }*)
     component C () {
         void toto () {
             return ();

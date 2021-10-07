@@ -9,7 +9,7 @@ let builtin_fcts = [
     "fire", "TODO", "TODO";
     "receive", "TODO", "TODO";
     "switch", "session -> label* sessionTODO", "TODO";
-    "remote_endpoint", "session ->TODO", "";
+    "remote_endpoint", "session -> TODO", "";
     "ipaddress", "TODO->TODO", "";
     "places", "TODO", "TODO";
     "pick", "TODO", "Random choice in a sequence, failed if empty";
@@ -17,6 +17,11 @@ let builtin_fcts = [
     "bridge", "() -> Bridge<'A, 'B, 'a>", "create a new bridge with a fresh id";
     "initiate_session_with", "TODO", "TODO";
     "print", "string -> unit", "TODO";
+    "dict", "() -> dict", "create a new dict";
+    "add2dict", "dict<k,v> -> k -> v -> ()", "add in place";
+    "get2dict", "dict<k,v> -> k -> v", "get";
+    "sessionid", "session -> id", "TODO";
+    "nth", "tuple -> int -> ...", "nème elmt";
 ]
 
 let builtin_atomic_types = [
@@ -30,12 +35,21 @@ let builtin_atomic_types = [
   "place_selector"
   ]
 
-module BuiltinSet = 
- Set.Make(String)                     
+module BuiltinSet = Set.Make(String)                     
+let builtin_htbl = Hashtbl.of_seq (List.to_seq (List.map (function (x, a, b) -> (x, (a,b))) builtin_fcts))
 
 let builtin_expr_env = BuiltinSet.of_list (List.map (function x,_,_ -> x) builtin_fcts)    
 let builtin_type_env = BuiltinSet.of_list  builtin_atomic_types    
 let is_builtin_expr x = try let _ = BuiltinSet.find x builtin_expr_env in true with Not_found -> false                   
 let is_builtin_type x = try let _ = BuiltinSet.find x builtin_type_env in true with Not_found -> false                   
+
+let type_of x : IR.main_type = 
+  let (sign, _) = Hashtbl.find builtin_htbl x in
+  (*match Frontend.Parse.read "Core.Builtin" sign with
+  | _ ->*) failwith "it works"
+
+let desc_of x : string = 
+  let (_, desc) = Hashtbl.find builtin_htbl x in
+  desc 
 
 let is_builtin_component _ = false

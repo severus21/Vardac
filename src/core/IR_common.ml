@@ -1,7 +1,10 @@
 open AstUtils
+open Easy_logging
 
 (************************************* Base types ****************************)
 open Label
+
+let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
 type ident = string 
 
@@ -287,3 +290,61 @@ let rec _dual place : _session_type -> _session_type  = function
 | STTimeout (e, st) -> STTimeout (e , dual st)
 and dual st : session_type = 
 { st with value = _dual st.place st.value }
+
+let rec free_variable_place free_variable_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
+    free_variable_value place value
+
+let rec free_vars_expr_ (already_binded:Atom.Set.t) place : _expr -> Atom.Set.t * variable list = function 
+| LambdaExpr (x, stmt) ->
+    already_binded, snd (free_vars_stmt (Atom.Set.add x already_binded) stmt)
+| VarExpr x when Atom.Set.find_opt x already_binded <> None  -> already_binded, [] 
+| VarExpr x when Atom.is_builtin x -> already_binded, [] 
+| VarExpr x -> 
+    logger#error "free var of %s " (Atom.to_string x);
+    already_binded, [x]
+| BoxCExpr _ | LitExpr _ | OptionExpr None | ResultExpr (None, None) |This -> already_binded, []
+| AccessExpr (e1, e2) | BinopExpr (e1, _, e2) | ResultExpr (Some e1, Some e2) ->
+    let _, fvars1 = free_vars_expr already_binded e1 in
+    let _, fvars2 = free_vars_expr already_binded e2 in
+    already_binded, fvars1@fvars2
+| UnopExpr (_, e) | OptionExpr (Some e) | ResultExpr (Some e, None) | ResultExpr (None, Some e)->
+    let _, fvars = free_vars_expr already_binded e in
+    already_binded, fvars
+| CallExpr (e, es) | NewExpr (e, es) | Spawn {args=es; at = Some e} ->
+    let _, fvars = free_vars_expr already_binded e in
+    already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) fvars es
+| BlockExpr (_, es) | Spawn {args=es} -> 
+    already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) [] es
+and free_vars_expr (already_binded:Atom.Set.t) expr : Atom.Set.t * variable list = free_variable_place (free_vars_expr_ already_binded) expr
+
+and free_vars_stmt_ (already_binded:Atom.Set.t) place : _stmt -> Atom.Set.t * variable list = function 
+| EmptyStmt -> already_binded, []
+| AssignExpr (x, e) ->
+    free_vars_expr already_binded e
+| AssignThisExpr (x, e) ->
+    free_vars_expr already_binded e
+| BreakStmt -> already_binded, []
+| CommentsStmt c -> already_binded, []
+| ContinueStmt -> already_binded, []
+| ExitStmt _ -> already_binded, []
+| ForStmt (x, e, stmt) ->
+    let _, fvars1 = free_vars_expr already_binded e in
+    let _, fvars2 = free_vars_stmt (Atom.Set.add x already_binded) stmt in
+    already_binded, fvars1@fvars2
+| IfStmt (e, stmt1, stmt2_opt) -> 
+    let _, fvars0 = free_vars_expr already_binded e in
+    let _, fvars1 = free_vars_stmt already_binded stmt1 in
+    let ret2_opt = Option.map (free_vars_stmt already_binded) stmt2_opt in
+    already_binded, fvars0@fvars1@(if ret2_opt = None then [] else snd (Option.get ret2_opt))
+| LetExpr (ct, x, e) -> 
+    let already_binded = Atom.Set.add x already_binded in
+    let _, fvars = free_vars_expr already_binded e in  
+    already_binded, fvars 
+| MatchStmt (e, branches) ->
+    let _, fvars = free_vars_expr already_binded e in
+    already_binded, List.fold_left (fun acc (_,stmt) -> acc @ (snd (free_vars_stmt already_binded stmt))) fvars branches 
+| ReturnStmt e ->
+    let _, fvars = free_vars_expr already_binded e in
+    already_binded, fvars
+
+and free_vars_stmt (already_binded:Atom.Set.t) stmt : Atom.Set.t * variable list = free_variable_place (free_vars_stmt_ already_binded) stmt

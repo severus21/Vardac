@@ -98,6 +98,9 @@ let process_compile places targets_file impl_filename filename =
         |> function x-> logger#sinfo "IR has been partially evaluated";x
         |> Core.AstUtils.dump "pevaled IR" IR.show_program 
         |> function x -> Topology.generate_static_logical_topology build_dir x; x 
+        |> Core.Rewrite.rewrite_program 
+        |> function x-> logger#sinfo "IR has been rewritten";x
+        |> Core.AstUtils.dump "pevaled IR" IR.show_program 
     in
 
     (* extract targets definitions from file *)

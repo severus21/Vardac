@@ -31,6 +31,9 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
         let table = tableof body in
 
         let name = match Hashtbl.find table "target" with `String x -> x |_-> Error.error mock_place "Illformed target\n" in
+       
+        (* Needed when doing creating jar target for Akka *)
+        if String.length name < 2 then Error.error mock_place "target name [%s] must have a length greater (or equal) than 2" name;
 
         (* Check target names are defined exaclty once *)
         begin 

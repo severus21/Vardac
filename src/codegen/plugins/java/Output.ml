@@ -244,7 +244,7 @@ let output_program package_name outpath items : unit =
         JModule (mock_placed (PackageDeclaration (String.lowercase_ascii package_name)));
 
         (* Java *)
-        JModule (mock_placed(ImportDirective "java.util.List"));
+        JModule (mock_placed(ImportDirective "java.util.*"));
         JModule (mock_placed(ImportDirective "java.time.Duration"));
         JModule (mock_placed(ImportDirective "java.util.concurrent.CompletableFuture"));
         JModule (mock_placed(ImportDirective "java.util.UUID"));

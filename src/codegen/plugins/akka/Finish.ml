@@ -382,7 +382,14 @@ function
         [fexpr ok]
     ) 
     | S.ResultExpr (_,_) -> raise (Core.Error.PlacedDeadbranchError (place, "finish_expr : a result expr can not be Ok and Err at the same time."))
-    | S.BlockExpr (b, es) -> failwith "block not yet supported"
+    | S.BlockExpr (b, es) -> begin
+        match b with
+        | Tuple -> T.CallExpr(
+            auto_place(T.VarExpr(Atom.fresh_builtin "Tuple.of")),
+            List.map fexpr es
+        )
+        | _  -> failwith "block not yet supported"
+    end
     | S.Block2Expr (b, xs) -> failwith "block not yet supported"
 and fexpr e : T.expr = finish_place finish_expr e
 

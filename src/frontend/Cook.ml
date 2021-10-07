@@ -14,6 +14,21 @@ module T = IR
 
 let fst3 (x,y,z) = x
 
+
+(* Global state 
+    Since each new binder create an unique variable, a variable is exactly binded once with a type other with its identity changes
+*)
+
+type gamma_t = (IR.variable, IR.main_type) Hashtbl.t
+let gamma = Hashtbl.create 64 
+
+let register_gamma x t = Hashtbl.add gamma x t 
+let register_gamma_builtin x = 
+    Hashtbl.add gamma x (Builtin.type_of (Atom.hint x))
+
+let print_gamma gamma = 
+    Format.fprintf Format.std_formatter "Gamma {@[%a]}" (Error.pp_list "\n  -" (fun out (x,t) -> Format.fprintf out " %s -> %s " (Atom.to_string x) (T.show_main_type t))) (List.of_seq (Hashtbl.to_seq gamma))
+
 (* Environments map strings to atoms. *)
 module Env = Map.Make(String)
 

@@ -19,6 +19,42 @@ let encode_builtin_fct place name (args:T.expr list) =
     let auto_place t = {place; value=t} in 
     match name with
     (* TODO Remove string and used typed constructor in order to ensure that this file is uptodate with the Core.Builtin.builtin_fcts*)
+    | "add2dict" -> begin 
+        (* empty dict *)
+        match args with
+        | [dict; k; v] -> T.CallExpr( 
+            {
+                place;
+                value = T.AccessExpr (dict, {place; value = T.VarExpr (Atom.fresh_builtin "put")})
+            },
+            [ k; v ]
+        ) 
+        | _ -> Error.error place "add2dict takes three arguments"
+    end
+    | "get2dict" -> begin 
+        (* empty dict *)
+        match args with
+        | [dict; k] -> T.CallExpr( 
+            {
+                place;
+                value = T.AccessExpr (dict, {place; value = T.VarExpr (Atom.fresh_builtin "get")})
+            },
+            [ k ]
+        ) 
+        | _ -> Error.error place "get2dict takes two arguments"
+    end
+    | "dict" -> begin 
+        (* empty dict *)
+        match args with
+        | [] -> T.NewExpr( 
+            {
+                place;
+                value = T.VarExpr (Atom.fresh_builtin "HashMap")
+            },
+            []
+        ) 
+        | _ -> Error.error place "dict takes no arguments"
+        end
     | "fire" -> begin 
         match args with
         | [ session; msg ] -> T.CallExpr( 
@@ -42,6 +78,16 @@ let encode_builtin_fct place name (args:T.expr list) =
         match args with
         | [ tuple ] ->  T.AccessExpr (tuple, {place; value = T.VarExpr (Atom.fresh_builtin "_2")})
         | _ -> Error.error place "second must take one argument"
+    end
+    | "nth" -> begin
+        match args with
+        | [ {value=LitExpr{value=IntLit i}}; tuple ]->  T.AccessExpr (tuple, {place; value = T.VarExpr (Atom.fresh_builtin (Printf.sprintf "_%d"i))})
+        | _ -> Error.error place "nth must take two argument"
+    end
+    | "sessionid" -> begin
+        match args with
+        | [ s ] ->  T.AccessExpr (s, {place; value = T.VarExpr (Atom.fresh_builtin "session_id")})
+        | _ -> Error.error place "sessionid must take one argument"
     end
     | "print" -> begin
         match args with
