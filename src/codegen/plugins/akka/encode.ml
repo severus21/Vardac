@@ -80,13 +80,17 @@ let encode_builtin_fct place name (args:T.expr list) =
         | _ -> Error.error place "second must take one argument"
     end
     | "nth" -> begin
+        (* Vavr state at _1 and not _0 *)
         match args with
-        | [ {value=LitExpr{value=IntLit i}}; tuple ]->  T.AccessExpr (tuple, {place; value = T.VarExpr (Atom.fresh_builtin (Printf.sprintf "_%d"i))})
+        | [ {value=LitExpr{value=IntLit i}}; tuple ]->  T.AccessExpr (tuple, {place; value = T.VarExpr (Atom.fresh_builtin (Printf.sprintf "_%d"(i+1)))})
         | _ -> Error.error place "nth must take two argument"
     end
     | "sessionid" -> begin
         match args with
-        | [ s ] ->  T.AccessExpr (s, {place; value = T.VarExpr (Atom.fresh_builtin "session_id")})
+        | [ s ] ->  T.CallExpr(
+            { place; value = T.AccessExpr (s, {place; value = T.VarExpr (Atom.fresh_builtin "get_id")})},
+            []
+        )
         | _ -> Error.error place "sessionid must take one argument"
     end
     | "print" -> begin

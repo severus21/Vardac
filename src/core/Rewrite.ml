@@ -210,7 +210,7 @@ module Make (Args : Params ) : Sig = struct
         | [] -> 
             [], [], [ 
                 auto_fplace (CustomMethod { acc_method with 
-                        body = acc_method.body @ acc_stmts
+                        body = acc_method.body @ (List.rev acc_stmts)
                 })
             ]
         | {place; value=LetExpr ({value=CType{value=TTuple [msg_t;{value = SType continuation_st}]}}, _, {value=CallExpr ({value=VarExpr x}, [s; bridge]) as e})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
@@ -285,7 +285,7 @@ module Make (Args : Params ) : Sig = struct
                             ));
                             auto_fplace(CallExpr(
                                 auto_fplace(VarExpr (Atom.fresh_builtin "sessionid")),
-                                [ s ]
+                                [ auto_fplace (VarExpr tmp_session) ]
                             ));
                         ]
                     )))));
@@ -307,7 +307,7 @@ module Make (Args : Params ) : Sig = struct
                 ret_type = ctype_intermediate_args;
                 body = 
                     acc_method.body @ (* Load args from state if needed*) 
-                    acc_stmts @ 
+                    (List.rev acc_stmts) @ 
                     [
                         (* Store args in state TODO add cleansing when timeout *)
                         auto_fplace (ExpressionStmt (auto_fplace(CallExpr(

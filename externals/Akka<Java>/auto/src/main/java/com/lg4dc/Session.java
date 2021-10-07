@@ -28,6 +28,10 @@ public class Session {
     public void set_id(UUID id){
         this.session_id = id;
     }
+
+    public UUID get_id(){
+        return this.session_id;
+    }
     
     public <E extends Event> Session fire(E e,  ActorContext context) {
         assert(this.st.continuations.size() == 1);
