@@ -205,19 +205,24 @@ module Make (Args : Params ) : Sig = struct
         in
         
         let stmts = List.flatten (List.map (function stmt -> to_X_form stmt.place stmt.value) m.body) in
-
-        let rec split_body acc_stmts (acc_method:__method0) : stmt list -> port list * state list * method0 list = function
+        (*
+            return (new_ports, (session of the receive, method) list)
+        *)
+        let rec split_body acc_stmts (acc_method:__method0) : stmt list -> port list *  (expr option * __method0) list = function
         | [] -> 
-            [], [], [ 
-                auto_fplace (CustomMethod { acc_method with 
+            [], [ 
+                None, { acc_method with 
                         body = acc_method.body @ (List.rev acc_stmts)
-                })
+                }
             ]
         | {place; value=LetExpr ({value=CType{value=TTuple [msg_t;{value = SType continuation_st}]}}, _, {value=CallExpr ({value=VarExpr x}, [s; bridge]) as e})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
-            logger#error "acc_mthoe with %d stmts" (List.length acc_method.body);
+        (*
+            N.B. We use extacly one [s] in the final AST when storing the intermediate arguments
+        *)
+            logger#error "acc_mthode with %d stmts" (List.length acc_method.body);
             let intermediate_method_name = Atom.fresh ((Atom.hint m.name)^"_intermediate") in
             let intermediate_port_name = Atom.fresh ((Atom.hint m.name)^"_intermediate_port") in
-            let intermediate_state_name = Atom.fresh ((Atom.hint m.name)^"_intermediate_state") in
+            (*let intermediate_state_name = Atom.fresh ((Atom.hint m.name)^"_intermediate_state") in*)
             
 
             let intermediate_port = auto_fplace {
@@ -229,43 +234,10 @@ module Make (Args : Params ) : Sig = struct
                     auto_fplace (VarExpr intermediate_method_name)
                 ));
             } in
-
-            let already_binded = Atom.Set.of_seq (List.to_seq (List.map (function {value=(_,x)} -> x) m.args)) in
-            Atom.Set.iter (function x -> logger#error "already binded %s" (Atom.to_string x)) already_binded;
-            let _, intermediate_args = List.fold_left_map  free_vars_stmt already_binded acc_stmts in
-            let intermediate_args : variable list = List.flatten intermediate_args in
-            let intermediate_args = m.args @ (List.map 
-                (function x -> (
-                    auto_fplace(
-                        Hashtbl.find gamma x
-                        ,x
-                    )
-                ))
-                intermediate_args
-            ) in (* FIXME TODO REMOVE m.value.args sould have been captured by freee_vars if needed *)
-                
-            let ctype_intermediate_args = auto_fplace (CType (auto_fplace (TTuple (List.map (function arg -> fst arg.value) intermediate_args)))) in
-            let tuple_intermediate_args = auto_fplace (BlockExpr (
-                Tuple, 
-                List.map (function arg -> auto_fplace (VarExpr (snd arg.value))) intermediate_args
-            )) in
-
-            (* use to store args between acc_methd and intermediate_method*)
-            let intermediate_state = auto_fplace (StateDcl {
-                ghost = false;
-                kind = Local;
-                type0 = auto_fplace(CType (auto_fplace(TDict(
-                    auto_fplace(CType (auto_fplace(TFlatType(TUUID)))), (*session id*)
-                    ctype_intermediate_args
-                ))));
-                name = intermediate_state_name;
-                body =  Some (auto_fplace (CallExpr (
-                    auto_place (VarExpr (Atom.fresh_builtin "dict")), [])))
-            }) in
             
             let tmp_event = Atom.fresh_builtin "e" in
             let tmp_session = Atom.fresh_builtin "session" in
-            let tmp_args = Atom.fresh_builtin "tmp_args" in
+            (*let tmp_args = Atom.fresh_builtin "tmp_args" in*)
             let intermediate_method = {
                 ghost = false;
                 ret_type = m.ret_type; (* Will be updated lated if needed *) 
@@ -274,41 +246,75 @@ module Make (Args : Params ) : Sig = struct
                     auto_fplace ( msg_t, tmp_event);
                     auto_fplace ( auto_fplace (SType continuation_st), tmp_session);
                 ]; 
-                body = [
-                    (* Load args from state TODO add cleansing when timeout *)
-                    auto_fplace (LetExpr (ctype_intermediate_args, tmp_args, (auto_fplace(CallExpr(
-                        auto_fplace(VarExpr (Atom.fresh_builtin "get2dict")),
-                        [
-                            auto_fplace(AccessExpr(
-                                auto_fplace This,
-                                auto_fplace (VarExpr intermediate_state_name)
-                            ));
-                            auto_fplace(CallExpr(
-                                auto_fplace(VarExpr (Atom.fresh_builtin "sessionid")),
-                                [ auto_fplace (VarExpr tmp_session) ]
-                            ));
-                        ]
-                    )))));
-                ] @ List.mapi (fun i {value=(mt, x)} ->
-                    auto_fplace (LetExpr (mt, x, 
-                        auto_fplace( CallExpr(
-                            auto_fplace (VarExpr (Atom.fresh_builtin "nth")),
-                            [ 
-                                auto_fplace (LitExpr (auto_fplace (IntLit i)));
-                                auto_fplace (VarExpr tmp_args) 
-                            ]
-                        ))
-                    )) 
-                ) intermediate_args; (*Will be update later*)
+                body = []; (*Will be update later*)
                 contract_opt = None
             } in
             
-            let acc_method = auto_fplace (CustomMethod { acc_method with 
-                ret_type = ctype_intermediate_args;
+            let acc_method = { acc_method with 
+                ret_type = auto_fplace (CType(auto_fplace(TFlatType TVoid)));
                 body = 
-                    acc_method.body @ (* Load args from state if needed*) 
-                    (List.rev acc_stmts) @ 
-                    [
+                    acc_method.body @
+                    (List.rev acc_stmts);
+            } in
+            let _ports, _methods = split_body [] intermediate_method stmts in
+
+            intermediate_port::_ports, (Some s, acc_method)::_methods
+        | stmt::stmts -> split_body (stmt::acc_stmts) acc_method stmts
+        in
+
+        let intermediate_ports, intermediate_methods =  split_body [] {m with body = []} stmts in
+        
+        (* Add header and footer for each method (i.e. how to propagate arguments) + update args *)
+        let rec rewrite_intermediate : (expr option * __method0) list -> state list * __method0 list = function
+        | [] -> [], []
+        | [ (_,m) ] -> [], [ m ]
+        | (s1_opt, m1)::(s2_opt, m2)::ms -> begin
+            (*let already_binded = Atom.Set.of_seq (List.to_seq (List.map (function {value=(_,x)} -> x) m.args)) in
+            Atom.Set.iter (function x -> logger#error "already binded2 %s" (Atom.to_string x)) already_binded;*)
+            let already_binded = Atom.Set.empty in
+            let _, intermediate_args = List.fold_left_map free_vars_stmt already_binded m2.body in
+            let intermediate_args : variable list = List.flatten intermediate_args in
+            let intermediate_args = (List.map 
+                (function x -> (
+                    auto_fplace(
+                        Hashtbl.find gamma x
+                        ,x
+                    )
+                ))
+                intermediate_args
+            ) in
+
+            let ctype_intermediate_args = auto_fplace (CType (auto_fplace (TTuple (List.map (function arg -> fst arg.value) intermediate_args)))) in
+            let tuple_intermediate_args = auto_fplace (BlockExpr (
+                Tuple, 
+                List.map (function arg -> auto_fplace (VarExpr (snd arg.value))) intermediate_args
+            )) in
+
+            match intermediate_args with
+            |[] ->
+                let _states, _methods = rewrite_intermediate ((s2_opt,m2)::ms) in
+                _states, m1::_methods
+            | _ -> begin
+                let tmp_event = Atom.fresh_builtin "e" in
+                let tmp_session = Atom.fresh_builtin "session" in
+                let tmp_args = Atom.fresh_builtin "tmp_args" in
+
+                let intermediate_state_name = Atom.fresh ((Atom.hint m.name)^"_intermediate_state") in
+                (* use to store args between acc_methd and intermediate_method*)
+                let intermediate_state = auto_fplace (StateDcl {
+                    ghost = false;
+                    kind = Local;
+                    type0 = auto_fplace(CType (auto_fplace(TDict(
+                        auto_fplace(CType (auto_fplace(TFlatType(TUUID)))), (*session id*)
+                        ctype_intermediate_args
+                    ))));
+                    name = intermediate_state_name;
+                    body =  Some (auto_fplace (CallExpr (
+                        auto_place (VarExpr (Atom.fresh_builtin "dict")), [])))
+                }) in
+
+                let m1 = { m1 with 
+                    body = m1.body @ [
                         (* Store args in state TODO add cleansing when timeout *)
                         auto_fplace (ExpressionStmt (auto_fplace(CallExpr(
                             auto_fplace(VarExpr (Atom.fresh_builtin "add2dict")),
@@ -319,20 +325,60 @@ module Make (Args : Params ) : Sig = struct
                                 ));
                                 auto_fplace(CallExpr(
                                     auto_fplace(VarExpr (Atom.fresh_builtin "sessionid")),
-                                    [ s ]
+                                    [ match s1_opt with
+                                        | Some session -> session (* when we are in the first method of the list*)
+                                        | None -> auto_fplace (VarExpr tmp_session) (* for all the intermediate (and last) methods *) 
+                                    ]
                                 ));
                                 tuple_intermediate_args;
                             ]
                         ))))
                     ]
-            }) in
-            let _ports, _states, _methods = split_body [] intermediate_method stmts in
+                } in
 
-            intermediate_port::_ports, intermediate_state::_states, acc_method::_methods
-        | stmt::stmts -> split_body (stmt::acc_stmts) acc_method stmts
+                let m2 = { m2 with 
+                    (* Load args from state TODO add cleansing when timeout *)
+                    body = [
+                        auto_fplace (LetExpr (ctype_intermediate_args, tmp_args, (auto_fplace(CallExpr(
+                            auto_fplace(VarExpr (Atom.fresh_builtin "get2dict")),
+                            [
+                                auto_fplace(AccessExpr(
+                                    auto_fplace This,
+                                    auto_fplace (VarExpr intermediate_state_name)
+                                ));
+                                auto_fplace(CallExpr(
+                                    auto_fplace(VarExpr (Atom.fresh_builtin "sessionid")),
+                                    [ auto_fplace (VarExpr tmp_session) ]
+                                ));
+                            ]
+                        )))));
+                    ] @ (
+                        List.mapi (fun i {value=(mt, x)} ->
+                            auto_fplace (LetExpr (mt, x, 
+                                auto_fplace( CallExpr(
+                                    auto_fplace (VarExpr (Atom.fresh_builtin "nth")),
+                                    [ 
+                                        auto_fplace (LitExpr (auto_fplace (IntLit i)));
+                                        auto_fplace (VarExpr tmp_args) 
+                                    ]
+                                ))
+                            )) 
+                        ) intermediate_args
+                    )
+                    @ m2.body; 
+                } in
+
+
+                let _states, _methods = rewrite_intermediate ((s2_opt, m2)::ms) in
+                intermediate_state::_states, m1::_methods
+            end
+        end
         in
 
-        split_body [] {m with body = []} stmts
+        let intermediate_states, intermediate_methods = rewrite_intermediate intermediate_methods in
+        let intermediate_methods = List.map (function m -> auto_fplace (CustomMethod m)) intermediate_methods in
+
+        intermediate_ports, intermediate_states, intermediate_methods
     end
     | OnStartup m -> 
         let ps, ss, ms = rmethod0 m in

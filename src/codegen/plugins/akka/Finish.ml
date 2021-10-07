@@ -144,9 +144,10 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
 
     | S.TVar x -> T.TVar x 
     | S.TFlatType ft -> begin match ft with  
-        | S.TBool -> T.Atomic "boolean"
-        | S.TInt -> T.Atomic "int"
-        | S.TFloat -> T.Atomic "float"
+        (* When using Tuyple, Map, ... we need object so for ease we box atomic type in objects everywhere *)
+        | S.TBool -> T.Atomic "Boolean"
+        | S.TInt -> T.Atomic "Integer"
+        | S.TFloat -> T.Atomic "Float"
         | S.TStr -> T.Atomic "String"
         | S.TVoid -> T.Atomic "Void" 
         | S.TUUID -> T.Atomic "UUID" 

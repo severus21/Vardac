@@ -324,14 +324,23 @@ and free_vars_stmt_ (already_binded:Atom.Set.t) place : _stmt -> Atom.Set.t * va
     free_vars_expr already_binded e
 | AssignThisExpr (x, e) ->
     free_vars_expr already_binded e
+| BlockStmt stmts ->
+    let already_binded, fvars = List.fold_left_map (fun already_binded stmt -> free_vars_stmt already_binded stmt) already_binded stmts in 
+    already_binded, List.flatten fvars
 | BreakStmt -> already_binded, []
 | CommentsStmt c -> already_binded, []
 | ContinueStmt -> already_binded, []
+| ExpressionStmt e -> 
+    let _, fvars = free_vars_expr already_binded e in
+    already_binded, fvars
 | ExitStmt _ -> already_binded, []
 | ForStmt (mt, x, e, stmt) ->
     let _, fvars1 = free_vars_expr already_binded e in
     let _, fvars2 = free_vars_stmt (Atom.Set.add x already_binded) stmt in
     already_binded, fvars1@fvars2
+| GhostStmt stmt -> 
+    let _, fvars = free_vars_stmt already_binded stmt in
+    already_binded, fvars
 | IfStmt (e, stmt1, stmt2_opt) -> 
     let _, fvars0 = free_vars_expr already_binded e in
     let _, fvars1 = free_vars_stmt already_binded stmt1 in

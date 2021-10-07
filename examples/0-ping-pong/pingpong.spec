@@ -64,9 +64,11 @@ component A () {
         session<p_pingpong> s0 = initiate_session_with(b0, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationInfo<'A> -> 'st *)
 
        ?pong. s1 = fire(s0, ping()); (* fire : !'a 'st -> 'a -> Result<'st, error> *)
-
+        int i = 1;
        tuple<pong, .> res = receive(s1, b0);
        print("pong_or_timeout");
+       int j = i+1;
+
        
        (* 
        FIXME receiv not yet supported by Akka
