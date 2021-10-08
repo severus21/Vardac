@@ -436,18 +436,19 @@ and cook_constraint_header env place: S._constraint_header -> env * T._constrain
         |S.UseGlobal _ -> T.UseGlobal (mt, y)
         |S.UseMetadata _ -> T.UseMetadata (mt, y)
     )
+| S.SetTimer x ->
+    let new_env, y = bind_type env place x in
+    new_env, T.SetTimer y 
 
-and cook_constraint env place : S._constraints -> env * T._constraints = function
-| S.CExpr e ->
-    let env1, e = cexpr env e in
-    env << [env1], T.CExpr e
-and cconst env const : env * T.constraints = cook_place cook_constraint env const
+and cconst env const : env * T.constraints = cook_place cook_expr env const
 
-and caconst env (headers,const): env * T.applied_constraint = 
+and caconst env (headers,const_opt): env * T.applied_constraint = 
     let (env1, new_headers) : (env * T.constraint_header list ) = List.fold_left_map (cook_place cook_constraint_header) env headers in
-    let env2, new_const = cconst env1 const in
-
-    env << [env1; env2], (new_headers, new_const)
+    match const_opt with
+    | Some const ->
+        let env2, new_const = cconst env1 const in
+        env << [env1; env2], (new_headers, Some new_const)
+    | None -> env << [env1], (new_headers, None)
 
 (************************************* Literals ******************************)
 and cook_literal env place : S._literal -> env * T._literal = function

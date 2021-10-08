@@ -51,6 +51,7 @@ match value with
 and pp_mtype { AstUtils.place ; AstUtils.value}= match value with
 | CType ct -> pp_ctype ct
 | SType st -> pp_stype st
+| ConstrainedType (mt, _) -> pp_mtype mt (* TODO represent the onstraint*)
 
 
 module G = Imperative.Digraph.ConcreteBidirectionalLabeled(Node)(Edge)

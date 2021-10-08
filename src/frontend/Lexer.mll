@@ -65,6 +65,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "port", PORT;
     "sig", SIG;
     "signature", SIGNATURE;
+    "timer", TIMER;
 
     (* Expr *)
     "Err", ERR;

@@ -81,6 +81,7 @@ any_st_match:
 | x=STRLITERAL c= any_applied_constraint COLON st=any_session_type
     { (x,st, Some c) }
 
+
 any_session_type_:
 | SESSION LANGLEBRACKET x=LID RANGLEBRACKET
     { STInline x }
@@ -165,20 +166,22 @@ any_constraint_header_:
     { UseGlobal (mt,x) }
 | METADATA mt=any_type x = LID
     { UseMetadata (mt,x) }
+| TIMER x=LID
+    { SetTimer x }
 %public %inline any_constraint_header:
   t = placed(any_constraint_header_)
     {t}
 
 any_constraint_:
-| e = any_expr
-    { CExpr e }
+| e = any_expr_
+    { e }
 %public %inline any_constraint:
   t = placed(any_constraint_)
     {t}
 
 any_applied_constraint:    
-|LCURLYBRACKET headers=right_flexible_list(COMMA, any_constraint_header) MID e=any_constraint RCURLYBRACKET
-    { (headers, e) }
+|LCURLYBRACKET headers=right_flexible_list(COMMA, any_constraint_header) MID e_opt=option(any_constraint) RCURLYBRACKET
+    { (headers, e_opt) }
 (************************************* Literals ******************************)
 atomic_literal_:
 | b = BOOLLITERAL

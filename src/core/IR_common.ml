@@ -89,13 +89,14 @@ and main_type = _main_type placed
 and _constraint_header =      
     | UseGlobal of main_type * variable 
     | UseMetadata of main_type * variable
+    | SetTimer of variable
+    | SetFireTimer of variable * int (* specify timeout delay *)
 and constraint_header = _constraint_header placed
 
-and _constraints = 
-    | CExpr of expr (* for now, maybe we will need to restrict a bit for SMT solving*)
+and _constraints = _expr (* for now, maybe we will need to restrict a bit for SMT solving*)
 and constraints = _constraints placed 
 
-and applied_constraint = (constraint_header list) * constraints
+and applied_constraint = (constraint_header list) * constraints option
 
 (************************************ (V) - Place ****************************)
 and _place = unit 

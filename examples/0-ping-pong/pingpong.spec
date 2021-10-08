@@ -18,7 +18,8 @@
 type error of ;
 event ping of; (* type constructor ping() *)
 event pong of; (* type constructor pong() *)
-protocol p_pingpong = !ping?pong. ;
+(*protocol p_pingpong = !ping?pong. ;*)
+protocol p_pingpong = !ping{timer x|}?pong!ping!ping.;
 
 (*  a bridge is a dynamic object, it replace the channel concept
     - with a unique ID
@@ -65,14 +66,13 @@ component A () {
 
        ?pong. s1 = fire(s0, ping()); (* fire : !'a 'st -> 'a -> Result<'st, error> *)
         int i = 1;
-       tuple<pong, .> res = receive(s1, b0);
-       print("pong_or_timeout");
-       int j = i+1;
-
-       
-       (* 
-       FIXME receiv not yet supported by Akka
-       tuple<pong, .> res = s1.receive(); *) (* receive : ?a 'st -> Result<Tuple<'a, 'st>, error> *)
+        tuple<pong, !ping!ping.> res = receive(s1, b0);  (*Tuple2<e, s>*)
+        print("pong_or_timeout");
+        int j = i+1;
+        !ping. s2 = fire(second(res), ping());
+        print("st_ping_fired");
+        . s3 = fire(s2, ping());
+        print("th_ping_fire");
     }
 
     (*result<void, error> handle_pong (pong msg, . s1) {
@@ -96,11 +96,23 @@ component B () {
                 so we specify which point of the protocol is handled by this port using [expecting]
         then the handling of an incomming interaction is delegated to a callback : 'st -> Result<void, error>
     *)
-    port truc on b0 expecting ?ping!pong. = this.handle_ping;
+    port truc on b0 expecting ?ping!pong?ping?ping. = this.handle_ping;
+    port truc2 on b0 expecting ?ping?ping. = this.handle_ping2;
+    port truc3 on b0 expecting ?ping. = this.handle_ping3;
 
-    result<void, error> handle_ping (ping msg, !pong. s1) {
+    result<void, error> handle_ping (ping msg, !pong?ping?ping. s1) {
         print("ping");
         fire(s1, pong()); 
+
+        return Ok(());
+    }
+    result<void, error> handle_ping2 (ping msg, ?ping?ping. s1) {
+        print("ping");
+
+        return Ok(());
+    }
+    result<void, error> handle_ping3 (ping msg, ?ping. s1) {
+        print("ping");
 
         return Ok(());
     }
