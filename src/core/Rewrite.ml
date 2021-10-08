@@ -206,23 +206,23 @@ module Make (Args : Params ) : Sig = struct
         
         let stmts = List.flatten (List.map (function stmt -> to_X_form stmt.place stmt.value) m.body) in
         (*
-            return (new_ports, (session of the receive, method) list)
+            return (new_ports, ((variable hosting the result of the receive, msgt, continuation), session of the receive, method) list)
         *)
-        let rec split_body acc_stmts (acc_method:__method0) : stmt list -> port list *  (expr option * __method0) list = function
+        let rec split_body acc_stmts (acc_method:__method0) : stmt list -> port list *  ((variable * main_type * main_type) option * expr option * __method0) list = function
         | [] -> 
             [], [ 
-                None, { acc_method with 
+                None, None, { acc_method with 
                         body = acc_method.body @ (List.rev acc_stmts)
                 }
             ]
-        | {place; value=LetExpr ({value=CType{value=TTuple [msg_t;{value = SType continuation_st}]}}, _, {value=CallExpr ({value=VarExpr x}, [s; bridge]) as e})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
+        | {place; value=LetExpr ({value=CType{value=TTuple [msg_t;{value = SType continuation_st}]}}, let_x, {value=CallExpr ({value=VarExpr x}, [s; bridge]) as e})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
         (*
             N.B. We use extacly one [s] in the final AST when storing the intermediate arguments
         *)
             logger#error "acc_mthode with %d stmts" (List.length acc_method.body);
             let intermediate_method_name = Atom.fresh ((Atom.hint m.name)^"_intermediate") in
             let intermediate_port_name = Atom.fresh ((Atom.hint m.name)^"_intermediate_port") in
-            (*let intermediate_state_name = Atom.fresh ((Atom.hint m.name)^"_intermediate_state") in*)
+            (*let intermediate_state_name = Areceivetom.fresh ((Atom.hint m.name)^"_intermediate_state") in*)
             
 
             let intermediate_port = auto_fplace {
@@ -257,23 +257,32 @@ module Make (Args : Params ) : Sig = struct
                     (List.rev acc_stmts);
             } in
             let _ports, _methods = split_body [] intermediate_method stmts in
-
-            intermediate_port::_ports, (Some s, acc_method)::_methods
+            intermediate_port::_ports, (Some (let_x, msg_t, auto_fplace (SType continuation_st)), Some s, acc_method)::_methods
         | stmt::stmts -> split_body (stmt::acc_stmts) acc_method stmts
         in
 
         let intermediate_ports, intermediate_methods =  split_body [] {m with body = []} stmts in
         
         (* Add header and footer for each method (i.e. how to propagate arguments) + update args *)
-        let rec rewrite_intermediate : (expr option * __method0) list -> state list * __method0 list = function
+        let rec rewrite_intermediate : ((variable * main_type * main_type) option * expr option * __method0) list -> state list * __method0 list = function
         | [] -> [], []
-        | [ (_,m) ] -> [], [ m ]
-        | (s1_opt, m1)::(s2_opt, m2)::ms -> begin
+        | [ (_, _, m) ] -> [], [ m ]
+        | (x1_opt, s1_opt, m1)::(x2_opt, s2_opt, m2)::ms -> begin
             (*let already_binded = Atom.Set.of_seq (List.to_seq (List.map (function {value=(_,x)} -> x) m.args)) in
             Atom.Set.iter (function x -> logger#error "already binded2 %s" (Atom.to_string x)) already_binded;*)
             let already_binded = Atom.Set.empty in
             let _, intermediate_args = List.fold_left_map free_vars_stmt already_binded m2.body in
             let intermediate_args : variable list = List.flatten intermediate_args in
+
+            (* Remove components *)
+            let intermediate_args = List.filter (function x -> 
+                logger#error "<<>> %s" (Atom.to_string x);
+                (Str.string_match (Str.regexp "^[A-Z].*") (Atom.hint x) 0) = false) intermediate_args in
+            
+            let intermediate_args = match x1_opt with 
+                | Some (x1, _, _) -> List.filter (function x -> x <> x1) intermediate_args
+                | _ -> intermediate_args
+            in
             let intermediate_args = (List.map 
                 (function x -> (
                     auto_fplace(
@@ -292,7 +301,7 @@ module Make (Args : Params ) : Sig = struct
 
             match intermediate_args with
             |[] ->
-                let _states, _methods = rewrite_intermediate ((s2_opt,m2)::ms) in
+                let _states, _methods = rewrite_intermediate ((x2_opt, s2_opt,m2)::ms) in
                 _states, m1::_methods
             | _ -> begin
                 let tmp_event = Atom.fresh_builtin "e" in
@@ -338,7 +347,27 @@ module Make (Args : Params ) : Sig = struct
 
                 let m2 = { m2 with 
                     (* Load args from state TODO add cleansing when timeout *)
-                    body = [
+                    body = 
+                    (match x1_opt with
+                        | None -> []
+                        | Some (x1, msg_t, continuation_st) -> begin
+                            (* Tuple<MsgT, continuation_st> x1 = tuple(tmp_event, tmp_session) *)
+                            [
+                                auto_fplace(LetExpr(
+                                    auto_fplace (CType(auto_fplace (TTuple[ msg_t; continuation_st]))),
+                                    x1,
+                                    auto_fplace(BlockExpr(
+                                        Tuple,
+                                        [
+                                            auto_fplace (VarExpr tmp_event);
+                                            auto_fplace (VarExpr tmp_session)
+                                        ]
+                                    ))
+                                ))
+                            ]
+                        end
+                    )@
+                    [
                         auto_fplace (LetExpr (ctype_intermediate_args, tmp_args, (auto_fplace(CallExpr(
                             auto_fplace(VarExpr (Atom.fresh_builtin "remove2dict")),
                             [
@@ -369,7 +398,7 @@ module Make (Args : Params ) : Sig = struct
                 } in
 
 
-                let _states, _methods = rewrite_intermediate ((s2_opt, m2)::ms) in
+                let _states, _methods = rewrite_intermediate ((x2_opt, s2_opt, m2)::ms) in
                 intermediate_state::_states, m1::_methods
             end
         end

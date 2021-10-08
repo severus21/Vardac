@@ -311,6 +311,8 @@ let rec free_vars_expr_ (already_binded:Atom.Set.t) place : _expr -> Atom.Set.t 
 | UnopExpr (_, e) | OptionExpr (Some e) | ResultExpr (Some e, None) | ResultExpr (None, Some e)->
     let _, fvars = free_vars_expr already_binded e in
     already_binded, fvars
+| CallExpr ({value=VarExpr _ }, es) | NewExpr ({value=VarExpr _}, es) -> (* no first class function nor constructor inside stmt - so we get ride of all possible constructors *)
+    already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) [] es
 | CallExpr (e, es) | NewExpr (e, es) | Spawn {args=es; at = Some e} ->
     let _, fvars = free_vars_expr already_binded e in
     already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) fvars es
