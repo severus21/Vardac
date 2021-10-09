@@ -361,3 +361,14 @@ and free_vars_stmt_ (already_binded:Atom.Set.t) place : _stmt -> Atom.Set.t * va
     already_binded, fvars
 
 and free_vars_stmt (already_binded:Atom.Set.t) stmt : Atom.Set.t * variable list = free_variable_place (free_vars_stmt_ already_binded) stmt
+
+let rec timers_of_headers = function
+    | [] -> []
+    | {value=UseGlobal _}::headers | {value=UseMetadata _} ::headers-> timers_of_headers headers
+    | {value=SetTimer x}::headers -> x::(timers_of_headers headers)
+    | {value=SetFireTimer (x,_)}::headers -> raise (Error.DeadbranchError "SetFireTimer should exists before GuardTransform - not supported yet") 
+and timers_of_st_ = function
+| STEnd -> []
+| STRecv ({value=ConstrainedType (_, (guard_headers, _))}, st) | STSend ({value=ConstrainedType (_, (guard_headers, _))}, st) -> 
+    (timers_of_headers guard_headers) @ (timers_of_st st)
+and timers_of_st st = timers_of_st_ st.value

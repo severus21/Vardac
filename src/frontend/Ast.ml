@@ -1,6 +1,8 @@
 open Core
 open Core.AstUtils
+open Easy_logging
 
+let logger = Logging.make_logger "_1_ compspec" Debug [];;
 (************************************* Base types ****************************)
 open Label
 type variable = string
@@ -295,3 +297,15 @@ and program = term list
 (* let make_vplace name nbr_instances features children = ()*)
 let make_vplace _ _ _ _ = ()
 
+let rec timers_of_headers = function
+    | [] -> []
+    | {value=UseGlobal _}::headers | {value=UseMetadata _} ::headers-> timers_of_headers headers
+    | {value=SetTimer x}::headers -> x::(timers_of_headers headers)
+and timers_of_st_ = function
+| STRecv ({value=ConstrainedType (_, (guard_headers, _))}, st) | STSend ({value=ConstrainedType (_, (guard_headers, _))}, st) -> 
+    (timers_of_headers guard_headers) @ (timers_of_st st)
+(* Just propagate *)
+| STEnd -> []
+| STInline _ -> [] 
+| STRecv (_, st) | STSend (_, st) -> timers_of_st st
+and timers_of_st st = timers_of_st_ st.value

@@ -226,11 +226,43 @@ and finishv_stype place : S._session_type -> T._expr =
 (****** Helpers *****)
 let fplace = place@(Error.forge_place "Plg=Akka/finishv_stype" 0 0) in
 let auto_place smth = {place = fplace; value=smth} in
-let  encodectype = function
+
+let rec encode_guard_header_ place = function
+| S.UseGlobal _ | S.UseMetadata _ -> failwith "UseMetadata/Global not yet supported by Akka"
+| S.SetTimer _ -> raise (Error.PlacedDeadbranchError (place, "SetTimer should have been replace by SetFireTimer before the Akka.Finish since Akka needs a delay value to create a timer"))
+| S.SetFireTimer (x, i) -> e_ASTStype_TimerHeader_of place x i 
+and encode_guard_header header : T.expr = encode_guard_header_ header.place header.value in 
+
+let encodectype = function
 | {value=T.TVar x; place} -> {value=T.VarExpr x; place} 
 in
 function 
     | S.STEnd -> T.NewExpr (auto_place (T.VarExpr (a_ASTStype_of "End")), [])
+    (* With guard *)
+    | (S.STSend ({place=p_mt; value=S.ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) | (S.STRecv ({place=p_mt; value=S.ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) -> begin 
+
+        let encoded_headers = List.map encode_guard_header guard_headers in
+        (* TODO remove timer binop from guard_opt -> fully manage by through header in Akka *)
+
+        match fmtype mt with
+        | ct ->
+            let constructor = auto_place (match st0 with 
+            | S.STSend _ -> T.VarExpr (a_ASTStype_of "Send")
+            | STRecv _ -> T.VarExpr (a_ASTStype_of "Receive")
+            ) in
+
+            T.NewExpr (
+                constructor,
+                [
+                    e_ASTStype_MsgT_of place (auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.fresh_builtin "class")))));
+                    auto_place (Encode.encode_list place encoded_headers);  
+                    fvstype st
+                ]
+            )
+        | _ -> raise (Core.Error.PlacedDeadbranchError (mt.place, "finish_stype : STSend/STRecv type should not be a session type."))
+    end
+
+    (* Without guard *)
     | (S.STSend (mt, st) as st0) | (S.STRecv (mt, st) as st0) -> begin 
         match fmtype mt with
         | ct ->
@@ -386,10 +418,8 @@ function
     | S.ResultExpr (_,_) -> raise (Core.Error.PlacedDeadbranchError (place, "finish_expr : a result expr can not be Ok and Err at the same time."))
     | S.BlockExpr (b, es) -> begin
         match b with
-        | Tuple -> T.CallExpr(
-            auto_place(T.VarExpr(Atom.fresh_builtin "Tuple.of")),
-            List.map fexpr es
-        )
+        | List -> Encode.encode_list fplace (List.map fexpr es)
+        | Tuple -> Encode.encode_tuple fplace (List.map fexpr es)
         | _  -> failwith "block not yet supported"
     end
     | S.Block2Expr (b, xs) -> failwith "block not yet supported"
@@ -1258,9 +1288,13 @@ and clean_terms : S.term list -> S.term list = function
     (clean_terms terms)
 | term :: terms -> term::(clean_terms terms)
 
-let finish_program terms = 
-    let terms = clean_terms terms in
-    let terms = List.flatten (List.rev(List.map fterm terms)) in
+let finish_program program = 
+    let terms =     
+        program
+        |> GuardTransform.gtransform_program
+        |> clean_terms
+        |> function terms -> List.flatten (List.rev(List.map fterm terms))
+    in
     
     (* Apply renaming *)
     let terms = List.map (T.apply_rename_term true (make_capitalize_renaming)) terms in 

@@ -205,6 +205,15 @@ let e_ASTStype_MsgT_of place (e:Ast.expr) =
         auto_place (Ast.VarExpr (a_ASTStype_of "MsgT")),
        [e] 
     ))
+let e_ASTStype_TimerHeader_of place (name:Ast.variable) (value:int) =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.NewExpr (
+        auto_place (Ast.VarExpr (a_ASTStype_of "TimerHeader")),
+       [
+           auto_place (Ast.VarExpr name);
+           auto_place (Ast.LitExpr (auto_place(Ast.IntLit value)))
+        ] 
+    ))
 
 let e_bridge_of_protocol place (protocol_e:Ast.expr) =
     let auto_place smth = {place; value=smth} in

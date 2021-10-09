@@ -23,8 +23,18 @@ public final class ASTStype {
             MsgT b = (MsgT) obj;
             return this.value.equals(b.value);
         }
-
     }
+
+    public class TimerHeader {
+        public String timer_name;
+        public Int trigger_value;
+
+        TimerHeader (String timer_name, Int trigger_value) {
+            this.timer_name;
+            this.trigger_value;
+        }
+    }
+
     public static class Base {
         /*
             Empty continuation <=> End
@@ -32,7 +42,7 @@ public final class ASTStype {
             Choice and Select [ (label, continuaiton_label); ....]
             Recursive ????? TODO
         */
-        public List<Tuple2<MsgT, Base>> continuations = new ArrayList<>();
+        public List<Tuple3<MsgT, List<TimerHeader>, Base>> continuations = new ArrayList<>();
 
         public boolean equals(Object obj) {
             if (obj == this) {
@@ -76,14 +86,14 @@ public final class ASTStype {
 
     }
     public static final class Branch extends Base {
-        public Branch(List<Tuple2<MsgT, Base>> continuations){
+        public Branch(List<Tuple3<MsgT, List<TimerHeader>, Base>> continuations){
             this.continuations = continuations;
 
             assert(!this.continuations.isEmpty());
         }
     }
     public static final class Select extends Base {
-        public Select(List<Tuple2<MsgT, Base>> continuations){
+        public Select(List<Tuple3<MsgT, List<TimerHeader>, Base>> continuations){
             this.continuations = continuations;
 
             assert(this.continuations.isEmpty());

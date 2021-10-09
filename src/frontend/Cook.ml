@@ -416,7 +416,14 @@ and cook_mtype env place: S._main_type -> env * T._main_type = function
     let env1, ct = cctype env ct in
     env << [env1], T.CType ct 
 | S.SType st -> 
-    let env1, st = cstype env st in
+    (* Specific semantics of timer in constraint header
+        first [timer x] bind x and set it to 0
+        subsquent timer x reset x 
+    *)
+    let timers = S.timers_of_st st in 
+    let inner_env = List.fold_left (fun env  name -> fst (bind_expr env place name)) env timers in
+
+    let env1, st = cstype inner_env st in
     env << [env1], T.SType st
 | S.CompType cmt -> 
     let cmt = ccomptype env cmt in
@@ -437,8 +444,8 @@ and cook_constraint_header env place: S._constraint_header -> env * T._constrain
         |S.UseMetadata _ -> T.UseMetadata (mt, y)
     )
 | S.SetTimer x ->
-    let new_env, y = bind_type env place x in
-    new_env, T.SetTimer y 
+    (* alreay added when defining a session type *)
+    env, T.SetTimer (cook_var_expr env place x)
 
 and cconst env const : env * T.constraints = cook_place cook_expr env const
 

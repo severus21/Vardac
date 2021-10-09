@@ -35,25 +35,35 @@ type timer_separation = {
 (* timer t -> (t_lb, t_hb)*)
 (* global since name are unique *)
 let separation_hbl : (variable, variable * variable) Hashtbl.t = Hashtbl.create 16
-let rec timers_of = function
-    | {value=UseGlobal _}::headers | {value=UseMetadata _} ::headers-> timers_of headers
-    | {value=SetTimer x}::headers -> x::(timers_of headers)
+
+let rename_header_ place = 
+let auto_place value = {place; value} in
+function 
+| (UseGlobal _ as h) | (UseMetadata _ as h) -> [ auto_place h ]
+| SetTimer x as h-> begin 
+    try
+        let x_lb, x_hb = Hashtbl.find separation_hbl x in
+        [ auto_place (SetTimer x_lb); auto_place(SetTimer x_hb)]
+    with Not_found -> [ auto_place h ]
+end
+let rename_header h = rename_header_ h.place h.value
+let rename_headers hs = List.flatten (List.map rename_header hs)
 
 let rec rename_guard_ place : _expr -> _expr = function
 (* Rewrite of timer *)
-| BinopExpr ({value=VarExpr x; place=p_x}, LessThan, ({value=LitExpr {value=IntLit i}} as e)) -> 
+| BinopExpr ({value=VarExpr x; place=p_x}, LessThan, ({value=LitExpr {value=IntLit i}} as e)) -> (* x < i*)
     (* Cook guarantees that everithing is correctly binded *)
     let _, x_hb = Hashtbl.find separation_hbl x in
     BinopExpr ({value=VarExpr x_hb; place=p_x}, LessThan, e)
-| BinopExpr ({value=LitExpr {value=IntLit i}} as e, GreaterThan, {value=VarExpr x; place=p_x}) ->
+| BinopExpr ({value=LitExpr {value=IntLit i}} as e, GreaterThan, {value=VarExpr x; place=p_x}) -> (* i > x *)
     (* Cook guarantees that everithing is correctly binded *)
     let _, x_hb = Hashtbl.find separation_hbl x in
     BinopExpr (e, GreaterThan, {value=VarExpr x_hb; place=p_x})
-| BinopExpr ({value=VarExpr x; place=p_x}, GreaterThan, ({value=LitExpr {value=IntLit i}} as e)) ->
+| BinopExpr ({value=VarExpr x; place=p_x}, GreaterThan, ({value=LitExpr {value=IntLit i}} as e)) -> (* x > i *)
     (* Cook guarantees that everithing is correctly binded *)
     let x_lb, _ = Hashtbl.find separation_hbl x in
     BinopExpr ({value=VarExpr x_lb; place=p_x}, GreaterThan, e)
-| BinopExpr ({value=LitExpr {value=IntLit i}} as e, LessThan, {value=VarExpr x; place=p_x}) ->
+| BinopExpr ({value=LitExpr {value=IntLit i}} as e, LessThan, {value=VarExpr x; place=p_x}) -> (* i < x *)
     (* Cook guarantees that everithing is correctly binded *)
     let x_lb, _ = Hashtbl.find separation_hbl x in
     BinopExpr (e, LessThan, {value=VarExpr x_lb; place=p_x})
@@ -85,8 +95,10 @@ and rename_guard guard = {
 }
 
 let rec separate_lb_hb_timers_ place = function
-| STSend ({place=p_mt; value=ConstrainedType (mt, (guard_headers, guard_opt))}, st) ->
-    let timers = timers_of guard_headers in 
+| (STSend ({place=p_mt; value=ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) | (STRecv ({place=p_mt; value=ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) ->
+begin
+    logger#info "separate_lb_hb_timers_";
+    let timers = timers_of_headers guard_headers in 
     List.map (function name ->
     begin
     try 
@@ -98,19 +110,43 @@ let rec separate_lb_hb_timers_ place = function
         )
     end) timers;
 
-    
-    STSend ({place=p_mt; value=ConstrainedType (mt, (guard_headers, Option.map rename_guard guard_opt))}, separate_lb_hb_timers st)
+    let guard_headers = rename_headers guard_headers in
+    let guard_opt =  Option.map rename_guard guard_opt in
+
+    match st0 with 
+    |STSend _ -> STSend ({place=p_mt; value=ConstrainedType (mt, (guard_headers, guard_opt))}, separate_lb_hb_timers st)
+    |STRecv _ -> STRecv ({place=p_mt; value=ConstrainedType (mt, (guard_headers, guard_opt))}, separate_lb_hb_timers st)
+end
 (* TODO other *)
+
+(* Just propagate *)
+| STEnd -> STEnd 
+| STRecv (mt, st) -> STRecv (mt, separate_lb_hb_timers st)
+| STSend (mt, st) -> STSend (mt, separate_lb_hb_timers st)
 and separate_lb_hb_timers st = {
     place = st.place; 
     value = separate_lb_hb_timers_ st.place st.value;
 }   
 
+(**************************************************************)
 
 type timer_entry = {
     base_value: int;
     next_trigger: int option;
 }
+[@@deriving show { with_path = false }]
+
+let print_env env = 
+    Format.fprintf Format.std_formatter "Print env\n";
+    Error.pp_list 
+        "@;" 
+        (fun out (x,entry) -> 
+            Format.fprintf out "%s -> %s" (Atom.to_string x) (show_timer_entry entry)
+        )
+        Format.std_formatter
+        (List.of_seq(Env.to_seq env)); 
+    Format.fprintf Format.std_formatter "\n\n"
+
 
 let flatten_option = function
 | None -> None
@@ -122,29 +158,43 @@ let flatten_option = function
     Consequence: return the first value
     TODO check it
 *)
-let rec next_trigger_of_ name place = function
+let rec next_trigger_of_expr_ name place = 
+function
 | VarExpr _ | This | LitExpr _ -> None
 | AccessExpr _ -> None (* can not have the form of a timer expression *)
 | BinopExpr ({value=VarExpr x;}, LessThan, {value=LitExpr {value=IntLit i}}) | BinopExpr ({value=LitExpr {value=IntLit i}} , GreaterThan, {value=VarExpr x;}) when x = name ->
+    logger#error "next_trigger A of %s" (Atom.to_string name);    
     Some i
 | BinopExpr ({value=VarExpr x;}, GreaterThan, {value=LitExpr {value=IntLit i}}) | BinopExpr ({value=LitExpr {value=IntLit i}}, LessThan, {value=VarExpr x;}) when x = name ->
+    logger#error "next_trigger B of %s" (Atom.to_string name);    
     Some i
 | LambdaExpr _ | CallExpr _ | NewExpr _ | Spawn _ | BoxCExpr _ -> raise (Error.DeadbranchError "LambdaExpr/CallExpr/NewExpr/Spawn/BoxCExpr can not appear inside a guard") (* TODO check it in COook*)
-| UnopExpr (_,e) -> next_trigger_of name e
-| OptionExpr e_opt -> flatten_option (Option.map (next_trigger_of name) e_opt)
+| UnopExpr (_,e) -> next_trigger_of_expr name e
+| OptionExpr e_opt -> flatten_option (Option.map (next_trigger_of_expr name) e_opt)
 | BinopExpr (e1, opt, e2) -> begin
-    match (next_trigger_of name) e1 with
+    match (next_trigger_of_expr name) e1 with
     | Some i -> Some i
-    | None -> (next_trigger_of name) e2
+    | None -> (next_trigger_of_expr name) e2
 end
 | ResultExpr (e1_opt, e2_opt) -> begin
-    match flatten_option (Option.map (next_trigger_of name) e1_opt) with 
+    match flatten_option (Option.map (next_trigger_of_expr name) e1_opt) with 
     | Some i -> Some i
-    | None -> flatten_option (Option.map (next_trigger_of name) e2_opt) 
+    | None -> flatten_option (Option.map (next_trigger_of_expr name) e2_opt) 
 end
 | BlockExpr (b, es) -> failwith "not yet supported in GuardTransform"
 | Block2Expr (b, ees) -> failwith "not yet supported in GuardTransform"
-and next_trigger_of name e = next_trigger_of_ name e.place e.value
+and next_trigger_of_expr name e = next_trigger_of_expr_ name e.place e.value
+
+and next_trigger_of_st_ name place = function
+| STSend ({value=ConstrainedType (_, (_, guard_opt))}, st) | STRecv ({value=ConstrainedType (_, (_, guard_opt))}, st) -> begin
+    match flatten_option (Option.map (next_trigger_of_expr name) guard_opt) with
+    | Some x -> Some x
+    | None -> next_trigger_of_st name st
+end
+(**)
+| STEnd -> None
+| STRecv (_, st) | STSend (_, st) -> next_trigger_of_st name st
+and next_trigger_of_st name st = next_trigger_of_st_ name st.place st.value
 
 (*
     returns (timers to reset, rewritten guard
@@ -212,6 +262,32 @@ and rewrite_trigger env (e:expr) : variable list * expr =
     let timers, _e = rewrite_trigger_ env e.place e.value in
     timers, { place = e.place; value = _e}
 
+let filter_headers env place (guard_headers : constraint_header list) : constraint_header list =
+    let fplace = (Error.forge_place "Akka.GuardTransform.filter_headers" 0 0) in
+    let auto_place smth = {place = place; value=smth} in
+    let auto_fplace smth = {place = fplace; value=smth} in
+    logger#error "filter_headers";
+    (* Filter out timers that are not use in the remaining *)
+    let guard_headers = List.filter (
+    function
+        | {value=SetTimer name} -> 
+            let entry = Env.find name env in
+            entry.next_trigger <> None 
+        | _-> true 
+    ) guard_headers in
+
+    (* Replace SetTimer with SetFireTimer *)
+    let guard_headers = List.map (function
+        | {value=SetTimer name} -> 
+            let entry = Env.find name env in
+            auto_fplace (SetFireTimer (name, (Option.get entry.next_trigger) - entry.base_value))
+        | header -> header
+    ) guard_headers in
+
+
+
+    guard_headers
+
 (* After this transformation a time is used for exactly one condition before behing reset 
     "!int{timer x|}!int{reset x | x<5}!{|x<5}"
     + replace all SetTimer with SetFireTimer x, int (int tigger dealy)
@@ -222,40 +298,51 @@ let auto_place smth = {place = place; value=smth} in
 let auto_fplace smth = {place = fplace; value=smth} in
 
 function 
-| STSend ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, st) ->
-    (* MaJ next triggers of registered timers *)
-    let registered_timers = List.of_seq (Env.to_seq env) in
-    let new_env0 = List.fold_left (fun env (name, entry) -> 
-        let next_trigger_opt = flatten_option (Option.map (next_trigger_of name) guard_opt) in
-        let new_entry = { 
-            base_value = entry.base_value;
-            next_trigger = next_trigger_opt; 
-        } in
-        Env.add name new_entry env 
-    ) env registered_timers in
+| (STSend ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) | (STRecv ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) ->
+begin
+    logger#info "reseting timers";
+
 
     (* Reset timers according to the programmer *)
-    let timers = timers_of guard_headers in 
-    let new_env1 = List.fold_left (fun env name ->
-        let next_trigger_opt = flatten_option (Option.map (next_trigger_of name) guard_opt) in
+    let timers = timers_of_headers guard_headers in 
+    let new_env0 = List.fold_left (fun env name ->
+        let next_trigger_opt = next_trigger_of_st_ name place st0 in
         let new_entry = {
             base_value=0;
             next_trigger=next_trigger_opt; 
         } in
         Env.add name new_entry env 
-    ) new_env0 timers in
+    ) env timers in
+    
+    (* MaJ next triggers of registered timers *)
+    (*let registered_timers = List.of_seq (Env.to_seq env) in*)
+    let registered_timers = List.of_seq ( (* but not user timers *) 
+        Atom.Set.to_seq (Atom.Set.diff
+            (Atom.Set.of_seq (Seq.map fst (Env.to_seq env))) 
+            (Atom.Set.of_seq (List.to_seq timers)) 
+        )
+    ) in
+    let new_env1 = List.fold_left (fun env name -> 
+        let entry = Env.find name env in
+        let next_trigger_opt = next_trigger_of_st_ name place st0 in
+        let new_entry = { 
+            base_value = entry.base_value;
+            next_trigger = next_trigger_opt; 
+        } in
+        Env.add name new_entry env 
+    ) new_env0 registered_timers in
 
 
     match guard_opt with
     | None -> 
+        let guard_headers = filter_headers new_env1 place guard_headers in
         STSend ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, reset_timers new_env1 st)
     | Some guard -> begin
         (* Timer with condition in the guard 
             Should be reset also but base_value should be incremented in order to rewrite update [st] with new trigger value.
         *)
         let timers_to_reset, guard = rewrite_trigger new_env1 guard in 
-
-
+        
         (* Dedup timers to reset two sources:
             - user
             - our transformation 
@@ -264,29 +351,78 @@ function
         let set_user = Atom.Set.of_seq(List.to_seq (timers)) in
         let timers_to_add = List.of_seq(Atom.Set.to_seq(Atom.Set.diff set_transform set_user)) in
         let guard_headers = (List.map (function name -> auto_fplace (SetTimer name)) timers_to_add) @ guard_headers in
+        
+        let guard_headers = filter_headers new_env1 place guard_headers in
 
-        (* Filter out timers that are not use in the remaining *)
-        let guard_headers = List.filter (function
-            | {value=SetTimer name} -> 
-                let entry = Env.find name new_env1 in
-                entry.next_trigger <> None 
-            | header -> true 
-        ) guard_headers in
-        (* Replace SetTimer with SetFireTimer *)
-        let guard_headers = List.map (function
-            | {value=SetTimer name} -> 
-                let entry = Env.find name new_env1 in
-                auto_fplace (SetFireTimer (name, (Option.get entry.next_trigger) - entry.base_value))
-            | header -> header
-        ) guard_headers in
-
-        STSend ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, reset_timers new_env1 st)
+        match st0 with 
+        | STRecv _ -> STRecv ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, reset_timers new_env1 st)
+        | STSend _ -> STSend ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, reset_timers new_env1 st)
     end
+end
+(* Just propagate*)
+| STEnd -> STEnd 
+| STRecv (mt, st) -> STRecv (mt, reset_timers env st)
+| STSend (mt, st) -> STSend (mt, reset_timers env st)
 and reset_timers env st = {
     place = st.place;
     value = reset_timers_ env st.place st.value
 }
+and reset_timers_of st = reset_timers Env.empty st
 
-(* TODO
-let rec gtransform_program = 
-    *)
+(**************************************************************)
+let rec gtransform_place gtransform_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
+    let value = gtransform_value place value in
+    {AstUtils.place; AstUtils.value}
+
+
+let rec gtransform_mt_ place = function 
+| ConstrainedType ({value=SType _}, ac) -> failwith "semantics ????? " 
+| SType st -> begin 
+    logger#info ">>> Before \n %s" (show_session_type st);
+    let st = separate_lb_hb_timers st in
+    let st = reset_timers_of st in
+    logger#info ">>> After \n %s" (show_session_type st);
+    SType st
+end
+
+(* Identity *)
+| CType ct -> CType ct (* Since guard can only apprears in a procotoldef *)
+| CompType ct -> CompType ct 
+| ConstrainedType (mt, ac) -> ConstrainedType (mt, ac)
+and gtransform_mt mt = gtransform_place gtransform_mt_ mt
+
+and gtransform_citem_ place = function
+(* protocoldef can only be hidden in subterm *)
+| Term t -> Term (gtransform_term t)
+
+(* identity *)
+| State s -> State s
+| Method s -> Method s
+| Contract c -> Contract c
+| Port p -> Port p
+| Include _ -> raise (Error.DeadbranchError "gtransform_citem: Include not supported, include should have been resolved")
+and gtransform_citem citem = gtransform_place gtransform_citem_ citem 
+
+and gtransform_cdcl_ place = function
+| ComponentStructure cdcl -> ComponentStructure {
+    cdcl with
+        (* no protocol def in args *)
+        body = List.map gtransform_citem cdcl.body
+}
+| ComponentAssign _ -> failwith "component assign is not supported by guard transform, semantics undefined"
+and gtransform_cdcl cdcl = gtransform_place gtransform_cdcl_ cdcl 
+
+and gtransform_term_ place = function
+| EmptyTerm -> EmptyTerm
+| Comments c -> Comments c
+| Stmt stmt -> Stmt stmt
+| Component cdcl -> Component (gtransform_cdcl cdcl)
+| Function fcdcl -> Function fcdcl
+| Typealias _ -> failwith "Typealias is not supported by guardTransform semantics to be defined" 
+| Typedef {place=p_p; value=ProtocolDef (x, mt)} ->
+    Typedef {place=p_p; value=ProtocolDef (x, gtransform_mt mt)} 
+| Typedef _ as t -> t
+and gtransform_term term = gtransform_place gtransform_term_ term
+
+and gtransform_program terms = 
+    List.map gtransform_term terms

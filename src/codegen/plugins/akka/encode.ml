@@ -9,7 +9,7 @@ let plg_name = "Akka"
 let logger = Logging.make_logger ("_1_ compspec.plg."^plg_name) Debug [];;
 
 (* The source calculus. *)
-module S = IRI 
+module S = IR 
 (* The target calculus. *)
 module T = Ast 
 
@@ -130,3 +130,16 @@ let encode_builtin_fct place name (args:T.expr list) =
     end
     | _ -> 
         Error.error place "Akka.Finish do not yet support builtin function %s" name
+
+let encode_list place es = 
+    let auto_place smth = {place; value=smth} in
+    T.CallExpr(
+        auto_place(T.VarExpr(Atom.fresh_builtin "List.of")),
+        es
+    )
+let encode_tuple place es = 
+    let auto_place smth = {place; value=smth} in
+    T.CallExpr(
+        auto_place(T.VarExpr(Atom.fresh_builtin "Tuple.of")),
+        es
+    )
