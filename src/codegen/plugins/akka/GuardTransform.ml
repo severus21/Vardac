@@ -163,10 +163,8 @@ function
 | VarExpr _ | This | LitExpr _ -> None
 | AccessExpr _ -> None (* can not have the form of a timer expression *)
 | BinopExpr ({value=VarExpr x;}, LessThan, {value=LitExpr {value=IntLit i}}) | BinopExpr ({value=LitExpr {value=IntLit i}} , GreaterThan, {value=VarExpr x;}) when x = name ->
-    logger#error "next_trigger A of %s" (Atom.to_string name);    
     Some i
 | BinopExpr ({value=VarExpr x;}, GreaterThan, {value=LitExpr {value=IntLit i}}) | BinopExpr ({value=LitExpr {value=IntLit i}}, LessThan, {value=VarExpr x;}) when x = name ->
-    logger#error "next_trigger B of %s" (Atom.to_string name);    
     Some i
 | LambdaExpr _ | CallExpr _ | NewExpr _ | Spawn _ | BoxCExpr _ -> raise (Error.DeadbranchError "LambdaExpr/CallExpr/NewExpr/Spawn/BoxCExpr can not appear inside a guard") (* TODO check it in COook*)
 | UnopExpr (_,e) -> next_trigger_of_expr name e
@@ -284,7 +282,12 @@ let filter_headers env place (guard_headers : constraint_header list) : constrai
         | header -> header
     ) guard_headers in
 
-
+    (* Filter 0 timeout *)
+    let guard_headers = List.filter (
+    function
+        | {value=SetFireTimer (_, 0)} -> false
+        | _-> true 
+    ) guard_headers in
 
     guard_headers
 
@@ -300,9 +303,7 @@ let auto_fplace smth = {place = fplace; value=smth} in
 function 
 | (STSend ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) | (STRecv ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) ->
 begin
-    logger#info "reseting timers";
-
-
+    logger#warning "reset <>";
     (* Reset timers according to the programmer *)
     let timers = timers_of_headers guard_headers in 
     let new_env0 = List.fold_left (fun env name ->
@@ -322,26 +323,53 @@ begin
             (Atom.Set.of_seq (List.to_seq timers)) 
         )
     ) in
-    let new_env1 = List.fold_left (fun env name -> 
+    let new_env1, updated_registered_timers = List.fold_left (fun (env, updated_registered_timers) name -> 
         let entry = Env.find name env in
         let next_trigger_opt = next_trigger_of_st_ name place st0 in
+        begin
+        match next_trigger_opt with
+        | None ->         logger#warning "new_env1 next of %s None" (Atom.to_string name);
+        | Some _ -> 
+        logger#warning "new_env1 next of %s Some" (Atom.to_string name);
+
+        end;
+
         let new_entry = { 
             base_value = entry.base_value;
             next_trigger = next_trigger_opt; 
         } in
-        Env.add name new_entry env 
-    ) new_env0 registered_timers in
+        if entry.next_trigger = new_entry.next_trigger || new_entry.next_trigger = None then
+            env, updated_registered_timers
+        else
+            Env.add name new_entry env, name::updated_registered_timers
+    ) (new_env0,[]) registered_timers in
 
+        logger#error "updated_registered %s" (List.fold_left (fun acc x -> acc ^ " " ^(Atom.to_string x)) "" updated_registered_timers); 
+        print_env new_env1;
 
     match guard_opt with
     | None -> 
         let guard_headers = filter_headers new_env1 place guard_headers in
         STSend ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, reset_timers new_env1 st)
     | Some guard -> begin
+        (* Update base_value according to base *)
+        let new_env2 = List.fold_left ( (* can be optimized*)
+            fun (env:timer_entry Env.t) (name, entry) ->
+            let updated_based_value_opt = next_trigger_of_expr name guard in
+            match updated_based_value_opt with
+            | None -> env 
+            | Some update_bv ->
+                Env.add name {entry with base_value = update_bv} env 
+        ) new_env1 (List.of_seq(Env.to_seq new_env1)) in   
+
+        print_env new_env2;
+
+
         (* Timer with condition in the guard 
             Should be reset also but base_value should be incremented in order to rewrite update [st] with new trigger value.
         *)
-        let timers_to_reset, guard = rewrite_trigger new_env1 guard in 
+        let timers_to_reset, guard = rewrite_trigger new_env2 guard in 
+        logger#error "timer_to_resets %s" (List.fold_left (fun acc x -> acc ^ " " ^(Atom.to_string x)) "" timers_to_reset); 
         
         (* Dedup timers to reset two sources:
             - user
@@ -350,13 +378,20 @@ begin
         let set_transform = Atom.Set.of_seq(List.to_seq (timers_to_reset)) in
         let set_user = Atom.Set.of_seq(List.to_seq (timers)) in
         let timers_to_add = List.of_seq(Atom.Set.to_seq(Atom.Set.diff set_transform set_user)) in
+        logger#error "timer_to_add %s" (List.fold_left (fun acc x -> acc ^ " " ^(Atom.to_string x)) "" timers_to_reset); 
+        (* remove non used timers *)
+        let timers_to_add = List.filter (function name -> 
+            let entry = Env.find name new_env2 in
+            entry.next_trigger <> None
+        ) timers_to_add in 
+        logger#error "timer_to_add %s" (List.fold_left (fun acc x -> acc ^ " " ^(Atom.to_string x)) "" timers_to_reset); 
         let guard_headers = (List.map (function name -> auto_fplace (SetTimer name)) timers_to_add) @ guard_headers in
         
-        let guard_headers = filter_headers new_env1 place guard_headers in
+        let guard_headers = filter_headers new_env2 place guard_headers in
 
         match st0 with 
-        | STRecv _ -> STRecv ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, reset_timers new_env1 st)
-        | STSend _ -> STSend ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, reset_timers new_env1 st)
+        | STRecv _ -> STRecv ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, reset_timers new_env2 st)
+        | STSend _ -> STSend ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, reset_timers new_env2 st)
     end
 end
 (* Just propagate*)
