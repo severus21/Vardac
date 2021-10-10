@@ -10,7 +10,7 @@ import com.lg4dc.ASTStype;
 
 // Time lower bound
 public class LBSessionTimer extends SessionTimer {
-    LBSessionTimer (UUID session_id, ActorRef<CborSerializable> replyTo){
+    public LBSessionTimer (UUID session_id, ActorRef<CborSerializable> replyTo){
         super(session_id, replyTo);
     }
 }

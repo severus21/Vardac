@@ -28,6 +28,9 @@ let a_create_method =
     Atom.fresh_builtin "create"
 let a_context = 
     Atom.fresh_builtin "context"
+
+let a_timers = 
+    Atom.fresh_builtin "timers"
     
 
 let t_cborserializable place= 
@@ -44,6 +47,17 @@ let t_actor_context place actor_name_opt =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam (
         auto_place (Ast.TVar (Atom.fresh_builtin "ActorContext")),
+        [ 
+            match actor_name_opt with
+            | None -> auto_place (Ast.TVar a_command)
+            | Some actor_name -> actor_name 
+        ]
+    ))
+
+let t_actor_timer place actor_name_opt = 
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TParam (
+        auto_place (Ast.TVar (Atom.fresh_builtin "TimerScheduler")),
         [ 
             match actor_name_opt with
             | None -> auto_place (Ast.TVar a_command)
@@ -147,7 +161,12 @@ let e_get_self place context =
             []
         ))
     ))
-
+let e_this_timers place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr(
+        auto_place Ast.This,
+        auto_place (Ast.VarExpr a_timers)
+    ))
 let e_this_frozen_sessions place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
@@ -175,6 +194,12 @@ let e_behaviors_same place =
             auto_place (Ast.VarExpr (Atom.fresh_builtin "same"))
         )),
         []
+    ))
+let e_behaviors_with_timers place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr (
+        auto_place (Ast.VarExpr (Atom.fresh_builtin "Behaviors")),
+        auto_place (Ast.VarExpr (Atom.fresh_builtin "withTimers"))
     ))
 
 
@@ -245,9 +270,9 @@ let e_ASTStype_TimerHeader_of place (name:Ast.variable) (value:int) =
             if String.ends_with "lb" (Atom.hint name) then
             *)
             if n>3 && String.sub (Atom.hint name) (n-3) 3 = "_lb" then
-                auto_place (Ast.VarExpr (a_ASTStype_of "LB"))
+                auto_place (Ast.VarExpr (Atom.fresh_builtin "LB"))
             else
-                auto_place (Ast.VarExpr (a_ASTStype_of "HB"))
+                auto_place (Ast.VarExpr (Atom.fresh_builtin "HB"))
         ))
     in
     auto_place (Ast.NewExpr (

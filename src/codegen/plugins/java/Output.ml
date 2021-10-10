@@ -257,6 +257,7 @@ let output_program package_name outpath items : unit =
         JModule (mock_placed(ImportDirective "akka.actor.typed.javadsl.ActorContext"));
         JModule (mock_placed(ImportDirective "akka.actor.typed.javadsl.Behaviors"));
         JModule (mock_placed(ImportDirective "akka.actor.typed.javadsl.Receive"));
+        JModule (mock_placed(ImportDirective "akka.actor.typed.javadsl.TimerScheduler"));
         JModule (mock_placed(ImportDirective "akka.actor.typed.receptionist.Receptionist"));
         JModule (mock_placed(ImportDirective "akka.cluster.ClusterEvent"));
         JModule (mock_placed(ImportDirective "akka.cluster.typed.Cluster"));

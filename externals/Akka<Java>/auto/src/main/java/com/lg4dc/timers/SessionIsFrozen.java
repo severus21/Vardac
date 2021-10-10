@@ -9,7 +9,7 @@ import com.bmartin.CborSerializable;
 import com.lg4dc.ASTStype;
 
 public class SessionIsFrozen extends SessionTimer  {
-    SessionIsFrozen (UUID session_id, ActorRef<CborSerializable> replyTo){
+    public SessionIsFrozen (UUID session_id, ActorRef<CborSerializable> replyTo){
         super(session_id, replyTo);
     }
 }

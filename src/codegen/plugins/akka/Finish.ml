@@ -276,6 +276,7 @@ function
                 constructor,
                 [
                     e_ASTStype_MsgT_of place (auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.fresh_builtin "class")))));
+                    auto_place (Encode.encode_list place []);  
                     fvstype st
                 ]
             )
@@ -883,7 +884,10 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                                     auto_place (T.VarExpr (Atom.fresh_builtin event_cl)),
                                     [
                                         e_sessionid l_event;
-                                        e_get_self fplace (e_get_context fplace);
+                                        auto_place(T.CastExpr(
+                                            auto_place (T.TVar (Atom.fresh_builtin "ActorRef")),
+                                            e_get_self fplace (e_get_context fplace)
+                                        ));
                                     ]
                                 ))
                             ]
@@ -972,50 +976,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             []
         )} in
 
-        let add_timer acc (event_name, handler_name) = 
-            (* 
-                onMessage(eventName.class, msg ->           onAckSessionIsDead(
-                getContext(), this.frozen_sessions, this.timeout_sessions, msg)
-                return 
-                )
-            *)
-            {place; value=T.AccessExpr(
-                acc, 
-                {place; value=T.CallExpr(
-                    {place; value=T.VarExpr (Atom.fresh_builtin "onMessage")}, 
-                    [
-                        {place; value=T.ClassOf (auto_place (T.TVar (Atom.fresh_builtin event_name)))};
-                        auto_place (T.LambdaExpr (
-                            [
-                                l_event_name 
-                            ],
-                            auto_place(T.BlockStmt [
-                                auto_place (T.ExpressionStmt( auto_place (T.CallExpr( 
-                                    auto_place (T.VarExpr (Atom.fresh_builtin handler_name)),
-                                    [
-                                        e_get_context fplace;
-                                        e_get_self fplace (e_get_context fplace);
-                                        e_this_frozen_sessions fplace; 
-                                        e_this_timeout_sessions fplace; 
-                                        e_this_intermediate_states fplace;
-                                        l_event;
-                                    ]
-                                ))));
-                                auto_place (T.ReturnStmt(e_behaviors_same fplace));
-                            ])
-                        ))
-                    ]
-                )}
-            )}
-        in
 
-        let init_receiver_expr : T.expr =  List.fold_left add_timer init_receiver_expr [ 
-            "HBSessionTimer", "Handlers.onHBTimer";
-            "SessionHasTimeout", "Handlers.onHasTimeout";
-            "LBSessionTimer", "Handlers.onLBTimer";
-            "SessionIsFrozen", "Handlers.onIsFrozen";
-            "AckSessionIsDead", "Handlers.onAckSessionIsDead";
-        ] in
 
 
         let add_case event_name inner_env (acc, acc_methods) =

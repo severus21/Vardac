@@ -10,7 +10,7 @@ import com.lg4dc.ASTStype;
 
 
 public class AckSessionIsDead extends SessionTimer {
-    AckSessionIsDead (UUID session_id, ActorRef<CborSerializable> replyTo){
+    public AckSessionIsDead (UUID session_id, ActorRef<CborSerializable> replyTo){
         super(session_id, replyTo);
     }
 }

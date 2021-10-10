@@ -9,7 +9,7 @@ import com.bmartin.CborSerializable;
 import com.lg4dc.ASTStype;
 
 public class SessionHasTimeout extends SessionTimer {
-    SessionHasTimeout (UUID session_id, ActorRef<CborSerializable> replyTo){
+    public SessionHasTimeout (UUID session_id, ActorRef<CborSerializable> replyTo){
         super(session_id, replyTo);
     }
 }

@@ -39,20 +39,7 @@ public class Session {
         e.hydrate(this.bridge_id,  this.session_id,  this.left, this.st, new NoMetadata());
         this.right.tell(e);
 
-        this.st = this.st.continuations.get(0)._2;
+        this.st = this.st.continuations.get(0)._3;
         return this;
     }
-    
-    /*public Tuple2<Object, Session> receive(ActorContext context) {
-        assert(this.st.continuations.size() == 1);
-    
-        Duration timeout = Duration.ofSeconds(3);
-        CompletableFuture<Event<Object>> future = 
-        ask(this.right,  msg,  timeout).
-        toCompletableFuture();
-        Event<Object> e = future.join(3);
-
-        this.st = this.st.continuations.get(1)._2;
-        return new Tuple2(e.msg,  this);
-    }*/
 }

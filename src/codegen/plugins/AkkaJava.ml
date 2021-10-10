@@ -1019,12 +1019,81 @@ and finish_method_v is_actor_method place ({ret_type; name; body; args; is_const
     match body with
     | S.AbstractImpl stmts when is_constructor ->
         let args = match is_actor_method with
-        | true -> ((Rt.Misc.t_actor_context place None, Rt.Misc.a_context)::args)
+        | true -> 
+            (Rt.Misc.t_actor_context place None, Rt.Misc.a_context) ::
+            (Rt.Misc.t_actor_timer place None, Rt.Misc.a_timers) ::
+            args
         | false -> args
         in
         
         let stmts = match is_actor_method with
-        | true -> auto_place ( S.ExpressionStmt (Rt.Misc.e_super place [auto_place(S.VarExpr Rt.Misc.a_context)]))::stmts
+        | true -> begin
+            let l_event_name : Atom.atom = (Atom.fresh_builtin "e") in
+            let l_event : S.expr = auto_place (S.VarExpr l_event_name) in
+            let generate_adapter_for_timer (event_name, handler_name) = 
+                (* 
+                    getContext().messageAdapter(eventName.class, msg ->           onAckSessionIsDead(
+                    getContext(), this.frozen_sessions, this.timeout_sessions, msg)
+                    return null;
+                    )
+                *)
+                {place; value=S.ExpressionStmt(
+                    {place; value=S.CallExpr(
+                        {place; value=S.AccessExpr(
+                            auto_place (S.VarExpr Rt.Misc.a_context),
+                            {place; value=S.VarExpr (Atom.fresh_builtin "messageAdapter")}
+                        )}, 
+                        [
+                            {place; value=S.ClassOf (auto_place (S.TVar (Atom.fresh_builtin event_name)))};
+                            auto_place (S.LambdaExpr (
+                                [
+                                    l_event_name 
+                                ],
+                                auto_place(S.BlockStmt [
+                                    auto_place (S.ExpressionStmt( auto_place (S.CallExpr( 
+                                        auto_place (S.VarExpr (Atom.fresh_builtin handler_name)),
+                                        [
+                                            auto_place(S.CastExpr(
+                                                auto_place (S.TVar (Atom.fresh_builtin "ActorContext")),
+                                                Rt.Misc.e_get_context fplace
+                                            ));
+                                            auto_place(S.CastExpr(
+                                                auto_place (S.TVar (Atom.fresh_builtin "ActorRef")),
+                                                Rt.Misc.e_get_self fplace (Rt.Misc.e_get_context fplace)
+                                            ));
+                                            Rt.Misc.e_this_frozen_sessions fplace; 
+                                            Rt.Misc.e_this_timeout_sessions fplace; 
+                                            Rt.Misc.e_this_intermediate_states fplace;
+                                            l_event;
+                                        ]
+                                    ))));
+                                    auto_place (S.ReturnStmt (auto_place(S.LitExpr (auto_place S.VoidLit))));
+                                ])
+                            ))
+                        ]
+                    )}
+                )}
+            in
+
+            let adapters : S.stmt list=  List.map generate_adapter_for_timer [ 
+                "HBSessionTimer", "Handlers.onHBTimer";
+                "SessionHasTimeout", "Handlers.onHasTimeout";
+                "LBSessionTimer", "Handlers.onLBTimer";
+                "SessionIsFrozen", "Handlers.onIsFrozen";
+                "AckSessionIsDead", "Handlers.onAckSessionIsDead";
+            ] in
+
+
+            let set_timers : S.stmt = 
+                auto_place(S.AssignExpr( 
+                    Rt.Misc.e_this_timers fplace,
+                    auto_place(S.VarExpr Rt.Misc.a_timers)
+                ))
+            in 
+            (auto_place ( S.ExpressionStmt (Rt.Misc.e_super place [auto_place(S.VarExpr Rt.Misc.a_context)]))) ::
+            set_timers ::
+            (adapters@stmts)
+        end
         | false ->  stmts
         in
 
@@ -1127,6 +1196,14 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     let constructor_opt  = List.find_opt (function (m:S.method0) -> m.value.v.is_constructor) methods in
     let constructor_args = match constructor_opt with | None -> [] |Some constructor -> constructor.value.v.args in 
 
+    let states =
+        if is_guardian then states 
+        else
+        (* TimerScheduler<Command> timers;*)
+        auto_place {S.persistent = false; stmts = [auto_place(S.LetStmt(
+            Rt.Misc.t_actor_timer fplace None, Rt.Misc.a_timers, None ))]} :: states
+    in
+
     let methods = match constructor_opt with
     | None when is_guardian = false -> (* add a default constructor, will be hydrated with context when running fmethod *)
         auto_place ({
@@ -1146,21 +1223,32 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     let arg_lambda = auto_place (S.LambdaExpr (
         [Rt.Misc.a_context],
         auto_place (S.BlockStmt [
-            auto_place (S.ExpressionStmt (
-                Rt.Misc.e_debug_of 
-                    place 
-                    (auto_place (S.VarExpr Rt.Misc.a_context)) 
+            auto_place (S.ReturnStmt (
+                auto_place(S.CallExpr(
+                    Rt.Misc.e_behaviors_with_timers fplace,
                     [
-                        auto_place (S.LitExpr (auto_place (S.StringLit (Atom.to_string name^"::create"))))
-                    ]
-            ));
-            auto_place (S.ReturnStmt (auto_place (
-                S.NewExpr (
-                    auto_place (S.VarExpr name),
-                    List.map (function x -> auto_place (S.VarExpr x)) (Rt.Misc.a_context::(List.map snd constructor_args))
+                        auto_place (S.LambdaExpr (
+                            [Rt.Misc.a_timers],
+                            auto_place (S.BlockStmt [
+                                auto_place (S.ExpressionStmt (
+                                Rt.Misc.e_debug_of 
+                                    place 
+                                    (auto_place (S.VarExpr Rt.Misc.a_context)) 
+                                    [
+                                        auto_place (S.LitExpr (auto_place (S.StringLit (Atom.to_string name^"::create"))))
+                                    ]
+                                ));
+                                auto_place (S.ReturnStmt (auto_place (
+                                    S.NewExpr (
+                                        auto_place (S.VarExpr name),
+                                        List.map (function x -> auto_place (S.VarExpr x)) (Rt.Misc.a_context::Rt.Misc.a_timers::(List.map snd constructor_args))
 
-                )
-            )));
+                                    )
+                                )));
+                            ])
+                        ))
+                    ]
+            ))))
         ])
     )) in
     let arg_lambda_guardian = auto_place (S.LambdaExpr (

@@ -11,8 +11,10 @@ import com.lg4dc.timers.HBSessionTimer;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.ActorContext;
+import akka.actor.typed.javadsl.TimerScheduler;
 
-import timers.*;
+import com.lg4dc.timers.*;
+import com.bmartin.*;
 
 // Session types as values
 public final class ASTStype {
@@ -38,31 +40,37 @@ public final class ASTStype {
     public static enum TimerKind {
         LB, HB
     }
-    public class TimerHeader {
+    public static class TimerHeader {
 
 
         public TimerKind kind;
         public String timer_name;
         public Integer trigger_value;
 
-        TimerHeader (TimerKind kind, String timer_name, Integer trigger_value) {
+        public TimerHeader (TimerKind kind, String timer_name, Integer trigger_value) {
             this.kind = kind;
             this.timer_name = timer_name;
             this.trigger_value = trigger_value;
         }
 
-        void apply_headers (ActorContext<?> context, UUID session_id, List<TimerHeader> timers){
-            for (ASTStype.TimerHeader timer : timers) {
-                if(context.getTimers().isTimerActive(timer.timer_name))
-                    context.getTimers().cancel(timer.timer_name);
+        public void apply_headers (ActorContext<CborSerializable> context, TimerScheduler<CborSerializable> contextTimers, UUID session_id, List<TimerHeader> headers){
+            for (ASTStype.TimerHeader timer : headers) {
+                if(contextTimers.isTimerActive(timer.timer_name))
+                    contextTimers.cancel(timer.timer_name);
 
-                context.getTimers().startSingleTimer(
-                    timer.timer_name, 
-                    (timer.kind == Kind.LB) ?
-                        new LBSessionTimer(session_id, context.getSelf()) : new HBSessionTimer(session_id, context.getSelf())
-                        , 
-                    Duration.ofMillis(timer.trigger_value) 
-                );
+                if(timer.kind == TimerKind.LB){
+                    contextTimers.startSingleTimer(
+                        timer.timer_name, 
+                        new LBSessionTimer(session_id, context.getSelf()) , 
+                        Duration.ofMillis(timer.trigger_value) 
+                    );
+                }else{
+                    contextTimers.startSingleTimer(
+                        timer.timer_name, 
+                        new HBSessionTimer(session_id, context.getSelf()) , 
+                        Duration.ofMillis(timer.trigger_value) 
+                    );
+                }
             }
 
         }
@@ -101,18 +109,18 @@ public final class ASTStype {
 
     public static final class Send extends Base {
         public MsgT msg_type;
-        public Send(MsgT msg_type, Base continuation){
+        public Send(MsgT msg_type, List<TimerHeader> timers, Base continuation){
             this.msg_type = msg_type;
-            this.continuations.add(new Tuple2(msg_type, continuation));
+            this.continuations.add(new Tuple3(msg_type, timers, continuation));
 
             assert(!this.continuations.isEmpty());
         }
     }
     public static final class Receive extends Base {
         public MsgT msg_type;
-        public Receive(MsgT msg_type, Base continuation){
+        public Receive(MsgT msg_type, List<TimerHeader> timers, Base continuation){
             this.msg_type = msg_type;
-            this.continuations.add(new Tuple2(msg_type, continuation));
+            this.continuations.add(new Tuple3(msg_type, timers, continuation));
 
             assert(!this.continuations.isEmpty());
         }

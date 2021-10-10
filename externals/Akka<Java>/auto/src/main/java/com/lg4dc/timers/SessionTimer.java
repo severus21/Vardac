@@ -12,7 +12,7 @@ public abstract class SessionTimer implements CborSerializable {
     public UUID session_id;
     public ActorRef<CborSerializable> replyTo;
 
-    SessionTimer (UUID session_id, ActorRef<CborSerializable> replyTo){
+    public SessionTimer (UUID session_id, ActorRef<CborSerializable> replyTo){
         this.session_id = session_id;
         this.replyTo = replyTo;
     }
