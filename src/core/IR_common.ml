@@ -27,6 +27,7 @@ and flat_type =
     | TVoid
     | TPlace
     | TVPlace
+    | TWildcard
 
 and tbridge = {
     in_type: main_type; 

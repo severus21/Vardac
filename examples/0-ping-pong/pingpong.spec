@@ -19,7 +19,7 @@ type error of ;
 event ping of; (* type constructor ping() *)
 event pong of; (* type constructor pong() *)
 (*protocol p_pingpong = !ping?pong. ;*)
-protocol p_pingpong = !ping{timer x|}?pong!ping{|(5<x) && (x<10)}!ping.;
+protocol p_pingpong = !ping{timer x|}?pong!ping{|(5<x) && (x<10)}!ping{|x<15}.;
 
 (*  a bridge is a dynamic object, it replace the channel concept
     - with a unique ID

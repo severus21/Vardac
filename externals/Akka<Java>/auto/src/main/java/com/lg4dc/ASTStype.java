@@ -1,8 +1,19 @@
 package com.lg4dc;
-import java.util.List;
-import java.util.ArrayList;
 
 import io.vavr.*;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import com.lg4dc.timers.HBSessionTimer;
+
+import akka.actor.typed.ActorRef;
+import akka.actor.typed.javadsl.ActorContext;
+
+import timers.*;
+
 // Session types as values
 public final class ASTStype {
     public static final class MsgT {
@@ -24,14 +35,36 @@ public final class ASTStype {
             return this.value.equals(b.value);
         }
     }
-
+    public static enum TimerKind {
+        LB, HB
+    }
     public class TimerHeader {
-        public String timer_name;
-        public Int trigger_value;
 
-        TimerHeader (String timer_name, Int trigger_value) {
-            this.timer_name;
-            this.trigger_value;
+
+        public TimerKind kind;
+        public String timer_name;
+        public Integer trigger_value;
+
+        TimerHeader (TimerKind kind, String timer_name, Integer trigger_value) {
+            this.kind = kind;
+            this.timer_name = timer_name;
+            this.trigger_value = trigger_value;
+        }
+
+        void apply_headers (ActorContext<?> context, UUID session_id, List<TimerHeader> timers){
+            for (ASTStype.TimerHeader timer : timers) {
+                if(context.getTimers().isTimerActive(timer.timer_name))
+                    context.getTimers().cancel(timer.timer_name);
+
+                context.getTimers().startSingleTimer(
+                    timer.timer_name, 
+                    (timer.kind == Kind.LB) ?
+                        new LBSessionTimer(session_id, context.getSelf()) : new HBSessionTimer(session_id, context.getSelf())
+                        , 
+                    Duration.ofMillis(timer.trigger_value) 
+                );
+            }
+
         }
     }
 

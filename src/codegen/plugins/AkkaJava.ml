@@ -857,6 +857,33 @@ and finish_expr place : S._expr -> T._expr = function
     | S.LitExpr lit -> LiteralExpr (fliteral lit)
     | S.Spawn {context; actor_expr} -> T.AccessExpr (fexpr context, fexpr actor_expr)
     | S.This -> T.ThisExpr
+    | S.BlockExpr (b, es) -> begin
+        match b with
+        | List when es = [] -> T.NewExpr(
+            auto_place(T.VarExpr(Atom.fresh_builtin "ArrayList")),
+            []
+        ) 
+        | List when es <> []  -> T.AppExpr(
+            auto_place(T.VarExpr(Atom.fresh_builtin "List.of")),
+            List.map fexpr es
+        )
+        | Set when es = [] -> T.NewExpr(
+            auto_place(T.VarExpr(Atom.fresh_builtin "HashSet")),
+            []
+        ) 
+        | Set -> T.AppExpr(
+            auto_place(T.VarExpr(Atom.fresh_builtin "Set.of")),
+            List.map fexpr es
+        )
+        | Tuple when es = [] -> T.NewExpr(
+            auto_place(T.VarExpr(Atom.fresh_builtin "Tuple")),
+            []
+        ) 
+        | Tuple -> T.AppExpr(
+            auto_place(T.VarExpr(Atom.fresh_builtin "Tuple.of")),
+            List.map fexpr es
+        )
+    end
     | S.UnopExpr (IR.UnpackResult, e) -> 
         (*  Encoding
             e.getOrElseThrow(() -> new RuntimeException("The result is failure, can access the success."))

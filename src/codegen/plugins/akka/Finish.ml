@@ -151,6 +151,7 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
         | S.TStr -> T.Atomic "String"
         | S.TVoid -> T.Atomic "Void" 
         | S.TUUID -> T.Atomic "UUID" 
+        | S.TWildcard -> T.Atomic "?"
         | _ -> Core.Error.error place "TActivationInfo/Place/VPlace/Label type not yey supported."
     end
     | S.TArray mt -> T.TArray (fmtype mt)
@@ -416,12 +417,7 @@ function
         [fexpr ok]
     ) 
     | S.ResultExpr (_,_) -> raise (Core.Error.PlacedDeadbranchError (place, "finish_expr : a result expr can not be Ok and Err at the same time."))
-    | S.BlockExpr (b, es) -> begin
-        match b with
-        | List -> Encode.encode_list fplace (List.map fexpr es)
-        | Tuple -> Encode.encode_tuple fplace (List.map fexpr es)
-        | _  -> failwith "block not yet supported"
-    end
+    | S.BlockExpr (b, es) -> T.BlockExpr(b, List.map fexpr es)
     | S.Block2Expr (b, xs) -> failwith "block not yet supported"
 and fexpr e : T.expr = finish_place finish_expr e
 
@@ -762,6 +758,30 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         } (* TODO handle persistency*)
     ) grp_items.states in 
 
+    let a_intermediate_states = Atom.fresh_builtin "intermediate_states" in
+    let a_frozen_sessions = Atom.fresh_builtin "frozen_sessions" in
+    let a_timeout_sesison = Atom.fresh_builtin "timeout_sessions" in
+    let states = [
+        (* Set<UUID> frozen_sessions = new HashSet();*)
+        auto_place {   T.persistent = false; (*TODO persistence True ??*)
+            stmts = [ auto_place(T.LetStmt (
+                auto_place (T.TSet(auto_place( T.Atomic "UUID"))),
+                a_frozen_sessions,
+                Some (auto_place(T.BlockExpr(Core.IR.Set, [])))
+            ))]
+        };
+        (* Set<UUID> timeout_sessions = new HashSet() *)
+        auto_place {   T.persistent = false;(*TODO persistence True ??*)
+            stmts = [ auto_place(T.LetStmt (
+                auto_place (T.TSet(auto_place( T.Atomic "UUID"))),
+                a_timeout_sesison,
+                Some (auto_place(T.BlockExpr(Core.IR.Set, [])))
+            ))]
+        };
+    ] @ states in
+
+
+
     (*** Building receiver ***)
     (* Step0 - name of receiver param (event) *)
     let l_event_name : Atom.atom = (Atom.fresh_builtin "e") in
@@ -828,6 +848,53 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             auto_place (T.VarExpr (Atom.fresh_builtin "st"))
         )) in
 
+
+        (* Handle frozen/timeout session
+            if this.timeout_sessions.contains(e.session_id) {
+                context.getLog().info(String.format("Receive message belonging to a timeout session %s : drop.", e.sesion_id));
+                e.replyTo.tell(new SessionHasTimeout(e.session_id));
+                return Behaviors.same();
+            }
+            (* per event dispatcher *)
+            if this.frozen_sessions.contains(e.session_id) {
+                context.getLog().info(String.format("Receive message belonging to a frozen session %s : drop.", e.sesion_id));
+                e.replyTo.tell(SessionIsFrozen(e.session_id));
+                return Behaviors.same();
+            }
+        *)
+        let add_check_session_validity (state_set, event_cl)=
+            auto_place (T.IfStmt(
+                auto_place (T.CallExpr(
+                    auto_place (T.AccessExpr(
+                        state_set,
+                        auto_place (T.VarExpr (Atom.fresh_builtin "contains"))
+                    )),
+                    [ e_sessionid l_event ]
+                )),
+                auto_place(T.BlockStmt [
+                    auto_place (T.ExpressionStmt(
+                        auto_place (T.CallExpr(
+                            auto_place (T.AccessExpr(
+                                e_replyto l_event,
+                                auto_place (T.VarExpr (Atom.fresh_builtin "tell"))
+                            )),
+                            [ 
+                                auto_place(T.NewExpr(
+                                    auto_place (T.VarExpr (Atom.fresh_builtin event_cl)),
+                                    [
+                                        e_sessionid l_event;
+                                        e_get_self fplace (e_get_context fplace);
+                                    ]
+                                ))
+                            ]
+                        ))
+                    ));
+                    auto_place(T.ReturnStmt (e_behaviors_same fplace)) 
+                ]),
+                None 
+            ))
+        in
+
         (* Creating the statement*)
         (* TODO do it with a switch ??? *)
         (*
@@ -886,25 +953,71 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         in
 
         (* return Behaviors.same(); *)
-        let ret_stmt = T.ReturnStmt (auto_place (T.CallExpr ( 
-            auto_place (T.AccessExpr (
-                auto_place (T.VarExpr (Atom.fresh_builtin "Behaviors")),
-                auto_place (T.VarExpr (Atom.fresh_builtin "same"))
-            )),
-            []
-        ))) in
+        let ret_stmt = T.ReturnStmt (e_behaviors_same fplace) in
 
-        [ Hashtbl.fold add_case inner_env (auto_place (T.EmptyStmt)) ] @ [auto_place ret_stmt]
+        [
+            add_check_session_validity (e_this_frozen_sessions fplace, "SessionIsFrozen");
+            add_check_session_validity (e_this_timeout_sessions fplace, "SessionHasTimeout");
+            Hashtbl.fold add_case inner_env (auto_place (T.EmptyStmt));
+            auto_place ret_stmt
+        ]
     in
 
     (* Step3 - Generate the component receiver *)
     let generate_component_receiver () = 
-        let init_receiver_expr = {place; value=T.CallExpr(
+        let init_receiver_expr : T.expr = {place; value=T.CallExpr(
             {place; value=T.VarExpr (
                 Atom.fresh_builtin "newReceiveBuilder"
             )}, 
             []
         )} in
+
+        let add_timer acc (event_name, handler_name) = 
+            (* 
+                onMessage(eventName.class, msg ->           onAckSessionIsDead(
+                getContext(), this.frozen_sessions, this.timeout_sessions, msg)
+                return 
+                )
+            *)
+            {place; value=T.AccessExpr(
+                acc, 
+                {place; value=T.CallExpr(
+                    {place; value=T.VarExpr (Atom.fresh_builtin "onMessage")}, 
+                    [
+                        {place; value=T.ClassOf (auto_place (T.TVar (Atom.fresh_builtin event_name)))};
+                        auto_place (T.LambdaExpr (
+                            [
+                                l_event_name 
+                            ],
+                            auto_place(T.BlockStmt [
+                                auto_place (T.ExpressionStmt( auto_place (T.CallExpr( 
+                                    auto_place (T.VarExpr (Atom.fresh_builtin handler_name)),
+                                    [
+                                        e_get_context fplace;
+                                        e_get_self fplace (e_get_context fplace);
+                                        e_this_frozen_sessions fplace; 
+                                        e_this_timeout_sessions fplace; 
+                                        e_this_intermediate_states fplace;
+                                        l_event;
+                                    ]
+                                ))));
+                                auto_place (T.ReturnStmt(e_behaviors_same fplace));
+                            ])
+                        ))
+                    ]
+                )}
+            )}
+        in
+
+        let init_receiver_expr : T.expr =  List.fold_left add_timer init_receiver_expr [ 
+            "HBSessionTimer", "Handlers.onHBTimer";
+            "SessionHasTimeout", "Handlers.onHasTimeout";
+            "LBSessionTimer", "Handlers.onLBTimer";
+            "SessionIsFrozen", "Handlers.onIsFrozen";
+            "AckSessionIsDead", "Handlers.onAckSessionIsDead";
+        ] in
+
+
         let add_case event_name inner_env (acc, acc_methods) =
             let _m_name = Atom.fresh "event_dispatcher" in
             let _m : T.method0 = auto_place {

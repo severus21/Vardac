@@ -419,32 +419,57 @@ module Make (Args : Params ) : Sig = struct
         ps, ss,  auto_fplace (OnDestroy (List.hd ms)) :: (List.tl ms)
     and rmethod0 m = rewrite_method0 m.place m.value
 
-    and rewrite_component_item place : _component_item -> component_item list = 
+    (* return name of intermediate states * citems *)
+    and rewrite_component_item place : _component_item -> variable list * component_item list = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
     let auto_place smth = {place = place; value=smth} in
     let auto_fplace smth = {place = fplace; value=smth} in
     function
-    | State _ as citem -> [auto_place citem]
-    | Contract _ as citem -> [auto_place citem] 
+    | State _ as citem -> [], [auto_place citem]
+    | Contract _ as citem -> [], [auto_place citem] 
     | Method m as citem -> 
         let intermediate_ports, intermediate_states, intermediate_methods = rmethod0 m in
-        if intermediate_ports = [] then [auto_place citem]
-        else (List.map (function p-> auto_fplace (Port p)) intermediate_ports) @ 
-        (List.map (function s-> auto_fplace (State s)) intermediate_states)
-        @
-        (List.map (function m-> auto_fplace (Method m)) intermediate_methods)
-    | Port _ as citem -> [auto_place citem]
-    | Term t -> [auto_place (Term (rterm t))]
-    | Include _ as citem -> [auto_place citem]
-    and rcitem citem : component_item list = rewrite_component_item citem.place citem.value 
+        if intermediate_ports = [] then 
+            [], [auto_place citem]
+        else 
+            List.map (function | {value=StateDcl s} -> s.name) intermediate_states
+            , (List.map (function p-> auto_fplace (Port p)) intermediate_ports) @ 
+            (List.map (function s-> auto_fplace (State s)) intermediate_states)
+            @
+            (List.map (function m-> auto_fplace (Method m)) intermediate_methods)
+    | Port _ as citem -> [], [auto_place citem]
+    | Term t -> [], [auto_place (Term (rterm t))]
+    | Include _ as citem -> [], [auto_place citem]
+    and rcitem citem : variable list * component_item list = rewrite_component_item citem.place citem.value 
 
-    and rewrite_component_dcl place : _component_dcl -> _component_dcl = function
+    and rewrite_component_dcl place : _component_dcl -> _component_dcl = 
+    let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
+    let auto_place smth = {place = place; value=smth} in
+    let auto_fplace smth = {place = fplace; value=smth} in
+    function
     | ComponentAssign _ as cdcl -> cdcl
     | ComponentStructure cdcl -> 
-        ComponentStructure {
-            cdcl with 
-                body = List.flatten (List.map rcitem cdcl.body) 
-        }
+        let intermediate_state_names, body = List.split(List.map rcitem cdcl.body) in
+        let intermediate_state_names = List.flatten(intermediate_state_names) in
+        let body = List.flatten body in
+
+        (*List<Map<UUID, ?>> this.intermediate_states = new ArrayList(); [this. ....]; registration at each creation*)
+        let a_intermediate_states = Atom.fresh_builtin "intermediate_states" in
+        let intermediate_states_index = auto_place(State( auto_place(StateDcl { 
+            ghost = false;
+            kind = Local;
+            type0 = auto_fplace(CType(auto_fplace (TList(
+                        auto_fplace(CType(auto_fplace (TDict(
+                            auto_fplace (CType (auto_fplace (TFlatType TUUID))), 
+                            auto_fplace (CType (auto_fplace (TFlatType TWildcard))) 
+                        ))))
+            ))));
+            name = a_intermediate_states;
+            body = Some (auto_fplace(BlockExpr(List, [])))
+        }))) in
+        let body = body @ [intermediate_states_index] in 
+
+        ComponentStructure { cdcl with body }
     and rcdcl cdcl = rewrite_place rewrite_component_dcl cdcl 
 
     and rewrite_term place = function

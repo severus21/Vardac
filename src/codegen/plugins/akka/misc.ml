@@ -148,6 +148,36 @@ let e_get_self place context =
         ))
     ))
 
+let e_this_frozen_sessions place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr(
+        auto_place Ast.This,
+        auto_place (Ast.VarExpr (Atom.fresh_builtin "frozen_sessions"))
+    ))
+let e_this_timeout_sessions place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr(
+        auto_place Ast.This,
+        auto_place (Ast.VarExpr (Atom.fresh_builtin "timeout_sessions"))
+    ))
+let e_this_intermediate_states place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr(
+        auto_place Ast.This,
+        auto_place (Ast.VarExpr (Atom.fresh_builtin "intermediate_states"))
+    ))
+
+let e_behaviors_same place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.CallExpr ( 
+        auto_place (Ast.AccessExpr (
+            auto_place (Ast.VarExpr (Atom.fresh_builtin "Behaviors")),
+            auto_place (Ast.VarExpr (Atom.fresh_builtin "same"))
+        )),
+        []
+    ))
+
+
 let e_lg4dc_session place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
@@ -207,10 +237,24 @@ let e_ASTStype_MsgT_of place (e:Ast.expr) =
     ))
 let e_ASTStype_TimerHeader_of place (name:Ast.variable) (value:int) =
     let auto_place smth = {place; value=smth} in
+    let n = String.length (Atom.hint name) in
+    let kind = 
+        auto_place (Ast.AccessExpr( 
+            auto_place (Ast.VarExpr( a_ASTStype_of "TimerKind")),
+            (* TODO swith to Ocaml 4.13 
+            if String.ends_with "lb" (Atom.hint name) then
+            *)
+            if n>3 && String.sub (Atom.hint name) (n-3) 3 = "_lb" then
+                auto_place (Ast.VarExpr (a_ASTStype_of "LB"))
+            else
+                auto_place (Ast.VarExpr (a_ASTStype_of "HB"))
+        ))
+    in
     auto_place (Ast.NewExpr (
         auto_place (Ast.VarExpr (a_ASTStype_of "TimerHeader")),
        [
-           auto_place (Ast.VarExpr name);
+           kind;
+           auto_place (Ast.LitExpr( auto_place (Ast.StringLit (Atom.to_string name))));
            auto_place (Ast.LitExpr (auto_place(Ast.IntLit value)))
         ] 
     ))
