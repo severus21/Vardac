@@ -13,7 +13,13 @@ public class Event<T extends AbstractMetadata> implements CborSerializable {
     
     public Event() {}
 
-    public void hydrate(UUID bridge_id, UUID session_id, ActorRef<CborSerializable> replyTo, ASTStype.Base st, AbstractMetadata metadata) {
+    public void hydrate(
+        UUID bridge_id, 
+        UUID session_id, 
+        ActorRef<CborSerializable> replyTo, 
+        ASTStype.Base st, 
+        AbstractMetadata metadata
+    ) {
         this.bridge_id = bridge_id;
         this.session_id = session_id;
         this.replyTo = replyTo;

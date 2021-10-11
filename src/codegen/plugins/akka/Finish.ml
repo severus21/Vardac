@@ -20,9 +20,12 @@ let make_capitalize_renaming = function x ->
     | None -> x
     | Some _ -> Atom.refresh_hint x (String.capitalize_ascii (Atom.hint x))
 
+let collected_components = ref Atom.Set.empty
+
 (*** Global state *)
 type collected_state = {
     event2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
+    collected_components: Atom.Set.t ref
 }
  
 let print_cstate cstate = 
@@ -36,7 +39,8 @@ let print_cstate cstate =
     ) cstate.event2receptionists
 
 let empty_cstate () : collected_state = {
-    event2receptionists = Hashtbl.create 0
+    event2receptionists = Hashtbl.create 0;
+    collected_components = ref Atom.Set.empty
 }
 (*
     event -> list of components that can receive it 
@@ -449,6 +453,8 @@ and finish_stmt place : S._stmt -> T._stmt = function
     | S.ReturnStmt e -> T.ReturnStmt (fexpr e) 
 
     (*S.*type name, type definition*)
+    | S.ExpressionStmt {value=S.CallExpr({value=S.VarExpr x}, args)} when Atom.is_builtin x && Encode.is_stmt_builtin (Atom.hint x) -> 
+        Encode.encode_builtin_fct_as_stmt place (Atom.value x) (List.map fexpr args)
     | S.ExpressionStmt e -> T.ExpressionStmt (fexpr e) 
     | S.BlockStmt stmts -> T.BlockStmt (List.map fstmt stmts)
     
@@ -721,6 +727,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
 
     (* Registration *)
     Hashtbl.add to_capitalize_variables name ();
+    collected_components := Atom.Set.add name !collected_components;
 
     (****** Helpers *****)
     let fplace = (Error.forge_place "Plg=Akka/finish_term/protocoldef" 0 0) in
@@ -762,6 +769,8 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     let a_intermediate_states = Atom.fresh_builtin "intermediate_states" in
     let a_frozen_sessions = Atom.fresh_builtin "frozen_sessions" in
     let a_timeout_sesison = Atom.fresh_builtin "timeout_sessions" in
+    let a_dead_sesison = Atom.fresh_builtin "dead_sessions" in
+
     let states = [
         (* Set<UUID> frozen_sessions = new HashSet();*)
         auto_place {   T.persistent = false; (*TODO persistence True ??*)
@@ -779,6 +788,14 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                 Some (auto_place(T.BlockExpr(Core.IR.Set, [])))
             ))]
         };
+        (* Set<UUID> dead_sessions = new HashSet() *)
+        auto_place {   T.persistent = false;(*TODO persistence True ??*)
+            stmts = [ auto_place(T.LetStmt (
+                auto_place (T.TSet(auto_place( T.Atomic "UUID"))),
+                a_dead_sesison,
+                Some (auto_place(T.BlockExpr(Core.IR.Set, [])))
+            ))]
+        }
     ] @ states in
 
 
@@ -905,6 +922,8 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             if(e.bridge_id == author.project_name.Stage219.b36.get_id() && e.st == current_aststype){
                 author.project_name.Session<?> s = new Session(e.bridge_id, getContext().getSelf(), e.replyTo, e.st);
                 s.set_id(e.session_id);
+                ASTStype.TimerHeader.apply_headers(getContext(), this.timers, s.session_id, s.continuations._2);
+                
         
                 this.handle_ping61(s);
             }else{
@@ -945,6 +964,9 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                             [ e_sessionid l_event]
                         )
                     )));
+                    auto_place (T.ExpressionStmt (
+                        e_apply_headers fplace l_session
+                    ));
                     auto_place (T.ExpressionStmt (auto_place (
                         T.CallExpr(
                             callback,
@@ -962,6 +984,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         [
             add_check_session_validity (e_this_frozen_sessions fplace, "SessionIsFrozen");
             add_check_session_validity (e_this_timeout_sessions fplace, "SessionHasTimeout");
+            add_check_session_validity (e_this_dead_sessions fplace, "SessionIsDead");
             Hashtbl.fold add_case inner_env (auto_place (T.EmptyStmt));
             auto_place ret_stmt
         ]
@@ -976,8 +999,47 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             []
         )} in
 
-
-
+        let add_timer_case acc (event_name, handler) =
+            {place; value=T.AccessExpr(
+                acc, 
+                {place; value=T.CallExpr(
+                    {place; value=T.VarExpr (Atom.fresh_builtin "onMessage")}, 
+                    [
+                        {place; value=T.ClassOf (auto_place (T.TVar (Atom.fresh_builtin event_name)))};
+                        auto_place (T.LambdaExpr (
+                            [
+                                l_event_name 
+                            ],
+                            auto_place(T.BlockStmt [
+                                auto_place(T.ExpressionStmt(auto_place(T.CallExpr(
+                                    auto_place (T.VarExpr (Atom.fresh_builtin handler)),
+                                    [
+                                        e_get_context fplace;
+                                        e_get_self place (e_get_context fplace);
+                                        (*Rt.Misc.e_this_timers;*)
+                                        e_this_frozen_sessions fplace;
+                                        e_this_timeout_sessions fplace;
+                                        e_this_intermediate_states fplace;
+                                        l_event
+                                    ]
+                                ))));
+                                auto_place(T.ReturnStmt(
+                                    e_behaviors_same fplace
+                                ))
+                            ])
+                        ))
+                    ]
+                )}
+            )}
+        in
+        let init_receiver_expr = List.fold_left add_timer_case init_receiver_expr [
+            "HBSessionTimer", "Handlers.onHBTimer";
+            "LBSessionTimer", "Handlers.onLBTimer";
+            "SessionHasTimeout", "Handlers.onHasTimeout";
+            "SessionIsFrozen", "Handlers.onIsFrozen";
+            "SessionIsDead", "Handlers.onSessionIsDead";
+            "AckSessionIsDead", "Handlers.onAckSessionIsDead";
+        ] in
 
         let add_case event_name inner_env (acc, acc_methods) =
             let _m_name = Atom.fresh "event_dispatcher" in
@@ -1177,19 +1239,6 @@ and finish_term place : S._term -> T.term list = function
         List.map aux_entry entries
     end
     | S.STRec (x, st_next) -> extract_events st_next.place k st_next.value
-    | S.STTimeout (time_expr, st_next) ->        
-        let next_events = (extract_events st.place (k+1) st_next.value) in
-        let next_name = (List.hd next_events).value.name in
-
-        { 
-            place = place; 
-            value = {
-                T.vis=T.Public; 
-                T.name= Atom.refresh_hint next_name ("Timeout"^(Atom.hint next_name));
-                T.kind=T.Event; 
-                T.args= []
-            }
-        }:: (extract_events st_next.place (k+1) st_next.value)
     in
 
     (*let events = extract_events st.place 0 st.value in
@@ -1377,6 +1426,7 @@ let finish_program program =
 
     {
         event2receptionists;
+        collected_components;
     }, { 
         T.entrypoint = [];
         T.system = ();

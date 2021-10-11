@@ -14,10 +14,13 @@ let codegen_program project_dir build_dir ((target, program):Target.target * IRI
     let plug = (Factory.load_plugin target.value.codegen.runtime_plg target.value.codegen.language_plg) in 
     let module Plug = (val plug:Plugins.Plugin.Plug) in    
 
-    logger#info "Init build directory \"%s\" with plugin templates and external files"  (Fpath.to_string build_dir);
+    logger#info "Init build directory \"%s\" with plugin external files"  (Fpath.to_string build_dir);
     Plug.init_build_dir target project_dir build_dir;
     logger#info "Building ...";
-    Plug.output_program target build_dir program 
+    let res = Plug.output_program target build_dir program in 
+    logger#info "Resolve templates (maydepend of the build collected state)";
+    Plug.resolve_templates target project_dir build_dir;
+    res 
 
 let codegen project_dir (build_dir:Fpath.t) targets program = 
     (* build a { target -> plugin } dictionary *)

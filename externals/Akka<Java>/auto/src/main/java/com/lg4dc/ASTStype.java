@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.lg4dc.timers.HBSessionTimer;
 
@@ -53,26 +54,30 @@ public final class ASTStype {
             this.trigger_value = trigger_value;
         }
 
-        public void apply_headers (ActorContext<CborSerializable> context, TimerScheduler<CborSerializable> contextTimers, UUID session_id, List<TimerHeader> headers){
-            for (ASTStype.TimerHeader timer : headers) {
-                if(contextTimers.isTimerActive(timer.timer_name))
-                    contextTimers.cancel(timer.timer_name);
+        public static void apply_headers (ActorContext context, TimerScheduler contextTimers, Session s){
+            if(s.st.continuations.size() > 0){
+                List<TimerHeader> headers = s.st.continuations.get(0)._2;
+                for (ASTStype.TimerHeader timer : headers) {
+                    context.getLog().debug(String.format("timer %s trigger value = %d", timer.timer_name, timer.trigger_value));
+                    if(contextTimers.isTimerActive(timer.timer_name))
+                        contextTimers.cancel(timer.timer_name);
 
-                if(timer.kind == TimerKind.LB){
-                    contextTimers.startSingleTimer(
-                        timer.timer_name, 
-                        new LBSessionTimer(session_id, context.getSelf()) , 
-                        Duration.ofMillis(timer.trigger_value) 
-                    );
-                }else{
-                    contextTimers.startSingleTimer(
-                        timer.timer_name, 
-                        new HBSessionTimer(session_id, context.getSelf()) , 
-                        Duration.ofMillis(timer.trigger_value) 
-                    );
+                    if(timer.kind == TimerKind.LB){
+                        frozen_sessions.add(timerMsg.session_id);
+                        contextTimers.startSingleTimer(
+                            timer.timer_name, 
+                            new LBSessionTimer(s.session_id, s.right) , 
+                            Duration.ofMillis(timer.trigger_value) 
+                        );
+                    }else{
+                        contextTimers.startSingleTimer(
+                            timer.timer_name, 
+                            new HBSessionTimer(s.session_id, s.right) , 
+                            Duration.ofMillis(timer.trigger_value) 
+                        );
+                    }
                 }
             }
-
         }
     }
 
@@ -95,7 +100,11 @@ public final class ASTStype {
             }   
 
             Base b = (Base) obj;
-            return this.continuations.equals(b.continuations); 
+            //Headers are not part of equals since equals reason on the types
+            //And headers are just annotation to direct the execution
+            List<Tuple2<MsgT, Base>> r1 = this.continuations.stream().map(continuation -> Tuple.of(continuation._1, continuation._3)).collect(Collectors.toList());
+            List<Tuple2<MsgT, Base>> r2 = b.continuations.stream().map(continuation -> Tuple.of(continuation._1, continuation._3)).collect(Collectors.toList());
+            return r1.equals(r2); 
         }
 
     }

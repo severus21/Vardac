@@ -79,6 +79,14 @@ and clean_stmt place : _stmt -> _stmt = function
 | NamedExpr (t, x, e_opt) -> NamedExpr (t, x, Option.map cexpr e_opt)
 | ReturnStmt e -> ReturnStmt (cexpr e) 
 | RawStmt s -> RawStmt s 
+| TryStmt  (stmt, branches) -> TryStmt (
+    cstmt stmt,
+    List.map (function (ct, x, stmt)->
+        ct,
+        x,
+        cstmt stmt
+    ) branches
+)
 and cstmt e = clean_place clean_stmt e 
 
 and clean_body_v place : _body -> _body = function 

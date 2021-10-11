@@ -91,6 +91,7 @@ and _stmt =
     | NamedExpr of jtype * variable * expr option 
     | ReturnStmt of expr
     | RawStmt of string
+    | TryStmt of stmt * (jtype * variable * stmt) list
 and stmt = _stmt placed
 
 and _jtype =

@@ -114,6 +114,15 @@ and output_stmt out : _stmt -> unit = function
     | NamedExpr (jt, x, None) -> fprintf out "%a %a;" ojtype jt output_var x 
     | ReturnStmt e -> fprintf out "return %a;" oexpr e
     | RawStmt str -> pp_print_string out str
+    | TryStmt  (stmt, branches) -> 
+        fprintf out "try{@[<hv>%a@]}%a" 
+            ostmt stmt
+            (pp_list "" (fun out (ct, x, stmt) -> 
+                fprintf out "catch (%a %a){@[<hv>%a@]}" 
+                    ojtype ct   
+                    output_var x
+                    ostmt stmt
+            )) branches
 and ostmt out: stmt -> unit = function stmt ->
     match Config.provenance_lvl () with
     | Config.None | Config.Medium -> output_stmt out stmt.value
@@ -248,6 +257,7 @@ let output_program package_name outpath items : unit =
         JModule (mock_placed(ImportDirective "java.time.Duration"));
         JModule (mock_placed(ImportDirective "java.util.concurrent.CompletableFuture"));
         JModule (mock_placed(ImportDirective "java.util.UUID"));
+        JModule (mock_placed(ImportDirective "java.util.stream.Collectors"));
 
 
         (* Akka imports *)

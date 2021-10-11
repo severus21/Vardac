@@ -8,7 +8,7 @@ import akka.actor.typed.ActorRef;
 import com.bmartin.CborSerializable;
 import com.lg4dc.ASTStype;
 
-public abstract class SessionTimer implements CborSerializable {
+public abstract class SessionTimer implements {% if components_command != [] %}{{join(", ", components_command)}}{%else%}CborSerializable{%endif%} {
     public UUID session_id;
     public ActorRef<CborSerializable> replyTo;
 

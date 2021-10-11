@@ -380,22 +380,7 @@ and cook_session_type env place: S._session_type -> env * T._session_type = func
         let new_env, aconst = caconst env aconst in
         new_env, T.STVar (y, Some aconst)
 end
-| S.STTimeout (time, st) -> begin
-    match st.value with 
-    | S.STRec _ -> Error.error place "timeout before a recursive session type is not yet supported in the implementation"
-    | S.STEnd -> Error.error place "can not place a timeout before the end of a protocol"
-    | _ -> ()
-    ;
-
-    let env1, time = cexpr env time in 
-    let env2, st = cstype env st in 
-    env << [env1; env2], T.STTimeout (time, st)
-end
 | S.STRec (x, st) -> begin
-    match st.value with 
-    | S.STTimeout _ -> Error.error place "timeout after a recursive session type is not yet supported in the implementation"
-    | _ -> ()
-    ;
     let _env, y = bind_type env place x in  
     let env1, st  = cstype _env st in
     env << [env1], T.STRec (y, st) (* NB: env1 is included in env2 *)

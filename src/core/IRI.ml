@@ -104,7 +104,6 @@ and _type_replace_stype to_be_replaced by = function
     type_replace_main_type  to_be_replaced by mt,
     type_replace_stype  to_be_replaced by st
 )
-| STTimeout (e, st) -> STTimeout (e, type_replace_stype to_be_replaced by st)
 | STRec _ as st -> st
 | STInline _ as st -> st
 and type_replace_stype to_be_replaced by = replace_place (_type_replace_stype to_be_replaced by)

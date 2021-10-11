@@ -23,6 +23,7 @@ let builtin_fcts = [
     "remove2dict", "dict<k,v> -> k -> v", "remove and return";
     "sessionid", "session -> id", "TODO";
     "nth", "tuple -> int -> ...", "nème elmt";
+    "sleep", "int -> unit", "sleep";
 ]
 
 let builtin_atomic_types = [

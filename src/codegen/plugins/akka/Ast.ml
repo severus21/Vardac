@@ -79,6 +79,7 @@ and _stmt =
     | ExpressionStmt of expr
     | IfStmt of expr * stmt * stmt option               
     | ReturnStmt of expr
+    | TryStmt of stmt * (ctype * variable * stmt) list
 and stmt = _stmt placed
 
 and visibility = 
@@ -308,6 +309,14 @@ and _apply_rename_stmt rename_binders (renaming : Atom.atom -> Atom.atom) place 
         Option.map (apply_rename_stmt rename_binders renaming) stmt2_opt    
     )
     | ReturnStmt e -> ReturnStmt (apply_rename_expr rename_binders renaming e)
+    | TryStmt (stmt, branches) -> TryStmt (
+        apply_rename_stmt rename_binders renaming stmt,
+        List.map (function (ct, x, stmt)->
+            apply_rename_ctype renaming ct,
+            renaming x,
+            apply_rename_stmt rename_binders renaming stmt
+        ) branches
+    )
 and apply_rename_stmt rename_binders renaming stmt = apply_rename_place (_apply_rename_stmt rename_binders renaming) stmt 
 
 and apply_rename_method0_body rename_binders (renaming : Atom.atom -> Atom.atom) = function

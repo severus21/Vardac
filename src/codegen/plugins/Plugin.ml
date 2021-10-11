@@ -49,6 +49,7 @@ module type Plug = sig
     include Cg_plg
 
     val init_build_dir : Core.Target.target -> Fpath.t -> Fpath.t -> unit
+    val resolve_templates : Core.Target.target -> Fpath.t -> Fpath.t -> unit
 end
 
 module Make (Plg: Cg_plg) = struct 
@@ -197,7 +198,9 @@ let filter_custom root path =
 
     let init_build_dir target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
         process_externals (Fpath.v ".") build_dir;
-        process_externals project_dir build_dir;
+        process_externals project_dir build_dir
+
+    let resolve_templates target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
         process_templates target (Fpath.v ".") build_dir;
         process_templates target project_dir build_dir
 end

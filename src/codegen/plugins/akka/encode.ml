@@ -76,7 +76,8 @@ let encode_builtin_fct place name (args:T.expr list) =
             },
             [ 
                 msg; 
-                e_get_context place
+                e_get_context place;
+                e_this_timers place;
             ]
         ) 
         | _ -> Error.error place "fire must take two arguments : place(session, message)"
@@ -123,14 +124,37 @@ let encode_builtin_fct place name (args:T.expr list) =
                         auto_place (T.TVar (Atom.fresh_builtin "ActorRef")),
                         Misc.e_get_self place (Misc.e_get_context place)
                     ));
-                    right 
+                    right;
                 ]
             )
         | _ -> Error.error place "first must take one argument"
     end
+    | "sleep" -> Error.error place "In Akka, sleep must be convertible to a statement"
     | _ -> 
         Error.error place "Akka.Finish do not yet support builtin function %s" name
 
+let is_stmt_builtin = function
+| "sleep" -> true
+| _ -> false
+
+let encode_builtin_fct_as_stmt place name (args:T.expr list) =
+    assert(Core.Builtin.is_builtin_expr name);
+    let auto_place t = {place; value=t} in 
+    match name with
+    | "sleep" -> begin
+        (* FIXME/TODO create a protocol to pause an actor and resume it after some time *)
+        logger#warning "using sleep in Akka will block a thread - not only the actor";
+        match args with
+        | [ duration ] -> 
+            let e = Atom.fresh_builtin "e" in
+            T.TryStmt(
+                auto_place(T.ExpressionStmt(auto_place(T.CallExpr (({place; value=T.RawExpr "Thread.sleep"}), [duration])))),
+                [
+                    (auto_place(T.Atomic "Exception"), e, auto_place(T.ExpressionStmt(auto_place(T.RawExpr "System.out.println(e)"))));
+                ]
+            )
+        | _ -> Error.error place "print must take one argument" 
+    end
 let encode_list place es = 
     let auto_place smth = {place; value=smth} in
     T.CallExpr(

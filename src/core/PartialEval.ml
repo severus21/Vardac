@@ -114,12 +114,6 @@ and peval_stype env place : _session_type -> env * _session_type =
     end
     | STBranch entries -> 
         env, STBranch (List.map aux_entry entries) 
-    | STTimeout (time, st) -> begin 
-        let _, time = pe_expr env time in
-        match time.value with 
-        | LitExpr _ -> env, STTimeout (time, snd (pe_stype env st))
-        | _ -> Error.error time.place "the time argument of a timeout can not be resolve during partial evaluation" 
-    end    
     | STRec (x, st) -> 
         env, STRec (x, snd (pe_stype env st))
     | STRecv (mt, st) -> 

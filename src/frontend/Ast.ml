@@ -45,7 +45,6 @@ and _session_type =
     | STSelect of (variable * session_type *  applied_constraint option) list               
     | STRec of variable * session_type (* X * type*) 
     | STInline of variable (* syntaxic suggar in order to inline an existing session type definition*)
-    | STTimeout of expr * session_type
 and session_type = _session_type placed
 
 and _component_type =

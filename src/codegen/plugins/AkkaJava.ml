@@ -20,11 +20,15 @@ module T = Lg.Ast
 
 
 let cstate : Rt.Finish.collected_state ref = ref (Rt.Finish.empty_cstate ())
+
+
 let rename_cstate renaming = 
     let e2rs = Hashtbl.to_seq (!cstate).event2receptionists in
     let e2rs = Seq.map (function (k,v) -> k, List.map renaming v) e2rs in
     (* No Hashtbl.reset since we do not alter the keys *)
-    Hashtbl.replace_seq (!cstate).event2receptionists e2rs
+    Hashtbl.replace_seq (!cstate).event2receptionists e2rs;
+
+    (!cstate).collected_components := Atom.Set.map (function name -> renaming name) !((!cstate).collected_components)
 
 let fplace = (Error.forge_place "Plg=AkkaJava" 0 0)
 let auto_place smth = {place = fplace; value=smth}
@@ -922,6 +926,14 @@ and finish_stmt place : S._stmt -> T._stmt = function
         T.NamedExpr (fctype ct, x, None) (* TODO FIXME maybe not the semantic that we want, we need to add this to the doc*)  
     | S.LetStmt (ct, x, Some e) -> T.NamedExpr (fctype ct, x, Some (fexpr e))
     | S.ReturnStmt e -> T.ReturnStmt (fexpr e)
+    | S.TryStmt (stmt, branches) -> T.TryStmt (
+        fstmt stmt,
+        List.map (function (ct, x, stmt)->
+            fctype ct,
+            x,
+            fstmt stmt
+        ) branches
+    )
 and fstmt stmt : T.stmt = finish_place finish_stmt stmt
 
 let rec finish_state  (state:S.state) : T.str_items list = 
@@ -1030,59 +1042,42 @@ and finish_method_v is_actor_method place ({ret_type; name; body; args; is_const
         | true -> begin
             let l_event_name : Atom.atom = (Atom.fresh_builtin "e") in
             let l_event : S.expr = auto_place (S.VarExpr l_event_name) in
-            let generate_adapter_for_timer (event_name, handler_name) = 
+            let generate_case_for_timer (event_name, handler_name) = 
                 (* 
-                    getContext().messageAdapter(eventName.class, msg ->           onAckSessionIsDead(
-                    getContext(), this.frozen_sessions, this.timeout_sessions, msg)
-                    return null;
-                    )
+                    if eventName.isInstance(e){
+                            handler( getContext(), this.frozen_sessions,
+                     this.timeout_sessions, 
+                     this.dead_sessions, 
+                    msg)
+                        return null;)
+                    }
                 *)
-                {place; value=S.ExpressionStmt(
-                    {place; value=S.CallExpr(
-                        {place; value=S.AccessExpr(
-                            auto_place (S.VarExpr Rt.Misc.a_context),
-                            {place; value=S.VarExpr (Atom.fresh_builtin "messageAdapter")}
-                        )}, 
-                        [
-                            {place; value=S.ClassOf (auto_place (S.TVar (Atom.fresh_builtin event_name)))};
-                            auto_place (S.LambdaExpr (
-                                [
-                                    l_event_name 
-                                ],
-                                auto_place(S.BlockStmt [
-                                    auto_place (S.ExpressionStmt( auto_place (S.CallExpr( 
-                                        auto_place (S.VarExpr (Atom.fresh_builtin handler_name)),
-                                        [
-                                            auto_place(S.CastExpr(
-                                                auto_place (S.TVar (Atom.fresh_builtin "ActorContext")),
-                                                Rt.Misc.e_get_context fplace
-                                            ));
-                                            auto_place(S.CastExpr(
-                                                auto_place (S.TVar (Atom.fresh_builtin "ActorRef")),
-                                                Rt.Misc.e_get_self fplace (Rt.Misc.e_get_context fplace)
-                                            ));
-                                            Rt.Misc.e_this_frozen_sessions fplace; 
-                                            Rt.Misc.e_this_timeout_sessions fplace; 
-                                            Rt.Misc.e_this_intermediate_states fplace;
-                                            l_event;
-                                        ]
-                                    ))));
-                                    auto_place (S.ReturnStmt (auto_place(S.LitExpr (auto_place S.VoidLit))));
-                                ])
-                            ))
-                        ]
-                    )}
-                )}
+                auto_place( S.IfStmt(
+                    Rt.Misc.e_is_instance fplace (auto_place (S.VarExpr (Atom.fresh_builtin event_name))) l_event,
+                    auto_place(S.BlockStmt [
+                        auto_place (S.ExpressionStmt( auto_place (S.CallExpr( 
+                            auto_place (S.VarExpr (Atom.fresh_builtin handler_name)),
+                            [
+                                auto_place(S.CastExpr(
+                                    auto_place (S.TVar (Atom.fresh_builtin "ActorContext")),
+                                    Rt.Misc.e_get_context fplace
+                                ));
+                                auto_place(S.CastExpr(
+                                    auto_place (S.TVar (Atom.fresh_builtin "ActorRef")),
+                                    Rt.Misc.e_get_self fplace (Rt.Misc.e_get_context fplace)
+                                ));
+                                Rt.Misc.e_this_frozen_sessions fplace; 
+                                Rt.Misc.e_this_timeout_sessions fplace; 
+                                Rt.Misc.e_this_dead_sessions fplace; 
+                                Rt.Misc.e_this_intermediate_states fplace;
+                                l_event;
+                            ]
+                        ))));
+                        auto_place (S.ReturnStmt (auto_place(S.LitExpr (auto_place S.VoidLit))));
+                    ]),
+                    None
+                ))
             in
-
-            let adapters : S.stmt list=  List.map generate_adapter_for_timer [ 
-                "HBSessionTimer", "Handlers.onHBTimer";
-                "SessionHasTimeout", "Handlers.onHasTimeout";
-                "LBSessionTimer", "Handlers.onLBTimer";
-                "SessionIsFrozen", "Handlers.onIsFrozen";
-                "AckSessionIsDead", "Handlers.onAckSessionIsDead";
-            ] in
-
 
             let set_timers : S.stmt = 
                 auto_place(S.AssignExpr( 
@@ -1092,7 +1087,7 @@ and finish_method_v is_actor_method place ({ret_type; name; body; args; is_const
             in 
             (auto_place ( S.ExpressionStmt (Rt.Misc.e_super place [auto_place(S.VarExpr Rt.Misc.a_context)]))) ::
             set_timers ::
-            (adapters@stmts)
+            stmts
         end
         | false ->  stmts
         in
@@ -1201,7 +1196,10 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
         else
         (* TimerScheduler<Command> timers;*)
         auto_place {S.persistent = false; stmts = [auto_place(S.LetStmt(
-            Rt.Misc.t_actor_timer fplace None, Rt.Misc.a_timers, None ))]} :: states
+            Rt.Misc.t_actor_timer fplace None, Rt.Misc.a_timers, None ))]}  ::
+        states
+
+
     in
 
     let methods = match constructor_opt with
@@ -1371,11 +1369,13 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     body := !body @ [{place; value=T.Comments (IR.LineComment "Actor internal logics")}];
     body := !body @ (List.map (fmethod true) methods);
     body := !body @ [{place; value=T.Comments (IR.LineComment "Nested structures")}];
-    body := (if is_guardian then [] else [command_cl]) @ (!body @ (List.map fterm nested_items));
+    body := command_cl :: (!body @ (List.map fterm nested_items));
     if is_guardian = false then begin
         body := !body @ [{place; value=T.Comments (IR.LineComment "Receiver")}];
         body := !body @ [fmethod true receiver];
     end;
+
+
 
     T.Body { 
         place; 
@@ -1517,7 +1517,13 @@ let jingoo_env (target:Core.Target.target) = [
     ("author", Jg_types.Tstr (Config.author ()));
     ("target_mains", Jg_types.Tlist 
         (List.map (function ({Core.Target.name;}:Core.Target.maindef) -> Jg_types.Tstr name) target.value.codegen.mains)
-    )
+    );
+    ("components", Jg_types.Tlist (
+        List.of_seq(Seq.map (function a -> Jg_types.Tstr (Atom.to_string a)) (Atom.Set.to_seq(!((!cstate).collected_components))))
+    ));
+    ("components_command", Jg_types.Tlist (
+        List.of_seq(Seq.map (function a -> Jg_types.Tstr ((Atom.to_string a)^".Command")) (Atom.Set.to_seq(!((!cstate).collected_components))))
+    ))
 ]
 
 let custom_template_rules target = [

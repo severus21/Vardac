@@ -31,7 +31,7 @@ let a_context =
 
 let a_timers = 
     Atom.fresh_builtin "timers"
-    
+
 
 let t_cborserializable place= 
     let auto_place smth = {place; value=smth} in
@@ -53,7 +53,6 @@ let t_actor_context place actor_name_opt =
             | Some actor_name -> actor_name 
         ]
     ))
-
 let t_actor_timer place actor_name_opt = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam (
@@ -140,6 +139,20 @@ let t_receive_of_actor place actor_name =
 (* Helper exprs *)
 
 
+let e_id_of_session place session = 
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr (
+        session,
+        auto_place (Ast.VarExpr (Atom.fresh_builtin "session_id"))
+    ))
+let e_headers_of_session place session = 
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr (
+        session,
+        auto_place (Ast.RawExpr "st.continuations")
+    ))
+
+
 let e_setid_of_session place name =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
@@ -167,6 +180,7 @@ let e_this_timers place =
         auto_place Ast.This,
         auto_place (Ast.VarExpr a_timers)
     ))
+
 let e_this_frozen_sessions place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
@@ -178,6 +192,12 @@ let e_this_timeout_sessions place =
     auto_place (Ast.AccessExpr(
         auto_place Ast.This,
         auto_place (Ast.VarExpr (Atom.fresh_builtin "timeout_sessions"))
+    ))
+let e_this_dead_sessions place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr(
+        auto_place Ast.This,
+        auto_place (Ast.VarExpr (Atom.fresh_builtin "dead_sessions"))
     ))
 let e_this_intermediate_states place =
     let auto_place smth = {place; value=smth} in
@@ -289,4 +309,31 @@ let e_bridge_of_protocol place (protocol_e:Ast.expr) =
     auto_place (Ast.NewExpr (
         auto_place (Ast.VarExpr (Atom.fresh_builtin "Bridge")),
        [ auto_place (Ast.NewExpr (protocol_e,[]))] 
+    ))
+
+let e_apply_headers place (session:Ast.expr)=
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.CallExpr(
+        auto_place (Ast.AccessExpr (
+            auto_place (Ast.VarExpr (a_ASTStype_of "TimerHeader")),
+            auto_place (Ast.VarExpr (Atom.fresh_builtin "apply_headers")) 
+        )),
+        [
+            e_get_context place;
+            e_this_timers place;
+            session;
+        ]
+    ))
+
+let e_is_instance place cl obj = 
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.CallExpr(
+        auto_place (Ast.AccessExpr (
+            auto_place (Ast.AccessExpr (
+                cl,
+                auto_place (Ast.VarExpr (Atom.fresh_builtin "class")) 
+            )),
+            auto_place (Ast.VarExpr (Atom.fresh_builtin "isInstance")) 
+        )),
+        [ obj ]
     ))

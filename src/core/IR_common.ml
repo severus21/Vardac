@@ -69,7 +69,6 @@ and _session_type =
     | STSelect of (variable * session_type *  applied_constraint option) list               
     | STRec of variable * session_type (* X * type*) 
     | STInline of variable (* syntaxic suggar in order to inline an existing session type definition*)
-    | STTimeout of expr * session_type (* time in second * protocol*)
 and session_type = _session_type placed
 
 and _component_type =
@@ -290,7 +289,6 @@ let rec _dual place : _session_type -> _session_type  = function
 | STSelect choices -> STBranch (List.map (function (x, st, c) -> (x, dual st, c)) choices)
 | STRec (x, st) -> STRec (x, dual st)
 | STInline x -> STInline x
-| STTimeout (e, st) -> STTimeout (e , dual st)
 and dual st : session_type = 
 { st with value = _dual st.place st.value }
 
