@@ -60,19 +60,24 @@ public final class ASTStype {
                 List<TimerHeader> headers = s.st.continuations.get(0)._2;
                 for (ASTStype.TimerHeader timer : headers) {
                     context.getLog().debug(String.format("timer %s trigger value = %d", timer.timer_name, timer.trigger_value));
-                    if(contextTimers.isTimerActive(timer.timer_name))
-                        contextTimers.cancel(timer.timer_name);
+                   
+                    // Time name is unique for a given (timer_name, session_id)
+                    String specialized_timer_name = timer.timer_name + "_" + s.session_id.to_string();
+
+
+                    if(contextTimers.isTimerActive(specialized_timer_name))
+                        contextTimers.cancel(specialized_timer_name);
 
                     if(timer.kind == TimerKind.LB){
                         frozen_sessions.add(s.session_id);
                         contextTimers.startSingleTimer(
-                            timer.timer_name, 
+                            specialized_timer_name, 
                             new LBSessionTimer(s.session_id, s.right) , 
                             Duration.ofMillis(timer.trigger_value) 
                         );
                     }else{
                         contextTimers.startSingleTimer(
-                            timer.timer_name, 
+                            specialized_timer_name, 
                             new HBSessionTimer(s.session_id, s.right) , 
                             Duration.ofMillis(timer.trigger_value) 
                         );
