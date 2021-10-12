@@ -768,7 +768,6 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
 
     let a_intermediate_states = Atom.fresh_builtin "intermediate_states" in
     let a_frozen_sessions = Atom.fresh_builtin "frozen_sessions" in
-    let a_timeout_sesison = Atom.fresh_builtin "timeout_sessions" in
     let a_dead_sesison = Atom.fresh_builtin "dead_sessions" in
 
     let states = [
@@ -777,14 +776,6 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             stmts = [ auto_place(T.LetStmt (
                 auto_place (T.TSet(auto_place( T.Atomic "UUID"))),
                 a_frozen_sessions,
-                Some (auto_place(T.BlockExpr(Core.IR.Set, [])))
-            ))]
-        };
-        (* Set<UUID> timeout_sessions = new HashSet() *)
-        auto_place {   T.persistent = false;(*TODO persistence True ??*)
-            stmts = [ auto_place(T.LetStmt (
-                auto_place (T.TSet(auto_place( T.Atomic "UUID"))),
-                a_timeout_sesison,
                 Some (auto_place(T.BlockExpr(Core.IR.Set, [])))
             ))]
         };
@@ -868,7 +859,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
 
 
         (* Handle frozen/timeout session
-            if this.timeout_sessions.contains(e.session_id) {
+            if this.dead_sessions.contains(e.session_id) {
                 context.getLog().info(String.format("Receive message belonging to a timeout session %s : drop.", e.sesion_id));
                 e.replyTo.tell(new SessionHasTimeout(e.session_id));
                 return Behaviors.same();
@@ -880,36 +871,26 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                 return Behaviors.same();
             }
         *)
-        let add_check_session_validity (state_set, event_cl)=
+        let add_check_session_validity ()=
             auto_place (T.IfStmt(
-                auto_place (T.CallExpr(
-                    auto_place (T.AccessExpr(
-                        state_set,
-                        auto_place (T.VarExpr (Atom.fresh_builtin "contains"))
-                    )),
-                    [ e_sessionid l_event ]
+                auto_place(T.UnopExpr(
+                    Core.IR.Not,    
+                    auto_place (T.CallExpr(
+                        auto_place (T.AccessExpr(
+                            auto_place (T.VarExpr (Atom.fresh_builtin "Handlers")),
+                            auto_place (T.VarExpr (Atom.fresh_builtin "is_session_alive"))
+                        )),
+                        [ 
+                            e_cast fplace "ActorContext" (e_get_context fplace);
+                            e_cast fplace "ActorRef" (e_get_self fplace (e_get_context fplace));
+                            e_this_frozen_sessions fplace; 
+                            e_this_dead_sessions fplace; 
+                            e_sessionid l_event; 
+                            e_replyto l_event;
+                        ]
+                    ))
                 )),
                 auto_place(T.BlockStmt [
-                    auto_place (T.ExpressionStmt(
-                        auto_place (T.CallExpr(
-                            auto_place (T.AccessExpr(
-                                e_replyto l_event,
-                                auto_place (T.VarExpr (Atom.fresh_builtin "tell"))
-                            )),
-                            [ 
-                                auto_place(T.NewExpr(
-                                    auto_place (T.VarExpr (Atom.fresh_builtin event_cl)),
-                                    [
-                                        e_sessionid l_event;
-                                        auto_place(T.CastExpr(
-                                            auto_place (T.TVar (Atom.fresh_builtin "ActorRef")),
-                                            e_get_self fplace (e_get_context fplace)
-                                        ));
-                                    ]
-                                ))
-                            ]
-                        ))
-                    ));
                     auto_place(T.ReturnStmt (e_behaviors_same fplace)) 
                 ]),
                 None 
@@ -982,9 +963,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         let ret_stmt = T.ReturnStmt (e_behaviors_same fplace) in
 
         [
-            add_check_session_validity (e_this_frozen_sessions fplace, "SessionIsFrozen");
-            add_check_session_validity (e_this_timeout_sessions fplace, "SessionHasTimeout");
-            add_check_session_validity (e_this_dead_sessions fplace, "SessionIsDead");
+            add_check_session_validity ();
             Hashtbl.fold add_case inner_env (auto_place (T.EmptyStmt));
             auto_place ret_stmt
         ]
@@ -1018,7 +997,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                                         e_get_self place (e_get_context fplace);
                                         (*Rt.Misc.e_this_timers;*)
                                         e_this_frozen_sessions fplace;
-                                        e_this_timeout_sessions fplace;
+                                        e_this_dead_sessions fplace;
                                         e_this_intermediate_states fplace;
                                         l_event
                                     ]
@@ -1035,10 +1014,8 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         let init_receiver_expr = List.fold_left add_timer_case init_receiver_expr [
             "HBSessionTimer", "Handlers.onHBTimer";
             "LBSessionTimer", "Handlers.onLBTimer";
-            "SessionHasTimeout", "Handlers.onHasTimeout";
-            "SessionIsFrozen", "Handlers.onIsFrozen";
             "SessionIsDead", "Handlers.onSessionIsDead";
-            "AckSessionIsDead", "Handlers.onAckSessionIsDead";
+            "AckDeadSession", "Handlers.onAckDeadSession";
         ] in
 
         let add_case event_name inner_env (acc, acc_methods) =

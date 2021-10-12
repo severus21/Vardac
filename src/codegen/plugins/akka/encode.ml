@@ -78,6 +78,8 @@ let encode_builtin_fct place name (args:T.expr list) =
                 msg; 
                 e_get_context place;
                 e_this_timers place;
+                e_this_frozen_sessions place;
+                e_this_dead_sessions place;
             ]
         ) 
         | _ -> Error.error place "fire must take two arguments : place(session, message)"

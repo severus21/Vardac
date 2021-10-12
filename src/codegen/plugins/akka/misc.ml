@@ -187,18 +187,19 @@ let e_this_frozen_sessions place =
         auto_place Ast.This,
         auto_place (Ast.VarExpr (Atom.fresh_builtin "frozen_sessions"))
     ))
-let e_this_timeout_sessions place =
-    let auto_place smth = {place; value=smth} in
-    auto_place (Ast.AccessExpr(
-        auto_place Ast.This,
-        auto_place (Ast.VarExpr (Atom.fresh_builtin "timeout_sessions"))
-    ))
 let e_this_dead_sessions place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
         auto_place Ast.This,
         auto_place (Ast.VarExpr (Atom.fresh_builtin "dead_sessions"))
     ))
+let e_cast place name e2 =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.CastExpr(
+        auto_place (Ast.TVar (Atom.fresh_builtin name)),
+        e2
+    ))
+
 let e_this_intermediate_states place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
@@ -321,6 +322,8 @@ let e_apply_headers place (session:Ast.expr)=
         [
             e_get_context place;
             e_this_timers place;
+            e_this_frozen_sessions place;
+            e_this_dead_sessions place;
             session;
         ]
     ))

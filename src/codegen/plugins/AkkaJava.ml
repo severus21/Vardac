@@ -1046,7 +1046,6 @@ and finish_method_v is_actor_method place ({ret_type; name; body; args; is_const
                 (* 
                     if eventName.isInstance(e){
                             handler( getContext(), this.frozen_sessions,
-                     this.timeout_sessions, 
                      this.dead_sessions, 
                     msg)
                         return null;)
@@ -1067,7 +1066,6 @@ and finish_method_v is_actor_method place ({ret_type; name; body; args; is_const
                                     Rt.Misc.e_get_self fplace (Rt.Misc.e_get_context fplace)
                                 ));
                                 Rt.Misc.e_this_frozen_sessions fplace; 
-                                Rt.Misc.e_this_timeout_sessions fplace; 
                                 Rt.Misc.e_this_dead_sessions fplace; 
                                 Rt.Misc.e_this_intermediate_states fplace;
                                 l_event;

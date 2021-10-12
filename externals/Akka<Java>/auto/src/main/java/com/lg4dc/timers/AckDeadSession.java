@@ -9,8 +9,8 @@ import com.bmartin.CborSerializable;
 import com.lg4dc.ASTStype;
 
 
-public class AckSessionIsDead extends SessionTimer {
-    public AckSessionIsDead (UUID session_id, ActorRef<CborSerializable> replyTo){
+public class AckDeadSession extends SessionTimer {
+    public AckDeadSession (UUID session_id, ActorRef<CborSerializable> replyTo){
         super(session_id, replyTo);
     }
 }

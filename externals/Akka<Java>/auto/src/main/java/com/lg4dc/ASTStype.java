@@ -5,6 +5,7 @@ import io.vavr.*;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -54,7 +55,7 @@ public final class ASTStype {
             this.trigger_value = trigger_value;
         }
 
-        public static void apply_headers (ActorContext context, TimerScheduler contextTimers, Session s){
+        public static void apply_headers (ActorContext context, TimerScheduler contextTimers, Set<UUID> frozen_sessions, Set<UUID> dead_sessions, Session s){
             if(s.st.continuations.size() > 0){
                 List<TimerHeader> headers = s.st.continuations.get(0)._2;
                 for (ASTStype.TimerHeader timer : headers) {
@@ -63,7 +64,7 @@ public final class ASTStype {
                         contextTimers.cancel(timer.timer_name);
 
                     if(timer.kind == TimerKind.LB){
-                        frozen_sessions.add(timerMsg.session_id);
+                        frozen_sessions.add(s.session_id);
                         contextTimers.startSingleTimer(
                             timer.timer_name, 
                             new LBSessionTimer(s.session_id, s.right) , 
