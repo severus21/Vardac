@@ -26,7 +26,6 @@ and flat_type =
     | TLabel
     | TVoid
     | TPlace
-    | TVPlace
     | TWildcard
 
 and tbridge = {
@@ -50,6 +49,7 @@ and _composed_type =
     | TResult of main_type * main_type
     | TSet of main_type
     | TTuple of main_type list
+    | TVPlace of main_type
 
     | TUnion of main_type * main_type
 
@@ -101,16 +101,13 @@ and applied_constraint = (constraint_header list) * constraints option
 (************************************ (V) - Place ****************************)
 and _place = unit 
 and place = _place placed
-and _vplace = 
-| VPlaceVar of variable 
-| VPlaceDcl of { 
+and vplace = { 
     name:           variable;
     nbr_instances:  expr;
     features:     (string, string) Hashtbl.t;[@opaque]
     children:       vplace list
 }
 
-and vplace = _vplace placed
 and vplaces = vplace list
 
 (*module VPlaceEnv = LabelMap*)

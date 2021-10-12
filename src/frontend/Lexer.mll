@@ -40,6 +40,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "of", OF;
     "protocol", PROTOCOL;
     "type", TYPE;
+    "vplacedef", VPLACEDEF;
 
     (* binders *)
     "in", IN;
@@ -103,7 +104,6 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "label", PTYPE TLabel;
     "void", PTYPE TVoid;
     "place", PTYPE TPlace;
-    "vplace", PTYPE TVPlace;
 
 
     (* Preprocessor *)

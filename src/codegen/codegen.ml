@@ -7,7 +7,7 @@ let logger = Logging.make_logger "_1_ compspec.codegen" Debug [];;
 
 let display_available_plugins = Factory.display_available_plugins 
 
-let codegen_program project_dir build_dir ((target, program):Target.target * IRI.program) : unit =
+let codegen_program project_dir build_dir places ((target, program):Target.target * IRI.program) : unit =
     let build_dir = Fpath.add_seg build_dir target.value.name in
     Utils.refresh_or_create_build_dir build_dir;
 
@@ -19,10 +19,10 @@ let codegen_program project_dir build_dir ((target, program):Target.target * IRI
     logger#info "Building ...";
     let res = Plug.output_program target build_dir program in 
     logger#info "Resolve templates (maydepend of the build collected state)";
-    Plug.resolve_templates target project_dir build_dir;
+    Plug.resolve_templates places target project_dir build_dir;
     res 
 
-let codegen project_dir (build_dir:Fpath.t) targets program = 
+let codegen project_dir (build_dir:Fpath.t) places targets program = 
     (* build a { target -> plugin } dictionary *)
     let build_plug = function
         | {place; value={Target.name; codegen}} as target -> 
@@ -36,4 +36,4 @@ let codegen project_dir (build_dir:Fpath.t) targets program =
     (* Split the AST according to targets *)
     |> Split.split_program targets
     (* Do the codegeneration *) 
-    |> Seq.iter (codegen_program project_dir build_dir)
+    |> Seq.iter (codegen_program project_dir build_dir places)

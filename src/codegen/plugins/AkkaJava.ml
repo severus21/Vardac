@@ -1506,7 +1506,21 @@ let output_program target build_dir ir_program =
     |> List.map (function (package_name, file, program) -> package_name, file, (dump (Printf.sprintf "Cleaned Lg AST for file %s" (Fpath.to_string file)) T.show_program program))
     |> List.iter (function (package_name, file, program) -> Lg.Output.output_program package_name (Fpath.append build_dir file) program)
 
-let jingoo_env (target:Core.Target.target) = [
+let jingoo_env (target:Core.Target.target) places = 
+    let rec prepare_places parent_name : IR.vplace list -> (string * IR.vplace) list = function 
+    | [] -> []
+    | p::ps -> 
+        let inner_parent_name = match parent_name with
+            | "" -> Atom.hint p.name
+            | _ -> parent_name^"::"^(Atom.hint p.name)
+        in
+        (inner_parent_name, p):: 
+        (prepare_places inner_parent_name p.children) @ (prepare_places parent_name ps)
+    in 
+
+    let places = prepare_places "" places in
+    
+    [
     ("compiler_version", Jg_types.Tstr Config.version);
     ("compiler_debug", Jg_types.Tbool (Config.debug ()));
     ("compiler_keep_ghost", Jg_types.Tbool (Config.keep_ghost ()));
@@ -1521,11 +1535,21 @@ let jingoo_env (target:Core.Target.target) = [
     ));
     ("components_command", Jg_types.Tlist (
         List.of_seq(Seq.map (function a -> Jg_types.Tstr ((Atom.to_string a)^".Command")) (Atom.Set.to_seq(!((!cstate).collected_components))))
-    ))
+    ));
+    ("vplaces", Jg_types.Tlist (
+        List.map (function ((key,vp):string * IR.vplace) -> 
+            Jg_types.Tobj [
+                "key", Jg_types.Tstr key;
+                "vp", Jg_types.Tobj [
+                    "name", Jg_types.Tstr (Atom.hint vp.name)
+                ] 
+            ]
+        ) places
+    ));
 ]
 
 let custom_template_rules target = [
-    (Fpath.v "application.conf.j2", jingoo_env target, List.fold_left Fpath.add_seg (Fpath.v "src/main/resources")  [Config.author (); Config.project_name (); "application.conf"]);
+    (Fpath.v "application.conf.j2", jingoo_env target [], List.fold_left Fpath.add_seg (Fpath.v "src/main/resources")  [Config.author (); Config.project_name (); "application.conf"]);
 ]
 let custom_external_rules () = []
 

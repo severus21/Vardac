@@ -83,6 +83,13 @@ let t_lg4dc_bridge place =
         auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
         auto_place (Ast.TVar (Atom.fresh_builtin "Bridge")) 
     ))
+let t_akka_member place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TVar (Atom.fresh_builtin "Member")) 
+
+let t_akka_cluster place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TVar (Atom.fresh_builtin "Cluster")) 
 
 let t_lg4dc_nometadata place =
     let auto_place smth = {place; value=smth} in
@@ -91,6 +98,12 @@ let t_lg4dc_nometadata place =
         auto_place (Ast.TVar (Atom.fresh_builtin "NoMetadata")) 
     ))
 
+let t_lg4dc_vplace place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TAccess (
+        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.fresh_builtin "VPlace")) 
+    ))
 let t_lg4dc_event place metadata_opt =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam(

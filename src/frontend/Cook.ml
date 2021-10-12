@@ -12,6 +12,8 @@ module S = Ast
 (* The target calculus. *)
 module T = IR 
 
+let places = Hashtbl.create 16
+
 let fst3 (x,y,z) = x
 
 
@@ -342,6 +344,9 @@ and cook_composed_type (env:env) place: S._composed_type -> env * T._composed_ty
 | S.TTuple mts -> 
     let envs, mts = List.split (List.map (cmtype env) mts) in
     env << envs, T.TTuple mts 
+| S.TVPlace mt -> 
+    let env1, mt = cmtype env mt in
+    env << [env1], T.TVPlace mt
 and cctype env ct: env * T.composed_type = cook_place cook_composed_type env ct
 
 and cook_session_type env place: S._session_type -> env * T._session_type = function
@@ -900,6 +905,23 @@ end
 
     new_env2 << [env3], T.Typedef ({ place; value = 
     ProtocolDef (y, mt) })
+
+| Typedef {value= VPlaceDef (x, name) as tdef; place} -> begin 
+    (* create a type x -> to be used as vplace<x> ...
+    create a literal x 
+    *)
+    let new_env1, y = bind_type env place x in
+    let new_env2 = register_expr new_env1 place ~create_instance:false y in
+    try
+        new_env2, T.Stmt(auto_place(T.BlockStmt(
+            [auto_place(T.LetExpr(
+                auto_place(T.CType(auto_place(T.TVPlace(auto_place(T.CType(auto_place(T.TVar y))))))),  
+                y,
+                auto_place(T.LitExpr(auto_place(T.VPlace (Hashtbl.find places name)))) 
+            ))]
+        )))
+    with Not_found -> Error.error place "vplace does not exists in configuration file"
+end
 | Typedef {value= ClassicalDef (x, args) as tdef; place} | Typedef {value= EventDef (x, args) as tdef; place} -> 
     let new_env1, y = bind_type env place x in
     (* Type constructor for typedef *)
@@ -919,7 +941,17 @@ end
     
 and cterm env: S.term -> env * T.term = cook_place cook_term env
 
-let cook_program places terms =    
+let cook_program _places terms =    
+    let rec hydrate_places parent_name (p:IR.vplace) = 
+        Hashtbl.add places (parent_name^(Atom.hint p.name)) p;
+        let parent_name = match parent_name with
+            | "" -> Atom.hint p.name
+            | _ -> parent_name^"::"^(Atom.hint p.name)
+        in
+        List.iter (hydrate_places parent_name) p.children
+    in
+    List.iter (hydrate_places "") _places;
+
     let toplevel_env = {(fresh_env ()) with component = {(fresh_component_env ()) with name = Atom.fresh_builtin "toplevel"}} in
     let (_, toplevel_env) = List.fold_left shallow_scan_term (StringMap.empty,toplevel_env) terms in
     let toplevel_env = refresh_component_env toplevel_env (Atom.fresh_builtin "toplevel") in

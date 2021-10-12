@@ -347,7 +347,7 @@ and peval_stmt env place : _stmt -> env * _stmt = function
     else
         env, AssignExpr (x, e)
 | AssignThisExpr (x, e) -> env, AssignExpr (x,  snd(pe_expr env e ))
-| BlockStmt stmts -> 
+| BlockStmt stmts -> begin 
     let stmts = List.map (function stmt -> snd ((pe_stmt env) stmt)) stmts in
 
     (* Cleansing: removing empty stmt *)
@@ -360,8 +360,11 @@ and peval_stmt env place : _stmt -> env * _stmt = function
                             | stmt -> (seen_exit, stmt::acc_before, acc_after) 
         ) (false, [],[]) stmts in
     let stmts = List.rev stmts in
-
-    env, BlockStmt stmts 
+    match stmts with
+    | [] -> env, EmptyStmt
+    | [stmt] -> env, stmt.value
+    | _ -> env, BlockStmt stmts
+end
 | BreakStmt -> env, BreakStmt
 | CommentsStmt c -> env, CommentsStmt c 
 | ContinueStmt -> env, ContinueStmt

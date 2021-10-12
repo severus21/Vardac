@@ -165,6 +165,7 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
     | S.TResult (m1, m2) -> T.TResult (fmtype m1, fmtype m2)
     | S.TSet mt -> T.TSet (fmtype mt)
     | S.TTuple mts ->  T.TTuple (List.map (fun x -> (fmtype x)) mts)
+    | S.TVPlace mt -> (t_lg4dc_vplace place).value
     | S.TBridge b -> (t_lg4dc_bridge place).value
     | S.TRaw bbraw -> T.TRaw bbraw.value.body
 and fctype ct :  T.ctype = finish_place finish_ctype ct
@@ -351,7 +352,6 @@ and finish_literal place : S._literal -> T._literal = function
     | S.ActivationInfo _ -> failwith "Activation info is not yet supported"
 
     | S.Place _ -> failwith "Place is not yet supported"
-    | S.VPlace _ -> failwith "VPlace is not yet supported"
     | S.Bridge _ -> raise (Error.DeadbranchError "Bridge should have been process by the finish_expr (returns an expr)")
 and fliteral lit : T.literal = finish_place finish_literal lit
 
@@ -367,6 +367,15 @@ function
     | S.LambdaExpr (x, _, stmt) -> T.LambdaExpr ([x], fstmt stmt) 
     | S.LitExpr {value=S.Bridge b; place=lit_place} -> 
        (e_bridge_of_protocol lit_place (auto_place (T.VarExpr b.protocol_name))).value 
+
+    | S.LitExpr {value=S.VPlace vp} -> begin 
+        T.CallExpr (
+            auto_place(T.VarExpr (Atom.fresh_builtin "VPlaces.get")),
+            [
+                auto_place (T.LitExpr(auto_place(T.StringLit (Atom.to_string vp.name))))
+            ]
+        )
+    end
     | S.LitExpr lit -> T.LitExpr (fliteral lit)
     | S.UnopExpr (op, e) -> T.UnopExpr (op, fexpr e)
 

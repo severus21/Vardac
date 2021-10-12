@@ -35,6 +35,14 @@ module type Cg_plg = sig
     val name: string
     module Rt : Rt_plg
     module Lg : Lg_plg 
+
+    (* TODO places could be just field of Plug in order not to have to proapgate it and to recompute it 
+    
+    Same for target
+
+    with a Plug.Make(target)(places)
+    
+    *)
     
     val finish_program : Core.Target.target -> Rt.Finish.collected_state * Rt.Ast.program -> (string * Fpath.t * Lg.Ast.program) list 
     val finish_ir_program : Core.Target.target -> S.program -> (string * Fpath.t * Lg.Ast.program) list 
@@ -42,14 +50,14 @@ module type Cg_plg = sig
 
     val custom_template_rules : Core.Target.target -> (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) list
     val custom_external_rules : unit -> (Fpath.t * Fpath.t) list
-    val jingoo_env : Core.Target.target -> (string * Jingoo.Jg_types.tvalue) list
+    val jingoo_env : Core.Target.target -> Core.IR.vplace list -> (string * Jingoo.Jg_types.tvalue) list
 end
 
 module type Plug = sig
     include Cg_plg
 
     val init_build_dir : Core.Target.target -> Fpath.t -> Fpath.t -> unit
-    val resolve_templates : Core.Target.target -> Fpath.t -> Fpath.t -> unit
+    val resolve_templates : Core.IR.vplace list -> Core.Target.target -> Fpath.t -> Fpath.t -> unit
 end
 
 module Make (Plg: Cg_plg) = struct 
@@ -140,7 +148,7 @@ let filter_custom root path =
         Printf.fprintf oc "%s" res; 
         close_out oc
 
-    let preprocess_auto_template target root build_dir template : (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) = 
+    let preprocess_auto_template places target root build_dir template : (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) = 
         let destfile = match Fpath.relativize (auto_templates_dir root) template with
         | Some destfile -> destfile
         | None -> template (* already relative to auto_template_dirs*) 
@@ -153,7 +161,7 @@ let filter_custom root path =
         ) in
         let destfile = Fpath.append build_dir  destfile in
 
-        (template, jingoo_env target, destfile)
+        (template, jingoo_env target places, destfile)
 
     let preprocess_custom_template root build_dir (template, env, destfile) : (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) =
         let template = Fpath.append (custom_templates_dir root) template in
@@ -161,7 +169,7 @@ let filter_custom root path =
         (template, env, destfile)
 
     (** @param root - empty for lg4dc or projec_name directory *)
-    let process_templates target root build_dir = 
+    let process_templates places target root build_dir = 
         logger#debug "> root=%s" (Fpath.to_string root);
 
         (* auto_templates *)
@@ -183,7 +191,7 @@ let filter_custom root path =
                 FileUtil.ls (Fpath.to_string _auto_templates_dir)
                 |> function x -> List.flatten (List.map explore x)
                 |> List.map Fpath.v
-                |> List.map (preprocess_auto_template target root build_dir)
+                |> List.map (preprocess_auto_template places target root build_dir)
                 |> List.iter resolve_template;
             end
             | Rresult.Ok false -> ()
@@ -200,7 +208,7 @@ let filter_custom root path =
         process_externals (Fpath.v ".") build_dir;
         process_externals project_dir build_dir
 
-    let resolve_templates target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
-        process_templates target (Fpath.v ".") build_dir;
-        process_templates target project_dir build_dir
+    let resolve_templates places target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
+        process_templates places target (Fpath.v ".") build_dir;
+        process_templates places target project_dir build_dir
 end

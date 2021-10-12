@@ -89,6 +89,9 @@ let encode_builtin_fct place name (args:T.expr list) =
         | [ tuple ] ->  T.AccessExpr (tuple, {place; value = T.VarExpr (Atom.fresh_builtin "_1")})
         | _ -> Error.error place "first must take one argument"
     end
+    | "places" -> begin
+        failwith "TODO places in encode"
+    end
     | "second" -> begin
         match args with
         | [ tuple ] ->  T.AccessExpr (tuple, {place; value = T.VarExpr (Atom.fresh_builtin "_2")})

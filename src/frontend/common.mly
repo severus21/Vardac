@@ -39,10 +39,20 @@ any_composed_type_:
             | [x] -> TList x
             | _ -> Core.Error.error ct.place "List type excepts exactly one type parameter, gets %d !" (List.length args)
         end
+        | TVar "vplace" -> begin
+            match args with
+            | [x] -> TVPlace x
+            | _ -> Core.Error.error ct.place "Vplace type excepts exactly one type parameter, gets %d !" (List.length args)
+        end
         | TVar "option" -> begin
             match args with
             | [x] -> TOption x
             | _ -> Core.Error.error ct.place "Option type excepts exactly one type parameter, gets %d !" (List.length args)
+        end
+        | TVar "vplace" -> begin
+            match args with
+            | [x] -> TVPlace x
+            | _ -> Core.Error.error ct.place "vplace type excepts exactly one type parameter, gets %d !" (List.length args)
         end
         | TVar "result" -> begin
             match args with
@@ -157,6 +167,8 @@ any_type_:
     { Typedef { place=[$loc]; value=EventDef(x, args)} }
 | PROTOCOL x=LID EQ mt = any_type SEMICOLON
     { Typedef { place=[$loc]; value=ProtocolDef(x, mt)} }
+| VPLACEDEF x=LID OF name = STRLITERAL SEMICOLON
+    { Typedef { place=[$loc]; value=VPlaceDef(x, name)} }
 
 (******************************** Constraints ********************************)
 any_constraint_header_:

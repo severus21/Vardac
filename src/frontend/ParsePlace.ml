@@ -49,8 +49,6 @@ let rec _parse_vplaces filename current_place (v : Yaml.value) : Ast.vplace list
 let mock_place : Error.place = Error.forge_place filename 0 0 in
 match v with 
 |`A t -> List.flatten (List.map (_parse_vplaces filename current_place) t)
-|`String x -> [ { Core.AstUtils.place=mock_place;
-                Core.AstUtils.value=Ast.VPlaceVar x} ]          
 |`O body ->begin
     let table = tableof body in
 
@@ -72,9 +70,8 @@ match v with
         |_ -> Error.error mock_place "Syntax error in [children] definition of place [%s]\n" name                
     in  
 
-    [{  Core.AstUtils.place=mock_place; 
-        Core.AstUtils.value=Ast.VPlaceDcl {name; nbr_instances; features; children=List.flatten children}
-    }]
+    [{  name; nbr_instances; features; children=List.flatten children}
+    ]
 end
 |_ -> Error.error mock_place "Syntax error in places definition of place [%s]\n" current_place                
 

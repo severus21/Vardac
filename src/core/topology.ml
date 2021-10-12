@@ -77,7 +77,7 @@ let g = G.create ()
 
 let rec 
 generate_slt_ctype { AstUtils.place ; AstUtils.value}= match value with
-| TActivationInfo _ | TVar _ -> () 
+| TActivationInfo _ | TVar _ | TVPlace _ -> () 
 | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2)-> generate_slt_mtype mt1; generate_slt_mtype mt2
 | TFlatType _ -> ()
 | TList mt | TOption mt | TSet mt -> generate_slt_mtype mt

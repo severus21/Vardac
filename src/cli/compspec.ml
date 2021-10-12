@@ -111,7 +111,7 @@ let process_compile places targets_file impl_filename filename =
 
     ir
     |> Frontend.Main.to_impl targets impl_filename  
-    |> Codegen.codegen project_dir build_dir targets
+    |> Codegen.codegen project_dir build_dir places targets
 
 (* -------------------------------------------------------------------------- *)
 (* Sanitize libs *)

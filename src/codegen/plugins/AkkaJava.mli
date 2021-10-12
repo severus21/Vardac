@@ -13,4 +13,4 @@ val output_program : Core.Target.target -> Fpath.t -> Plugin.S.program -> unit
 
 val custom_template_rules : Core.Target.target -> (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) list
 val custom_external_rules : unit -> (Fpath.t * Fpath.t) list
-val jingoo_env : Core.Target.target -> (string * Jingoo.Jg_types.tvalue) list
+val jingoo_env : Core.Target.target -> Core.IR.vplace list -> (string * Jingoo.Jg_types.tvalue) list
