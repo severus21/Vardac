@@ -34,11 +34,11 @@ public abstract class AbstractSystem {
 
         // register to receptionist
         context.getSystem().receptionist().tell(Receptionist.register(SERVICE_KEY, context.getSelf()));
-    /* TODO ask Benoit
         // Cluster
         Cluster cluster = Cluster.get(context.getSystem());
         assert (null != cluster);
 
+        /*
         // init cluster listener
         context.spawn(ClusterListener.create(cluster), "ClusterListener");
 
@@ -59,12 +59,11 @@ public abstract class AbstractSystem {
                 throw new InstantiationException("Thread sleep was interrupted.");
             }
         } while ((cluster.selfMember().status() != MemberStatus.up()));
-
+    */
         context.getLog().debug("Joining cluster");
         cluster.manager().tell(Join.create(cluster.selfMember().address()));
 
-        ClusterSingleton singleton = ClusterSingleton.get(context.getSystem());
-    */
+    //    ClusterSingleton singleton = ClusterSingleton.get(context.getSystem());
     }
 
     public static Behavior<SpawnProtocol.Command> finish_create(Wait wait) {

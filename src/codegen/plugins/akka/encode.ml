@@ -13,6 +13,11 @@ module S = IR
 (* The target calculus. *)
 module T = Ast 
 
+(*
+TODO refactor en
+encode_no_arg, one_arg 
+encode try encode according to arg number in order to mutualised the error messages
+*)
 
 let encode_builtin_fct place name (args:T.expr list) =
     assert(Core.Builtin.is_builtin_expr name);
@@ -89,9 +94,6 @@ let encode_builtin_fct place name (args:T.expr list) =
         | [ tuple ] ->  T.AccessExpr (tuple, {place; value = T.VarExpr (Atom.fresh_builtin "_1")})
         | _ -> Error.error place "first must take one argument"
     end
-    | "places" -> begin
-        failwith "TODO places in encode"
-    end
     | "second" -> begin
         match args with
         | [ tuple ] ->  T.AccessExpr (tuple, {place; value = T.VarExpr (Atom.fresh_builtin "_2")})
@@ -103,6 +105,15 @@ let encode_builtin_fct place name (args:T.expr list) =
         | [ {value=LitExpr{value=IntLit i}}; tuple ]->  T.AccessExpr (tuple, {place; value = T.VarExpr (Atom.fresh_builtin (Printf.sprintf "_%d"(i+1)))})
         | _ -> Error.error place "nth must take two argument"
     end
+    | "listget" -> begin
+        (* Vavr state at _1 and not _0 *)
+        match args with
+        | [ l; n]-> T.CallExpr(
+            auto_place(T.AccessExpr (l, {place; value = T.VarExpr (Atom.fresh_builtin "get")})),
+            [n]
+        )
+        | _ -> Error.error place "nth must take two argument"
+    end
     | "sessionid" -> begin
         match args with
         | [ s ] ->  T.CallExpr(
@@ -111,10 +122,36 @@ let encode_builtin_fct place name (args:T.expr list) =
         )
         | _ -> Error.error place "sessionid must take one argument"
     end
+    | "places" -> begin
+        match args with
+        | [] -> (e_lg4dc_places place).value
+        | _ -> Error.error place "places must take no argument" 
+    end
+    | "current_place" -> begin
+        match args with
+        | [] -> (e_lg4dc_current_place place).value
+        | _ -> Error.error place "current_place must take no argument" 
+    end
+    | "select_places" -> begin
+        match args with
+        | [vp; predicate] -> (e_lg4dc_select_places place vp predicate).value
+        | _ -> Error.error place "select_place must take two arguments" 
+    end
     | "print" -> begin
         match args with
         | [ msg ] -> T.CallExpr (({place; value=T.VarExpr (Atom.fresh_builtin "System.out.println")}), [msg])
         | _ -> Error.error place "print must take one argument" 
+    end
+    | "place_to_string" -> begin
+        match args with
+        | [p] -> T.CallExpr(
+            auto_place(T.AccessExpr (
+                p,
+                auto_place(T.RawExpr "toString")
+            )),
+            []
+        )
+        | _ -> Error.error place "places must take one argument"
     end
     | "initiate_session_with" -> begin
         (* TODO i need to get the name of the type of the protocol 

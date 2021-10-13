@@ -8,6 +8,9 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import com.lg4dc.VPlaces;
+
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.Collectors;
@@ -38,24 +41,43 @@ public class Place {
         return address.getPort().get(); 
     }
 
+    public String toString(){
+        if (this.vp != null && this.address != null)
+            return String.format("Place{vp=%s; address=%s}", this.vp.toString(), this.address.toString());
+        if (this.vp != null)
+            return String.format("Place{vp=%s}", this.vp.toString());
+        if (this.address != null)
+            return String.format("Place{address=%s}", this.address.toString());
+        return "Place{}";
+    }
+
     public static Place of_member(Member member){
         Set<String> roles = JavaConverters.asJava(member.roles());
-        List<VPlace> vps = roles.stream()
-            .filter(role -> true)
-            .map(name -> VPlaces.vplaces.get(name))
-            .collect(Collectors.toList());
-        assert(vps.size() == 1);
 
-        return new Place(vps.get(0), member.address());
+        //System.out.println(String.format("current roles %d", roles.size()));
+        //for(String role : roles){
+        //    System.out.println(String.format("\t%s", role));
+        //}
+
+        for(String role : roles){
+            if (role.startsWith("vp__")){
+                return new Place(VPlaces.get(role.substring(4)), member.address());
+            }
+        }
+
+        return new Place(null, member.address());
+
     }
 
     public static List<Place> places(ActorContext context){ 
         Iterable<Member> members = Cluster.get(context.getSystem()).state().getMembers();
-        return StreamSupport.stream(
+        List<Place> places = StreamSupport.stream(
                 members.spliterator(), false)
                 .filter(member -> member.status() == MemberStatus.up())
                 .map(x -> Place.of_member(x))
                 .collect(Collectors.toList());
+        assert(places.size() > 0);
+        return places;
     }
 
     public static List<Place> places(ActorContext context, VPlace vp, Predicate<Place> predicate) {

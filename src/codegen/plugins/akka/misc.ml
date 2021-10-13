@@ -123,6 +123,19 @@ let t_lg4dc_session place =
         auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
         auto_place (Ast.TVar (Atom.fresh_builtin "Session")) 
     ))
+let t_lg4dc_place place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TAccess (
+        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.fresh_builtin "Place")) 
+    ))
+let t_lg4dc_vplace place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TAccess (
+        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.fresh_builtin "VPlace")) 
+    ))
+
 let t_command_of_actor place actor_name = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
@@ -352,4 +365,39 @@ let e_is_instance place cl obj =
             auto_place (Ast.VarExpr (Atom.fresh_builtin "isInstance")) 
         )),
         [ obj ]
+    ))
+let e_lg4dc_places place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.CallExpr(
+        auto_place (Ast.AccessExpr (
+            auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package)),
+            auto_place (Ast.RawExpr ("Place.places")) 
+        )),
+        [
+            e_get_context place
+        ]
+    ))
+let e_lg4dc_current_place place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.CallExpr(
+        auto_place (Ast.AccessExpr (
+            auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package)),
+            auto_place (Ast.RawExpr ("Place.currentPlace")) 
+        )),
+        [
+            e_get_context place
+        ]
+    ))
+let e_lg4dc_select_places place vp predicate =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.CallExpr(
+        auto_place (Ast.AccessExpr (
+            auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package)),
+            auto_place (Ast.RawExpr ("Place.places")) 
+        )),
+        [
+            e_get_context place;
+            vp;
+            predicate
+        ]
     ))

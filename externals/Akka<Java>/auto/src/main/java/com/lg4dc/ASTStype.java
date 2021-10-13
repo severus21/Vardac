@@ -62,7 +62,7 @@ public final class ASTStype {
                     context.getLog().debug(String.format("timer %s trigger value = %d", timer.timer_name, timer.trigger_value));
                    
                     // Time name is unique for a given (timer_name, session_id)
-                    String specialized_timer_name = timer.timer_name + "_" + s.session_id.to_string();
+                    String specialized_timer_name = timer.timer_name + "_" + s.session_id.toString();
 
 
                     if(contextTimers.isTimerActive(specialized_timer_name))

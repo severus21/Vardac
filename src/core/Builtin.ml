@@ -24,6 +24,10 @@ let builtin_fcts = [
     "sessionid", "session -> id", "TODO";
     "nth", "tuple -> int -> ...", "nème elmt";
     "sleep", "int -> unit", "sleep";
+    "current_place", " unit -> place", "current place";
+    "select_places", "label -> (place -> bool) -> place", "";
+    "place_to_string", "place -> string", "";
+    "listget", " list<T> -> int -> t", "";
 ]
 
 let builtin_atomic_types = [

@@ -17,7 +17,7 @@ module S = Rt.Ast
 (* The target calculus. *)
 module T = Lg.Ast 
 
-
+let system_name = "system"^(String.capitalize_ascii (Config.project_name ())) 
 
 let cstate : Rt.Finish.collected_state ref = ref (Rt.Finish.empty_cstate ())
 
@@ -123,7 +123,6 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
         (* e.g. ActorSystem<?> system = ActorSystem.create(KeyValueStoreActorSystem.create(),
             KeyValueStoreActorSystem.NAME,
             config.withFallback(ConfigFactory.load()));*)
-        let system_name = "system_"^(Config.project_name ()) in
         let a_system = Atom.fresh "system" in
         let actor_system = auto_place (S.LetStmt (
             auto_place (S.TParam (
@@ -1536,6 +1535,7 @@ let jingoo_env (target:Core.Target.target) places =
     ("components_command", Jg_types.Tlist (
         List.of_seq(Seq.map (function a -> Jg_types.Tstr ((Atom.to_string a)^".Command")) (Atom.Set.to_seq(!((!cstate).collected_components))))
     ));
+    ("system_name", Jg_types.Tstr ( system_name));
     ("vplaces", Jg_types.Tlist (
         List.map (function ((key,vp):string * IR.vplace) -> 
             Jg_types.Tobj [
@@ -1549,7 +1549,6 @@ let jingoo_env (target:Core.Target.target) places =
 ]
 
 let custom_template_rules target = [
-    (Fpath.v "application.conf.j2", jingoo_env target [], List.fold_left Fpath.add_seg (Fpath.v "src/main/resources")  [Config.author (); Config.project_name (); "application.conf"]);
 ]
 let custom_external_rules () = []
 

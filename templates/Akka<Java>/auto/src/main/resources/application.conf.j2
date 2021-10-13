@@ -12,8 +12,6 @@ akka {
         serialization-bindings {
             "com.bmartin.JsonSerializable" = jackson-json
             "com.bmartin.CborSerializable" = jackson-cbor
-            "{{author}}.{{project_name}}.JsonSerializable" = jackson-json
-            "{{author}}.{{project_name}}.CborSerializable" = jackson-cbor
             "akka.persistence.serialization.Message" = akka-persistence-message
             "akka.persistence.serialization.Snapshot" = akka-persistence-snapshot
         }
@@ -35,8 +33,8 @@ akka {
 
     cluster {
         seed-nodes = [
-            "akka://KVSSystem@127.0.0.1:25520",
-            "akka://KVSSystem@127.0.0.1:25521"]
+            "akka://{{system_name}}@127.0.0.1:25520",
+            "akka://{{system_name}}@127.0.0.1:25521"]
 
         downing-provider-class = "akka.cluster.sbr.SplitBrainResolverProvider"
         shutdown-after-unsuccessful-join-seed-nodes = 20s

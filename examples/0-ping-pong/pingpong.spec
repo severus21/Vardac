@@ -3,7 +3,8 @@
     An identifier starting by an uppercase character denotes a component
     Otherwise it starts with a lowercase character
 *)
-
+vplacedef vpcloud of "Cloud";
+vplace<vpcloud> vp1 = vpcloud;
 
 (************************** Point to point communication **************************)
 (* Ex0 - fire and forget
@@ -19,7 +20,7 @@ type error of ;
 event ping of; (* type constructor ping() *)
 event pong of; (* type constructor pong() *)
 (*protocol p_pingpong = !ping?pong. ;*)
-protocol p_pingpong = !ping{timer x|}?pong!ping{|(5<x) && (x<10)}!ping{|x<15}.;
+protocol p_pingpong = !ping{timer x|}?pong!ping{|(5<x) && (x<100)}!ping{|x<150}.;
 
 (*  a bridge is a dynamic object, it replace the channel concept
     - with a unique ID
@@ -73,6 +74,10 @@ component A () {
         print("st_ping_fired");
         . s3 = fire(s2, ping());
         print("th_ping_fire");
+
+        print("Spawn_C");
+        activation_info<C> c = (spawn C());  
+        
     }
 
     (*result<void, error> handle_pong (pong msg, . s1) {
@@ -82,8 +87,15 @@ component A () {
         return Ok(());
     }*)
     component C () {
-        void toto () {
-            return ();
+        onstartup void toto () {
+            list<place> ps1 = places();
+            print("psone_done");
+            print(place_to_string(listget(ps1, 0)));
+            place current = current_place();
+            print("current_done");
+            list<place> ps2 = select_places(vpcloud, x  : place -> true);
+            print("pstwo_done");
+
         }
     }
 }
@@ -102,6 +114,7 @@ component B () {
 
     result<void, error> handle_ping (ping msg, !pong?ping?ping. s1) {
         print("ping");
+        sleep(50);
         fire(s1, pong()); 
 
         return Ok(());

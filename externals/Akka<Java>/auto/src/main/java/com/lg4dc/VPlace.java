@@ -22,4 +22,8 @@ public class VPlace {
         VPlace b = (VPlace) obj;
         return this.name.equals(b.name);
     }
+
+    public String toString(){
+        return this.name;
+    }
 }
