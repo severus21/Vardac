@@ -417,9 +417,30 @@ function
                 }] @ [ auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))))]
             )}
         }
-    | S.Spawn {c; args; at=at} ->
+ (*   | S.Spawn {c; args; at=at} ->
+        (*
+        TO BE adapter and co should be managed inside spawn at 
+        ActorRef<author.project_name.a14.C33.Command> c54 = PlaceDiscovery.spawnAt(
+         (ActorRef) getContext(),
+         x -> author.project_name.a14.C33.create(),
+         "toto",
+         null,
+         Place.currentPlace(getContext())
+      ); 
+        *)
+        T.CallExpr(
+            T.AccessExpr(
+                auto_place(T.RawExpr "tell") (*Must be a ack*)
+            ),
+            [
+                runnable,
+                auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name"))))),
+                auto_place (T.RawExpr "Props.empty()"),
+                e_get_self place e (e_get_context place);
+            ]
+        )
         failwith "finish_expr spawn with place annotation not yet supported" 
-
+    *)
     | S.BoxCExpr _ -> failwith "finish_expr BoxCexpr is not yet supported"
     
     | S.OptionExpr e_opt -> failwith "option not yet supported" 

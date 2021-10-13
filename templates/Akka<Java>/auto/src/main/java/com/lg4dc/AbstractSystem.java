@@ -34,9 +34,12 @@ public abstract class AbstractSystem {
 
         // register to receptionist
         context.getSystem().receptionist().tell(Receptionist.register(SERVICE_KEY, context.getSelf()));
+
         // Cluster
         Cluster cluster = Cluster.get(context.getSystem());
         assert (null != cluster);
+
+        context.getSystem().receptionist().tell(Receptionist.register(PlaceDiscovery.serviceKeyOf(cluster.selfMember().address()), context.getSelf()));
 
         /*
         // init cluster listener

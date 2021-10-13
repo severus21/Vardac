@@ -76,7 +76,8 @@ component A () {
         print("th_ping_fire");
 
         print("Spawn_C");
-        activation_info<C> c = (spawn C());  
+        activation_info<C> c = spawn C() ;  
+        (*activation_info<C> c = spawn C() @ current_place(); *) 
         
     }
 
