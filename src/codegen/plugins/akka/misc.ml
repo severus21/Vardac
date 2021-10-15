@@ -32,6 +32,9 @@ let a_context =
 let a_timers = 
     Atom.fresh_builtin "timers"
 
+let a_guardian = 
+    Atom.fresh_builtin "guardian"
+let a_receptionist_adapter = Atom.fresh_builtin "receptionist_adapter"
 
 let t_cborserializable place= 
     let auto_place smth = {place; value=smth} in
@@ -53,15 +56,24 @@ let t_actor_context place actor_name_opt =
             | Some actor_name -> actor_name 
         ]
     ))
-let t_actor_timer place actor_name_opt = 
+let t_actor_timer place is_guardian actor_name_opt = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam (
         auto_place (Ast.TVar (Atom.fresh_builtin "TimerScheduler")),
         [ 
+            if is_guardian then 
+                auto_place(Ast.Atomic "SpawnProtocol.Command")
+            else
             match actor_name_opt with
             | None -> auto_place (Ast.TVar a_command)
             | Some actor_name -> actor_name 
         ]
+    ))
+
+let t_actor_guardian place = 
+    let auto_place smth = {place; value=smth} in
+    auto_place(Ast.ActorRef(
+        auto_place(Ast.Atomic "SpawnProtocol.Command")
     ))
 
 let t_lg4dc_abstract_system place =
@@ -69,6 +81,12 @@ let t_lg4dc_abstract_system place =
     auto_place (Ast.TAccess (
         auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
         auto_place (Ast.TVar (Atom.fresh_builtin "AbstractSystem")) 
+    ))
+let t_lg4dc_abstract_component place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.TAccess (
+        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.fresh_builtin "AbstractComponent")) 
     ))
 let t_lg4dc_protocol place =
     let auto_place smth = {place; value=smth} in
@@ -207,6 +225,20 @@ let e_this_timers place =
         auto_place (Ast.VarExpr a_timers)
     ))
 
+let e_this_guardian place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr(
+        auto_place Ast.This,
+        auto_place (Ast.VarExpr a_guardian)
+    ))
+    
+let e_this_receptionist_adapter place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr(
+        auto_place Ast.This,
+        auto_place (Ast.VarExpr a_receptionist_adapter)
+    ))
+
 let e_this_frozen_sessions place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
@@ -255,6 +287,19 @@ let e_lg4dc_session place =
     auto_place (Ast.AccessExpr (
         auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package)),
         auto_place (Ast.VarExpr (Atom.fresh_builtin "Session")) 
+    ))
+
+let e_lg4dc_spawnat place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr (
+        auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package)),
+        auto_place (Ast.RawExpr "PlaceDiscovery.spawnAt") 
+    ))
+let e_lg4dc_componentsat place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr (
+        auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package)),
+        auto_place (Ast.RawExpr "PlaceDiscovery.componentsAt") 
     ))
 let e_session_of_protocol place protocol = 
     let auto_place smth = {place; value=smth} in
@@ -388,6 +433,7 @@ let e_lg4dc_current_place place =
             e_get_context place
         ]
     ))
+
 let e_lg4dc_select_places place vp predicate =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.CallExpr(

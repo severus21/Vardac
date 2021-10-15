@@ -76,8 +76,9 @@ component A () {
         print("th_ping_fire");
 
         print("Spawn_C");
-        activation_info<C> c = spawn C() ;  
-        (*activation_info<C> c = spawn C() @ current_place(); *) 
+        (*activation_info<C> c = spawn C() ;*)  
+        activation_info<C> c = spawn C() @ current_place(); 
+        print("Spawned_C");
         
     }
 
@@ -96,6 +97,10 @@ component A () {
             print("current_done");
             list<place> ps2 = select_places(vpcloud, x  : place -> true);
             print("pstwo_done");
+
+            (*set<activation_info<??>> activations = activationsat(current); TODO general do not exists for generics ....*)
+            activationsat(current);
+            print("activations_done");
 
         }
     }

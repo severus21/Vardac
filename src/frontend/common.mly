@@ -59,7 +59,7 @@ any_composed_type_:
             | x::y::[] -> TResult (x,y)
             | _ -> Core.Error.error ct.place "Result type excepts exactly two type parameters, gets %d !" (List.length args)
         end
-        | TVar "Set" -> begin
+        | TVar "set" -> begin
             match args with
             | [x] -> TSet x
             | _ -> Core.Error.error ct.place "Result type excepts exactly one type parameter, gets %d !" (List.length args)

@@ -28,7 +28,9 @@ let rename_cstate renaming =
     (* No Hashtbl.reset since we do not alter the keys *)
     Hashtbl.replace_seq (!cstate).event2receptionists e2rs;
 
-    (!cstate).collected_components := Atom.Set.map (function name -> renaming name) !((!cstate).collected_components)
+    (!cstate).collected_components := Atom.Set.map (function name -> renaming name) !((!cstate).collected_components);
+
+    (!cstate).guardian_components := Atom.Set.map (function name -> renaming name) !((!cstate).guardian_components)
 
 let fplace = (Error.forge_place "Plg=AkkaJava" 0 0)
 let auto_place smth = {place = fplace; value=smth}
@@ -333,14 +335,15 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                 methods = [
                     auto_place {
                         S.decorators = [];
-                        annotations = [S.Visibility S.Public; S.Static];
+                        annotations = [S.Visibility S.Public];
                         v = {
                             S.ret_type = auto_place (S.Atomic "void");
-                            name = Atom.fresh_builtin "start_guardian";
+                            name = name;
                             args = [
-                                auto_place (S.Atomic "ActorContext"), Atom.fresh_builtin "context"
+                                auto_place (S.Atomic "String"), Atom.fresh_builtin "name";
+                                auto_place (S.Atomic "Wait"), Atom.fresh_builtin "wait"
                             ];
-                            is_constructor = false;
+                            is_constructor = true;
                             body = AbstractImpl (
                                 List.map 
                                     (S.rewriteexpr_stmt (function 
@@ -468,14 +471,15 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                     | m::ms when m.value.v.is_constructor ->
                         let m = { m with
                             value = { m.value with
-                                annotations = S.Static :: m.value.annotations;
+                                annotations = m.value.annotations;
                                 v = { m.value.v with
                                     S.ret_type = auto_place (S.Atomic "void");
-                                    name = Atom.fresh_builtin "start_guardian";
-                                    args = (
-                                        auto_place (S.Atomic "ActorContext"), Atom.fresh_builtin "context"
-                                    )::m.value.v.args;
-                                    is_constructor = false;
+                                    name = m.value.v.name;
+                                    args = 
+                                        (auto_place (S.Atomic "String"), Atom.fresh_builtin "name")
+                                        :: (auto_place (S.Atomic "Wait"), Atom.fresh_builtin "wait")
+                                        :: m.value.v.args;
+                                    is_constructor = true;
                                     body = match m.value.v.body with
                                     | AbstractImpl stmts -> AbstractImpl (
                                         List.map 
@@ -783,7 +787,7 @@ let rec finish_ctype place : S._ctype -> T._jtype =
 function 
     | S.Atomic s -> T.TAtomic s 
     | S.ActorRef {value=S.TVar x} -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActorRef"), [fctype (Rt.Misc.t_command_of_actor place x)])  
-    | S.ActorRef _ -> Error.error place "ActorRef only supports TVar currently!" (* TODO does it makes sens to support more ??? *)
+    | S.ActorRef ct -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActorRef"), [fctype ct]) 
     | S.TFunction (t1, t2) -> T.ClassOrInterfaceType  ( auto_place (T.TAtomic "Function"), [fctype t1; fctype t2]) 
     | S.TArray t1 -> T.ClassOrInterfaceType  (auto_place (T.TArray (fctype t1)), [])
     | S.TList t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "List"), [fctype t1])
@@ -1026,14 +1030,26 @@ and fevent e : T.str_items = finish_place finish_event e
 
 and finish_arg ((ctype,variable):(S.ctype * Atom.atom)) : T.parameter =
     (fctype ctype, variable)
-and finish_method_v is_actor_method place ({ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
+and finish_method_v is_guardian is_actor_method place ({ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
     match body with
     | S.AbstractImpl stmts when is_constructor ->
         let args = match is_actor_method with
         | true -> 
-            (Rt.Misc.t_actor_context place None, Rt.Misc.a_context) ::
-            (Rt.Misc.t_actor_timer place None, Rt.Misc.a_timers) ::
-            args
+            (
+                if is_guardian then
+                    (auto_place (S.TParam (
+                        auto_place (S.TVar (Atom.fresh_builtin "ActorContext")),
+                        [ auto_place(S.Atomic "SpawnProtocol.Command")]
+                    )), Rt.Misc.a_context)
+                else
+                   (Rt.Misc.t_actor_context place None, Rt.Misc.a_context)
+            )
+            :: (Rt.Misc.t_actor_timer place is_guardian None, Rt.Misc.a_timers)
+            :: (
+                if is_guardian then []
+                else
+                    [Rt.Misc.t_actor_guardian place, Rt.Misc.a_guardian]
+            ) @ args
         | false -> args
         in
         
@@ -1082,9 +1098,34 @@ and finish_method_v is_actor_method place ({ret_type; name; body; args; is_const
                     auto_place(S.VarExpr Rt.Misc.a_timers)
                 ))
             in 
-            (auto_place ( S.ExpressionStmt (Rt.Misc.e_super place [auto_place(S.VarExpr Rt.Misc.a_context)]))) ::
-            set_timers ::
-            stmts
+
+            let set_guardian : S.stmt = 
+                if is_guardian then
+                    auto_place(S.AssignExpr( 
+                        Rt.Misc.e_this_guardian fplace,
+                        Rt.Misc.e_get_self place (Rt.Misc.e_get_context place) 
+                    ))
+                else
+                    auto_place(S.AssignExpr( 
+                        Rt.Misc.e_this_guardian fplace,
+                        auto_place(S.VarExpr Rt.Misc.a_guardian)
+                    ))
+            in 
+
+            (
+                if is_guardian then
+                    (auto_place ( S.ExpressionStmt (Rt.Misc.e_super place [
+                        auto_place(S.VarExpr Rt.Misc.a_context);
+                        auto_place(S.VarExpr Rt.Misc.a_timers);
+                        auto_place (S.VarExpr (Atom.fresh_builtin "name"));
+                        auto_place (S.VarExpr (Atom.fresh_builtin "wait"))
+                    ])))
+                else
+                    (auto_place ( S.ExpressionStmt (Rt.Misc.e_super place [auto_place(S.VarExpr Rt.Misc.a_context)])))
+            )
+            :: set_timers
+            :: set_guardian
+            :: stmts
         end
         | false ->  stmts
         in
@@ -1137,7 +1178,7 @@ and finish_method_v is_actor_method place ({ret_type; name; body; args; is_const
             parameters  = List.map finish_arg args;
             body
         }
-and fmethod is_actor_method m : T.str_items = {place=m.place; value= T.Body (finish_place (finish_annoted (finish_method_v is_actor_method)) m)}
+and fmethod is_guardian is_actor_method m : T.str_items = {place=m.place; value= T.Body (finish_place (finish_annoted (finish_method_v is_guardian is_actor_method)) m)}
 
 and finish_actor place ({is_guardian; extended_types; implemented_types; name; methods; states; events; nested_items; receiver}: S._actor): T._str_items =
     let fplace = place@(Error.forge_place "Plg=Akka/finish_actor" 0 0) in
@@ -1146,16 +1187,33 @@ and finish_actor place ({is_guardian; extended_types; implemented_types; name; m
     (* At most one constructor *)
     assert( List.length (List.filter (function (m:S.method0) -> m.value.v.is_constructor) methods) <= 1);
 
+    (* Remove from collected_components *)
+    if is_guardian then begin
+        (!cstate).collected_components := Atom.Set.remove name !((!cstate).collected_components);
+        (!cstate).guardian_components := Atom.Set.add name !((!cstate).guardian_components);
+    end;
+    (* TODO add to a guardian_components *)
+
+
+
+
+
     (** FIXME public/protected/private should parametrized*)
 
     let extended_types = match extended_types with
     | [] -> [ 
         auto_place (T.ClassOrInterfaceType (
-            auto_place (T.TAtomic "AbstractBehavior"), 
+            fctype (Rt.Misc.t_lg4dc_abstract_component fplace),
             [ 
                 fctype (Rt.Misc.t_command_of_actor place name)     
             ]) 
         )
+        (*auto_place (T.ClassOrInterfaceType (
+            auto_place (T.TAtomic "AbstractBehavior"), 
+            [ 
+                fctype (Rt.Misc.t_command_of_actor place name)     
+            ]) 
+        )*)
     ]
     | _ -> List.map fctype extended_types
     in
@@ -1189,14 +1247,18 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     let constructor_args = match constructor_opt with | None -> [] |Some constructor -> constructor.value.v.args in 
 
     let states =
-        if is_guardian then states 
-        else
+        (*if is_guardian then states 
+        else*)
         (* TimerScheduler<Command> timers;*)
-        auto_place {S.persistent = false; stmts = [auto_place(S.LetStmt(
-            Rt.Misc.t_actor_timer fplace None, Rt.Misc.a_timers, None ))]}  ::
-        states
-
-
+        auto_place {S.persistent = false; stmts = [
+            auto_place(S.LetStmt(
+                Rt.Misc.t_actor_timer fplace is_guardian None, Rt.Misc.a_timers, None ))
+            ]}
+        :: auto_place {S.persistent = false; stmts = [
+            auto_place(S.LetStmt(
+                Rt.Misc.t_actor_guardian fplace, Rt.Misc.a_guardian, None ))
+            ]}
+        :: states
     in
 
     let methods = match constructor_opt with
@@ -1208,7 +1270,8 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
                 S.ret_type    = auto_place (S.Atomic "void");
                 name        = name;
                 args        = []; 
-                body        = AbstractImpl []; 
+                body        = AbstractImpl [
+                ]; 
                 is_constructor = true;
             }
         })::methods
@@ -1216,6 +1279,41 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     in
 
     let arg_lambda = auto_place (S.LambdaExpr (
+        [Rt.Misc.a_context],
+        auto_place (S.BlockStmt [
+            auto_place (S.ReturnStmt (
+                auto_place(S.CallExpr(
+                    Rt.Misc.e_behaviors_with_timers fplace,
+                    [
+                        auto_place (S.LambdaExpr (
+                            [Rt.Misc.a_timers],
+                            auto_place (S.BlockStmt [
+                                auto_place (S.ExpressionStmt (
+                                Rt.Misc.e_debug_of 
+                                    place 
+                                    (auto_place (S.VarExpr Rt.Misc.a_context)) 
+                                    [
+                                        auto_place (S.LitExpr (auto_place (S.StringLit (Atom.to_string name^"::create"))))
+                                    ]
+                                ));
+                                auto_place (S.ReturnStmt (auto_place (
+                                    S.NewExpr (
+                                        auto_place (S.VarExpr name),
+                                        List.map (function x -> auto_place (S.VarExpr x)) (Rt.Misc.a_context
+                                        ::Rt.Misc.a_timers
+                                        ::Rt.Misc.a_guardian
+                                        ::(List.map snd constructor_args))
+
+                                    )
+                                )));
+                            ])
+                        ))
+                    ]
+            ))))
+        ])
+    )) in
+
+    let arg_lambda_guardian = auto_place (S.LambdaExpr (
         [Rt.Misc.a_context],
         auto_place (S.BlockStmt [
             auto_place (S.ReturnStmt (
@@ -1246,7 +1344,7 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
             ))))
         ])
     )) in
-    let arg_lambda_guardian = auto_place (S.LambdaExpr (
+    (*let arg_lambda_guardian = auto_place (S.LambdaExpr (
         [Rt.Misc.a_context],
         auto_place (S.BlockStmt [
             auto_place (S.ExpressionStmt (
@@ -1266,22 +1364,16 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
                 ]
 
             ))));
-            auto_place(S.ExpressionStmt( auto_place (S.CallExpr(
-                auto_place (S.VarExpr (Atom.fresh_builtin "start_guardian")),
+            auto_place(S.ReturnStmt( auto_place (S.NewExpr(
+                auto_place (S.VarExpr name),
                 [
-                    auto_place (S.VarExpr (Atom.fresh_builtin "context"));
-                ]
-
-            ))));
-            auto_place(S.ReturnStmt( auto_place (S.CallExpr(
-                auto_place (S.VarExpr (Atom.fresh_builtin "finish_create")),
-                [
+                    auto_place(S.VarExpr Rt.Misc.a_context);
                     auto_place (S.VarExpr (Atom.fresh_builtin "wait"))
                 ]
 
             ))));
         ])
-    )) in
+    )) in*)
     let m_create : S.method0 = auto_place {
         S.annotations = [S.Visibility S.Public; S.Static];
         decorators = [];
@@ -1289,7 +1381,7 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
             S.ret_type = Rt.Misc.t_behavior_of_actor place name;
             name = Rt.Misc.a_create_method;
             body = S.AbstractImpl [auto_place (S.ReturnStmt (Rt.Misc.e_setup_behaviors place [arg_lambda]))];
-            args = constructor_args;
+            args = (Rt.Misc.t_actor_guardian fplace, Rt.Misc.a_guardian)::constructor_args;
             is_constructor = false;
         }
     } in
@@ -1317,7 +1409,7 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
                     ))
                 ))
             ];
-            args = constructor_args;
+            args = List.filter (function |(_,x)-> (Atom.hint x <> "wait") && (Atom.hint x <> "name")) constructor_args;
             is_constructor = false;
         }
     } in
@@ -1364,12 +1456,13 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
     body := !body @ [{place; value=T.Comments (IR.LineComment "Actor events")}];
     body := !body @ (List.map fevent events);
     body := !body @ [{place; value=T.Comments (IR.LineComment "Actor internal logics")}];
-    body := !body @ (List.map (fmethod true) methods);
+    body := !body @ (List.map (fmethod is_guardian true) methods);
     body := !body @ [{place; value=T.Comments (IR.LineComment "Nested structures")}];
-    body := command_cl :: (!body @ (List.map fterm nested_items));
+    if is_guardian = false then body := command_cl :: !body;
+    body := !body @ (List.map fterm nested_items);
     if is_guardian = false then begin
         body := !body @ [{place; value=T.Comments (IR.LineComment "Receiver")}];
-        body := !body @ [fmethod true receiver];
+        body := !body @ [fmethod is_guardian true receiver];
     end;
 
 
@@ -1454,7 +1547,7 @@ match t with
         let external_annotations = finish_annotations annotations in
         let external_decorators = finish_decorators decorators in
 
-        let ({value=(T.Body body);} as m) = (fmethod false m) in
+        let ({value=(T.Body body);} as m) = (fmethod false false m) in
 
         T.Body { body with
             value = { body.value with

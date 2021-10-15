@@ -1,3 +1,4 @@
+(* TODO clean builtin and write type information + descrption*)
 let builtin_fcts = [
     "placeof", "abs -> place option", "Give the current place where the abstraction is running. Returns None if the abstraction is not yet placed.";
     "sqrt", "float -> float", "Compute the square root of a float.";
@@ -28,6 +29,7 @@ let builtin_fcts = [
     "select_places", "label -> (place -> bool) -> place", "";
     "place_to_string", "place -> string", "";
     "listget", " list<T> -> int -> t", "";
+    "activationsat", "place -> set<activation_info>", "";
 ]
 
 let builtin_atomic_types = [

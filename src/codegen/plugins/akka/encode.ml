@@ -122,6 +122,19 @@ let encode_builtin_fct place name (args:T.expr list) =
         )
         | _ -> Error.error place "sessionid must take one argument"
     end
+    | "activationsat" -> begin
+        (* TODO rename activationsat or componentsat in order to have same name in java and ocaml code*)
+        match args with
+        | [at] -> T.CallExpr(
+            e_lg4dc_componentsat place,
+            [
+                e_get_context place;
+                e_this_guardian place;
+                at
+            ]
+        )
+        | _ -> Error.error place "activationsat must take one argument" 
+    end
     | "places" -> begin
         match args with
         | [] -> (e_lg4dc_places place).value

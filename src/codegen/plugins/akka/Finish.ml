@@ -25,7 +25,8 @@ let collected_components = ref Atom.Set.empty
 (*** Global state *)
 type collected_state = {
     event2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
-    collected_components: Atom.Set.t ref
+    collected_components: Atom.Set.t ref;
+    guardian_components: Atom.Set.t ref
 }
  
 let print_cstate cstate = 
@@ -40,7 +41,8 @@ let print_cstate cstate =
 
 let empty_cstate () : collected_state = {
     event2receptionists = Hashtbl.create 0;
-    collected_components = ref Atom.Set.empty
+    collected_components = ref Atom.Set.empty;
+    guardian_components = ref Atom.Set.empty
 }
 (*
     event -> list of components that can receive it 
@@ -412,12 +414,13 @@ function
                                 value = T.VarExpr (Atom.fresh_builtin "create")
                             }
                         )},
-                        List.map fexpr args
+                        e_this_guardian fplace
+                        :: List.map fexpr args
                     )
                 }] @ [ auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))))]
             )}
         }
- (*   | S.Spawn {c; args; at=at} ->
+    | S.Spawn {c; args; at=Some at} ->
         (*
         TO BE adapter and co should be managed inside spawn at 
         ActorRef<author.project_name.a14.C33.Command> c54 = PlaceDiscovery.spawnAt(
@@ -428,19 +431,56 @@ function
          Place.currentPlace(getContext())
       ); 
         *)
+
+        (* TODO ?? DUplicated with AkkaJAva [arg_lambda] ?? *)
+        let runnable = auto_place (T.LambdaExpr (
+            [a_context],
+            auto_place (T.BlockStmt [
+                auto_place (T.ReturnStmt (
+                    auto_place(T.CallExpr(
+                        e_behaviors_with_timers fplace,
+                        [
+                            auto_place (T.LambdaExpr (
+                                [a_timers],
+                                auto_place (T.BlockStmt [
+                                    auto_place (T.ExpressionStmt (
+                                    e_debug_of 
+                                        place 
+                                        (auto_place (T.VarExpr a_context)) 
+                                        [
+                                            auto_place (T.LitExpr (auto_place (T.StringLit ("SpawnAT::create"))))
+                                        ]
+                                    ));
+                                    auto_place (T.ReturnStmt (auto_place (
+                                        T.NewExpr (
+                                            fcexpr c,
+                                            (
+                                                List.map (function x -> auto_place (T.VarExpr x)) (a_context
+                                                ::a_timers
+                                                ::a_guardian
+                                                ::[]
+                                            )
+                                            @(List.map fexpr args))
+
+                                        )
+                                    )));
+                                ])
+                            ))
+                        ]
+                ))))
+            ])
+        )) in
         T.CallExpr(
-            T.AccessExpr(
-                auto_place(T.RawExpr "tell") (*Must be a ack*)
-            ),
+            e_lg4dc_spawnat fplace,
             [
-                runnable,
-                auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name"))))),
-                auto_place (T.RawExpr "Props.empty()"),
-                e_get_self place e (e_get_context place);
+                e_get_context place;
+                e_this_guardian fplace;
+                runnable;
+                auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))));
+                auto_place (T.LitExpr (auto_place T.VoidLit));
+                fexpr at;
             ]
         )
-        failwith "finish_expr spawn with place annotation not yet supported" 
-    *)
     | S.BoxCExpr _ -> failwith "finish_expr BoxCexpr is not yet supported"
     
     | S.OptionExpr e_opt -> failwith "option not yet supported" 
@@ -1435,6 +1475,7 @@ let finish_program program =
     {
         event2receptionists;
         collected_components;
+        guardian_components = ref Atom.Set.empty (* hydrated in AkkaJava.ml *)
     }, { 
         T.entrypoint = [];
         T.system = ();
