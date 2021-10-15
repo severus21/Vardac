@@ -17,10 +17,11 @@ import java.util.stream.Collectors;
 import java.util.function.Predicate;
 import java.util.*;
 
-import akka.cluster.Member;
-import akka.cluster.MemberStatus;
 import akka.actor.Address;
 import akka.actor.typed.javadsl.ActorContext;
+import akka.actor.typed.ActorRef;
+import akka.cluster.Member;
+import akka.cluster.MemberStatus;
 import akka.cluster.typed.Cluster;
 
 public class Place {
@@ -67,6 +68,18 @@ public class Place {
 
         return new Place(null, member.address());
 
+    }
+    public static Place of_actor_ref(ActorContext context, ActorRef ref){
+        Address addr = ref.path().address();
+
+        //Searching
+        Iterable<Member> members = Cluster.get(context.getSystem()).state().getMembers();
+        for(Member member : members){
+            if(member.address() == addr)
+                return of_member(member); 
+        }
+
+        return null;
     }
 
     public static List<Place> places(ActorContext context){ 

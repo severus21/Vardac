@@ -135,6 +135,14 @@ let encode_builtin_fct place name (args:T.expr list) =
         )
         | _ -> Error.error place "activationsat must take one argument" 
     end
+    | "placeof" -> begin
+        match args with
+        | [activation] -> T.CallExpr(
+            e_lg4dc_placeof place,
+            [ e_get_context place; activation ]
+        )
+        | _ -> Error.error place "placeof must take one argument" 
+    end
     | "places" -> begin
         match args with
         | [] -> (e_lg4dc_places place).value

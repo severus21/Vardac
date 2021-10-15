@@ -301,6 +301,12 @@ let e_lg4dc_componentsat place =
         auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package)),
         auto_place (Ast.RawExpr "PlaceDiscovery.componentsAt") 
     ))
+let e_lg4dc_placeof place =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.AccessExpr (
+        auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package)),
+        auto_place (Ast.RawExpr "Place.of_actor_ref") 
+    ))
 let e_session_of_protocol place protocol = 
     let auto_place smth = {place; value=smth} in
     auto_place ( Ast.CallExpr (

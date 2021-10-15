@@ -79,6 +79,7 @@ component A () {
         (*activation_info<C> c = spawn C() ;*)  
         activation_info<C> c = spawn C() @ current_place(); 
         print("Spawned_C");
+        place p = placeof(c);
         
     }
 
