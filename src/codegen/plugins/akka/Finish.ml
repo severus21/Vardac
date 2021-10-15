@@ -71,7 +71,7 @@ let fst3 (x,y,z) = x
 
 
 (* Environments map strings to atoms. *)
-module AtomEnv = Atom.AtomMap 
+module AtomEnv = Atom.VMap 
 module LabelsEnv = Atom.AtomsMap 
 
 type finish_env = {
@@ -575,9 +575,9 @@ and ffunction : S.function_dcl -> T.method0 list = function m -> finish_function
 
 (* return type is T._expr for now, since we built only one state with all the variable inside FIXME *)
 and finish_state place : S._state -> T._stmt = function 
-    | S.StateDcl {ghost; kind; type0; name; body = S.InitExpr e} -> 
+    | S.StateDcl {ghost; type0; name; body = S.InitExpr e} -> 
         T.LetStmt (fmtype type0, name, Some (fexpr e))
-    | S.StateDcl {ghost; kind; type0; name; body = S.InitBB bb_term} -> 
+    | S.StateDcl {ghost; type0; name; body = S.InitBB bb_term} -> 
         let re = 
             if bb_term.value.template then 
                 Error.error bb_term.place "template is not used for state"
@@ -586,7 +586,7 @@ and finish_state place : S._state -> T._stmt = function
         in
         T.LetStmt (fmtype type0, name, Some ({place=bb_term.place; value = T.RawExpr re}))
     (*use global x as y;*)
-    | S.StateAlias {ghost; kind; type0; name} -> failwith "finish_state StateAlias is not yet supported" 
+    | S.StateAlias {ghost; type0; name} -> failwith "finish_state StateAlias is not yet supported" 
 and fstate s : T.stmt = finish_place finish_state s
 
 
@@ -991,7 +991,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                 auto_place (T.BinopExpr(
                     auto_place (T.BinopExpr (e_bridgeid l_event, S.Equal, bridgeid bridge)),
                     S.And,
-                    auto_place (T.BinopExpr (e_remaining_step l_event, S.StructuralEqual, fvstype (Core.IR_common.dual st)))
+                    auto_place (T.BinopExpr (e_remaining_step l_event, S.StructuralEqual, fvstype (S.dual st)))
                 )),
                 auto_place (T.BlockStmt [
                     auto_place (T.LetStmt (

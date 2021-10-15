@@ -659,7 +659,6 @@ and cook_state env place : S._state -> env * T._state = function
     
     ret_env, T.StateDcl {
                 ghost   = sdcl.ghost; 
-                kind    = sdcl.kind; 
                 type0   = type0;
                 name    = y;
                 body = body}

@@ -1,21 +1,36 @@
+module IRC = IR.IRC
+
 (* IR extended with blackbox implementation for type, methods and states *)
 type iri_target_name = string
 
 and iri_state_dcl_body = 
-| InitExpr of IR_common.expr
+| InitExpr of IRC.expr
 | InitBB of Impl_common.blackbox_term
 
 and iri_custom_method0_body = 
-| AbstractImpl of IR_common.stmt list
+| AbstractImpl of IRC.stmt list
 | BBImpl of Impl_common.blackbox_term
 
 and iri_custom_function_body = iri_custom_method0_body
 
 and iri_typealias_body = 
-| AbstractTypealias of IR_common.main_type
+| AbstractTypealias of IRC.main_type
 | BBTypealias of Impl_common.blackbox_term 
 and iri_typedef_body = Impl_common.blackbox_term option 
 [@@deriving show { with_path = false }]
+
+
+(*
+    Type
+    Make(param), pb 2 make
+    ...
+
+    Method 1
+    IRCAtom IRCDebreijn IRCString
+    IR_templateAtom IR_templateDebre IR....
+
+*)
+
 
 module Params : (
     IR_template.IRParams with   
@@ -26,6 +41,7 @@ module Params : (
         type _typealias_body = iri_typealias_body and
         type _typedef_body = iri_typedef_body
 ) = struct
+    module Variable = Atom
     type target_name = iri_target_name
     and _state_dcl_body = iri_state_dcl_body 
     and _custom_method0_body = iri_custom_method0_body 
@@ -35,8 +51,9 @@ module Params : (
     [@@deriving show { with_path = false }]
 end
 
-include IR_common
-module IRI = IR_template.Make(Params) 
+(*include IR_common*)
+module IRI = IR_template.Make(IRC)(Params) 
+
 include IRI
 
 (* TODO integrate replace_ in IR_template/IR_common *)

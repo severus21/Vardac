@@ -1,6 +1,5 @@
 
 ;; Constructing the lexer, parser, and executable.
-
 (library
     (name core)
     (public_name compspec.core)

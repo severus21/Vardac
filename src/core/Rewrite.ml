@@ -312,7 +312,6 @@ module Make (Args : Params ) : Sig = struct
                 (* use to store args between acc_methd and intermediate_method*)
                 let intermediate_state = auto_fplace (StateDcl {
                     ghost = false;
-                    kind = Local;
                     type0 = auto_fplace(CType (auto_fplace(TDict(
                         auto_fplace(CType (auto_fplace(TFlatType(TUUID)))), (*session id*)
                         ctype_intermediate_args
@@ -457,7 +456,6 @@ module Make (Args : Params ) : Sig = struct
         let a_intermediate_states = Atom.fresh_builtin "intermediate_states" in
         let intermediate_states_index = auto_place(State( auto_place(StateDcl { 
             ghost = false;
-            kind = Local;
             type0 = auto_fplace(CType(auto_fplace (TList(
                         auto_fplace(CType(auto_fplace (TDict(
                             auto_fplace (CType (auto_fplace (TFlatType TUUID))), 

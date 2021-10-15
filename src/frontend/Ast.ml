@@ -178,13 +178,19 @@ and function_dcl = _function_dcl placed
 
 
 (************************************ Component *****************************)
-and state_kind =IR.state_kind 
-
 and _state = 
-    | StateDcl of  {ghost: bool; kind: state_kind; type0: main_type; name: variable; init_opt: expr option}
+    | StateDcl of  {
+        ghost: bool; 
+        type0: main_type; 
+        name: variable; 
+        init_opt: expr option}
 
     (*use global x as y;*)
-    | StateAlias of  {ghost: bool; kind: state_kind; type0: main_type; name: variable}
+    | StateAlias of  {
+        ghost: bool; 
+        type0: main_type; 
+        name: variable
+    }
 and state = _state placed
 
 and _param = main_type * variable

@@ -16,7 +16,7 @@ module T = IRI
 
 include IRI
 
-module Env = Atom.AtomMap 
+module Env = Atom.VMap 
 
 (*
     Take a type guard for each timer,

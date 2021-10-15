@@ -89,20 +89,20 @@ let rec paired_place paired_value parents ({ Core.AstUtils.place ; Core.AstUtils
     {Core.AstUtils.place; Core.AstUtils.value}
 
 let rec paired_state parents place : S2._state -> T._state = function
-| S2.StateDcl { ghost; kind; type0; name; body=None} -> begin
+| S2.StateDcl { ghost; type0; name; body=None} -> begin
     try 
         let key = List.rev ((Atom.hint name)::parents) in 
         mark_state key;
         let bb_impl = Hashtbl.find state_impls key in
 
-        T.StateDcl { ghost; kind; type0; name; body= T.InitBB bb_impl.value.body}
+        T.StateDcl { ghost; type0; name; body= T.InitBB bb_impl.value.body}
     with Not_found -> Error.error place "State has no implementation (neither abstract nor blackbox)" 
 end
-| S2.StateDcl { ghost; kind; type0; name; body=Some body} -> begin
+| S2.StateDcl { ghost; type0; name; body=Some body} -> begin
     try 
         let bb_impl = Hashtbl.find state_impls (List.rev ((Atom.hint name)::parents))  in
         Error.error (place@bb_impl.place) "State has two implementations : one abstract and one blackbox"
-    with Not_found -> T.StateDcl { ghost; kind; type0; name; body= T.InitExpr body } 
+    with Not_found -> T.StateDcl { ghost; type0; name; body= T.InitExpr body } 
 end
 | S2.StateAlias _ -> failwith "paired: state alias not yet supported" (*TODO*)
 and ustate parents : IR.state -> T.state = paired_place paired_state parents 

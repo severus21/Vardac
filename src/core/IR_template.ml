@@ -25,10 +25,9 @@ module type IRParams = sig
     val pp__custom_function_body : Ppx_deriving_runtime.Format.formatter -> _custom_function_body -> Ppx_deriving_runtime.unit
 end
 
-include IR_common
+module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
+    include IRC
 
-module Make (Params : IRParams) = struct
-    include IR_common
     type target_name = Params.target_name
     type _state_dcl_body = Params._state_dcl_body
     type _custom_method0_body = Params._custom_method0_body
@@ -53,7 +52,6 @@ module Make (Params : IRParams) = struct
     type  _state = 
         | StateDcl of  {
             ghost: bool; 
-            kind: state_kind; 
             type0: main_type; 
             name: variable; 
             body: _state_dcl_body
@@ -62,7 +60,6 @@ module Make (Params : IRParams) = struct
         (* use global x as y; *)
         | StateAlias of  {
             ghost: bool; 
-            kind: state_kind; 
             type0: main_type; 
             name: variable
         }

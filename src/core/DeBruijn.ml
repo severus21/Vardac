@@ -1,116 +1,48 @@
-(* -------------------------------------------------------------------------- *)
-
-(* We impose maximal sharing on strings so as to reduce the total amount of
-   space that they occupy. This is done using a weak hash set. *)
-
-open Printf 
-
-module StringStorage =
-  Weak.Make(struct
-    type t = string
-    let equal (s1 : string) (s2 : string) = (s1 = s2)
-    let hash = Hashtbl.hash
-  end)
-
-let share : string -> string =
-  StringStorage.merge (StringStorage.create 128)
 
 (* -------------------------------------------------------------------------- *)
 
-(* Removing any trailing digits in a string. *)
 
-let is_digit c =
-  Char.code '0' <= Char.code c && Char.code c <= Char.code '9'
+(* Builtin are n*)
+type var = { 
+    identity: int; (* De Bruijn indices *)
+    hint: string; 
+}
 
-let remove_trailing_digits (s : string) : string =
-  let n = ref (String.length s) in
-  while !n > 0 && is_digit s.[!n-1] do n := !n-1 done;
-  (* We assume that there is at least one non-digit character in the string. *)
-  assert (!n > 0);
-  String.sub s 0 !n
+and debruijn = 
+| DeBruijn of var
+| DeBuiltin of string
 
-(* -------------------------------------------------------------------------- *)
-
-(* An atom is implemented as a pair of an integer identity and a string that
-   serves as a printing hint. Value is the complete hint used for creation, without removing trailing digits*)
-
-(* We maintain the invariant that a hint is nonempty and does not end in a
-   digit. This allows us to later produce unique identifiers, without risk of
-   collisions, by concatenating a hint and a unique number. *)
-
-(* To preserve space, hints are maximally shared. This is not essential for
-   correctness, though. *)
-
-type atom = { identity: int; hint: string; value: string ; builtin: bool} (* builtin is an builtin type, fct, keywords .., if so the correct thing is value*)
-
-and t = atom
+and t = debruijn
   [@@deriving show { with_path = false }]
 
 let identity a =
   a.identity
-
 let hint a =
   a.hint
-
-let value a =
-  a.value
-
-let is_builtin a=
-  a.builtin
-
-(* -------------------------------------------------------------------------- *)
-
-(* A global integer counter holds the next available identity. *)
-
-let counter =
-  ref 0
-
-let allocate () =
-  let number = !counter in
-  counter := number + 1;
-  assert (number >= 0);
-  number
-
-(* [fresh hint] produces a fresh atom. *)
-
-(* The argument [hint] must not be a string of digits. *)
-
-let fresh hint =
-  let identity = allocate()
-  and value = hint                  
-  and hint = share (remove_trailing_digits hint) in
-  { identity; hint;  value; builtin=false}
-let fresh_builtin hint =
-  let identity = allocate()
-  and value = hint                  
-  and hint = share (remove_trailing_digits hint) in
-  { identity; hint;  value; builtin=true}
-
-(* [copy a] returns a fresh atom modeled after the atom [a]. *)
-
-let copy a =
-  fresh a.value
-let copy_upper a =
-  fresh (String.capitalize_ascii a.value)
-
-
-let refresh_hint a hint =
-  {a with hint = hint}
+let is_builtin = function
+| DeBruijn _ -> false
+| DeBuiltin _ -> true
 (* -------------------------------------------------------------------------- *)
 
 (* Comparison of atoms. *)
 
-let equal a b =
-  a.identity = b.identity
+let equal = function 
+| (DeBruijn a, DeBruijn b) -> a.identity = b.identity
+| (DeBuiltin a, DeBuiltin b) -> a = b
+| _ -> false
 
 let compare a b =
   (* Identities are always positive numbers (see [allocate] above)
      so I believe overflow is impossible here. *)
-  a.identity - b.identity
+match (a,b) with
+| (DeBruijn a, DeBruijn b) -> a.identity - b.identity
+| (DeBuiltin a, DeBuiltin b) -> String.compare a b
+| DeBruijn a, DeBuiltin b -> -1 - a.identity - Int.abs (String.compare a.hint b)
+| DeBuiltin a, DeBruijn b -> 1 + b.identity + Int.abs (String.compare a b.hint)
 
-let hash a =
-  Hashtbl.hash a.identity
-
+let hash = function  
+| DeBruijn a -> Hashtbl.hash a.identity
+| DeBuiltin a -> Hashtbl.hash a
 (* -------------------------------------------------------------------------- *)
 
 (* A scratch buffer for printing. *)
@@ -141,7 +73,7 @@ let print_separated_sequence show sep iter xs : unit =
 (* Sets and maps. *)
 
 module Order = struct
-  type t = atom
+  type t = debruijn 
   let compare = compare
 end
 
@@ -163,7 +95,7 @@ module Set = struct
 
   (* Disjoint union. *)
 
-  exception NonDisjointUnion of atom
+  exception NonDisjointUnion of debruijn 
 
   let disjoint_union xs ys =
     match choose (inter xs ys) with
@@ -230,27 +162,25 @@ module VMap = struct
 
 end
 
-type renaming =
-  atom VMap.t
+type renaming = debruijn VMap.t
 
 (* Printing *)
-let output_atom out builtin_eval (x:atom)=
-  if is_builtin x then fprintf out "%s" (builtin_eval x)
-  else
-    fprintf out "%s%d" (hint x) (identity x)
+let output_debruijn out builtin_eval = function
+| DeBruijn x -> Printf.fprintf out "%s%d" (hint x) (identity x)
+| DeBuiltin x -> Printf.fprintf out "%s" x
 
-let to_string (x:atom)=
-    if is_builtin x then hint x
-    else (hint x)^(string_of_int (identity x))
+let to_string = function 
+| DeBruijn x -> (hint x)^(string_of_int (identity x))
+| DeBuiltin x -> x 
 
-let p_to_string builtin_eval (x:atom)=
-  if is_builtin x then (builtin_eval x)
-  else to_string x
+let p_to_string builtin_eval = function
+| DeBruijn _ as x -> to_string x
+| DeBuiltin _ as x -> (builtin_eval x)
 
 (* Sets and maps. *)
 
-module AtomsOrder = struct
-  type t = atom list
+module DebruijnsOrder = struct
+  type t = debruijn list
   let compare xs ys= 
     let lxs = List.length xs in
     let lys = List.length ys in
@@ -262,12 +192,12 @@ module AtomsOrder = struct
     )
 end
 
-module AtomsMap = struct
-  include Map.Make(AtomsOrder)
+module DebruijnsMap = struct
+  include Map.Make(DebruijnsOrder)
 end
 
-module AtomVariable = struct 
-  type t = atom
+module DebruijnVariable = struct 
+  type t = debruijn 
   [@@deriving show { with_path = false }]
 
   module Set = Set

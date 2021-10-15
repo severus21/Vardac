@@ -12,7 +12,7 @@ let logger = Logging.make_logger "_1_ compspec" Debug [];;
 *)
 
 (* Environment *)
-module Env = Atom.AtomMap 
+module Env = Atom.VMap 
 
 type env = { 
     named_types: (main_type option) Env.t; (* namely the list of typealias with their current definition, 

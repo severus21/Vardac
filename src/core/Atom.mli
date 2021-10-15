@@ -33,7 +33,7 @@ val hash: atom -> int
 
 module Set : sig
   include Set.S with type elt = atom
-
+(* NOT yet included in TVariable
   val disjoint: t -> t -> bool
 
   val union_many: ('a -> t) -> 'a list -> t
@@ -58,14 +58,13 @@ module Set : sig
     method zero: 'z
     method plus: 'z -> 'z -> 'z
   end
-
+*)
   val show: t -> string
   val print: out_channel -> t -> unit
 end
 
 (* Maps. *)
-module AtomMap : sig
-
+module VMap : sig
   include Map.S with type key = atom
 
   val domain: 'a t -> Set.t
@@ -78,10 +77,13 @@ module AtomsMap : sig
 end
 
 type renaming =
-  atom AtomMap.t
+  atom VMap.t
 
 (* Printing helper *)
 val output_atom : out_channel -> (atom -> string) -> atom -> unit
 
 val to_string : atom -> string
 val p_to_string : (atom -> string) -> atom -> string
+
+
+module AtomVariable : (IR_common.TVariable with type t = atom and module Set = Set)

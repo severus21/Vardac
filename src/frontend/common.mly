@@ -394,18 +394,11 @@ any_function_:
   t = placed(any_function_)
     { t }
 (************************************ Component *****************************)
-atomic_state_kind:
-| GLOBAL
-    { IR.Global }
-| LOCAL
-    { IR.Local }
-| SHARED
-    { IR.Shared }
 any_state_:
-| kind=atomic_state_kind mt=any_type name=LID
-    { StateDcl { ghost=false; kind=kind; type0=mt; name=name; init_opt=None}}
-| kind=atomic_state_kind mt=any_type name=LID EQ e = any_expr
-    { StateDcl { ghost=false; kind=kind; type0=mt; name=name; init_opt=Some e}}
+| mt=any_type name=LID
+    { StateDcl { ghost=false; type0=mt; name=name; init_opt=None}}
+|  mt=any_type name=LID EQ e = any_expr
+    { StateDcl { ghost=false; type0=mt; name=name; init_opt=Some e}}
 (*| USE kind name
     { StateAlias {ghost=false; kind=kind; type0= TODO; name=name}}*)
 | GHOST s=any_state_
