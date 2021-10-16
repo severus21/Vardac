@@ -204,12 +204,12 @@ and _a2d_stmt env place : S._stmt -> env * T._stmt = function
 | S.BreakStmt -> env, T.BreakStmt
 | S.ContinueStmt -> env, T.ContinueStmt
 | S.ExitStmt i -> env, T.ExitStmt i
-| S.ForStmt (mt, x, e, stmt) -> env, T.ForStmt (
+| S.ForStmt (mt, x, e, stmt) -> failwith "binders for"(*env, T.ForStmt (
     a2d_main_type env mt,
     a2d_var_expr env x,
     a2d_expr env e,
     a2d_stmt env stmt
-)
+)*)
 | S.IfStmt (e, stmt1, stmt2_opt) -> env, T.IfStmt (
     a2d_expr env e,
     a2d_stmt env stmt1,
