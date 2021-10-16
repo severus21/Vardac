@@ -4,6 +4,7 @@ open Core.Error
 open Core.Builtin
 open Easy_logging
 open Fieldslib
+open AstUtils
 
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
@@ -711,7 +712,7 @@ and cook_contract env place (contract:S._contract): env * T._contract =
         | Some _, None -> predicat_opt1
         | Some p1, Some p2 -> Some {
             place = p1.place @ p2.place;
-            value = T.BinopExpr (p1, T.And, p2) 
+            value = T.BinopExpr (p1, And, p2) 
         }
     in
     let ensures = concat_opt invariant ensures in
@@ -893,7 +894,7 @@ end
 
     (* p : () -> p *)
     let constructor_type = auto_fplace(T.CType(auto_fplace(T.TArrow(
-        auto_fplace(T.CType(auto_fplace(T.TFlatType T.TVoid))),
+        auto_fplace(T.CType(auto_fplace(T.TFlatType AstUtils.TVoid))),
         auto_fplace(T.CType(auto_fplace(T.TVar y)))
     )))) in
     register_gamma y constructor_type;

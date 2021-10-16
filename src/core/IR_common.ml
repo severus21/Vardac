@@ -15,24 +15,10 @@ module type TIRC = sig
     and expr_variable = Variable.t
     and type_variable = Atom.atom
     and component_variable = Atom.atom
-    and _comments =
-        | BlockComment of string
-        | DocComment of string
-        | LineComment of string
-    and comments = _comments placed
+    and comments = AstUtils.comments
 
     (************************************ Types **********************************)
-    and flat_type = 
-        (** Literal types *)
-        | TBool
-        | TInt
-        | TUUID
-        | TFloat 
-        | TStr
-        | TLabel
-        | TVoid
-        | TPlace
-        | TWildcard
+    and flat_type = AstUtils.flat_type
 
     and tbridge = {
         in_type: main_type; 
@@ -105,7 +91,7 @@ module type TIRC = sig
     and applied_constraint = (constraint_header list) * constraints option
 
     (************************************ (V) - Place ****************************)
-    and _place = unit 
+    and _place = unit (* tODO get ride of this its dynamic can not be instancied statically*)
     and place = _place placed
     and vplace = { 
         name:           component_variable;
@@ -129,10 +115,10 @@ module type TIRC = sig
         | StringLit of string
 
         (** Activations *)
-        | ActivationInfo of unit (* TODO *)
+        | ActivationInfo of unit (* TODO get ride of literal can not be instancied statically *)
 
         (** Placement *)
-        | Place of place
+        | Place of place (* TODO get ride *)
         | VPlace of vplace 
 
         (** Message-passing *)
@@ -143,47 +129,13 @@ module type TIRC = sig
     and literal = _literal placed
 
     (************************************* Operations ******************************)
-    and unop = 
-        | Not 
-        | UnpackResult
 
-    and binop =
-        (* Boolean *)
-        | And    
-        | Or 
-
-        (* Numeric *)
-        | Plus
-        | Minus
-        | Mult
-        | Divide
-
-        (** Comparison *)
-        | StructuralEqual (*(e.g. like equals in Java or = in Ocaml)*)
-        | Equal 
-        | GreaterThanEqual
-        | LessThanEqual
-        | GreaterThan
-        | LessThan
-
-        (* Iterators *)
-        | In
-
-        (* Others TODO*)
-        (*
-        | Dot
-        | Sequence
-        *)
+    and unop = AstUtils.unop
+    and binop = AstUtils.binop
+    and block = AstUtils.block
+    and block2 = AstUtils.block2
 
     (************************************ Expr & Stmt *****************************)
-
-    and block = 
-        | Block
-        | List 
-        | Tuple
-        | Set
-    and block2 =
-        | Dict
 
     and _expr = 
         | VarExpr of expr_variable 
@@ -300,24 +252,10 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     and expr_variable = Variable.t
     and type_variable = Atom.atom
     and component_variable = Atom.atom
-    and _comments =
-        | BlockComment of string
-        | DocComment of string
-        | LineComment of string
-    and comments = _comments placed
+    and comments = AstUtils.comments
 
     (************************************ Types **********************************)
-    and flat_type = 
-        (** Literal types *)
-        | TBool
-        | TInt
-        | TUUID
-        | TFloat 
-        | TStr
-        | TLabel
-        | TVoid
-        | TPlace
-        | TWildcard
+    and flat_type = AstUtils.flat_type
 
     and tbridge = {
         in_type: main_type; 
@@ -399,7 +337,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         children:       vplace list
     }
 
-    and vplaces = vplace list
+    and vplaces = vplace list (* TODO get ride notused + defined twice also*)
 
     (*module VPlaceEnv = LabelMap*)
 
@@ -428,47 +366,12 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     and literal = _literal placed
 
     (************************************* Operations ******************************)
-    and unop = 
-        | Not 
-        | UnpackResult
-
-    and binop =
-        (* Boolean *)
-        | And    
-        | Or 
-
-        (* Numeric *)
-        | Plus
-        | Minus
-        | Mult
-        | Divide
-
-        (** Comparison *)
-        | StructuralEqual (*(e.g. like equals in Java or = in Ocaml)*)
-        | Equal 
-        | GreaterThanEqual
-        | LessThanEqual
-        | GreaterThan
-        | LessThan
-
-        (* Iterators *)
-        | In
-
-        (* Others TODO*)
-        (*
-        | Dot
-        | Sequence
-        *)
+    and unop = AstUtils.unop
+    and binop = AstUtils.binop
+    and block = AstUtils.block
+    and block2 = AstUtils.block2
 
     (************************************ Expr & Stmt *****************************)
-
-    and block = 
-        | Block
-        | List 
-        | Tuple
-        | Set
-    and block2 =
-        | Dict
 
     and _expr = 
         | VarExpr of expr_variable 

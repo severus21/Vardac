@@ -891,7 +891,7 @@ and finish_expr place : S._expr -> T._expr = function
             List.map fexpr es
         )
     end
-    | S.UnopExpr (IR.UnpackResult, e) -> 
+    | S.UnopExpr (AstUtils.UnpackResult, e) -> 
         (*  Encoding
             e.getOrElseThrow(() -> new RuntimeException("The result is failure, can access the success."))
         *)
@@ -1451,17 +1451,17 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
 
     let body : T.str_items list ref = ref [] in
     (* FIXME issue with the type of body*)
-    body := !body @ [{place; value=T.Comments (IR.LineComment "Actor state")}];
+    body := !body @ [{place; value=T.Comments (AstUtils.LineComment "Actor state")}];
     body := !body @ (List.flatten (List.map finish_state states));
-    body := !body @ [{place; value=T.Comments (IR.LineComment "Actor events")}];
+    body := !body @ [{place; value=T.Comments (AstUtils.LineComment "Actor events")}];
     body := !body @ (List.map fevent events);
-    body := !body @ [{place; value=T.Comments (IR.LineComment "Actor internal logics")}];
+    body := !body @ [{place; value=T.Comments (AstUtils.LineComment "Actor internal logics")}];
     body := !body @ (List.map (fmethod is_guardian true) methods);
-    body := !body @ [{place; value=T.Comments (IR.LineComment "Nested structures")}];
+    body := !body @ [{place; value=T.Comments (AstUtils.LineComment "Nested structures")}];
     if is_guardian = false then body := command_cl :: !body;
     body := !body @ (List.map fterm nested_items);
     if is_guardian = false then begin
-        body := !body @ [{place; value=T.Comments (IR.LineComment "Receiver")}];
+        body := !body @ [{place; value=T.Comments (AstUtils.LineComment "Receiver")}];
         body := !body @ [fmethod is_guardian true receiver];
     end;
 

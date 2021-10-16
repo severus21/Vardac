@@ -57,6 +57,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
             body: _state_dcl_body
         }
 
+        (* TODO to remove ????*)
         (* use global x as y; *)
         | StateAlias of  {
             ghost: bool; 
@@ -84,9 +85,9 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
 
 
     and _component_item =  
-        | State of state 
-        | Method of method0 
         | Contract of contract 
+        | Method of method0 
+        | State of state 
 
         (** Inter-component composition*)
         | Port of port 
@@ -113,8 +114,16 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
         } =>
         TODO component X = lambda arg1: ... lambda argn: { body } ???
         *)
-        | ComponentStructure of {target_name: target_name; name: component_variable; args: param list; body: component_item list} 
-        | ComponentAssign of {name: component_variable; args: param list; value: component_expr}
+        | ComponentStructure of {
+            target_name: target_name; 
+            name: component_variable; 
+            args: param list; 
+            body: component_item list} 
+        | ComponentAssign of {
+            name: component_variable; 
+            args: param list; 
+            value: component_expr
+        }
 
     and component_dcl = _component_dcl placed
 

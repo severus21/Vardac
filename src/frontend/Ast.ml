@@ -6,9 +6,8 @@ let logger = Logging.make_logger "_1_ compspec" Debug [];;
 (************************************* Base types ****************************)
 open Label
 type variable = string
-
-and _comments = IR._comments
-and comments = _comments placed
+and _comments = AstUtils._comments
+and comments = AstUtils.comments
 
 (************************************ Types **********************************)
 and flat_type = IR.flat_type

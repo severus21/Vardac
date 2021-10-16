@@ -51,7 +51,7 @@ let rec clean_expr place : _expr -> _expr = function
 | AppExpr (e, es) -> AppExpr (cexpr e, List.map cexpr es)
 | AssertExpr e -> AssertExpr (cexpr e)
 | AssignExpr (e1, op, e2) -> AssignExpr (cexpr e1, op, cexpr e2)
-| BinaryExpr (e1, IR.StructuralEqual, e2) -> 
+| BinaryExpr (e1, AstUtils.StructuralEqual, e2) -> 
     AppExpr ( {place; value = AccessExpr (cexpr e1, {place; value = VarExpr (Atom.fresh_builtin "equals")})}, [cexpr e2]) 
 | BinaryExpr (e1, op, e2) -> BinaryExpr (cexpr e1, op, cexpr e2)
 | CastExpr (ct, e) -> CastExpr (ct, cexpr e)

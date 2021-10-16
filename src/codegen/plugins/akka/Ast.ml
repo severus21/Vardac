@@ -7,7 +7,7 @@ open Label
 
 type variable = Atom.atom
 
-and comments = Core.IR._comments
+and comments = Core.AstUtils._comments
 
 (************************************ Types **********************************)
 and _ctype = 

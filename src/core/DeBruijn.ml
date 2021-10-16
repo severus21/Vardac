@@ -2,23 +2,13 @@
 (* -------------------------------------------------------------------------- *)
 
 
-(* Builtin are n*)
-type var = { 
-    identity: int; (* De Bruijn indices *)
-    hint: string; 
-}
-
-and debruijn = 
-| DeBruijn of var
-| DeBuiltin of string
+type debruijn = 
+| DeBruijn of int * Atom.atom 
+| DeBuiltin of Atom.atom 
 
 and t = debruijn
   [@@deriving show { with_path = false }]
 
-let identity a =
-  a.identity
-let hint a =
-  a.hint
 let is_builtin = function
 | DeBruijn _ -> false
 | DeBuiltin _ -> true
@@ -26,23 +16,24 @@ let is_builtin = function
 
 (* Comparison of atoms. *)
 
-let equal = function 
-| (DeBruijn a, DeBruijn b) -> a.identity = b.identity
-| (DeBuiltin a, DeBuiltin b) -> a = b
+let equal a b = 
+match (a,b) with
+| (DeBruijn (i_a, _), DeBruijn (i_b, _)) -> i_a = i_b
+| (DeBuiltin a, DeBuiltin b) -> Atom.equal a b
 | _ -> false
 
 let compare a b =
   (* Identities are always positive numbers (see [allocate] above)
      so I believe overflow is impossible here. *)
 match (a,b) with
-| (DeBruijn a, DeBruijn b) -> a.identity - b.identity
-| (DeBuiltin a, DeBuiltin b) -> String.compare a b
-| DeBruijn a, DeBuiltin b -> -1 - a.identity - Int.abs (String.compare a.hint b)
-| DeBuiltin a, DeBruijn b -> 1 + b.identity + Int.abs (String.compare a b.hint)
+| (DeBruijn (i_a,_), DeBruijn (i_b, b)) -> i_a - i_b
+| (DeBuiltin a, DeBuiltin b) -> Atom.compare a b
+| DeBruijn (i_a, a), DeBuiltin b -> -1 - i_a - Int.abs (Atom.compare a b)
+| DeBuiltin a, DeBruijn (i_b, b) -> 1 + i_b + Int.abs (Atom.compare a b)
 
 let hash = function  
-| DeBruijn a -> Hashtbl.hash a.identity
-| DeBuiltin a -> Hashtbl.hash a
+| DeBruijn (i_a, _) -> Hashtbl.hash (-1 * i_a) (* < 0*)
+| DeBuiltin a -> Hashtbl.hash a (* > 0 *)
 (* -------------------------------------------------------------------------- *)
 
 (* A scratch buffer for printing. *)
@@ -166,12 +157,12 @@ type renaming = debruijn VMap.t
 
 (* Printing *)
 let output_debruijn out builtin_eval = function
-| DeBruijn x -> Printf.fprintf out "%s%d" (hint x) (identity x)
-| DeBuiltin x -> Printf.fprintf out "%s" x
+| DeBruijn (i_x, x) -> Printf.fprintf out "%d" i_x  
+| DeBuiltin x -> Printf.fprintf out "%s" (Atom.to_string x)
 
 let to_string = function 
-| DeBruijn x -> (hint x)^(string_of_int (identity x))
-| DeBuiltin x -> x 
+| DeBruijn (i_x,x) -> string_of_int i_x 
+| DeBuiltin x -> Atom.to_string x 
 
 let p_to_string builtin_eval = function
 | DeBruijn _ as x -> to_string x

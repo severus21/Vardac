@@ -151,14 +151,14 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
     | S.TVar x -> T.TVar x 
     | S.TFlatType ft -> begin match ft with  
         (* When using Tuyple, Map, ... we need object so for ease we box atomic type in objects everywhere *)
-        | S.TBool -> T.Atomic "Boolean"
-        | S.TInt -> T.Atomic "Integer"
-        | S.TFloat -> T.Atomic "Float"
-        | S.TStr -> T.Atomic "String"
-        | S.TVoid -> T.Atomic "Void" 
-        | S.TUUID -> T.Atomic "UUID" 
-        | S.TWildcard -> T.Atomic "?"
-        | S.TPlace -> (t_lg4dc_place place).value
+        | AstUtils.TBool -> T.Atomic "Boolean"
+        | AstUtils.TInt -> T.Atomic "Integer"
+        | AstUtils.TFloat -> T.Atomic "Float"
+        | AstUtils.TStr -> T.Atomic "String"
+        | AstUtils.TVoid -> T.Atomic "Void" 
+        | AstUtils.TUUID -> T.Atomic "UUID" 
+        | AstUtils.TWildcard -> T.Atomic "?"
+        | AstUtils.TPlace -> (t_lg4dc_place place).value
         | _ -> Core.Error.error place "TActivationInfo/Place/VPlace/Label type not yey supported."
     end
     | S.TArray mt -> T.TArray (fmtype mt)
@@ -300,9 +300,9 @@ function
             constructor,
             [
                 auto_place (T.BlockExpr (
-                    IR.List,
+                    AstUtils.List,
                     List.map (function (label, st, _) -> auto_place (T.BlockExpr (
-                        IR.Tuple, 
+                        AstUtils.Tuple, 
                         [ auto_place (T.VarExpr label); fvstype st ]
                     ))) xs
                 ))
@@ -498,7 +498,7 @@ function
 and fexpr e : T.expr = finish_place finish_expr e
 
 and finish_stmt place : S._stmt -> T._stmt = function
-    | S.EmptyStmt -> T.CommentsStmt (IR.LineComment "Empty Statement")
+    | S.EmptyStmt -> T.CommentsStmt (AstUtils.LineComment "Empty Statement")
 
     (*S.* Binders *)
     | S.AssignExpr (x, e) -> T.AssignExpr ({place; value=T.VarExpr x}, fexpr e)
@@ -640,7 +640,7 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
         [ensures_method], [ 
             { place = ensures_expr.place; value= T.IfStmt (
                 {place = ensures_expr.place; value = T.UnopExpr ( 
-                    IR.Not,
+                    AstUtils.Not,
                     {place = ensures_expr.place; value = T.CallExpr ( 
                         {place = ensures_expr.place; value = T.VarExpr ensures_name}, 
                         List.map (function param -> {place = ensures_expr.place; value =T.VarExpr (snd param)}) ensures_params 
@@ -706,7 +706,7 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
             )};
             {place; value=T.IfStmt (
                 {place; value=T.UnopExpr ( 
-                    IR.Not,
+                    AstUtils.Not,
                     {place; value=T.CallExpr ( 
                         {place; value=T.VarExpr returns_name}, 
                         List.map (function param -> {place; value=T.VarExpr (snd param)}) returns_params 
@@ -847,7 +847,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             stmts = [ auto_place(T.LetStmt (
                 auto_place (T.TSet(auto_place( T.Atomic "UUID"))),
                 a_frozen_sessions,
-                Some (auto_place(T.BlockExpr(Core.IR.Set, [])))
+                Some (auto_place(T.BlockExpr(Core.AstUtils.Set, [])))
             ))]
         };
         (* Set<UUID> dead_sessions = new HashSet() *)
@@ -855,7 +855,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             stmts = [ auto_place(T.LetStmt (
                 auto_place (T.TSet(auto_place( T.Atomic "UUID"))),
                 a_dead_sesison,
-                Some (auto_place(T.BlockExpr(Core.IR.Set, [])))
+                Some (auto_place(T.BlockExpr(Core.AstUtils.Set, [])))
             ))]
         }
     ] @ states in
@@ -945,7 +945,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         let add_check_session_validity ()=
             auto_place (T.IfStmt(
                 auto_place(T.UnopExpr(
-                    Core.IR.Not,    
+                    Core.AstUtils.Not,    
                     auto_place (T.CallExpr(
                         auto_place (T.AccessExpr(
                             auto_place (T.VarExpr (Atom.fresh_builtin "Handlers")),
@@ -989,9 +989,9 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         let add_case (bridge, st, remaining_st) (callback:T.expr) acc : T.stmt =
             auto_place (T.IfStmt (
                 auto_place (T.BinopExpr(
-                    auto_place (T.BinopExpr (e_bridgeid l_event, S.Equal, bridgeid bridge)),
-                    S.And,
-                    auto_place (T.BinopExpr (e_remaining_step l_event, S.StructuralEqual, fvstype (S.dual st)))
+                    auto_place (T.BinopExpr (e_bridgeid l_event, AstUtils.Equal, bridgeid bridge)),
+                    AstUtils.And,
+                    auto_place (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, fvstype (S.dual st)))
                 )),
                 auto_place (T.BlockStmt [
                     auto_place (T.LetStmt (

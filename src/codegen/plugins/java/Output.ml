@@ -40,31 +40,31 @@ let output_capitalize_var out (x:Atom.atom)=
 let wrapper_newline out f = function x -> ((f out) x; fprintf out "\n")
 
 let rec output_placed out output_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
-    let comment = IR.BlockComment (Error.show ~display_line:false place) in
+    let comment = AstUtils.BlockComment (Error.show ~display_line:false place) in
     fprintf out "%a@;%a" output_comments comment output_value value
-and output_comments out : IR._comments -> unit = function
-    | IR.BlockComment str -> fprintf out "/* %s@;*/" str
-    | IR.DocComment str -> fprintf out "/** %s@;*/" str
-    | IR.LineComment str -> fprintf out "// %s" str
+and output_comments out : AstUtils._comments -> unit = function
+    | AstUtils.BlockComment str -> fprintf out "/* %s@;*/" str
+    | AstUtils.DocComment str -> fprintf out "/** %s@;*/" str
+    | AstUtils.LineComment str -> fprintf out "// %s" str
 
 
 
 (** Akka specific *)
 let rec output_unop out = function
-    | IR.Not -> pp_print_string out "!"
-    | IR.UnpackResult -> raise (Core.Error.DeadbranchError "output_unop : unpacking a result should have been encoded as a method call when translating from Akka to Java AST.")
+    | AstUtils.Not -> pp_print_string out "!"
+    | AstUtils.UnpackResult -> raise (Core.Error.DeadbranchError "output_unop : unpacking a result should have been encoded as a method call when translating from Akka to Java AST.")
 and output_binop out = function
-    | IR.And -> pp_print_string out "&&"
-    | IR.Equal -> pp_print_string out "=="
-    | IR.GreaterThan -> pp_print_string out ">" 
-    | IR.GreaterThanEqual -> pp_print_string out ">="
-    | IR.LessThan -> pp_print_string out "<"
-    | IR.LessThanEqual -> pp_print_string out "<="
-    | IR.Plus -> pp_print_string out "+"
-    | IR.Minus -> pp_print_string out "-"
-    | IR.Mult -> pp_print_string out "*"
-    | IR.Divide -> pp_print_string out "/"
-    | IR.Or -> pp_print_string out "||"
+    | AstUtils.And -> pp_print_string out "&&"
+    | AstUtils.Equal -> pp_print_string out "=="
+    | AstUtils.GreaterThan -> pp_print_string out ">" 
+    | AstUtils.GreaterThanEqual -> pp_print_string out ">="
+    | AstUtils.LessThan -> pp_print_string out "<"
+    | AstUtils.LessThanEqual -> pp_print_string out "<="
+    | AstUtils.Plus -> pp_print_string out "+"
+    | AstUtils.Minus -> pp_print_string out "-"
+    | AstUtils.Mult -> pp_print_string out "*"
+    | AstUtils.Divide -> pp_print_string out "/"
+    | AstUtils.Or -> pp_print_string out "||"
 and output_assignop out : assign_operator -> unit = function
     | AssignOp -> pp_print_string out "="
 and output_literal out : _literal -> unit = function

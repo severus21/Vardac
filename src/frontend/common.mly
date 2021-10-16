@@ -223,14 +223,14 @@ atomic_bin_op:
 | op=BINOP
     { op }
 | LANGLEBRACKET
-    { Core.IR.LessThan }
+    { Core.AstUtils.LessThan }
 | RANGLEBRACKET
-    { Core.IR.GreaterThan }
+    { Core.AstUtils.GreaterThan }
 any_op_:
 | op=UNOP e=any_expr
     { UnopExpr (op, e)}
 | e=any_expr RECV
-    { UnopExpr (Core.IR.UnpackResult, e)}
+    { UnopExpr (Core.AstUtils.UnpackResult, e)}
 |  x = any_expr  op=atomic_bin_op y = any_expr   
     { BinopExpr  (x, op, y) }
 

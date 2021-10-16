@@ -56,7 +56,7 @@ and _body =
         body: expr option 
     }
 and body = (_body annotated) placed
-and comments = Core.IR._comments
+and comments = AstUtils._comments
 
 and _expr = 
     | AccessExpr of expr * expr (*e1.e2*)

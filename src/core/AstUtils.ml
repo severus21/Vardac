@@ -47,3 +47,64 @@ end
 module type IRParams = sig
     module Variable : TVariable 
 end
+
+type _comments =
+    | BlockComment of string
+    | DocComment of string
+    | LineComment of string
+and comments = _comments placed
+[@@deriving show { with_path = false }]
+
+type flat_type = 
+    (** Literal types *)
+    | TBool
+    | TInt
+    | TUUID
+    | TFloat 
+    | TStr
+    | TLabel
+    | TVoid
+    | TPlace
+    | TWildcard
+[@@deriving show { with_path = false }]
+
+type unop = 
+    | Not 
+    | UnpackResult
+
+and binop =
+    (* Boolean *)
+    | And    
+    | Or 
+
+    (* Numeric *)
+    | Plus
+    | Minus
+    | Mult
+    | Divide
+
+    (** Comparison *)
+    | StructuralEqual (*(e.g. like equals in Java or = in Ocaml)*)
+    | Equal 
+    | GreaterThanEqual
+    | LessThanEqual
+    | GreaterThan
+    | LessThan
+
+    (* Iterators *)
+    | In
+
+    (* Others TODO*)
+    (*
+    | Dot
+    | Sequence
+    *)
+
+and block = 
+    | Block
+    | List 
+    | Tuple
+    | Set
+and block2 =
+    | Dict
+[@@deriving show { with_path = false }]
