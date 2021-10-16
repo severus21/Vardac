@@ -5,7 +5,7 @@ open AstUtils
 
 let logger = Logging.make_logger "_1_ compspec" Debug [];;
 module type Params = sig
-    val gamma : (IR.variable, IR.main_type) Hashtbl.t
+    val gamma : (IR.expr_variable, IR.main_type) Hashtbl.t
 end
 
 module type Sig = sig
@@ -208,7 +208,7 @@ module Make (Args : Params ) : Sig = struct
         (*
             return (new_ports, ((variable hosting the result of the receive, msgt, continuation), session of the receive, method) list)
         *)
-        let rec split_body acc_stmts (acc_method:__method0) : stmt list -> port list *  ((variable * main_type * main_type) option * expr option * __method0) list = function
+        let rec split_body acc_stmts (acc_method:__method0) : stmt list -> port list *  ((expr_variable * main_type * main_type) option * expr option * __method0) list = function
         | [] -> 
             [], [ 
                 None, None, { acc_method with 
@@ -264,7 +264,7 @@ module Make (Args : Params ) : Sig = struct
         let intermediate_ports, intermediate_methods =  split_body [] {m with body = []} stmts in
         
         (* Add header and footer for each method (i.e. how to propagate arguments) + update args *)
-        let rec rewrite_intermediate : ((variable * main_type * main_type) option * expr option * __method0) list -> state list * __method0 list = function
+        let rec rewrite_intermediate : ((expr_variable * main_type * main_type) option * expr option * __method0) list -> state list * __method0 list = function
         | [] -> [], []
         | [ (_, _, m) ] -> [], [ m ]
         | (x1_opt, s1_opt, m1)::(x2_opt, s2_opt, m2)::ms -> begin
@@ -272,7 +272,7 @@ module Make (Args : Params ) : Sig = struct
             Atom.Set.iter (function x -> logger#error "already binded2 %s" (Atom.to_string x)) already_binded;*)
             let already_binded = Atom.Set.empty in
             let _, intermediate_args = List.fold_left_map free_vars_stmt already_binded m2.body in
-            let intermediate_args : variable list = List.flatten intermediate_args in
+            let intermediate_args : expr_variable list = List.flatten intermediate_args in
 
             (* Remove components *)
             let intermediate_args = List.filter (function x -> 
@@ -419,7 +419,7 @@ module Make (Args : Params ) : Sig = struct
     and rmethod0 m = rewrite_method0 m.place m.value
 
     (* return name of intermediate states * citems *)
-    and rewrite_component_item place : _component_item -> variable list * component_item list = 
+    and rewrite_component_item place : _component_item -> expr_variable list * component_item list = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
     let auto_place smth = {place = place; value=smth} in
     let auto_fplace smth = {place = fplace; value=smth} in
@@ -439,7 +439,7 @@ module Make (Args : Params ) : Sig = struct
     | Port _ as citem -> [], [auto_place citem]
     | Term t -> [], [auto_place (Term (rterm t))]
     | Include _ as citem -> [], [auto_place citem]
-    and rcitem citem : variable list * component_item list = rewrite_component_item citem.place citem.value 
+    and rcitem citem : expr_variable list * component_item list = rewrite_component_item citem.place citem.value 
 
     and rewrite_component_dcl place : _component_dcl -> _component_dcl = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in

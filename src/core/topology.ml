@@ -42,7 +42,7 @@ and pp_stype { AstUtils.place ; AstUtils.value}=
 
 match value with
 | STEnd -> "."
-| STVar (x,_) -> "-"^Atom.hint x
+| STVar x -> "-"^Atom.hint x
 | STSend (mt, st) -> "!"^(pp_mtype mt)^(pp_stype st)
 | STRecv (mt, st) -> "?"^(pp_mtype mt)^(pp_stype st)
 | STBranch branches -> "+{"^(List.fold_left (fun acc x -> acc^"; "^(pp_branch x)) "" branches)^"}"

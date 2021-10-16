@@ -28,13 +28,13 @@ module Env = Atom.VMap
 *)
 
 type timer_separation = {
-    name: variable;
-    lb_name: variable;
-    hb_name: variable;
+    name: expr_variable;
+    lb_name: expr_variable;
+    hb_name: expr_variable;
 }
 (* timer t -> (t_lb, t_hb)*)
 (* global since name are unique *)
-let separation_hbl : (variable, variable * variable) Hashtbl.t = Hashtbl.create 16
+let separation_hbl : (expr_variable, expr_variable * expr_variable) Hashtbl.t = Hashtbl.create 16
 
 let rename_header_ place = 
 let auto_place value = {place; value} in
@@ -256,7 +256,7 @@ end
 | ResultExpr (e1_opt, e2_opt) -> failwith "not yet supported in GuardTransform"
 | BlockExpr (b, es) ->failwith "not yet supported in GuardTransform" 
 | Block2Expr (b, ees) -> failwith "not yet supported in GuardTransform" 
-and rewrite_trigger env (e:expr) : variable list * expr = 
+and rewrite_trigger env (e:expr) : expr_variable list * expr = 
     let timers, _e = rewrite_trigger_ env e.place e.value in
     timers, { place = e.place; value = _e}
 

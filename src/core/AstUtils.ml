@@ -20,3 +20,30 @@ let dump ?(print=(Config.debug ()))(phase : string) (show : 'term -> string) (t 
     Printf.eprintf "%s:\n\n%s\n\n%!" phase (show t)
   end;
   t
+
+(* Define how variable are represented *)
+module type TVariable = sig
+    type t 
+    (* Deriving *)
+    val show :  t -> Ppx_deriving_runtime.string
+    val pp : Ppx_deriving_runtime.Format.formatter -> t -> Ppx_deriving_runtime.unit
+
+    (* Pretty printing *)
+    val to_string : t -> string
+    val p_to_string : (t -> string) -> t -> string
+    module Set : sig
+        include Set.S with type elt = t 
+        val show: t -> string
+        val print: out_channel -> t -> unit
+    end
+
+    module VMap : sig
+        include Map.S with type key = t 
+    end
+
+    val is_builtin : t -> bool
+end
+
+module type IRParams = sig
+    module Variable : TVariable 
+end

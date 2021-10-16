@@ -1,4 +1,4 @@
-module IRCParams : (IR_common.IRParams with type Variable.t = Atom.t)= struct
+module IRCParams : (AstUtils.IRParams with type Variable.t = Atom.t)= struct
     module Variable = Atom
 end 
 

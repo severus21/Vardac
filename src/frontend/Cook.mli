@@ -24,7 +24,7 @@
 
 open Core
 
-type gamma_t = (IR.variable, IR.main_type) Hashtbl.t
+type gamma_t = (IR.expr_variable, IR.main_type) Hashtbl.t
 val print_gamma : gamma_t -> unit
 
 val cook_expression: Ast.expr -> IR.expr

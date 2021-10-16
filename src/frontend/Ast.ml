@@ -39,7 +39,7 @@ and composed_type = _composed_type placed
 
 and _session_type =  
     | STEnd 
-    | STVar of variable * applied_constraint option  (** x *) 
+    | STVar of variable
     | STSend of main_type * session_type
     | STRecv of main_type * session_type
     | STBranch of (variable * session_type * applied_constraint option) list            

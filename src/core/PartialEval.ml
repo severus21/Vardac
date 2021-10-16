@@ -126,8 +126,8 @@ and peval_stype env place : _session_type -> env * _session_type =
         let _, mt' = pe_mtype env mt in
         let _, st' = pe_stype env st in
         env, STSend (mt', st')
-    | STVar (x, constraint_opt) -> 
-        env, STVar (x, Option.map (function elmt -> snd (peval_applied_constraint env elmt)) constraint_opt )
+    | STVar x -> 
+        env, STVar x
 and pe_stype env: session_type -> env * session_type = peval_place peval_stype env
 
 and is_type_of_component x = Str.string_match (Str.regexp "[A-Z].*") (Atom.hint x) 0

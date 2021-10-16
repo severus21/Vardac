@@ -102,13 +102,13 @@ any_session_type_:
 |op=BINOP x = LID |op=BINOP x = UID
     {
         match op with
-        | Minus -> STVar (x, None)
+        | Minus -> STVar x
         | _ -> raise (Error.SyntaxError [$loc])
     }
-|op=BINOP x = LID c= any_applied_constraint  | op=BINOP x = UID c= any_applied_constraint 
+|op=BINOP x = LID | op=BINOP x = UID 
     {
         match op with
-        | Minus -> STVar (x, Some c)
+        | Minus -> STVar x
         | _ -> raise (Error.SyntaxError [$loc])
     }
 |BANG t=any_type st=any_session_type 

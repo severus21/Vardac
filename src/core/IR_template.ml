@@ -53,7 +53,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
         | StateDcl of  {
             ghost: bool; 
             type0: main_type; 
-            name: variable; 
+            name: component_variable; 
             body: _state_dcl_body
         }
 
@@ -61,7 +61,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
         | StateAlias of  {
             ghost: bool; 
             type0: main_type; 
-            name: variable
+            name: component_variable
         }
     and state = _state placed
 
@@ -69,7 +69,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
     and __method0 = {
         ghost: bool; 
         ret_type: main_type; 
-        name: variable; 
+        name: component_variable; 
         args: param list; 
         body: _custom_method0_body; 
         contract_opt: contract option
@@ -113,8 +113,8 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
         } =>
         TODO component X = lambda arg1: ... lambda argn: { body } ???
         *)
-        | ComponentStructure of {target_name: target_name; name: variable; args: param list; body: component_item list} 
-        | ComponentAssign of {name: variable; args: param list; value: component_expr}
+        | ComponentStructure of {target_name: target_name; name: component_variable; args: param list; body: component_item list} 
+        | ComponentAssign of {name: component_variable; args: param list; value: component_expr}
 
     and component_dcl = _component_dcl placed
 
@@ -145,7 +145,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
     
     (************************************ Program *****************************)
     and _function_dcl = {
-        name: variable;
+        name: expr_variable;
         ret_type: main_type;
         args: param list;
         body: _custom_function_body;
@@ -153,9 +153,9 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
     and function_dcl = _function_dcl placed
 
     and _typedef = (* Two kind for type *) 
-    | ClassicalDef of variable * main_type list * _typedef_body
-    | EventDef of variable * main_type list * _typedef_body
-    | ProtocolDef of variable * main_type
+    | ClassicalDef of type_variable * main_type list * _typedef_body
+    | EventDef of type_variable * main_type list * _typedef_body
+    | ProtocolDef of type_variable * main_type
     and typedef = _typedef placed
 
     and _term =
@@ -171,7 +171,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
 
         (* Static part*)
         (*TODO | SignatureDcl of signature_dcl*)   
-        | Typealias of variable * _typealias_body
+        | Typealias of type_variable * _typealias_body
         | Typedef of typedef 
     and term = _term placed
 

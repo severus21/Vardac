@@ -86,4 +86,4 @@ val to_string : atom -> string
 val p_to_string : (atom -> string) -> atom -> string
 
 
-module AtomVariable : (IR_common.TVariable with type t = atom and module Set = Set)
+module AtomVariable : (AstUtils.TVariable with type t = atom and module Set = Set)

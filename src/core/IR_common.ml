@@ -6,39 +6,15 @@ open Label
 
 let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
-(* Define how variable are represented *)
-module type TVariable = sig
-    type t 
-    (* Deriving *)
-    val show :  t -> Ppx_deriving_runtime.string
-    val pp : Ppx_deriving_runtime.Format.formatter -> t -> Ppx_deriving_runtime.unit
-
-    (* Pretty printing *)
-    val to_string : t -> string
-    val p_to_string : (t -> string) -> t -> string
-    module Set : sig
-        include Set.S with type elt = t 
-        val show: t -> string
-        val print: out_channel -> t -> unit
-    end
-
-    module VMap : sig
-        include Map.S with type key = t 
-    end
-
-    val is_builtin : t -> bool
-end
-
-module type IRParams = sig
-    module Variable : TVariable 
-end
 
 (* NB TIRC is a **copy** of Make content, it should not be edit manually pour la partie AST uniquement 
 *)
 module type TIRC = sig
     module Variable : TVariable 
     type ident = string (*TODO remove ident if not used *) 
-    and variable = Variable.t
+    and expr_variable = Variable.t
+    and type_variable = Atom.atom
+    and component_variable = Atom.atom
     and _comments =
         | BlockComment of string
         | DocComment of string
@@ -69,7 +45,7 @@ module type TIRC = sig
         (*| TSession of session_type * variable*)
         | TArrow of main_type * main_type
 
-        | TVar of variable
+        | TVar of type_variable 
         | TFlatType of flat_type
 
         | TArray of main_type 
@@ -92,17 +68,17 @@ module type TIRC = sig
 
     and _session_type =  
         | STEnd 
-        | STVar of variable * applied_constraint option  (** x *) 
+        | STVar of type_variable  (** x *) 
         | STSend of main_type * session_type
         | STRecv of main_type * session_type
-        | STBranch of (variable * session_type * applied_constraint option) list            
-        | STSelect of (variable * session_type *  applied_constraint option) list               
-        | STRec of variable * session_type (* X * type*) 
-        | STInline of variable (* syntaxic suggar in order to inline an existing session type definition*)
+        | STBranch of (type_variable * session_type * applied_constraint option) list            
+        | STSelect of (type_variable * session_type *  applied_constraint option) list               
+        | STRec of type_variable * session_type (* X * type*) 
+        | STInline of type_variable (* syntaxic suggar in order to inline an existing session type definition*)
     and session_type = _session_type placed
 
     and _component_type =
-        | CompTUid of variable 
+        | CompTUid of component_variable 
     and component_type = _component_type placed
 
     and _main_type = 
@@ -117,10 +93,10 @@ module type TIRC = sig
 
     (******************************** Constraints ********************************)
     and _constraint_header =      
-        | UseGlobal of main_type * variable 
-        | UseMetadata of main_type * variable
-        | SetTimer of variable
-        | SetFireTimer of variable * int (* specify timeout delay *)
+        | UseGlobal of main_type * expr_variable 
+        | UseMetadata of main_type * expr_variable
+        | SetTimer of expr_variable
+        | SetFireTimer of expr_variable * int (* specify timeout delay *)
     and constraint_header = _constraint_header placed
 
     and _constraints = _expr (* for now, maybe we will need to restrict a bit for SMT solving*)
@@ -132,7 +108,7 @@ module type TIRC = sig
     and _place = unit 
     and place = _place placed
     and vplace = { 
-        name:           variable;
+        name:           component_variable;
         nbr_instances:  expr;
         features:     (string, string) Hashtbl.t;[@opaque]
         children:       vplace list
@@ -161,8 +137,8 @@ module type TIRC = sig
 
         (** Message-passing *)
         | Bridge of {
-            id: variable; 
-            protocol_name: variable;
+            id: component_variable; 
+            protocol_name: component_variable;
         }
     and literal = _literal placed
 
@@ -210,11 +186,11 @@ module type TIRC = sig
         | Dict
 
     and _expr = 
-        | VarExpr of variable 
+        | VarExpr of expr_variable 
 
         | AccessExpr of expr * expr (*e1.e2*)
         | BinopExpr of expr * binop * expr 
-        | LambdaExpr of variable * main_type * stmt 
+        | LambdaExpr of expr_variable * main_type * stmt 
         | LitExpr of literal
         | UnopExpr of unop * expr 
 
@@ -245,9 +221,9 @@ module type TIRC = sig
         | EmptyStmt
 
         (** Binders *)
-        | AssignExpr of variable * expr
-        | AssignThisExpr of variable * expr
-        | LetExpr of main_type * variable * expr
+        | AssignExpr of expr_variable * expr
+        | AssignThisExpr of component_variable * expr
+        | LetExpr of main_type * expr_variable * expr
 
         (** Comments *)
         | CommentsStmt of comments
@@ -256,7 +232,7 @@ module type TIRC = sig
         | BreakStmt
         | ContinueStmt
         | ExitStmt of int
-        | ForStmt of main_type * variable * expr * stmt
+        | ForStmt of main_type * expr_variable * expr * stmt
         | IfStmt of expr * stmt * stmt option
         | MatchStmt of expr * (expr * stmt) list
         | ReturnStmt of expr
@@ -268,12 +244,12 @@ module type TIRC = sig
         | GhostStmt of stmt
     and stmt = _stmt placed
 
-    and _param = main_type * variable
+    and _param = main_type * expr_variable
     and param = _param placed
 
     (******************************** Component **********************************)
     and _port = {
-        name: variable;
+        name: component_variable;
         input: expr;
         expecting_st: main_type;
         callback: expr
@@ -282,8 +258,8 @@ module type TIRC = sig
 
     (******************************** Contracts **********************************)
     and _contract = { (* TODO GADT *)
-        method_name: variable;
-        pre_binders: (main_type * variable * expr) list; 
+        method_name: component_variable;
+        pre_binders: (main_type * expr_variable * expr) list; 
         ensures: expr option;
         returns: expr option;
     }
@@ -292,7 +268,7 @@ module type TIRC = sig
 
     (********************** Manipulating component structure *********************)
     and _component_expr = 
-        | VarCExpr of variable  
+        | VarCExpr of component_variable  
         (* functor or X(1) *)
         | AppCExpr of component_expr * component_expr 
         | UnboxCExpr of expr
@@ -306,9 +282,12 @@ module type TIRC = sig
 
     (****** BEGIN EDIT BY HUMAN*****)
     val dual : session_type -> session_type
-    val free_vars_stmt : Variable.Set.t -> stmt -> Variable.Set.t * variable list
-    val  timers_of_headers : constraint_header list -> variable list
+    val free_vars_stmt : Variable.Set.t -> stmt -> Variable.Set.t * expr_variable list
+    val  timers_of_headers : constraint_header list -> expr_variable list
 end
+
+
+
 
 module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t = V.t)  = struct
     module Variable = V 
@@ -318,7 +297,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     (* TODO clean AST *)
 
     type ident = string (*TODO remove ident if not used *) 
-    and variable = Variable.t
+    and expr_variable = Variable.t
+    and type_variable = Atom.atom
+    and component_variable = Atom.atom
     and _comments =
         | BlockComment of string
         | DocComment of string
@@ -349,7 +330,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         (*| TSession of session_type * variable*)
         | TArrow of main_type * main_type
 
-        | TVar of variable
+        | TVar of type_variable
         | TFlatType of flat_type
 
         | TArray of main_type 
@@ -372,17 +353,17 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     and _session_type =  
         | STEnd 
-        | STVar of variable * applied_constraint option  (** x *) 
+        | STVar of type_variable
         | STSend of main_type * session_type
         | STRecv of main_type * session_type
-        | STBranch of (variable * session_type * applied_constraint option) list            
-        | STSelect of (variable * session_type *  applied_constraint option) list               
-        | STRec of variable * session_type (* X * type*) 
-        | STInline of variable (* syntaxic suggar in order to inline an existing session type definition*)
+        | STBranch of (type_variable * session_type * applied_constraint option) list            
+        | STSelect of (type_variable * session_type *  applied_constraint option) list               
+        | STRec of type_variable * session_type (* X * type*) 
+        | STInline of type_variable (* syntaxic suggar in order to inline an existing session type definition*)
     and session_type = _session_type placed
 
     and _component_type =
-        | CompTUid of variable 
+        | CompTUid of component_variable 
     and component_type = _component_type placed
 
     and _main_type = 
@@ -397,10 +378,10 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     (******************************** Constraints ********************************)
     and _constraint_header =      
-        | UseGlobal of main_type * variable 
-        | UseMetadata of main_type * variable
-        | SetTimer of variable
-        | SetFireTimer of variable * int (* specify timeout delay *)
+        | UseGlobal of main_type * expr_variable 
+        | UseMetadata of main_type * expr_variable
+        | SetTimer of expr_variable
+        | SetFireTimer of expr_variable * int (* specify timeout delay *)
     and constraint_header = _constraint_header placed
 
     and _constraints = _expr (* for now, maybe we will need to restrict a bit for SMT solving*)
@@ -412,7 +393,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     and _place = unit 
     and place = _place placed
     and vplace = { 
-        name:           variable;
+        name:           component_variable;
         nbr_instances:  expr;
         features:     (string, string) Hashtbl.t;[@opaque]
         children:       vplace list
@@ -441,8 +422,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
         (** Message-passing *)
         | Bridge of {
-            id: variable; 
-            protocol_name: variable;
+            id: component_variable; 
+            protocol_name: component_variable;
         }
     and literal = _literal placed
 
@@ -490,11 +471,11 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | Dict
 
     and _expr = 
-        | VarExpr of variable 
+        | VarExpr of expr_variable 
 
         | AccessExpr of expr * expr (*e1.e2*)
         | BinopExpr of expr * binop * expr 
-        | LambdaExpr of variable * main_type * stmt 
+        | LambdaExpr of expr_variable * main_type * stmt 
         | LitExpr of literal
         | UnopExpr of unop * expr 
 
@@ -525,9 +506,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | EmptyStmt
 
         (** Binders *)
-        | AssignExpr of variable * expr
-        | AssignThisExpr of variable * expr
-        | LetExpr of main_type * variable * expr
+        | AssignExpr of expr_variable * expr
+        | AssignThisExpr of component_variable * expr
+        | LetExpr of main_type * expr_variable * expr
 
         (** Comments *)
         | CommentsStmt of comments
@@ -536,7 +517,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | BreakStmt
         | ContinueStmt
         | ExitStmt of int
-        | ForStmt of main_type * variable * expr * stmt
+        | ForStmt of main_type * expr_variable * expr * stmt
         | IfStmt of expr * stmt * stmt option
         | MatchStmt of expr * (expr * stmt) list
         | ReturnStmt of expr
@@ -548,12 +529,12 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | GhostStmt of stmt
     and stmt = _stmt placed
 
-    and _param = main_type * variable
+    and _param = main_type * expr_variable
     and param = _param placed
 
     (******************************** Component **********************************)
     and _port = {
-        name: variable;
+        name: component_variable;
         input: expr;
         expecting_st: main_type;
         callback: expr
@@ -562,8 +543,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     (******************************** Contracts **********************************)
     and _contract = { (* TODO GADT *)
-        method_name: variable;
-        pre_binders: (main_type * variable * expr) list; 
+        method_name: component_variable;
+        pre_binders: (main_type * expr_variable * expr) list; 
         ensures: expr option;
         returns: expr option;
     }
@@ -572,7 +553,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     (********************** Manipulating component structure *********************)
     and _component_expr = 
-        | VarCExpr of variable  
+        | VarCExpr of component_variable  
         (* functor or X(1) *)
         | AppCExpr of component_expr * component_expr 
         | UnboxCExpr of expr
@@ -600,7 +581,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     let rec free_variable_place free_variable_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
         free_variable_value place value
 
-    let rec free_vars_expr_ (already_binded:Variable.Set.t) place : _expr -> Variable.Set.t * variable list = function 
+    let rec free_vars_expr_ (already_binded:Variable.Set.t) place : _expr -> Variable.Set.t * expr_variable list = function 
     | LambdaExpr (x, mt, stmt) ->
         already_binded, snd (free_vars_stmt (Variable.Set.add x already_binded) stmt)
     | VarExpr x when Variable.Set.find_opt x already_binded <> None  -> already_binded, [] 
@@ -623,9 +604,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) fvars es
     | BlockExpr (_, es) | Spawn {args=es} -> 
         already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) [] es
-    and free_vars_expr (already_binded:Variable.Set.t) expr : Variable.Set.t * variable list = free_variable_place (free_vars_expr_ already_binded) expr
+    and free_vars_expr (already_binded:Variable.Set.t) expr : Variable.Set.t * expr_variable list = free_variable_place (free_vars_expr_ already_binded) expr
 
-    and free_vars_stmt_ (already_binded:Variable.Set.t) place : _stmt -> Variable.Set.t * variable list = function 
+    and free_vars_stmt_ (already_binded:Variable.Set.t) place : _stmt -> Variable.Set.t * expr_variable list = function 
     | EmptyStmt -> already_binded, []
     | AssignExpr (x, e) ->
         free_vars_expr already_binded e
@@ -664,7 +645,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let _, fvars = free_vars_expr already_binded e in
         already_binded, fvars
 
-    and free_vars_stmt (already_binded:Variable.Set.t) stmt : Variable.Set.t * variable list = free_variable_place (free_vars_stmt_ already_binded) stmt
+    and free_vars_stmt (already_binded:Variable.Set.t) stmt : Variable.Set.t * expr_variable list = free_variable_place (free_vars_stmt_ already_binded) stmt
 
     let rec timers_of_headers = function
         | [] -> []

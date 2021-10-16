@@ -21,7 +21,7 @@ let fst3 (x,y,z) = x
     Since each new binder create an unique variable, a variable is exactly binded once with a type other with its identity changes
 *)
 
-type gamma_t = (IR.variable, IR.main_type) Hashtbl.t
+type gamma_t = (IR.expr_variable, IR.main_type) Hashtbl.t
 let gamma = Hashtbl.create 64 
 
 let register_gamma x t = Hashtbl.add gamma x t 
@@ -36,11 +36,11 @@ module Env = Map.Make(String)
 
 (*********** Entity level environment - each entity create its own ************)
 type entity_env = {
-    components:     IR.variable Env.t; 
-    exprs:          IR.variable  Env.t; 
+    components:     IR.component_variable Env.t; 
+    exprs:          IR.expr_variable  Env.t; 
     instanciations: bool  Env.t; 
-    this:           IR.variable  Env.t; 
-    types:          IR.variable  Env.t} [@@deriving fields] 
+    this:           IR.component_variable  Env.t; 
+    types:          IR.type_variable  Env.t} [@@deriving fields] 
 
 let fresh_entity_env () = {
     components              = Env.empty;
@@ -377,13 +377,9 @@ and cook_session_type env place: S._session_type -> env * T._session_type = func
         | S.STRecv _ -> T.STRecv (mt, st) 
         | S.STSend _ -> T.STSend (mt, st)
     )
-| S.STVar (x, aconst_opt) -> begin
+| S.STVar x  -> begin
     let y = cook_var_type env place x in
-    match aconst_opt with
-    | None -> env, T.STVar (y, None)
-    | Some aconst -> 
-        let new_env, aconst = caconst env aconst in
-        new_env, T.STVar (y, Some aconst)
+    env, T.STVar y
 end
 | S.STRec (x, st) -> begin
     let _env, y = bind_type env place x in  
