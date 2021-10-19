@@ -560,4 +560,85 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | STRecv ({value=ConstrainedType (_, (guard_headers, _))}, st) | STSend ({value=ConstrainedType (_, (guard_headers, _))}, st) -> 
         (timers_of_headers guard_headers) @ (timers_of_st st)
     and timers_of_st st = timers_of_st_ st.value
+
+    let rec replace_type_place (replace_type_value : Error.place -> 'a -> 'a) ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
+        let value = replace_type_value place value in
+        {AstUtils.place; AstUtils.value}
+
+    let rec _replace_type_composed_type x_to_replace ((replaceby_x_opt, _)as replaceby) place : _composed_type -> _composed_type = function
+        | TActivationInfo mt -> TActivationInfo (replace_type_main_type x_to_replace replaceby mt) 
+        | TArrow (mt1, mt2) -> TArrow (
+            replace_type_main_type x_to_replace replaceby mt1,
+            replace_type_main_type x_to_replace replaceby mt2
+        ) 
+        | TVar x when x = x_to_replace && replaceby_x_opt <> None -> TVar (Option.get replaceby_x_opt)
+        | (TVar _ as t) | (TBridge _ as t) | (TRaw _ as t) | (TFlatType _ as t) -> t
+        | TArray mt -> TArray (replace_type_main_type x_to_replace replaceby mt)  
+        | TDict (mt1, mt2) -> TDict (
+            replace_type_main_type x_to_replace replaceby mt1,
+            replace_type_main_type x_to_replace replaceby mt2
+        ) 
+        | TList mt -> TList (replace_type_main_type x_to_replace replaceby mt) 
+        | TOption mt -> TOption (replace_type_main_type x_to_replace replaceby mt)
+        | TResult (mt1, mt2) -> TResult (
+            replace_type_main_type x_to_replace replaceby mt1,
+            replace_type_main_type x_to_replace replaceby mt2
+        ) 
+        | TSet mt -> TSet (replace_type_main_type x_to_replace replaceby mt)
+        | TTuple mts -> TTuple (
+            List.map (
+                replace_type_main_type x_to_replace replaceby
+            ) mts
+        ) 
+        | TVPlace mt -> TVPlace (replace_type_main_type x_to_replace replaceby mt)
+        | TUnion (mt1, mt2) -> TUnion (
+            replace_type_main_type x_to_replace replaceby mt1,
+            replace_type_main_type x_to_replace replaceby mt2
+        ) 
+    and replace_type_composed_type x_to_replace replaceby = replace_type_place (_replace_type_composed_type x_to_replace replaceby)
+    
+    and _replace_type_session_type x_to_replace ((replaceby_x_opt, _)as replaceby) place = function
+    | STEnd -> STEnd 
+    | STVar x when x = x_to_replace && replaceby_x_opt <> None -> STVar (Option.get replaceby_x_opt) 
+    | STVar x -> STVar x 
+    | STSend (mt, st) -> STSend (
+        replace_type_main_type x_to_replace replaceby mt,
+        replace_type_session_type x_to_replace replaceby st
+    ) 
+    | STRecv (mt, st) -> STRecv (
+        replace_type_main_type x_to_replace replaceby mt,
+        replace_type_session_type x_to_replace replaceby st
+    ) 
+    | STBranch branches -> STBranch (
+        List.map (function (l, st, guard_opt) ->
+            l,
+            replace_type_session_type x_to_replace replaceby st,
+            guard_opt (*Not rewrite here for now TODO*)
+        ) branches
+    )            
+    | STSelect branches -> STSelect (
+        List.map (function (l, st, guard_opt) ->
+            l,
+            replace_type_session_type x_to_replace replaceby st,
+            guard_opt
+        ) branches
+    )               
+
+    | STRec (x, st) when x = x_to_replace && replaceby_x_opt <> None -> STRec (
+        Option.get replaceby_x_opt,
+        replace_type_session_type x_to_replace replaceby st
+    ) 
+    | STRec (x, st) -> STRec (
+        x,
+        replace_type_session_type x_to_replace replaceby st
+    ) 
+    | STInline x -> STInline x 
+    and replace_type_session_type x_to_replace replaceby = replace_type_place (_replace_type_session_type x_to_replace replaceby)
+
+    and _replace_type_main_type (x_to_replace:type_variable) ((replaceby_x, replaceby_e_opt)as replaceby) place = function
+    | CType {value=TVar x} when x = x_to_replace && replaceby_e_opt <> None -> 
+        Option.get replaceby_e_opt
+    | CType ct -> CType (replace_type_composed_type x_to_replace replaceby ct)
+    | SType st -> SType (replace_type_session_type x_to_replace replaceby st) 
+    and replace_type_main_type (x_to_replace:type_variable) (replaceby:type_variable option * _main_type option) = replace_type_place (_replace_type_main_type x_to_replace replaceby)
 end
