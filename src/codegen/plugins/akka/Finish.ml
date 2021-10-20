@@ -360,10 +360,10 @@ and fliteral lit : T.literal = finish_place finish_literal lit
 
 (************************************ Expr & Stmt *****************************)
 
-and finish_expr place : S._expr -> T._expr =
+and finish_expr place (e, _): T._expr =
 let fplace = place@(Error.forge_place "Plg=Akka/finish_expr" 0 0) in
 let auto_place smth = {place = fplace; value=smth} in
-function
+match e with
     | S.VarExpr x -> T.VarExpr x
     | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
     | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
@@ -384,13 +384,13 @@ function
 
     | S.CallExpr (e1, es) -> begin 
         match e1.value with 
-        | S.VarExpr x when Atom.is_builtin x ->
+        | S.VarExpr x,_ when Atom.is_builtin x ->
             Encode.encode_builtin_fct e1.place (Atom.value x) (List.map fexpr es)
         | _ -> T.CallExpr (fexpr e1, List.map fexpr es)
     end
     | S.NewExpr (e1, es) -> begin 
         match e1.value with 
-        | S.VarExpr x when Atom.is_builtin x ->
+        | S.VarExpr x,_ when Atom.is_builtin x ->
             Encode.encode_builtin_fct e1.place (Atom.value x) (List.map fexpr es)
         | _ -> T.NewExpr (fexpr e1, List.map fexpr es)
     end
@@ -524,7 +524,7 @@ and finish_stmt place : S._stmt -> T._stmt = function
     | S.ReturnStmt e -> T.ReturnStmt (fexpr e) 
 
     (*S.*type name, type definition*)
-    | S.ExpressionStmt {value=S.CallExpr({value=S.VarExpr x}, args)} when Atom.is_builtin x && Encode.is_stmt_builtin (Atom.hint x) -> 
+    | S.ExpressionStmt {value=S.CallExpr({value=S.VarExpr x, _}, args), _} when Atom.is_builtin x && Encode.is_stmt_builtin (Atom.hint x) -> 
         Encode.encode_builtin_fct_as_stmt place (Atom.value x) (List.map fexpr args)
     | S.ExpressionStmt e -> T.ExpressionStmt (fexpr e) 
     | S.BlockStmt stmts -> T.BlockStmt (List.map fstmt stmts)

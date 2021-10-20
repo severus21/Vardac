@@ -33,101 +33,102 @@ module Make (Args : Params ) : Sig = struct
             =>
             [ "fresh_name = s.recv(...)"], "f(fresh_name)"
         *)
-        let rec extract_recvs place : _expr -> stmt list * expr = 
-        let auto_place smth = {place = place; value=smth} in
-        let auto_fplace smth = {place = fplace; value=smth} in
-        function
-        | (CallExpr ({value=VarExpr x}, [s; bridge]) as e) when Atom.is_builtin x && Atom.hint x = "receive" ->
-            logger#warning ">>>> extract_recvs -> detect receive";
-            let tmp = Atom.fresh "tmp_receive" in
-            let recv = auto_place e in 
-            let e = auto_fplace (VarExpr tmp) in
-            (* TODO FIXME Need type annotations at this point *)
-            [
-                auto_fplace (LetExpr (
-                    auto_fplace (CType (auto_fplace(TVar (Atom.fresh_builtin "TODDO")))),
-                    tmp, 
-                    recv)
-                );
-            ], e
-        (* Classical expr *)
-        | VarExpr _ as e -> [], auto_place e
-        | AccessExpr (e1, e2) ->
-            let stmts1, e1 = extract_recvs e1.place e1.value in
-            let stmts2, e2 = extract_recvs e2.place e2.value in
-            stmts1@stmts2, auto_fplace (AccessExpr (e1, e2))
-        | BinopExpr (e1, op, e2) ->
-            let stmts1, e1 = extract_recvs e1.place e1.value in
-            let stmts2, e2 = extract_recvs e2.place e2.value in
-            stmts1@stmts2, auto_fplace (BinopExpr (e1, op, e2))
-        | (CallExpr (e1, es) as e) | (NewExpr (e1, es) as e)->
-            let stmts1, e1 = extract_recvs e1.place e1.value in
-            let stmtses = List.map (function e -> extract_recvs e.place e.value) es in
-            let stmts_n = List.map fst stmtses in
-            let es_n = List.map snd stmtses in
+        let rec extract_recvs place (e, mt_e) : stmt list * expr = 
+            let auto_place smth = {place = place; value=smth} in
+            let auto_fplace smth = {place = fplace; value=smth} in
 
-            stmts1 @ (List.flatten stmts_n),
-            auto_fplace (match e with
-                | CallExpr _ -> CallExpr (e1, es_n)
-                | NewExpr _ -> NewExpr (e1, es_n)
-            )
-        | (LambdaExpr _ as e) | (LitExpr _ as e) | (This as e) -> (* Interaction primtives are forbidden in LambdaExpr *)
-            [], auto_place e
-        | UnopExpr (op, e) -> 
-            let stmts, e = extract_recvs e.place e.value in
-            stmts, auto_fplace (UnopExpr(op, e))
-        | Spawn sp -> begin
-            let opt = Option.map (function e -> extract_recvs e.place e.value) sp.at in
-            let stmtses = List.map (function e -> extract_recvs e.place e.value) sp.args in
-            let stmts_n = List.flatten (List.map fst stmtses) in
-            let es_n = List.map snd stmtses in
-            
-            match opt with
-            | None -> stmts_n, auto_fplace (Spawn {
-                sp with args = es_n
-            })
-            | Some (stmts, e) -> stmts_n@stmts, auto_fplace (Spawn {
-                sp with 
-                    args = es_n;
-                    at = Some e;
-            })
-        end
-        | OptionExpr None as e -> [], auto_place e
-        | OptionExpr Some e->
-            let stmts, e = extract_recvs e.place e.value in
-            stmts, auto_fplace (OptionExpr(Some e))
-        | ResultExpr (None, None) as e -> [], auto_place e
-        | ResultExpr (Some e, None) ->
-            let stmts, e = extract_recvs e.place e.value in
-            stmts, auto_fplace (ResultExpr(Some e, None))
-        | ResultExpr (None, Some e) ->
-            let stmts, e = extract_recvs e.place e.value in
-            stmts, auto_fplace (ResultExpr(None, Some e))
-        | ResultExpr (Some e1, Some e2) ->
-            let stmts1, e1 = extract_recvs e1.place e1.value in
-            let stmts2, e2 = extract_recvs e2.place e2.value in
-            stmts1@stmts2, auto_fplace (ResultExpr(Some e1, Some e2))
-        | BlockExpr (b, es) ->
-            let stmtses = List.map (function e -> extract_recvs e.place e.value) es in
-            let stmts_n = List.flatten (List.map fst stmtses) in
-            let es_n = List.map snd stmtses in
-            stmts_n, auto_fplace (BlockExpr (b, es_n))
-        | Block2Expr (b, ees) ->
-            let stmtses = List.map (function (e1, e2) -> 
-                extract_recvs e1.place e1.value, 
-                extract_recvs e2.place e2.value 
-            ) ees in
-            let stmts_n = List.flatten (List.map (function (a,b) -> fst a @ fst b) stmtses) in
-            let ees_n = List.map  (function (a,b) -> snd a, snd b) stmtses in
-            stmts_n, auto_fplace (Block2Expr (b, ees_n))
-        in
+            match e with  
+            | (CallExpr ({value=(VarExpr x, _)}, [s; bridge])as e) when Atom.is_builtin x && Atom.hint x = "receive" ->
+                logger#warning ">>>> extract_recvs -> detect receive";
+                let tmp = Atom.fresh "tmp_receive" in
+                let recv = auto_place (e, mt_e) in 
+                let e = auto_fplace (VarExpr tmp, auto_place EmptyMainType) in
+                (* TODO FIXME Need type annotations at this point *)
+                [
+                    auto_fplace (LetExpr (
+                        auto_fplace (CType (auto_fplace(TVar (Atom.fresh_builtin "TODDO")))),
+                        tmp, 
+                        recv)
+                    );
+                ], e
+            (* Classical expr *)
+            | VarExpr _ -> [], auto_place (e,mt_e)
+            | AccessExpr (e1, e2) ->
+                let stmts1, e1 = extract_recvs e1.place e1.value in
+                let stmts2, e2 = extract_recvs e2.place e2.value in
+                stmts1@stmts2, auto_fplace (AccessExpr (e1, e2), mt_e)
+            | BinopExpr (e1, op, e2) ->
+                let stmts1, e1 = extract_recvs e1.place e1.value in
+                let stmts2, e2 = extract_recvs e2.place e2.value in
+                stmts1@stmts2, auto_fplace (BinopExpr (e1, op, e2), mt_e)
+            | (CallExpr (e1, es) as e) | (NewExpr (e1, es) as e)->
+                let stmts1, e1 = extract_recvs e1.place e1.value in
+                let stmtses = List.map (function e -> extract_recvs e.place e.value) es in
+                let stmts_n = List.map fst stmtses in
+                let es_n = List.map snd stmtses in
+
+                stmts1 @ (List.flatten stmts_n),
+                auto_fplace ((match e with
+                    | CallExpr _ -> CallExpr (e1, es_n)
+                    | NewExpr _ -> NewExpr (e1, es_n)
+                ), mt_e)
+            | (LambdaExpr _ as e) | (LitExpr _ as e) | (This as e) -> (* Interaction primtives are forbidden in LambdaExpr *)
+                [], auto_place (e, mt_e)
+            | UnopExpr (op, e) -> 
+                let stmts, e = extract_recvs e.place e.value in
+                stmts, auto_fplace (UnopExpr(op, e), mt_e)
+            | Spawn sp -> begin
+                let opt = Option.map (function e -> extract_recvs e.place e.value) sp.at in
+                let stmtses = List.map (function e -> extract_recvs e.place e.value) sp.args in
+                let stmts_n = List.flatten (List.map fst stmtses) in
+                let es_n = List.map snd stmtses in
+                
+                match opt with
+                | None -> stmts_n, auto_fplace (Spawn {
+                    sp with args = es_n
+                }, mt_e)
+                | Some (stmts, e) -> stmts_n@stmts, auto_fplace (Spawn {
+                    sp with 
+                        args = es_n;
+                        at = Some e;
+                }, mt_e)
+            end
+            | OptionExpr None as e -> [], auto_place (e, mt_e)
+            | OptionExpr Some e->
+                let stmts, e = extract_recvs e.place e.value in
+                stmts, auto_fplace (OptionExpr(Some e), mt_e)
+            | ResultExpr (None, None) as e -> [], auto_place (e, mt_e)
+            | ResultExpr (Some e, None) ->
+                let stmts, e = extract_recvs e.place e.value in
+                stmts, auto_fplace (ResultExpr(Some e, None), mt_e)
+            | ResultExpr (None, Some e) ->
+                let stmts, e = extract_recvs e.place e.value in
+                stmts, auto_fplace (ResultExpr(None, Some e), mt_e)
+            | ResultExpr (Some e1, Some e2) ->
+                let stmts1, e1 = extract_recvs e1.place e1.value in
+                let stmts2, e2 = extract_recvs e2.place e2.value in
+                stmts1@stmts2, auto_fplace (ResultExpr(Some e1, Some e2), mt_e)
+            | BlockExpr (b, es) ->
+                let stmtses = List.map (function e -> extract_recvs e.place e.value) es in
+                let stmts_n = List.flatten (List.map fst stmtses) in
+                let es_n = List.map snd stmtses in
+                stmts_n, auto_fplace (BlockExpr (b, es_n), mt_e)
+            | Block2Expr (b, ees) ->
+                let stmtses = List.map (function (e1, e2) -> 
+                    extract_recvs e1.place e1.value, 
+                    extract_recvs e2.place e2.value 
+                ) ees in
+                let stmts_n = List.flatten (List.map (function (a,b) -> fst a @ fst b) stmtses) in
+                let ees_n = List.map  (function (a,b) -> snd a, snd b) stmtses in
+                stmts_n, auto_fplace (Block2Expr (b, ees_n), mt_e)
+            in
 
         (* rcev -> toplevel let or toplevel expression statement (return etc ...)*)
         let rec to_X_form place : _stmt -> stmt list =
         let auto_place smth = {place = place; value=smth} in
         let auto_fplace smth = {place = fplace; value=smth} in
         function
-        | LetExpr (_, _, {value=CallExpr ({value=VarExpr x}, [s; bridge]) as e}) as stmt  when Atom.is_builtin x && Atom.hint x = "receive" ->
+        | LetExpr (_, _, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e}) as stmt  when Atom.is_builtin x && Atom.hint x = "receive" ->
             logger#warning ">>>> to_X_form -> detect receive";
             [ auto_place stmt ]
 
@@ -215,7 +216,7 @@ module Make (Args : Params ) : Sig = struct
                         body = acc_method.body @ (List.rev acc_stmts)
                 }
             ]
-        | {place; value=LetExpr ({value=CType{value=TTuple [msg_t;{value = SType continuation_st}]}}, let_x, {value=CallExpr ({value=VarExpr x}, [s; bridge]) as e})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
+        | {place; value=LetExpr ({value=CType{value=TTuple [msg_t;{value = SType continuation_st}]}}, let_x, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
         (*
             N.B. We use extacly one [s] in the final AST when storing the intermediate arguments
         *)
@@ -230,9 +231,15 @@ module Make (Args : Params ) : Sig = struct
                 input = bridge;
                 expecting_st = auto_fplace (SType( auto_fplace (STRecv (msg_t, continuation_st)))); (* TODO need type annotation to support more cases *)
                 callback = auto_fplace (AccessExpr (
-                    auto_fplace This, 
-                    auto_fplace (VarExpr intermediate_method_name)
-                ));
+                    auto_fplace (
+                        This, 
+                        auto_fplace EmptyMainType
+                    ), 
+                    auto_fplace (
+                        VarExpr intermediate_method_name, 
+                        auto_fplace EmptyMainType
+                    )
+                ), auto_fplace EmptyMainType);
             } in
             
             let tmp_event = Atom.fresh_builtin "e" in
@@ -296,8 +303,8 @@ module Make (Args : Params ) : Sig = struct
             let ctype_intermediate_args = auto_fplace (CType (auto_fplace (TTuple (List.map (function arg -> fst arg.value) intermediate_args)))) in
             let tuple_intermediate_args = auto_fplace (BlockExpr (
                 Tuple, 
-                List.map (function arg -> auto_fplace (VarExpr (snd arg.value))) intermediate_args
-            )) in
+                List.map (function arg -> auto_fplace ((VarExpr (snd arg.value), auto_fplace EmptyMainType))) intermediate_args
+            ), ctype_intermediate_args) in
 
             match intermediate_args with
             |[] ->
@@ -310,37 +317,48 @@ module Make (Args : Params ) : Sig = struct
 
                 let intermediate_state_name = Atom.fresh ((Atom.hint m.name)^"_intermediate_state") in
                 (* use to store args between acc_methd and intermediate_method*)
+                let intermediate_state_type = 
+                    auto_fplace(CType(auto_fplace(TDict(
+                        auto_fplace(CType (auto_fplace(TFlatType(TUUID)))), (*session id*)
+                        ctype_intermediate_args)) 
+                    ))
+                in
                 let intermediate_state = auto_fplace (StateDcl {
                     ghost = false;
-                    type0 = auto_fplace(CType (auto_fplace(TDict(
-                        auto_fplace(CType (auto_fplace(TFlatType(TUUID)))), (*session id*)
-                        ctype_intermediate_args
-                    ))));
+                    type0 = intermediate_state_type;
                     name = intermediate_state_name;
-                    body =  Some (auto_fplace (CallExpr (
-                        auto_place (VarExpr (Atom.fresh_builtin "dict")), [])))
+                    body =  Some (auto_fplace (
+                        CallExpr (
+                            auto_place (
+                                VarExpr (Atom.fresh_builtin "dict"), auto_place EmptyMainType
+                            ), 
+                            []
+                        ),
+                        intermediate_state_type
+                    ))
                 }) in
 
                 let m1 = { m1 with 
                     body = m1.body @ [
                         (* Store args in state TODO add cleansing when timeout *)
                         auto_fplace (ExpressionStmt (auto_fplace(CallExpr(
-                            auto_fplace(VarExpr (Atom.fresh_builtin "add2dict")),
+                            auto_fplace(VarExpr (Atom.fresh_builtin "add2dict"), auto_fplace EmptyMainType),
                             [
                                 auto_fplace(AccessExpr(
-                                    auto_fplace This,
-                                    auto_fplace (VarExpr intermediate_state_name)
-                                ));
+                                    auto_fplace( This, auto_fplace EmptyMainType),
+                                    auto_fplace (VarExpr intermediate_state_name, auto_fplace EmptyMainType)
+                                ), auto_fplace EmptyMainType);
                                 auto_fplace(CallExpr(
-                                    auto_fplace(VarExpr (Atom.fresh_builtin "sessionid")),
+                                    auto_fplace(VarExpr (Atom.fresh_builtin "sessionid"), auto_fplace EmptyMainType),
                                     [ match s1_opt with
                                         | Some session -> session (* when we are in the first method of the list*)
-                                        | None -> auto_fplace (VarExpr tmp_session) (* for all the intermediate (and last) methods *) 
+                                        | None -> auto_fplace (VarExpr tmp_session, auto_fplace EmptyMainType) (* for all the intermediate (and last) methods *) 
                                     ]
-                                ));
+                                ), auto_fplace EmptyMainType);
                                 tuple_intermediate_args;
                             ]
-                        ))))
+                        ), auto_fplace EmptyMainType
+                        )))
                     ]
                 } in
 
@@ -358,38 +376,38 @@ module Make (Args : Params ) : Sig = struct
                                     auto_fplace(BlockExpr(
                                         Tuple,
                                         [
-                                            auto_fplace (VarExpr tmp_event);
-                                            auto_fplace (VarExpr tmp_session)
+                                            auto_fplace (VarExpr tmp_event, auto_fplace EmptyMainType);
+                                            auto_fplace (VarExpr tmp_session, auto_fplace EmptyMainType)
                                         ]
-                                    ))
+                                    ), auto_fplace EmptyMainType)
                                 ))
                             ]
                         end
                     )@
                     [
                         auto_fplace (LetExpr (ctype_intermediate_args, tmp_args, (auto_fplace(CallExpr(
-                            auto_fplace(VarExpr (Atom.fresh_builtin "remove2dict")),
+                            auto_fplace(VarExpr (Atom.fresh_builtin "remove2dict"), auto_fplace EmptyMainType),
                             [
                                 auto_fplace(AccessExpr(
-                                    auto_fplace This,
-                                    auto_fplace (VarExpr intermediate_state_name)
-                                ));
+                                    auto_fplace (This, auto_fplace EmptyMainType),
+                                    auto_fplace (VarExpr intermediate_state_name, auto_fplace EmptyMainType)
+                                ), auto_fplace EmptyMainType);
                                 auto_fplace(CallExpr(
-                                    auto_fplace(VarExpr (Atom.fresh_builtin "sessionid")),
-                                    [ auto_fplace (VarExpr tmp_session) ]
-                                ));
+                                    auto_fplace(VarExpr (Atom.fresh_builtin "sessionid"), auto_fplace EmptyMainType),
+                                    [ auto_fplace (VarExpr tmp_session, auto_fplace EmptyMainType) ]
+                                ), auto_fplace EmptyMainType);
                             ]
-                        )))));
+                        ), auto_fplace EmptyMainType))));
                     ] @ (
                         List.mapi (fun i {value=(mt, x)} ->
                             auto_fplace (LetExpr (mt, x, 
                                 auto_fplace( CallExpr(
-                                    auto_fplace (VarExpr (Atom.fresh_builtin "nth")),
+                                    auto_fplace (VarExpr (Atom.fresh_builtin "nth"), auto_fplace EmptyMainType),
                                     [ 
-                                        auto_fplace (LitExpr (auto_fplace (IntLit i)));
-                                        auto_fplace (VarExpr tmp_args) 
+                                        auto_fplace (LitExpr (auto_fplace (IntLit i)), auto_fplace EmptyMainType);
+                                        auto_fplace (VarExpr tmp_args, auto_fplace EmptyMainType) 
                                     ]
-                                ))
+                                ), auto_fplace EmptyMainType)
                             )) 
                         ) intermediate_args
                     )
@@ -463,7 +481,7 @@ module Make (Args : Params ) : Sig = struct
                         ))))
             ))));
             name = a_intermediate_states;
-            body = Some (auto_fplace(BlockExpr(List, [])))
+            body = Some (auto_fplace(BlockExpr(List, []), auto_fplace EmptyMainType))
         }))) in
         let body = body @ [intermediate_states_index] in 
 

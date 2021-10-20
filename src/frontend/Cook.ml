@@ -460,88 +460,95 @@ and cliteral env lit: env * T.literal = cook_place cook_literal env lit
 (*
  bool parameter - create_instance_flag
 *)
-and cook_expr env place : S._expr -> env * T._expr = function 
-(* No binding done in an expression can be propagated outside this expression *)
-| S.VarExpr x -> (env, T.VarExpr (cook_var_expr env place x))
-| S.AccessExpr ({place=p_t; value=S.This}, {place=p_v; value=S.VarExpr v}) -> env, T.AccessExpr (
-    {place=p_t; value=T.This},
-    {place=p_v; value= T.VarExpr (cook_var_this env p_v v)}) 
-| S.AccessExpr ({place=_; value=S.This}, _) -> error place "Illformed [this] usage: should be this.<state_name/method_name>"
-| S.AccessExpr (e1, e2) -> 
-    let env1, e1 = cexpr env e1 in
-    let env2, e2 = cexpr env e2 in
-    env << [env1; env2], T.AccessExpr (e1, e2)
-| S.BinopExpr (e1, op, e2) ->
-    let env1, e1 = cexpr env e1 in
-    let env2, e2 = cexpr env e2 in
-    
-    env << [env1; env2], T.BinopExpr (e1, op, e2) 
-| S.LambdaExpr (x, mt, stmt) -> 
-    let inner_env, y = bind_expr env place x in 
-    let env2, stmt = cstmt inner_env stmt in 
-    let env3, mt = cmtype env mt in
+and cook_expr env place e : env * (T._expr * T.main_type) = 
+    let fplace = (Error.forge_place "Frontend.Cook.cook_expr" 0 0) in
+    let auto_place smth = {place = place; value=smth} in
+    let auto_fplace smth = {place = fplace; value=smth} in
+    let env, e =
+        match e with 
+        (* No binding done in an expression can be propagated outside this expression *)
+        | S.VarExpr x -> (env, T.VarExpr (cook_var_expr env place x))
+        | S.AccessExpr ({place=p_t; value=S.This}, {place=p_v; value=S.VarExpr v}) -> env, T.AccessExpr (
+            {place=p_t; value=T.This, auto_fplace T.EmptyMainType},
+            {place=p_v; value= T.VarExpr (cook_var_this env p_v v), auto_fplace T.EmptyMainType}) 
+        | S.AccessExpr ({place=_; value=S.This}, _) -> error place "Illformed [this] usage: should be this.<state_name/method_name>"
+        | S.AccessExpr (e1, e2) -> 
+            let env1, e1 = cexpr env e1 in
+            let env2, e2 = cexpr env e2 in
+            env << [env1; env2], T.AccessExpr (e1, e2)
+        | S.BinopExpr (e1, op, e2) ->
+            let env1, e1 = cexpr env e1 in
+            let env2, e2 = cexpr env e2 in
+            
+            env << [env1; env2], T.BinopExpr (e1, op, e2) 
+        | S.LambdaExpr (x, mt, stmt) -> 
+            let inner_env, y = bind_expr env place x in 
+            let env2, stmt = cstmt inner_env stmt in 
+            let env3, mt = cmtype env mt in
 
-    register_gamma y mt;
+            register_gamma y mt;
 
-    env << [env2; env3], T.LambdaExpr (y, mt, stmt)
-| S.LitExpr l -> 
-    let env1, l = cliteral env l in
-    env << [env1], T.LitExpr l
-| S.UnopExpr (op, e) -> 
-    let env1, e = cexpr env e in
-    env << [env1], T.UnopExpr (op, e) 
-| S.CallExpr (e1, es) when is_instance_expr env e1 -> 
-    List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) es;
+            env << [env2; env3], T.LambdaExpr (y, mt, stmt)
+        | S.LitExpr l -> 
+            let env1, l = cliteral env l in
+            env << [env1], T.LitExpr l
+        | S.UnopExpr (op, e) -> 
+            let env1, e = cexpr env e in
+            env << [env1], T.UnopExpr (op, e) 
+        | S.CallExpr (e1, es) when is_instance_expr env e1 -> 
+            List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) es;
 
-    let env1, e1 = cexpr env e1 in
-    let envs, es = List.split (List.map (cexpr env) es) in
+            let env1, e1 = cexpr env e1 in
+            let envs, es = List.split (List.map (cexpr env) es) in
 
-    env << (env1::envs), T.NewExpr (e1, es)
-| S.CallExpr (e1, es) -> 
-    List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) es;
+            env << (env1::envs), T.NewExpr (e1, es)
+        | S.CallExpr (e1, es) -> 
+            List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) es;
 
-    let env1, e1 = cexpr env e1 in
-    let envs, es = List.split (List.map (cexpr env) es) in
+            let env1, e1 = cexpr env e1 in
+            let envs, es = List.split (List.map (cexpr env) es) in
 
-    env << (env1::envs), T.CallExpr (e1, es)
-| S.This -> env, T.This
-| S.Spawn spawn -> begin 
-    List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) spawn.args;
+            env << (env1::envs), T.CallExpr (e1, es)
+        | S.This -> env, T.This
+        | S.Spawn spawn -> begin 
+            List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) spawn.args;
 
-    let env1, c = ccexpr env spawn.c in
-    let env_args, args = List.split (List.map (cexpr env) spawn.args) in
-    match spawn.at with 
-        | None -> env << (env1::env_args), T.Spawn {c; args; at = None} 
-        | Some at -> 
-            let env_at, at = cexpr env at in
-            env << (env1::env_at::env_args), T.Spawn {c; args; at = Some at}
-end
-| S.BoxCExpr ce -> 
-    let env1, ce = ccexpr env ce in
-    env << [env1], T.BoxCExpr ce 
-| S.OptionExpr None -> env, T.OptionExpr None 
-| S.OptionExpr (Some e) -> 
-    let env1, e = cexpr env e in
-    env << [env1], T.OptionExpr (Some e) 
-| S.ResultExpr (e1_opt, e2_opt) -> begin 
-    match e1_opt, e2_opt with
-    | Some e, None ->
-        let env1, e = cexpr env e in 
-        env << [env1], T.ResultExpr (Some e, None)
-    | None, Some e ->
-        let env1, e = cexpr env e in 
-        env << [env1], T.ResultExpr (None, Some e)
-    | _, _ -> raise (Error.PlacedDeadbranchError (place,"a result must be an error or an ok"))
-end
-| S.BlockExpr (b, es) -> 
-    let envs, es = List.split (List.map (cexpr env) es) in
-    env << envs, T.BlockExpr (b, es)
-| S.Block2Expr (b, es) -> 
-    let es1, es2 = List.split es in
-    let envs1, es1 = List.split (List.map (cexpr env) es1) in
-    let envs2, es2 = List.split (List.map (cexpr env) es2) in
-    let es = List.combine es1 es2 in
-    env << (envs1@envs2), T.Block2Expr (b, es)
+            let env1, c = ccexpr env spawn.c in
+            let env_args, args = List.split (List.map (cexpr env) spawn.args) in
+            match spawn.at with 
+                | None -> env << (env1::env_args), T.Spawn {c; args; at = None} 
+                | Some at -> 
+                    let env_at, at = cexpr env at in
+                    env << (env1::env_at::env_args), T.Spawn {c; args; at = Some at}
+        end
+        | S.BoxCExpr ce -> 
+            let env1, ce = ccexpr env ce in
+            env << [env1], T.BoxCExpr ce 
+        | S.OptionExpr None -> env, T.OptionExpr None 
+        | S.OptionExpr (Some e) -> 
+            let env1, e = cexpr env e in
+            env << [env1], T.OptionExpr (Some e) 
+        | S.ResultExpr (e1_opt, e2_opt) -> begin 
+            match e1_opt, e2_opt with
+            | Some e, None ->
+                let env1, e = cexpr env e in 
+                env << [env1], T.ResultExpr (Some e, None)
+            | None, Some e ->
+                let env1, e = cexpr env e in 
+                env << [env1], T.ResultExpr (None, Some e)
+            | _, _ -> raise (Error.PlacedDeadbranchError (place,"a result must be an error or an ok"))
+        end
+        | S.BlockExpr (b, es) -> 
+            let envs, es = List.split (List.map (cexpr env) es) in
+            env << envs, T.BlockExpr (b, es)
+        | S.Block2Expr (b, es) -> 
+            let es1, es2 = List.split es in
+            let envs1, es1 = List.split (List.map (cexpr env) es1) in
+            let envs2, es2 = List.split (List.map (cexpr env) es2) in
+            let es = List.combine es1 es2 in
+            env << (envs1@envs2), T.Block2Expr (b, es)
+    in
+    env, (e, auto_fplace T.EmptyMainType)
 and cexpr env e: env * T.expr = cook_place cook_expr env e
 
 and cook_stmt env place: S._stmt -> env * T._stmt = function
@@ -673,6 +680,10 @@ and cook_param env place (mt, x) : env * T._param =
 and cparam env: S.param -> env * T.param = cook_place cook_param env
 
 and cook_contract env place (contract:S._contract): env * T._contract =
+    let fplace = (Error.forge_place "Frontend.Cook.cook_contract" 0 0) in
+    let auto_place smth = {place = place; value=smth} in
+    let auto_fplace smth = {place = fplace; value=smth} in
+
     let method_name = cook_var_this env place contract.method_name in
     let aux_binder env (mt, x, e) =
         let new_env, y = bind_expr env place x in
@@ -712,7 +723,7 @@ and cook_contract env place (contract:S._contract): env * T._contract =
         | Some _, None -> predicat_opt1
         | Some p1, Some p2 -> Some {
             place = p1.place @ p2.place;
-            value = T.BinopExpr (p1, And, p2) 
+            value = T.BinopExpr (p1, And, p2), auto_fplace T.EmptyMainType 
         }
     in
     let ensures = concat_opt invariant ensures in
@@ -860,8 +871,8 @@ and ccexpr env : S.component_expr -> env * T.component_expr = cook_place cook_co
 (************************************ Program *****************************)
 and cook_term env place : S._term -> env * T._term = 
 let fplace = (Error.forge_place "Coook.cook_term" 0 0) in
-let auto_place smth = {AstUtils.place = place; value=smth} in
-let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
+    let auto_place smth = {AstUtils.place = place; value=smth} in
+    let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
 function
 | S.Comments c -> env, T.Comments c
 | S.PPTerm _ -> raise (PlacedDeadbranchError (place, "No preprocessing term should remains when cooking the AST."))
@@ -913,7 +924,7 @@ end
             [auto_place(T.LetExpr(
                 auto_place(T.CType(auto_place(T.TVPlace(auto_place(T.CType(auto_place(T.TVar y))))))),  
                 y,
-                auto_place(T.LitExpr(auto_place(T.VPlace (Hashtbl.find places name)))) 
+                auto_place(T.LitExpr(auto_place(T.VPlace (Hashtbl.find places name))), auto_fplace T.EmptyMainType) 
             ))]
         )))
     with Not_found -> Error.error place "vplace does not exists in configuration file"

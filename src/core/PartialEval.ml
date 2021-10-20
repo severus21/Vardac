@@ -165,176 +165,188 @@ and pe_mtype env: main_type -> env * main_type = peval_place peval_mtype env
 and peval_applied_constraint env : applied_constraint -> env * applied_constraint = function x -> env, x 
 
 (************************************ Expr & Stmt *****************************)
-and is_terminal_expr : _expr -> bool = function
-| LitExpr _ -> true 
-| BlockExpr (List, items) | BlockExpr (Set, items) | BlockExpr (Tuple, items) ->
-    List.fold_left (fun flag (item:expr) -> flag && is_terminal_expr item.value) true items
-| Block2Expr (Dict, items) -> 
-    List.fold_left (fun flag ((key,value):expr*expr) -> flag && is_terminal_expr key.value && is_terminal_expr value.value) true items
-| OptionExpr None -> true
-| OptionExpr Some e -> is_terminal_expr e.value
-| ResultExpr (Some e, None) | ResultExpr (None, Some e) -> is_terminal_expr e.value 
-| ResultExpr _ -> raise (Error.DeadbranchError "Result can not be err and ok at the same nor be neither ok nor err")
+and is_terminal_expr (e, mt): bool = 
+    match e with
+    | LitExpr _ -> true 
+    | BlockExpr (List, items) | BlockExpr (Set, items) | BlockExpr (Tuple, items) ->
+        List.fold_left (fun flag (item:expr) -> flag && is_terminal_expr item.value) true items
+    | Block2Expr (Dict, items) -> 
+        List.fold_left (fun flag ((key,value):expr*expr) -> flag && is_terminal_expr key.value && is_terminal_expr value.value) true items
+    | OptionExpr None -> true
+    | OptionExpr Some e -> is_terminal_expr e.value
+    | ResultExpr (Some e, None) | ResultExpr (None, Some e) -> is_terminal_expr e.value 
+    | ResultExpr _ -> raise (Error.DeadbranchError "Result can not be err and ok at the same nor be neither ok nor err")
 
-and peval_unop env place (op: unop) (e: expr) : env * _expr =
+and peval_unop env place (op: unop) (e: expr) : env * (_expr * main_type) =
 match (op, e.value) with
-| Not, (LitExpr {value = BoolLit b; _}) -> env, LitExpr {place=e.place; value = BoolLit (not b); }
-| UnpackResult, (ResultExpr (ok_opt, err_opt) as re) -> 
-    if is_terminal_expr re then
-        env, (match (ok_opt, err_opt) with 
-        | Some e, None | None, Some e -> e.value (* TODO here we should return e.place *)
+| Not, (LitExpr {value = BoolLit b; _}, mt) -> env, (LitExpr {place=e.place; value = BoolLit (not b); }, mt)
+| UnpackResult, (ResultExpr (ok_opt, err_opt) as re, mt) -> 
+    if is_terminal_expr (re, mt) then
+        env, ((match (ok_opt, err_opt) with 
+        | Some e, None | None, Some e -> fst e.value (* TODO here we should return e.place *)
         | _ -> raise (Error.PlacedDeadbranchError (place, "Result can not be err and ok at the same neither not an err nor not an ok"))
-        )
+        ), mt)
     else
-        env, UnopExpr (op, e)
-| _ -> env, UnopExpr (op, e) 
-and peval_binop env place (e1: expr) (op: binop) (e2: expr) : env * _expr =
-match (e1.value, op, e2.value) with
-(* && shortcut*)
-| (LitExpr {value = BoolLit false; _}), And, _ | _, And, LitExpr {value = BoolLit false; _} -> env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value=BoolLit false}
-| (LitExpr {value = BoolLit true; _}), And, e | e, And, LitExpr {value = BoolLit true; _} -> env, e  
-(* || shortcut *)
-| (LitExpr {value = BoolLit true; _}), And, _ | _, And, LitExpr {value = BoolLit true; _} -> env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value=BoolLit true}
-| (LitExpr {value = BoolLit false; _}), And, e | e, And, LitExpr {value = BoolLit false; _} -> env, e  
-(* Integer computation *)
-| (LitExpr {value = IntLit i1; _}), Plus, (LitExpr {value = IntLit i2; _}) -> env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value=IntLit (i1+i2)}
-| (LitExpr {value = IntLit i1; _}), Minus, (LitExpr {value = IntLit i2; _}) -> env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value=IntLit (i1-i2)}
-| (LitExpr {value = IntLit i1; _}), Mult, (LitExpr {value = IntLit i2; _}) -> env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value=IntLit (i1*i2)}
-| (LitExpr {value = IntLit i1; _}), Divide, (LitExpr {value = IntLit i2; _}) -> 
-    if i2 = 0 then
-        Error.error place "division by zero, partial evaluation can not continue"
-    else
-    env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value=IntLit (i1/i2)}
-(* Float computation *)
-| (LitExpr {value = FloatLit f1; _}), Plus, (LitExpr {value = FloatLit f2; _}) -> env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value=FloatLit (f1+.f2)}
-| (LitExpr {value = FloatLit f1; _}), Minus, (LitExpr {value = FloatLit f2; _}) -> env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value=FloatLit (f1-.f2)}
-| (LitExpr {value = FloatLit f1; _}), Mult, (LitExpr {value = FloatLit f2; _}) -> env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value=FloatLit (f1*.f2)}
-| (LitExpr {value = FloatLit f1; _}), Divide, (LitExpr {value = FloatLit f2; _}) -> 
-    if f2 = 0. then
-        Error.error place "division by zero, partial evaluation can not continue"
-    else
-    env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value=FloatLit (f1/.f2)}
-(* Equality *)
-| (LitExpr {value = l1; _}), Equal, (LitExpr {value = l2; _}) -> 
-    env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit (l1 = l2) }
-(* Comparison *)
-| (LitExpr {value = l1; _}), GreaterThan, (LitExpr {value = l2; _}) ->
-    env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
-    match (l1, l2) with
-    | IntLit x, IntLit y -> x > y 
-    | FloatLit x, FloatLit y -> x > y 
-    | StringLit x, StringLit y -> x > y
-    | _ -> Error.error place "greater than is not implemented fot this type of literals"
-    )}
-| (LitExpr {value = l1; _}), GreaterThanEqual, (LitExpr {value = l2; _}) ->
-    env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
-    match (l1, l2) with
-    | IntLit x, IntLit y -> x >= y 
-    | FloatLit x, FloatLit y -> x >= y 
-    | StringLit x, StringLit y -> x >= y
-    | _ -> Error.error place "greater than equal is not implemented fot this type of literals"
-    )}
-| (LitExpr {value = l1; _}), LessThan, (LitExpr {value = l2; _}) ->
-    env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
-    match (l1, l2) with
-    | IntLit x, IntLit y -> x < y 
-    | FloatLit x, FloatLit y -> x < y 
-    | StringLit x, StringLit y -> x < y
-    | _ -> Error.error place "less than is not implemented fot this type of literals"
-    )}
-| (LitExpr {value = l1; _}), LessThanEqual, (LitExpr {value = l2; _}) ->
-    env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
-    match (l1, l2) with
-    | IntLit x, IntLit y -> x <= y 
-    | FloatLit x, FloatLit y -> x <= y 
-    | StringLit x, StringLit y -> x <= y
-    | _ -> Error.error place "less than equal is not implemented fot this type of literals"
-    )}
-(* TODO deal with list, dict and so on for equality *)
-| (LitExpr {value = l1; _}), In, BlockExpr (Block, _) -> Error.error place "right-hand side of in must be an iterable"
-| (LitExpr {value = l1; _}), In, BlockExpr (List, items) | (LitExpr {value = l1; _}), In, BlockExpr (Set, items) -> 
-    if is_terminal_expr e2.value then
-        env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit (
-            List.find_opt (function (item:expr) -> match item.value with |LitExpr {value = l2; _} -> l2 = l1 | _ -> false ) items <> None 
-        )}
-    else
-        env, BinopExpr (e1, op, e2)
-| (LitExpr {value = l1; _}), In, BlockExpr (Tuple, _) -> Error.error place "right-hand side of in must be an iterable"
-| (LitExpr {value = l1; _}), In, Block2Expr (Dict, items) ->
-    if is_terminal_expr e2.value then
-        env, LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit (
-            List.find_opt (function ((key, _):expr*expr) -> match key.value with |LitExpr {value = l2; _} -> l2 = l1 | _ -> false ) items <> None 
-        )}
-    else
-        env, BinopExpr (e1, op, e2)
-| _ -> env, BinopExpr (e1, op, e2)
+        env, (UnopExpr (op, e), mt)
+| _, (_,mt) -> env, (UnopExpr (op, e),mt)
+and peval_binop env place (e1: expr) (op: binop) (e2: expr) (mt_binop:main_type) : env * (_expr * main_type) =
+    let fplace = (Error.forge_place "Plg=Peval" 0 0) in
+    let auto_fplace smth = {AstUtils.place = place@fplace; value=smth} in
 
-and peval_call env place (fct: expr) (args: expr list) : env * _expr =
+    match (e1.value, op, e2.value) with
+    (* && shortcut*)
+    | (LitExpr {value = BoolLit false; _}, _), And, _ | _, And, (LitExpr {value = BoolLit false; _},_) -> env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=BoolLit false}, mt_binop)
+    | (LitExpr {value = BoolLit true; _}, _), And, e | e, And, (LitExpr {value = BoolLit true; _}, _) -> env, e  
+    (* || shortcut *)
+    | (LitExpr {value = BoolLit true; _}, _), And, _ | _, And, (LitExpr {value = BoolLit true; _}, _) -> env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=BoolLit true}, mt_binop)
+    | (LitExpr {value = BoolLit false; _}, _), And, e | e, And, (LitExpr {value = BoolLit false; _}, _) -> env, e  
+    (* Integer computation *)
+    | (LitExpr {value = IntLit i1; _}, _), Plus, (LitExpr {value = IntLit i2; _}, _) -> env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=IntLit (i1+i2)}, mt_binop)
+    | (LitExpr {value = IntLit i1; _}, _), Minus, (LitExpr {value = IntLit i2; _}, _) -> env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=IntLit (i1-i2)}, mt_binop)
+    | (LitExpr {value = IntLit i1; _}, _), Mult, (LitExpr {value = IntLit i2; _}, _) -> env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=IntLit (i1*i2)}, mt_binop)
+    | (LitExpr {value = IntLit i1; _}, _), Divide, (LitExpr {value = IntLit i2; _}, _) -> 
+        if i2 = 0 then
+            Error.error place "division by zero, partial evaluation can not continue"
+        else
+        env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=IntLit (i1/i2)}, mt_binop)
+    (* Float computation *)
+    | (LitExpr {value = FloatLit f1; _}, _), Plus, (LitExpr {value = FloatLit f2; _}, _) -> env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=FloatLit (f1+.f2)}, mt_binop)
+    | (LitExpr {value = FloatLit f1; _}, _), Minus, (LitExpr {value = FloatLit f2; _}, _) -> env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=FloatLit (f1-.f2)}, mt_binop)
+    | (LitExpr {value = FloatLit f1; _}, _), Mult, (LitExpr {value = FloatLit f2; _}, _) -> env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=FloatLit (f1*.f2)}, mt_binop)
+    | (LitExpr {value = FloatLit f1; _}, _), Divide, (LitExpr {value = FloatLit f2; _}, _) -> 
+        if f2 = 0. then
+            Error.error place "division by zero, partial evaluation can not continue"
+        else
+        env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=FloatLit (f1/.f2)}, mt_binop)
+    (* Equality *)
+    | (LitExpr {value = l1; _}, _), Equal, (LitExpr {value = l2; _}, _) -> 
+        env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit (l1 = l2) }, mt_binop)
+    (* Comparison *)
+    | (LitExpr {value = l1; _}, _), GreaterThan, (LitExpr {value = l2; _}, _) ->
+        env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
+        match (l1, l2) with
+        | IntLit x, IntLit y -> x > y 
+        | FloatLit x, FloatLit y -> x > y 
+        | StringLit x, StringLit y -> x > y
+        | _ -> Error.error place "greater than is not implemented fot this type of literals"
+        )}, mt_binop)
+    | (LitExpr {value = l1; _}, _), GreaterThanEqual, (LitExpr {value = l2; _}, _) ->
+        env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
+        match (l1, l2) with
+        | IntLit x, IntLit y -> x >= y 
+        | FloatLit x, FloatLit y -> x >= y 
+        | StringLit x, StringLit y -> x >= y
+        | _ -> Error.error place "greater than equal is not implemented fot this type of literals"
+        )}, mt_binop)
+    | (LitExpr {value = l1; _}, _), LessThan, (LitExpr {value = l2; _}, _) ->
+        env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
+        match (l1, l2) with
+        | IntLit x, IntLit y -> x < y 
+        | FloatLit x, FloatLit y -> x < y 
+        | StringLit x, StringLit y -> x < y
+        | _ -> Error.error place "less than is not implemented fot this type of literals"
+        )}, mt_binop)
+    | (LitExpr {value = l1; _}, _), LessThanEqual, (LitExpr {value = l2; _}, _) ->
+        env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
+        match (l1, l2) with
+        | IntLit x, IntLit y -> x <= y 
+        | FloatLit x, FloatLit y -> x <= y 
+        | StringLit x, StringLit y -> x <= y
+        | _ -> Error.error place "less than equal is not implemented fot this type of literals"
+        )}, mt_binop)
+    (* TODO deal with list, dict and so on for equality *)
+    | (LitExpr {value = l1; _}, _), In, (BlockExpr (Block, _), _) -> Error.error place "right-hand side of in must be an iterable"
+    | (LitExpr {value = l1; _}, _), In, (BlockExpr (List, items), _) | (LitExpr {value = l1; _}, _), In, (BlockExpr (Set, items), _) -> 
+        if is_terminal_expr e2.value then
+            env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit (
+                List.find_opt (function (item:expr) -> match item.value with |(LitExpr {value = l2; _}, _) -> l2 = l1 | _ -> false ) items <> None 
+            )}, mt_binop) 
+        else
+            env, (BinopExpr (e1, op, e2), mt_binop)
+    | (LitExpr {value = l1; _}, _), In, (BlockExpr (Tuple, _), _) -> Error.error place "right-hand side of in must be an iterable"
+    | (LitExpr {value = l1; _}, _), In, (Block2Expr (Dict, items), _) ->
+        if is_terminal_expr e2.value then
+            env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit (
+                List.find_opt (function ((key, _):expr*expr) -> match key.value with |(LitExpr {value = l2; _}, _) -> l2 = l1 | _ -> false ) items <> None 
+            )}, mt_binop)
+        else
+            env, (BinopExpr (e1, op, e2), mt_binop)
+
+    | _ -> env, (BinopExpr (e1, op, e2), mt_binop)
+
+and peval_call env place (fct: expr) (args: expr list) (mt_ret:main_type): env * (_expr * main_type) =
 match fct.value, args with
-| VarExpr name, [{value=VarExpr protocol_name;}] when Atom.hint(name) = "bridge" ->
-    env, LitExpr {
+| (VarExpr name, _), [{value=(VarExpr protocol_name, _);}] when Atom.hint(name) = "bridge" ->
+    env, (LitExpr {
         place;    
         value = Bridge {
             id  = Atom.fresh "bridge";
             protocol_name
         } 
-    }
-| VarExpr name, _ when Atom.hint(name) = "bridge" ->
+    }, mt_ret)
+| (VarExpr name, _), _ when Atom.hint(name) = "bridge" ->
     Error.error place "bridge should have exactly one argument - the protocol"
-| _ -> env, CallExpr (fct, args)
+| _ -> env, (CallExpr (fct, args), mt_ret)
 
-and peval_expr env place : _expr -> env * _expr = function 
-| AccessExpr (e1, e2) -> 
-    let _, e1 = pe_expr env e1 in
-    let _, e2 = pe_expr env e2 in
-    env, AccessExpr (e1, e2)
-| BinopExpr (e1, op, e2) -> 
-    let _, e1 = pe_expr env e1 in
-    let _, e2 = pe_expr env e2 in
-    peval_binop env place e1 op e2
-| BlockExpr (block_type, items) ->
-    env, BlockExpr (block_type, 
-        List.map (function (item:expr) -> snd (pe_expr env item)) items 
-    )
-| Block2Expr (block_type, items) ->
-    env, Block2Expr (block_type, 
-        List.map (function (item1,item2:expr*expr) -> 
-            snd (pe_expr env item1), 
-            snd (pe_expr env item2)
-        ) items 
-    )
-| BoxCExpr _ -> failwith "box is not supported by partial eval"
-| CallExpr (fct, args) -> 
-    let _, fct = pe_expr env fct in
-    let args = List.map (function arg -> snd (pe_expr env arg)) args in
-    peval_call env place fct args
-| LambdaExpr (x, mt, stmt) ->
-    let _, stmt = pe_stmt env stmt in
-    let _, mt = pe_mtype env mt in 
-    env, LambdaExpr (x, mt, stmt)
-| LitExpr lit -> env, LitExpr lit
-| OptionExpr e_opt -> env, OptionExpr (Option.map (function e -> snd(pe_expr env e)) e_opt)
-| ResultExpr (ok_opt, err_opt) -> 
-    env, ResultExpr (
-        (Option.map (function e -> snd(pe_expr env e)) ok_opt),
-        (Option.map (function e -> snd(pe_expr env e)) err_opt)
-    )
-| Spawn {c; args; at} -> 
-    (* TODO peval c *)
-    let args = List.map (function arg -> snd (pe_expr env arg)) args in
-    let at = Option.map (function at -> snd(pe_expr env at)) at in
-    env, Spawn {c; args; at}
-| This -> env, This
-| UnopExpr (op, e) -> 
-    let _, e = pe_expr env e in
-    peval_unop env place op e
-| VarExpr x -> begin
-    try 
-        let t_e = Env.find x env.terminal_expr_assignements in
-        env, t_e.value (*TODO should be t_e.place @ place @ partial_eval_var place *)
-    with | Not_found -> env, VarExpr x
-end
-| x -> env, x 
+and peval_expr env place (e, mt) :  env * (_expr * main_type) = 
+    let env, e = 
+        match e with
+        | AccessExpr (e1, e2) -> 
+            let _, e1 = pe_expr env e1 in
+            let _, e2 = pe_expr env e2 in
+            env, AccessExpr (e1, e2)
+        | BinopExpr (e1, op, e2) -> 
+            let _, e1 = pe_expr env e1 in
+            let _, e2 = pe_expr env e2 in
+            let env, (e,_) = peval_binop env place e1 op e2 mt in
+            env, e
+        | BlockExpr (block_type, items) ->
+            env, BlockExpr (block_type, 
+                List.map (function (item:expr) -> snd (pe_expr env item)) items 
+            )
+        | Block2Expr (block_type, items) ->
+            env, Block2Expr (block_type, 
+                List.map (function (item1,item2:expr*expr) -> 
+                    snd (pe_expr env item1), 
+                    snd (pe_expr env item2)
+                ) items 
+            )
+        | BoxCExpr _ -> failwith "box is not supported by partial eval"
+        | CallExpr (fct, args) -> 
+            let _, fct = pe_expr env fct in
+            let args = List.map (function arg -> snd (pe_expr env arg)) args in
+            let env, (e,_) = peval_call env place fct args mt in
+            env, e
+        | LambdaExpr (x, mt, stmt) ->
+            let _, stmt = pe_stmt env stmt in
+            let _, mt = pe_mtype env mt in 
+            env, LambdaExpr (x, mt, stmt)
+        | LitExpr lit -> env, LitExpr lit
+        | OptionExpr e_opt -> env, OptionExpr (Option.map (function e -> snd(pe_expr env e)) e_opt)
+        | ResultExpr (ok_opt, err_opt) -> 
+            env, ResultExpr (
+                (Option.map (function e -> snd(pe_expr env e)) ok_opt),
+                (Option.map (function e -> snd(pe_expr env e)) err_opt)
+            )
+        | Spawn {c; args; at} -> 
+            (* TODO peval c *)
+            let args = List.map (function arg -> snd (pe_expr env arg)) args in
+            let at = Option.map (function at -> snd(pe_expr env at)) at in
+            env, Spawn {c; args; at}
+        | This -> env, This
+        | UnopExpr (op, e) -> 
+            let _, e = pe_expr env e in
+            let env, (e, _) = peval_unop env place op e in
+            env, e
+        | VarExpr x -> begin
+            try 
+                let t_e = Env.find x env.terminal_expr_assignements in
+                env, fst t_e.value (*TODO should be t_e.place @ place @ partial_eval_var place *)
+            with | Not_found -> env, VarExpr x
+        end
+        | x -> env, x 
+    in
+    env, (e, mt)
 and pe_expr env: expr -> env * expr = peval_place peval_expr env
 
 and peval_stmt env place : _stmt -> env * _stmt = function 
@@ -376,8 +388,8 @@ end
     let stmt = snd (pe_stmt env stmt) in
     let stmt_opt = Option.map (function elmt -> snd (pe_stmt env elmt)) stmt_opt in 
     match e.value with
-    | LitExpr {value=BoolLit true; _} -> env, stmt.value (* TODO should be stmt.place *)
-    | LitExpr {value=BoolLit false; _} -> env, Option.value (Option.map (fun (x:stmt) -> x.value) stmt_opt) ~default:EmptyStmt (*TODO should be stmt.place *)
+    | (LitExpr {value=BoolLit true; _}, _) -> env, stmt.value (* TODO should be stmt.place *)
+    | (LitExpr {value=BoolLit false; _}, _) -> env, Option.value (Option.map (fun (x:stmt) -> x.value) stmt_opt) ~default:EmptyStmt (*TODO should be stmt.place *)
     | _ -> env, IfStmt (e, stmt, stmt_opt)
 end
 | LetExpr ({value=CType {value= TBridge t_b; _}; _ } as let_left, let_x, e_b) -> begin 
@@ -387,7 +399,7 @@ end
     match let_left.value with
     | CType {value= TBridge t_b; _} -> begin
         match e_b.value with
-        | LitExpr {value=Bridge bridge; _} -> 
+        | (LitExpr {value=Bridge bridge; _}, _) -> 
             let protocol = match t_b.protocol.value with
             | SType st -> st
             | _ -> Error.error t_b.protocol.place "Third argument of Bridge<_,_,_> must be (partially-evaluated> to a session type"
@@ -430,9 +442,9 @@ and peval_contract env place contract =
     let returns = Option.map (function e -> snd (pe_expr env e )) contract.returns in
 
     let clean_predicate = function
-    | Some {AstUtils.value=LitExpr {value=BoolLit true; _}; _} -> None
-    | Some {AstUtils.value=LitExpr {value=BoolLit false; _}; place} -> Error.error place "ensures expresion has been evaluated to false" 
-    | Some {value=LitExpr _; place} -> Error.error place "ensures expr has been evaluated to a non boolean literal"
+    | Some {AstUtils.value=(LitExpr {value=BoolLit true; _}, _); _} -> None
+    | Some {AstUtils.value=(LitExpr {value=BoolLit false; _}, _); place} -> Error.error place "ensures expresion has been evaluated to false" 
+    | Some {value=(LitExpr _,_); place} -> Error.error place "ensures expr has been evaluated to a non boolean literal"
     | pred_opt -> pred_opt
     in
 

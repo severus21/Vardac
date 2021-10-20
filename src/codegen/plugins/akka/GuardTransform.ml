@@ -51,22 +51,22 @@ let rename_headers hs = List.flatten (List.map rename_header hs)
 
 let rec rename_guard_ place : _expr -> _expr = function
 (* Rewrite of timer *)
-| BinopExpr ({value=VarExpr x; place=p_x}, LessThan, ({value=LitExpr {value=IntLit i}} as e)) -> (* x < i*)
+| BinopExpr ({value=(VarExpr x, mt_x); place=p_x}, LessThan, ({value=LitExpr {value=IntLit i}, _} as e)) -> (* x < i*)
     (* Cook guarantees that everithing is correctly binded *)
     let _, x_hb = Hashtbl.find separation_hbl x in
-    BinopExpr ({value=VarExpr x_hb; place=p_x}, LessThan, e)
-| BinopExpr ({value=LitExpr {value=IntLit i}} as e, GreaterThan, {value=VarExpr x; place=p_x}) -> (* i > x *)
+    BinopExpr ({value=(VarExpr x_hb, mt_x); place=p_x}, LessThan, e)
+| BinopExpr ({value=LitExpr {value=IntLit i}, _} as e, GreaterThan, {value=VarExpr x, mt_x; place=p_x}) -> (* i > x *)
     (* Cook guarantees that everithing is correctly binded *)
     let _, x_hb = Hashtbl.find separation_hbl x in
-    BinopExpr (e, GreaterThan, {value=VarExpr x_hb; place=p_x})
-| BinopExpr ({value=VarExpr x; place=p_x}, GreaterThan, ({value=LitExpr {value=IntLit i}} as e)) -> (* x > i *)
+    BinopExpr (e, GreaterThan, {value=VarExpr x_hb, mt_x; place=p_x})
+| BinopExpr ({value=VarExpr x, mt_x; place=p_x}, GreaterThan, ({value=LitExpr {value=IntLit i}, _} as e)) -> (* x > i *)
     (* Cook guarantees that everithing is correctly binded *)
     let x_lb, _ = Hashtbl.find separation_hbl x in
-    BinopExpr ({value=VarExpr x_lb; place=p_x}, GreaterThan, e)
-| BinopExpr ({value=LitExpr {value=IntLit i}} as e, LessThan, {value=VarExpr x; place=p_x}) -> (* i < x *)
+    BinopExpr ({value=VarExpr x_lb, mt_x; place=p_x}, GreaterThan, e)
+| BinopExpr ({value=LitExpr {value=IntLit i}, _} as e, LessThan, {value=VarExpr x, mt_x; place=p_x}) -> (* i < x *)
     (* Cook guarantees that everithing is correctly binded *)
     let x_lb, _ = Hashtbl.find separation_hbl x in
-    BinopExpr (e, LessThan, {value=VarExpr x_lb; place=p_x})
+    BinopExpr (e, LessThan, {value=VarExpr x_lb, mt_x; place=p_x})
 
 (* Just explore *)
 | VarExpr _ as e -> e
@@ -91,7 +91,9 @@ let rec rename_guard_ place : _expr -> _expr = function
 )
 and rename_guard guard = {
     place = guard.place;
-    value = rename_guard_ guard.place guard.value
+    value = 
+        let e, mt = guard.value in 
+        (rename_guard_ guard.place e, mt)
 }
 
 let rec separate_lb_hb_timers_ place = function
@@ -162,9 +164,9 @@ let rec next_trigger_of_expr_ name place =
 function
 | VarExpr _ | This | LitExpr _ -> None
 | AccessExpr _ -> None (* can not have the form of a timer expression *)
-| BinopExpr ({value=VarExpr x;}, LessThan, {value=LitExpr {value=IntLit i}}) | BinopExpr ({value=LitExpr {value=IntLit i}} , GreaterThan, {value=VarExpr x;}) when x = name ->
+| BinopExpr ({value=VarExpr x, _;}, LessThan, {value=LitExpr {value=IntLit i}, _}) | BinopExpr ({value=LitExpr {value=IntLit i}, _} , GreaterThan, {value=VarExpr x, _;}) when x = name ->
     Some i
-| BinopExpr ({value=VarExpr x;}, GreaterThan, {value=LitExpr {value=IntLit i}}) | BinopExpr ({value=LitExpr {value=IntLit i}}, LessThan, {value=VarExpr x;}) when x = name ->
+| BinopExpr ({value=VarExpr x, _;}, GreaterThan, {value=LitExpr {value=IntLit i}, _}) | BinopExpr ({value=LitExpr {value=IntLit i}, _}, LessThan, {value=VarExpr x, _;}) when x = name ->
     Some i
 | LambdaExpr _ | CallExpr _ | NewExpr _ | Spawn _ | BoxCExpr _ -> raise (Error.DeadbranchError "LambdaExpr/CallExpr/NewExpr/Spawn/BoxCExpr can not appear inside a guard") (* TODO check it in COook*)
 | UnopExpr (_,e) -> next_trigger_of_expr name e
@@ -181,7 +183,9 @@ end
 end
 | BlockExpr (b, es) -> failwith "not yet supported in GuardTransform"
 | Block2Expr (b, ees) -> failwith "not yet supported in GuardTransform"
-and next_trigger_of_expr name e = next_trigger_of_expr_ name e.place e.value
+and next_trigger_of_expr name e =           
+    next_trigger_of_expr_ name e.place (fst e.value)
+
 
 and next_trigger_of_st_ name place = function
 | STSend ({value=ConstrainedType (_, (_, guard_opt))}, st) | STRecv ({value=ConstrainedType (_, (_, guard_opt))}, st) -> begin
@@ -200,44 +204,44 @@ and next_trigger_of_st name st = next_trigger_of_st_ name st.place st.value
 *)
 let rec rewrite_trigger_ env place = function
 (* Rewrite of timer *)
-| BinopExpr ({value=VarExpr x; place=p_x}, LessThan, {value=LitExpr {value=IntLit i; place=p_i}; place=p_lit}) as e -> begin 
+| BinopExpr ({value=VarExpr x, mt_x; place=p_x}, LessThan, {value=LitExpr {value=IntLit i; place=p_i}, mt_i; place=p_lit}) as e -> begin 
     (* Cook guarantees that everithing is correctly binded *)
     match Env.find_opt x env with
     | None -> [], e (* Not a timer *)
     | Some entry -> (* A timer *)
     begin 
         let i = i - entry.base_value in
-        [x], BinopExpr ({value=VarExpr x; place=p_x}, LessThan, {value=LitExpr {value=IntLit i; place=p_i}; place = p_lit})
+        [x], BinopExpr ({value=VarExpr x, mt_x; place=p_x}, LessThan, {value=LitExpr {value=IntLit i; place=p_i}, mt_i; place = p_lit})
     end
 end
-| BinopExpr ({value=LitExpr {value=IntLit i; place=p_i}; place=p_lit}, GreaterThan, {value=VarExpr x; place=p_x}) as e -> begin
+| BinopExpr ({value=LitExpr {value=IntLit i; place=p_i}, mt_i; place=p_lit}, GreaterThan, {value=VarExpr x, mt_x; place=p_x}) as e -> begin
     (* Cook guarantees that everithing is correctly binded *)
     match Env.find_opt x env with
     | None -> [], e (* Not a timer *)
     | Some entry -> (* A timer *)
     begin 
         let i = i - entry.base_value in
-        [x], BinopExpr ({value=LitExpr {value=IntLit i; place=p_i}; place =p_lit}, GreaterThan, {value=VarExpr x; place=p_x}) 
+        [x], BinopExpr ({value=LitExpr {value=IntLit i; place=p_i}, mt_i; place =p_lit}, GreaterThan, {value=VarExpr x, mt_x; place=p_x}) 
     end
 end
-| BinopExpr ({value=VarExpr x; place=p_x}, GreaterThan, {value=LitExpr {value=IntLit i; place=p_i}; place=p_lit}) as e -> begin
+| BinopExpr ({value=VarExpr x, mt_x; place=p_x}, GreaterThan, {value=LitExpr {value=IntLit i; place=p_i}, mt_i; place=p_lit}) as e -> begin
     (* Cook guarantees that everithing is correctly binded *)
     match Env.find_opt x env with
     | None -> [], e (* Not a timer *)
     | Some entry -> (* A timer *)
     begin 
         let i = i - entry.base_value in
-        [x], BinopExpr ({value=VarExpr x; place=p_x}, GreaterThan, {value=LitExpr {value=IntLit i; place=p_i}; place=p_lit})
+        [x], BinopExpr ({value=VarExpr x, mt_x; place=p_x}, GreaterThan, {value=LitExpr {value=IntLit i; place=p_i}, mt_i; place=p_lit})
     end
 end
-| BinopExpr ({value=LitExpr {value=IntLit i; place=p_i}; place=p_lit}, LessThan, {value=VarExpr x; place=p_x}) as e -> begin
+| BinopExpr ({value=LitExpr {value=IntLit i; place=p_i}, mt_i; place=p_lit}, LessThan, {value=VarExpr x, mt_x; place=p_x}) as e -> begin
     (* Cook guarantees that everithing is correctly binded *)
     match Env.find_opt x env with
     | None -> [], e (* Not a timer *)
     | Some entry -> (* A timer *)
     begin 
         let i = i - entry.base_value in
-        [x], BinopExpr ({value=LitExpr {value=IntLit i; place=p_i}; place=p_lit}, LessThan, {value=VarExpr x; place=p_x})
+        [x], BinopExpr ({value=LitExpr {value=IntLit i; place=p_i}, mt_i; place=p_lit}, LessThan, {value=VarExpr x, mt_x; place=p_x})
     end
 end
 (* Just explore *)
@@ -257,8 +261,8 @@ end
 | BlockExpr (b, es) ->failwith "not yet supported in GuardTransform" 
 | Block2Expr (b, ees) -> failwith "not yet supported in GuardTransform" 
 and rewrite_trigger env (e:expr) : expr_variable list * expr = 
-    let timers, _e = rewrite_trigger_ env e.place e.value in
-    timers, { place = e.place; value = _e}
+    let timers, _e = rewrite_trigger_ env e.place (fst e.value) in
+    timers, { place = e.place; value = _e, snd e.value}
 
 let filter_headers env place (guard_headers : constraint_header list) : constraint_header list =
     let fplace = (Error.forge_place "Akka.GuardTransform.filter_headers" 0 0) in

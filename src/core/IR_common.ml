@@ -68,6 +68,9 @@ module type TIRC = sig
     and component_type = _component_type placed
 
     and _main_type = 
+        | EmptyMainType (* Just not to have to manipulate option
+            There is more some in pattern matching than None
+        *) 
         | CType of composed_type 
         | SType of session_type
         (* First value component type*)
@@ -85,7 +88,7 @@ module type TIRC = sig
         | SetFireTimer of expr_variable * int (* specify timeout delay *)
     and constraint_header = _constraint_header placed
 
-    and _constraints = _expr (* for now, maybe we will need to restrict a bit for SMT solving*)
+    and _constraints = (_expr * main_type) (* for now, maybe we will need to restrict a bit for SMT solving*)
     and constraints = _constraints placed 
 
     and applied_constraint = (constraint_header list) * constraints option
@@ -167,7 +170,7 @@ module type TIRC = sig
         | ResultExpr of (expr option * expr option) (* Ok, Err *)
         | BlockExpr of block * expr list
         | Block2Expr of block2 * (expr * expr) list
-    and expr = _expr placed
+    and expr = (_expr * main_type) placed
 
     and _stmt = 
         | EmptyStmt
@@ -305,6 +308,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     and component_type = _component_type placed
 
     and _main_type = 
+        | EmptyMainType
         | CType of composed_type 
         | SType of session_type
         (* First value component type*)
@@ -322,7 +326,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | SetFireTimer of expr_variable * int (* specify timeout delay *)
     and constraint_header = _constraint_header placed
 
-    and _constraints = _expr (* for now, maybe we will need to restrict a bit for SMT solving*)
+    and _constraints = _expr * main_type (* for now, maybe we will need to restrict a bit for SMT solving*)
     and constraints = _constraints placed 
 
     and applied_constraint = (constraint_header list) * constraints option
@@ -403,7 +407,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | ResultExpr of (expr option * expr option) (* Ok, Err *)
         | BlockExpr of block * expr list
         | Block2Expr of block2 * (expr * expr) list
-    and expr = _expr placed
+    and expr = (_expr * main_type) placed
 
     and _stmt = 
         | EmptyStmt
@@ -484,29 +488,30 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     let rec free_variable_place free_variable_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
         free_variable_value place value
 
-    let rec free_vars_expr_ (already_binded:Variable.Set.t) place : _expr -> Variable.Set.t * expr_variable list = function 
-    | LambdaExpr (x, mt, stmt) ->
-        already_binded, snd (free_vars_stmt (Variable.Set.add x already_binded) stmt)
-    | VarExpr x when Variable.Set.find_opt x already_binded <> None  -> already_binded, [] 
-    | VarExpr x when Variable.is_builtin x -> already_binded, [] 
-    | VarExpr x -> 
-        logger#error "free var of %s " (Variable.to_string x);
-        already_binded, [x]
-    | BoxCExpr _ | LitExpr _ | OptionExpr None | ResultExpr (None, None) |This -> already_binded, []
-    | AccessExpr (e1, e2) | BinopExpr (e1, _, e2) | ResultExpr (Some e1, Some e2) ->
-        let _, fvars1 = free_vars_expr already_binded e1 in
-        let _, fvars2 = free_vars_expr already_binded e2 in
-        already_binded, fvars1@fvars2
-    | UnopExpr (_, e) | OptionExpr (Some e) | ResultExpr (Some e, None) | ResultExpr (None, Some e)->
-        let _, fvars = free_vars_expr already_binded e in
-        already_binded, fvars
-    | CallExpr ({value=VarExpr _ }, es) | NewExpr ({value=VarExpr _}, es) -> (* no first class function nor constructor inside stmt - so we get ride of all possible constructors *)
-        already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) [] es
-    | CallExpr (e, es) | NewExpr (e, es) | Spawn {args=es; at = Some e} ->
-        let _, fvars = free_vars_expr already_binded e in
-        already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) fvars es
-    | BlockExpr (_, es) | Spawn {args=es} -> 
-        already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) [] es
+    let rec free_vars_expr_ (already_binded:Variable.Set.t) place (e,mt) : Variable.Set.t * expr_variable list = 
+        match e with 
+        | LambdaExpr (x, mt, stmt) ->
+            already_binded, snd (free_vars_stmt (Variable.Set.add x already_binded) stmt)
+        | VarExpr x when Variable.Set.find_opt x already_binded <> None  -> already_binded, [] 
+        | VarExpr x when Variable.is_builtin x -> already_binded, [] 
+        | VarExpr x -> 
+            logger#error "free var of %s " (Variable.to_string x);
+            already_binded, [x]
+        | BoxCExpr _ | LitExpr _ | OptionExpr None | ResultExpr (None, None) |This -> already_binded, []
+        | AccessExpr (e1, e2) | BinopExpr (e1, _, e2) | ResultExpr (Some e1, Some e2) ->
+            let _, fvars1 = free_vars_expr already_binded e1 in
+            let _, fvars2 = free_vars_expr already_binded e2 in
+            already_binded, fvars1@fvars2
+        | UnopExpr (_, e) | OptionExpr (Some e) | ResultExpr (Some e, None) | ResultExpr (None, Some e)->
+            let _, fvars = free_vars_expr already_binded e in
+            already_binded, fvars
+        | CallExpr ({value=(VarExpr _,_) }, es) | NewExpr ({value=(VarExpr _, _)}, es) -> (* no first class function nor constructor inside stmt - so we get ride of all possible constructors *)
+            already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) [] es
+        | CallExpr (e, es) | NewExpr (e, es) | Spawn {args=es; at = Some e} ->
+            let _, fvars = free_vars_expr already_binded e in
+            already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) fvars es
+        | BlockExpr (_, es) | Spawn {args=es} -> 
+            already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) [] es
     and free_vars_expr (already_binded:Variable.Set.t) expr : Variable.Set.t * expr_variable list = free_variable_place (free_vars_expr_ already_binded) expr
 
     and free_vars_stmt_ (already_binded:Variable.Set.t) place : _stmt -> Variable.Set.t * expr_variable list = function 
