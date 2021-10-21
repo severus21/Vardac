@@ -2,12 +2,17 @@ open Utils
 open Error
 open Easy_logging
 open Fieldslib
+open AstUtils
+open TypingUtils
 
 module S = IR
 module T = IR
 open IR
 
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
+
+
+
 
 let rec a2d_place a2d_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
     let value = a2d_value place value in
@@ -288,14 +293,16 @@ and a2d_component_dcl cdcl = a2d_place _a2d_component_dcl cdcl
 
 
 (********************** Manipulating component structure *********************)
-and _a2d_component_expr place = function
-| VarCExpr x -> VarCExpr (a2d_var_component x)
-| AppCExpr (ce1, ce2) -> AppCExpr (
-    a2d_component_expr ce1,
-    a2d_component_expr ce2
-)
-| UnboxCExpr e -> UnboxCExpr (a2d_expr e)
-| AnyExpr e -> AnyExpr (a2d_expr e)
+and _a2d_component_expr place (ce, mt_ce)=
+    let ce = match ce with 
+        | VarCExpr x -> VarCExpr (a2d_var_component x)
+        | AppCExpr (ce1, ce2) -> AppCExpr (
+            a2d_component_expr ce1,
+            a2d_component_expr ce2
+        )
+        | UnboxCExpr e -> UnboxCExpr (a2d_expr e)
+        | AnyExpr e -> AnyExpr (a2d_expr e)
+    in ce, mt_ce
 and a2d_component_expr ce = a2d_place _a2d_component_expr ce
 
 (************************************ Program *****************************)

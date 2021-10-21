@@ -849,21 +849,26 @@ and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = 
 and ccdcl env: S.component_dcl -> env * T.component_dcl = cook_place cook_component_dcl env
 
 (********************** Manipulating component structure *********************)
-and cook_component_expr env place : S._component_expr -> env * T._component_expr = function
+and cook_component_expr env place ce : env * (T._component_expr * T.main_type)=
+    let fplace = (Error.forge_place "Frontend.Cook.cook_expr" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+
 (* FIXME TODO component scope environment is not processed here  (yet) *)
-| S.VarCExpr x ->
-    let y = cook_var_component env place x in
-    env, T.VarCExpr y
-| S.AppCExpr (ce1,ce2) -> env, T.AppCExpr (
-    snd (ccexpr env ce1),
-    snd (ccexpr env ce2)
-)
-| S.UnboxCExpr e -> 
-    let cenv1, e = cexpr env e in
-    env << [cenv1], T.UnboxCExpr e
-| S.AnyExpr e -> 
-    let cenv1, e = cexpr env e in
-    env << [cenv1], T.AnyExpr e
+    let env, ce = match ce with 
+        | S.VarCExpr x ->
+            let y = cook_var_component env place x in
+            env, T.VarCExpr y
+        | S.AppCExpr (ce1,ce2) -> env, T.AppCExpr (
+            snd (ccexpr env ce1),
+            snd (ccexpr env ce2)
+        )
+        | S.UnboxCExpr e -> 
+            let cenv1, e = cexpr env e in
+            env << [cenv1], T.UnboxCExpr e
+        | S.AnyExpr e -> 
+            let cenv1, e = cexpr env e in
+            env << [cenv1], T.AnyExpr e
+    in env, (ce, auto_fplace T.EmptyMainType)
 and ccexpr env : S.component_expr -> env * T.component_expr = cook_place cook_component_expr env
 
 (********************** Signatures *********************)

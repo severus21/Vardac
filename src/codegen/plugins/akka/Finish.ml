@@ -1200,8 +1200,8 @@ end
 and fcdcl  : S.component_dcl -> T.actor list = function cdcl -> finish_component_dcl cdcl.place cdcl.value 
 
 (********************** Manipulating component structure *********************)
-and finish_component_expr place : S._component_expr -> T._expr = function
-    | S.VarCExpr x -> T.VarExpr x
+and finish_component_expr place = function
+    | S.VarCExpr x, _ -> T.VarExpr x
     | _ -> failwith "Akka plg do not support yet advance component expr" 
 and fcexpr ce : T.expr = finish_place finish_component_expr ce
 

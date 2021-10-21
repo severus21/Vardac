@@ -561,11 +561,13 @@ and peval_component_dcl env place : _component_dcl -> env * _component_dcl = fun
 and pe_component_dcl env: component_dcl -> env * component_dcl = peval_place peval_component_dcl env
 
 (********************** Manipulating component structure *********************)
-and peval_component_expr env place = function (* TODO peval for this*)
-| VarCExpr x -> env, VarCExpr x
-| AppCExpr (cexpr1, cexpr2) -> env, AppCExpr (snd (pe_component_expr env cexpr1), snd (pe_component_expr env cexpr2)) 
-| UnboxCExpr e -> env, UnboxCExpr (snd(pe_expr env e)) 
-| AnyExpr e -> env, AnyExpr (snd(pe_expr env e)) 
+and peval_component_expr env place (ce, mt_ce) = (* TODO peval for this*)
+    let env, ce = match ce with
+        | VarCExpr x -> env, VarCExpr x
+        | AppCExpr (cexpr1, cexpr2) -> env, AppCExpr (snd (pe_component_expr env cexpr1), snd (pe_component_expr env cexpr2)) 
+        | UnboxCExpr e -> env, UnboxCExpr (snd(pe_expr env e)) 
+        | AnyExpr e -> env, AnyExpr (snd(pe_expr env e)) 
+    in env, (ce, mt_ce)
 and pe_component_expr env: component_expr -> env * component_expr = peval_place peval_component_expr env
 
 (************************************ Program *****************************)

@@ -50,6 +50,10 @@ module type TIRC = sig
         | TBridge of tbridge
 
         | TRaw of Impl_common.blackbox_term (*TODO move it to IRI by doing so composed type should not be any more in common *)
+
+        (* Polymorphsim*)
+        | TPolyVar of type_variable
+        | TForall of type_variable * main_type
     and composed_type = _composed_type placed
 
     and _session_type =  
@@ -228,7 +232,7 @@ module type TIRC = sig
         | AppCExpr of component_expr * component_expr 
         | UnboxCExpr of expr
         | AnyExpr of expr
-    and component_expr = _component_expr placed
+    and component_expr = (_component_expr * main_type) placed
 
     (* The following annotation requests the automatic generation of a [show_]
     function for each of the types defined above.*)
@@ -290,6 +294,10 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | TBridge of tbridge
 
         | TRaw of Impl_common.blackbox_term (*TODO move it to IRI by doing so composed type should not be any more in common *)
+
+        (* Polymorphsim*)
+        | TPolyVar of type_variable
+        | TForall of type_variable * main_type
     and composed_type = _composed_type placed
 
     and _session_type =  
@@ -465,7 +473,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | AppCExpr of component_expr * component_expr 
         | UnboxCExpr of expr
         | AnyExpr of expr
-    and component_expr = _component_expr placed
+    and component_expr = (_component_expr * main_type) placed
 
     (* The following annotation requests the automatic generation of a [show_]
     function for each of the types defined above.*)
