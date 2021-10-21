@@ -24,7 +24,7 @@ let rec resolve_list_placed resolve_value ({ Core.AstUtils.place ; Core.AstUtils
 
 let rec resolve_expr : S._expr -> T._expr = 
 function
-| S.LambdaExpr (x, mt, stmt) -> T.LambdaExpr (x, mt, resolve_placed resolve_stmt stmt)
+| S.LambdaExpr (x, mt, e) -> T.LambdaExpr (x, mt, resolve_placed resolve_expr e)
 (* Unconcerned constructors *)
 | S.AccessExpr (e1,e2) -> S.AccessExpr (rexpr e1, rexpr e2) 
 | S.BinopExpr (e1, op, e2) -> S.BinopExpr (rexpr e1, op, rexpr e2) 

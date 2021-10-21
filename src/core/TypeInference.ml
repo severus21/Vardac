@@ -18,12 +18,6 @@ let rec typeof_place typeof_value ({ place ; value}: 'a placed) =
     let value = typeof_value place value in
     {place; value}
 
-let typeof_var_expr ctx x : main_type =
-    Hashtbl.find ctx.ectx x
-
-let typeof_var_cexpr ctx x : main_type =
-    Hashtbl.find ctx.cctx x
-
 let typeof_literal l = 
     let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
@@ -233,11 +227,10 @@ and _tannot_expr ctx place (e, {value=EmptyMainType}) =
             let e1 = tannot_expr ctx e1 in
             let e2 = tannot_expr ctx e2 in
             BinopExpr (e1, op, e2), typeof_binop op (snd e1.value) (snd e2.value)
-        | LambdaExpr (x, mt, stmt) -> failwith "TODO stmt -> expr in all src/" 
-        (*
-            let stmt, mt_stmt = tannot_expr ctx stmt in
-            LambdaExpr (x, mt, stmt), TArrow (mt, mt_stmt) 
-            *)
+        | LambdaExpr (x, mt, e) -> 
+            let ctx = register_expr_type ctx x mt in
+            let e = tannot_expr ctx e in
+            LambdaExpr (x, mt, e), ctypeof (TArrow (mt, snd e.value))
         | LitExpr l -> LitExpr l, typeof_literal l.value
         | UnopExpr (op, e) -> 
             let e = tannot_expr ctx e in

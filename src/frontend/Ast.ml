@@ -112,7 +112,7 @@ and _expr =
 
     | AccessExpr of expr * expr (*e1.e2*)
     | BinopExpr of expr * binop * expr 
-    | LambdaExpr of variable * main_type * stmt 
+    | LambdaExpr of variable * main_type * expr 
     | LitExpr of literal
     | UnopExpr of unop * expr 
 

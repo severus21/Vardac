@@ -149,7 +149,7 @@ module type TIRC = sig
 
         | AccessExpr of expr * expr (*e1.e2*)
         | BinopExpr of expr * binop * expr 
-        | LambdaExpr of expr_variable * main_type * stmt 
+        | LambdaExpr of expr_variable * main_type * expr 
         | LitExpr of literal
         | UnopExpr of unop * expr 
 
@@ -390,7 +390,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
         | AccessExpr of expr * expr (*e1.e2*)
         | BinopExpr of expr * binop * expr 
-        | LambdaExpr of expr_variable * main_type * stmt 
+        | LambdaExpr of expr_variable * main_type * expr 
         | LitExpr of literal
         | UnopExpr of unop * expr 
 
@@ -498,8 +498,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     let rec free_vars_expr_ (already_binded:Variable.Set.t) place (e,mt) : Variable.Set.t * expr_variable list = 
         match e with 
-        | LambdaExpr (x, mt, stmt) ->
-            already_binded, snd (free_vars_stmt (Variable.Set.add x already_binded) stmt)
+        | LambdaExpr (x, mt, e) ->
+            already_binded, snd (free_vars_expr (Variable.Set.add x already_binded) e)
         | VarExpr x when Variable.Set.find_opt x already_binded <> None  -> already_binded, [] 
         | VarExpr x when Variable.is_builtin x -> already_binded, [] 
         | VarExpr x -> 

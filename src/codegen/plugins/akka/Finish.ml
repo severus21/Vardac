@@ -367,7 +367,7 @@ match e with
     | S.VarExpr x -> T.VarExpr x
     | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
     | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
-    | S.LambdaExpr (x, _, stmt) -> T.LambdaExpr ([x], fstmt stmt) 
+    | S.LambdaExpr (x, _, e) -> T.LambdaExpr ([x], auto_place (T.ReturnStmt (fexpr e))) 
     | S.LitExpr {value=S.Bridge b; place=lit_place} -> 
        (e_bridge_of_protocol lit_place (auto_place (T.VarExpr b.protocol_name))).value 
 

@@ -481,14 +481,14 @@ and cook_expr env place e : env * (T._expr * T.main_type) =
             let env2, e2 = cexpr env e2 in
             
             env << [env1; env2], T.BinopExpr (e1, op, e2) 
-        | S.LambdaExpr (x, mt, stmt) -> 
+        | S.LambdaExpr (x, mt, e) -> 
             let inner_env, y = bind_expr env place x in 
-            let env2, stmt = cstmt inner_env stmt in 
+            let env2, e = cexpr inner_env e in 
             let env3, mt = cmtype env mt in
 
             register_gamma y mt;
 
-            env << [env2; env3], T.LambdaExpr (y, mt, stmt)
+            env << [env2; env3], T.LambdaExpr (y, mt, e)
         | S.LitExpr l -> 
             let env1, l = cliteral env l in
             env << [env1], T.LitExpr l

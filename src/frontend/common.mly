@@ -283,9 +283,9 @@ any_expr_:
         (aux lids).value
     }
 | x = LID COLON mt = any_type SIMPLE_RARROW e = any_expr
-    { LambdaExpr (x, mt, {place=e.place; value=ReturnStmt e } ) }
-| x = LID COLON mt = any_type SIMPLE_RARROW LCURLYBRACKET stmt = any_stmt RCURLYBRACKET
-    { LambdaExpr (x, mt, stmt) }
+    { LambdaExpr (x, mt, e) }
+| x = LID COLON mt = any_type SIMPLE_RARROW LCURLYBRACKET e = any_expr RCURLYBRACKET
+    { LambdaExpr (x, mt, e) }
 | l = any_literal
     {LitExpr l}
 | t = any_op_
