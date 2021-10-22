@@ -63,7 +63,6 @@ and main_type = _main_type placed
 
 (******************************** Constraints ********************************)
 and _constraint_header =      
-    | UseGlobal of main_type * variable 
     | UseMetadata of main_type * variable
     | SetTimer of variable
 and constraint_header = _constraint_header placed
@@ -302,7 +301,7 @@ let make_vplace _ _ _ _ = ()
 
 let rec timers_of_headers = function
     | [] -> []
-    | {value=UseGlobal _}::headers | {value=UseMetadata _} ::headers-> timers_of_headers headers
+    | {value=UseMetadata _} :: headers -> timers_of_headers headers
     | {value=SetTimer x}::headers -> x::(timers_of_headers headers)
 and timers_of_st_ = function
 | STRecv ({value=ConstrainedType (_, (guard_headers, _))}, st) | STSend ({value=ConstrainedType (_, (guard_headers, _))}, st) -> 

@@ -172,8 +172,6 @@ any_type_:
 
 (******************************** Constraints ********************************)
 any_constraint_header_:
-| GLOBAL mt=any_type x = LID
-    { UseGlobal (mt,x) }
 | METADATA mt=any_type x = LID
     { UseMetadata (mt,x) }
 | TIMER x=LID

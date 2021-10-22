@@ -237,7 +237,7 @@ let fplace = place@(Error.forge_place "Plg=Akka/finishv_stype" 0 0) in
 let auto_place smth = {place = fplace; value=smth} in
 
 let rec encode_guard_header_ place = function
-| S.UseGlobal _ | S.UseMetadata _ -> failwith "UseMetadata/Global not yet supported by Akka"
+| S.UseMetadata _ -> failwith "UseMetadata/Global not yet supported by Akka"
 | S.SetTimer _ -> raise (Error.PlacedDeadbranchError (place, "SetTimer should have been replace by SetFireTimer before the Akka.Finish since Akka needs a delay value to create a timer"))
 | S.SetFireTimer (x, i) -> e_ASTStype_TimerHeader_of place x i 
 and encode_guard_header header : T.expr = encode_guard_header_ header.place header.value in 

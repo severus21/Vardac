@@ -65,6 +65,7 @@ type flat_type =
     | TLabel
     | TVoid
     | TPlace
+    | TTimer
     | TWildcard
 [@@deriving show { with_path = false }]
 

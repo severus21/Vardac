@@ -39,7 +39,7 @@ let separation_hbl : (expr_variable, expr_variable * expr_variable) Hashtbl.t = 
 let rename_header_ place = 
 let auto_place value = {place; value} in
 function 
-| (UseGlobal _ as h) | (UseMetadata _ as h) -> [ auto_place h ]
+| UseMetadata _ as h -> [ auto_place h ]
 | SetTimer x as h-> begin 
     try
         let x_lb, x_hb = Hashtbl.find separation_hbl x in

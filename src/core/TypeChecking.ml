@@ -93,11 +93,6 @@ and a2d_main_type mt = a2d_place _a2d_main_type mt
 (******************************** Constraints ********************************)
 
 and _a2d_constraint_header place = function
-| UseGlobal (mt, x) -> 
-    UseGlobal (
-        a2d_main_type mt,
-        a2d_var_expr x
-    )
 | UseMetadata (mt, x) -> 
     UseMetadata (
         a2d_main_type mt,

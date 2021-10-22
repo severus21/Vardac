@@ -85,6 +85,7 @@ let process_check places filename =
     |> function x-> logger#sinfo "IR has been partially evaluated";x
     |> Core.AstUtils.dump "pevaled IR" IR.show_program
     |> Check.check_program project_dir build_dir
+    (* TODO incoporate type checking as check*)
 
 let process_compile places targets_file impl_filename filename = 
     (* Prepare dir *)
@@ -97,13 +98,16 @@ let process_compile places targets_file impl_filename filename =
     let module Rewrite = ((Core.Rewrite.Make((struct let gamma = gamma end))):Core.Rewrite.Sig) in
     let ir =
         ir
+        |> Core.TypeInference.tannot_program
+        |> function x-> logger#sinfo "IR has been annotated with types (type reconstruction only)"; x
+        |> Core.AstUtils.dump "annotated IR (with types)" IR.show_program
         |> Core.PartialEval.peval_program
         |> function x-> logger#sinfo "IR has been partially evaluated"; x
         |> Core.AstUtils.dump "pevaled IR" IR.show_program
         |> function program -> Topology.generate_static_logical_topology build_dir program; program
         |> Rewrite.rewrite_program
         |> function x-> logger#sinfo "IR has been rewritten";x
-        |> Core.AstUtils.dump "pevaled IR" IR.show_program
+        |> Core.AstUtils.dump "rewritten IR" IR.show_program
     in
 
     (* extract targets definitions from file *)

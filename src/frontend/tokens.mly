@@ -8,7 +8,7 @@
 %token<Ast.flat_type> PTYPE
 %token<Ast.unop> UNOP
 %token<Ast.binop> BINOP
-%token GLOBAL LOCAL SHARED 
+%token LOCAL SHARED 
 
 %token<Core.Label.label> LABEL_LITERAL
 

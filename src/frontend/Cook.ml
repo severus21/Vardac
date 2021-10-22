@@ -423,13 +423,10 @@ and cmtype env mt : env * T.main_type = cook_place cook_mtype env mt
 
 (******************************** Constraints ********************************)
 and cook_constraint_header env place: S._constraint_header -> env * T._constraint_header = function
-| (S.UseGlobal (mt, x) as ch) | (S.UseMetadata (mt, x) as ch) ->
+| S.UseMetadata (mt, x) ->
     let env1, mt = cmtype env mt in
     let new_env, y = bind_type env place x in
-    new_env << [env1], (match ch with 
-        |S.UseGlobal _ -> T.UseGlobal (mt, y)
-        |S.UseMetadata _ -> T.UseMetadata (mt, y)
-    )
+    new_env << [env1], T.UseMetadata (mt, y)
 | S.SetTimer x ->
     (* alreay added when defining a session type *)
     env, T.SetTimer (cook_var_expr env place x)

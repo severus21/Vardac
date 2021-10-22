@@ -22,6 +22,7 @@ let typeof_literal l =
     let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
     let of_tflat ft = auto_fplace(CType ( auto_fplace (TFlatType ft))) in
+    let ctypeof ct = auto_fplace(CType(auto_fplace ct)) in
 match l with
 | VoidLit -> of_tflat TVoid
 | BoolLit _ -> of_tflat TBool
@@ -31,7 +32,10 @@ match l with
 | StringLit _ -> of_tflat TStr
 | ActivationInfo _ -> failwith "ActivationInfo Typeinference - do we need this literal since it carries no value"
 | Place _ -> failwith "Place do we need this literal since it can not exists statically"
-| VPlace _-> failwith "How to infer type of vplace" 
+| VPlace _-> 
+    (* forall x, vplace<x> - x must be unified during typecheking *)
+    let x = Atom.fresh "x" in
+    ctypeof (TForall(x, ctypeof (TVPlace (ctypeof (TVar x)))))
 | Bridge b -> failwith "How to infer type of Bridge" 
 
 let typeof_unop op mt_e = 
@@ -105,22 +109,26 @@ let rec tannot_place (tannot_value:Error.place -> 'a -> 'a) ({ AstUtils.place ; 
 
 (************************************ Types **********************************)
 
-and _tannot_session_type (ctx:context) place : _session_type -> _session_type = function
-| STEnd -> STEnd
-| STVar x -> STVar x
+let rec _tannot_session_type (ctx:context) place : _session_type -> context * _session_type = function
+| STEnd -> ctx, STEnd
+| STVar x -> ctx, STVar x
 | STSend (mt, st) -> 
-    let mt = tannot_main_type ctx mt in
-    let st = tannot_session_type ctx st in
-    STSend (mt, st)
+    (* CTX to propagate headers *)
+    let ctx, mt = tannot_full_main_type ctx mt in
+    let ctx, st = tannot_full_session_type ctx st in
+    ctx, STSend (mt, st)
 | STRecv (mt, st) -> 
-    let mt = tannot_main_type ctx mt in
-    let st = tannot_session_type ctx st in
-    STRecv (mt, st)
+    let ctx, mt = tannot_full_main_type ctx mt in
+    let ctx, st = tannot_full_session_type ctx st in
+    ctx, STRecv (mt, st)
 | STRec (x, st) -> 
-    let st = tannot_session_type ctx st in
-    STRec (x, st)
-| STInline x -> STInline x 
-and tannot_session_type ctx st : session_type = tannot_place (_tannot_session_type ctx) st
+    let ctx, st = tannot_full_session_type ctx st in
+    ctx, STRec (x, st)
+| STInline x -> ctx, STInline x 
+and tannot_full_session_type ctx st : context * session_type = 
+    let ctx, _st = _tannot_session_type ctx st.place st.value in
+    ctx, {place = st.place; value = _st}
+and tannot_session_type ctx st = snd (tannot_full_session_type ctx st)
 
 
 (* Searching for constraints *)
@@ -166,39 +174,56 @@ and _tannot_component_type ctx place = function
 and tannot_component_type ctx ct = failwith "" (*tannot_place _tannot_component_type ctx ct*) 
 
 and _tannot_main_type ctx place = function
-| CType ct -> CType (tannot_composed_type ctx ct)
-| SType st -> SType (tannot_session_type ctx st)
-| CompType ct -> CompType (tannot_component_type ctx ct)
-| ConstrainedType (mt, guard) -> ConstrainedType (
-    tannot_main_type ctx mt, 
-    tannot_applied_constraint ctx guard)
-and tannot_main_type ctx mt = {
-    place = mt.place;
-    value = _tannot_main_type ctx mt.place mt.value
-}
+| CType ct -> ctx, CType (tannot_composed_type ctx ct)
+| SType st -> 
+    let ctx, st = tannot_full_session_type ctx st in
+    ctx, SType st 
+| CompType ct -> ctx, CompType (tannot_component_type ctx ct)
+| ConstrainedType (mt, guard) -> 
+    let outer_ctx, guard = tannot_applied_constraint ctx guard in (* FIXME only use for timer and metadata for protocol -> should not be used on other constraitn 
+    therefore only  stype and constraint type returns an outer ctx CType and CompType return the identity
+    *)
+    outer_ctx, ConstrainedType (
+        tannot_main_type ctx mt, 
+        guard
+    )
+and tannot_full_main_type ctx mt = 
+    let ctx, _mt =  _tannot_main_type ctx mt.place mt.value in
+    ctx, {
+        place = mt.place;
+        value = _mt
+    }
+and tannot_main_type ctx mt : main_type = snd (tannot_full_main_type ctx mt)
 
 (******************************** Constraints ********************************)
 
-and _tannot_constraint_header ctx place = function
-| UseGlobal (mt, x) -> 
-    UseGlobal (
-        tannot_main_type ctx mt,
-        x
-    )
+and _tannot_constraint_header ctx place = 
+    let fplace = (Error.forge_place "TypeInference._tannot_constraint_header" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+    let ctypeof x = auto_fplace (CType(auto_fplace x)) in
+function
 | UseMetadata (mt, x) -> 
-    UseMetadata (
+    let outer_ctx = register_expr_type ctx x mt in
+    outer_ctx, UseMetadata (
         tannot_main_type ctx mt,
         x
     )
-| SetTimer x -> SetTimer (x)
-| SetFireTimer (x, i) -> SetFireTimer (x, i)
-and tannot_constraint_header ctx h= {
-    place = h.place;
-    value = _tannot_constraint_header ctx h.place h.value
-}
+| SetTimer x -> 
+    let ctx = register_expr_type ctx x (ctypeof (TFlatType TTimer)) in
+    ctx, SetTimer x
+| SetFireTimer (x, i) -> 
+    let ctx = register_expr_type ctx x (ctypeof (TFlatType TTimer)) in
+    ctx, SetFireTimer (x, i)
+and tannot_constraint_header ctx h= 
+    let ctx, _h = _tannot_constraint_header ctx h.place h.value in
+    ctx, {
+        place = h.place;
+        value = _h 
+    }
 
 and tannot_applied_constraint ctx (headers, guard_opt) = 
-    List.map (tannot_constraint_header ctx) headers, Option.map (tannot_expr ctx) guard_opt
+    let outer_ctx, headers = List.fold_left_map tannot_constraint_header ctx headers in
+    outer_ctx, (headers, Option.map (tannot_expr ctx) guard_opt)
 
 (************************************ (V) - Place ****************************)
 

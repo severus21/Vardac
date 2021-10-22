@@ -143,7 +143,6 @@ and type_replace_stmt to_be_replaced by = replace_place (_type_replace_stmt to_b
 
 
 and _type_replace_constraint_header to_be_replaced by = function
-| UseGlobal (mt, x) -> UseGlobal (type_replace_main_type to_be_replaced by mt, x)
 | UseMetadata (mt, x) -> UseMetadata (type_replace_main_type to_be_replaced by mt, x) 
 and type_replace_constraint_header to_be_replaced by = replace_place (_type_replace_constraint_header to_be_replaced by)
 

@@ -86,7 +86,6 @@ module type TIRC = sig
 
     (******************************** Constraints ********************************)
     and _constraint_header =      
-        | UseGlobal of main_type * expr_variable 
         | UseMetadata of main_type * expr_variable
         | SetTimer of expr_variable
         | SetFireTimer of expr_variable * int (* specify timeout delay *)
@@ -328,7 +327,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     (******************************** Constraints ********************************)
     and _constraint_header =      
-        | UseGlobal of main_type * expr_variable 
         | UseMetadata of main_type * expr_variable
         | SetTimer of expr_variable
         | SetFireTimer of expr_variable * int (* specify timeout delay *)
@@ -565,7 +563,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     let rec timers_of_headers = function
         | [] -> []
-        | {value=UseGlobal _}::headers | {value=UseMetadata _} ::headers-> timers_of_headers headers
+        | {value=UseMetadata _} ::headers-> timers_of_headers headers
         | {value=SetTimer x}::headers -> x::(timers_of_headers headers)
         | {value=SetFireTimer (x,_)}::headers -> raise (Error.DeadbranchError "SetFireTimer should exists before GuardTransform - not supported yet") 
     and timers_of_st_ = function

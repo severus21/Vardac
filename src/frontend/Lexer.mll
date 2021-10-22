@@ -84,7 +84,6 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "and", AND;
     "contract", CONTRACT;
     "ensures", ENSURES;
-    "global", GLOBAL;
     "invariant", INVARIANT;
     "metadata", METADATA;
     "returns", RETURNS;
