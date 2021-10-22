@@ -303,45 +303,51 @@ and tannot_expr ctx e = {
     value = _tannot_expr ctx e.place e.value
 }
 
-and _tannot_stmt ctx place : _stmt -> _stmt = function
-| EmptyStmt -> EmptyStmt
-| AssignExpr (x, e) -> AssignExpr (
+and _tannot_stmt ctx place : _stmt -> context * _stmt = function
+| EmptyStmt -> ctx, EmptyStmt
+| AssignExpr (x, e) -> ctx, AssignExpr (
     x,
     tannot_expr ctx e
 )
-| AssignThisExpr (x, e) -> AssignThisExpr (
+| AssignThisExpr (x, e) -> ctx, AssignThisExpr (
     x,
     tannot_expr ctx e
 )
-| LetExpr _ -> failwith "binders"
-| CommentsStmt c -> CommentsStmt c
-
-| BreakStmt -> BreakStmt
-| ContinueStmt -> ContinueStmt
-| ExitStmt i -> ExitStmt i
-| ForStmt (mt, x, e, stmt) -> ForStmt (
-    tannot_main_type ctx mt,
-    x,
+| LetExpr (mt, x, e) -> 
+    let ctx = register_expr_type ctx x mt in
+    let e = tannot_expr ctx e in 
+    ctx, LetExpr (mt, x, e)
+| CommentsStmt c -> ctx, CommentsStmt c
+| BreakStmt -> ctx, BreakStmt
+| ContinueStmt -> ctx, ContinueStmt
+| ExitStmt i -> ctx, ExitStmt i
+| ForStmt (mt, x, e, stmt) -> 
+    let inner_ctx = register_expr_type ctx x mt in
+    ctx, ForStmt (
+        tannot_main_type ctx mt,
+        x,
+        tannot_expr ctx e,
+        snd (tannot_stmt inner_ctx stmt)
+    )
+| IfStmt (e, stmt1, stmt2_opt) -> ctx, IfStmt (
     tannot_expr ctx e,
-    tannot_stmt ctx stmt
+    snd (tannot_stmt ctx stmt1),
+    Option.map snd (Option.map (tannot_stmt ctx) stmt2_opt)
 )
-| IfStmt (e, stmt1, stmt2_opt) -> IfStmt (
-    tannot_expr ctx e,
-    tannot_stmt ctx stmt1,
-    Option.map (tannot_stmt ctx) stmt2_opt
-)
-| MatchStmt (e, branches) -> MatchStmt (
+| MatchStmt (e, branches) -> ctx, MatchStmt (
     tannot_expr ctx e,
     List.map (function (e, stmt) -> 
-        tannot_expr ctx e, tannot_stmt ctx stmt
+        tannot_expr ctx e, snd (tannot_stmt ctx stmt)
     ) branches
 )
-| ReturnStmt e -> ReturnStmt (tannot_expr ctx e)
-| ExpressionStmt e -> ExpressionStmt (tannot_expr ctx e)
+| ReturnStmt e -> ctx, ReturnStmt (tannot_expr ctx e)
+| ExpressionStmt e -> ctx, ExpressionStmt (tannot_expr ctx e)
 | BlockStmt stmts -> 
-    let stmts = List.map (tannot_stmt ctx) stmts in
-    BlockStmt stmts
-and tannot_stmt ctx stmt =  failwith ""(*tannot_place _tannot_stmt ctx stmt*)
+    let ctx, stmts = List.fold_left_map tannot_stmt ctx stmts in
+    ctx, BlockStmt stmts
+and tannot_stmt ctx stmt =  
+    let ctx, _stmt = _tannot_stmt ctx stmt.place stmt.value in
+    ctx, {place = stmt.place; value = _stmt }
 
 and _tannot_param ctx place (mt, x) = ( tannot_main_type ctx mt, x)
 and tannot_param ctx arg = {
@@ -349,89 +355,127 @@ and tannot_param ctx arg = {
     value = _tannot_param ctx arg.place arg.value
 }
 
-and _tannot_port ctx place (p:_port) = {
+and _tannot_port ctx place (p:_port) = ctx, {
     name = p.name;
     input = tannot_expr ctx p.input;
     expecting_st = tannot_main_type ctx p.expecting_st;
     callback = tannot_expr ctx p.callback;
 } 
-and tannot_port ctx p = {
-    place = p.place;
-    value = _tannot_port ctx p.place p.value
-}
+and tannot_port ctx p = 
+    let ctx, _p = _tannot_port ctx p.place p.value in
+    ctx, {
+        place = p.place;
+        value = _p
+    }
 
 
-and _tannot_contract ctx place (p:_contract) = {
-    method_name = p.method_name;
-    pre_binders = List.map (function (mt, x, e) -> 
-        tannot_main_type ctx mt,
-        x,
-        tannot_expr ctx e
-    ) p.pre_binders;
-    ensures = Option.map (tannot_expr ctx) p.ensures;
-    returns = Option.map (tannot_expr ctx) p.returns;
-} 
+and _tannot_contract ctx place (p:_contract) = 
+    let inner_ctx = List.fold_left (fun ctx (mt, x, _) -> register_expr_type ctx x mt) ctx p.pre_binders in
+    {
+        method_name = p.method_name;
+        pre_binders = List.map (function (mt, x, e) -> 
+            tannot_main_type ctx mt,
+            x,
+            tannot_expr ctx e
+        ) p.pre_binders;
+        ensures = Option.map (tannot_expr inner_ctx) p.ensures; 
+        returns = Option.map (tannot_expr inner_ctx) p.returns; (* TODO add an Arrow ret_type -> ...*)
+    } 
 and tannot_contract ctx c = {
     place = c.place;
     value = _tannot_contract ctx c.place c.value
 }
 
-and _tannot_method ctx place = function
-| CustomMethod m -> CustomMethod {
-    name = m.name;
-    ghost = m.ghost;
-    ret_type = tannot_main_type ctx m.ret_type;
-    args =  List.map (tannot_param ctx) m.args;
-    body = List.map (tannot_stmt ctx) m.body;
-    contract_opt = Option.map (tannot_contract ctx) m.contract_opt;
-} 
-| OnStartup m -> OnStartup (tannot_method ctx m)
-| OnDestroy m -> OnDestroy (tannot_method ctx m)
-and tannot_method ctx m = {
-    place = m.place;
-    value = _tannot_method ctx m.place m.value
-}
+and _tannot_method ctx place =
+    let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+function
+| CustomMethod m -> 
+    let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) (List.map (function (arg: param) -> fst arg.value) m.args) m.ret_type in 
+    let outer_ctx = register_expr_type ctx m.name fct_sign in
+    let inner_ctx = List.fold_left (fun ctx {value=(mt, x)} -> register_expr_type ctx x mt) ctx m.args in
+    
+    outer_ctx, CustomMethod {
+        name = m.name;
+        ghost = m.ghost;
+        ret_type = tannot_main_type ctx m.ret_type;
+        args = List.map (tannot_param ctx) m.args;
+        body = snd (List.fold_left_map tannot_stmt inner_ctx m.body);
+        contract_opt =(Option.map (tannot_contract ctx) m.contract_opt);
+    } 
+| OnStartup m -> 
+    let outer_ctx, m = tannot_method ctx m in
+    outer_ctx, OnStartup m
+| OnDestroy m -> 
+    let outer_ctx, m = tannot_method ctx m in
+    outer_ctx, OnDestroy m
+
+and tannot_method ctx m = 
+    let ctx, _m = _tannot_method ctx m.place m.value in
+    ctx, {
+        place = m.place;
+        value = _m
+    }
 
 and _tannot_state ctx place = function 
-| StateDcl s -> StateDcl {
+| StateDcl s -> 
+    let outer_ctx = register_expr_type ctx s.name s.type0 in
+
+    outer_ctx, StateDcl {
     name = s.name;
     ghost = s.ghost;
     type0 = tannot_main_type ctx s.type0;
     body = Option.map (tannot_expr ctx) s.body;
 } 
-and tannot_state ctx s = {
-    place = s.place;
-    value = _tannot_state ctx s.place s.value
-}
+and tannot_state ctx s = 
+    let ctx, _s = _tannot_state ctx s.place s.value in
+    ctx, {
+        place = s.place;
+        value = _s
+    }
 
 and _tannot_component_item ctx place = function 
-| Contract s -> Contract (tannot_contract ctx s)
-| Include ce -> Include (tannot_component_expr ctx ce)
-| Method m -> Method (tannot_method ctx m)
-| Port p -> Port (tannot_port ctx p)
-| State s -> State (tannot_state ctx s)
-| Term t -> Term (tannot_term ctx t)
-and tannot_component_item ctx citem = {
-    place = citem.place;
-    value = _tannot_component_item ctx citem.place citem.value
-}
+| Contract s -> ctx, Contract (tannot_contract ctx s)
+| Include ce -> ctx, Include (tannot_component_expr ctx ce)
+| Method m -> 
+    let ctx, m = tannot_method ctx m in
+    ctx, Method m 
+| Port p -> 
+    let ctx, p = tannot_port ctx p in
+    ctx, Port p 
+| State s -> 
+    let ctx, s = tannot_state ctx s in
+    ctx, State s
+| Term t -> 
+    let ctx, t = tannot_term ctx t in
+    ctx, Term t 
+and tannot_component_item ctx citem = 
+    let ctx, _citem = _tannot_component_item ctx citem.place citem.value in 
+    ctx, {
+        place = citem.place;
+        value = _citem
+    }
 
 and _tannot_component_dcl ctx place = function 
-| ComponentStructure cdcl -> ComponentStructure {
+| ComponentStructure cdcl -> 
+    let outer_ctx = register_cexpr_type ctx cdcl.name (failwith "TODO defined type of a component") in
+    outer_ctx, ComponentStructure {
     target_name = cdcl.target_name;
     name = cdcl.name;
     args = List.map (tannot_param ctx) cdcl.args;
-    body = List.map (tannot_component_item ctx) cdcl.body
+    body = snd (List.fold_left_map tannot_component_item  ctx cdcl.body) (* TODO first pass allow mutual recursive function ?? - only from header *)
 } 
-| ComponentAssign cdcl -> ComponentAssign {
+| ComponentAssign cdcl -> ctx, ComponentAssign {
     name = cdcl.name;
     args = List.map (tannot_param ctx) cdcl.args;
     value = tannot_component_expr ctx cdcl.value;
 } 
-and tannot_component_dcl ctx cdcl = {
-    place = cdcl.place;
-    value = _tannot_component_dcl ctx cdcl.place cdcl.value
-}
+and tannot_component_dcl ctx cdcl = 
+    let ctx, _cdcl = _tannot_component_dcl ctx cdcl.place cdcl.value in
+    ctx, {
+        place = cdcl.place;
+        value = _cdcl 
+    }
 
 
 
@@ -448,54 +492,83 @@ and tannot_component_expr ctx ce = {
 
 (************************************ Program *****************************)
 
-and _tannot_function_dcl ctx place (fdcl:_function_dcl) : _function_dcl = {
-    name = fdcl.name;
-    ret_type = tannot_main_type ctx fdcl.ret_type;
-    args = List.map (tannot_param ctx) fdcl.args;
-    body = List.map (tannot_stmt ctx) fdcl.body;
-} 
-and tannot_function_dcl ctx fdcl = {
-    place = fdcl.place; 
-    value = _tannot_function_dcl ctx fdcl.place fdcl.value
-}
+and _tannot_function_dcl ctx place (fdcl:_function_dcl) : context * _function_dcl = 
+    let fplace = (Error.forge_place "TypeInference._tannot_function_dcl" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+
+    let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) (List.map (function (arg: param) -> fst arg.value) fdcl.args) fdcl.ret_type in 
+    let outer_ctx = register_expr_type ctx fdcl.name fct_sign in
+    let inner_ctx = List.fold_left (fun ctx {value=(mt, x)} -> register_expr_type ctx x mt) ctx fdcl.args in
+    
+    outer_ctx, {
+        name = fdcl.name;
+        ret_type = tannot_main_type ctx fdcl.ret_type;
+        args = List.map (tannot_param ctx) fdcl.args;
+        body = snd (List.fold_left_map tannot_stmt inner_ctx fdcl.body);
+    } 
+and tannot_function_dcl ctx fdcl = 
+    let ctx, _fdcl = _tannot_function_dcl ctx fdcl.place fdcl.value in
+    ctx, {
+        place = fdcl.place; 
+        value = _fdcl
+    }
 
 and _tannot_typedef ctx place = function 
-| ClassicalDef (x, mts, body) -> ClassicalDef (
-    x,
-    List.map (tannot_main_type ctx) mts,
-    body
-) 
-| EventDef (x, mts, body) -> EventDef (
+| ClassicalDef (x, mts, body) as tdef -> 
+    let outer_ctx = register_def_type ctx tdef in
+    outer_ctx, ClassicalDef (
+        x,
+        List.map (tannot_main_type ctx) mts,
+        body
+    ) 
+| EventDef (x, mts, body) as tdef -> 
+    let outer_ctx = register_def_type ctx tdef in
+    outer_ctx, EventDef (
     x,
     List.map (tannot_main_type ctx) mts,
     body
 )  
-| ProtocolDef (x, mt) -> ProtocolDef (
+| ProtocolDef (x, mt) as tdef -> 
+    let outer_ctx = register_def_type ctx tdef in
+    outer_ctx, ProtocolDef (
     x,
     tannot_main_type ctx mt
 )  
-and tannot_typedef ctx tdef = {
-    place = tdef.place;
-    value = _tannot_typedef ctx tdef.place tdef.value
-}
+and tannot_typedef ctx tdef = 
+    let ctx, _tdef = _tannot_typedef ctx tdef.place tdef.value in
+    ctx, {
+        place = tdef.place;
+        value = _tdef 
+    }
 
 and _tannot_term ctx place = function 
-| EmptyTerm -> EmptyTerm
-| Comments c -> Comments c
+| EmptyTerm -> ctx, EmptyTerm
+| Comments c -> ctx, Comments c
 | Stmt stmt -> 
-    let stmt = tannot_stmt ctx stmt in
-    Stmt stmt
-| Component c -> Component (tannot_component_dcl ctx c)
-| Function f -> Function (tannot_function_dcl ctx f)
-| Typealias (x, body) -> Typealias (
-    x,
-    Option.map (tannot_main_type ctx) body
-)
-| Typedef tdef -> Typedef (tannot_typedef ctx tdef)
-and tannot_term ctx t = {
-    place = t.place;
-    value = _tannot_term ctx t.place t.value
-}
+    let ctx, stmt = tannot_stmt ctx stmt in
+    ctx, Stmt stmt
+| Component c -> 
+    let ctx, c = tannot_component_dcl ctx c in
+    ctx, Component c 
+| Function f -> 
+    let ctx, f = tannot_function_dcl ctx f in
+    ctx, Function f 
+| Typealias (x, body) -> begin
+    match Option.map (tannot_main_type ctx) body with(*FIXME why an option for a type alias *)
+    | None -> ctx, Typealias (x, None)
+    | Some mt -> 
+        let ctx = register_type ctx x mt in
+        ctx, Typealias (x, Some mt)
+end
+| Typedef tdef -> 
+    let ctx, tdef = tannot_typedef ctx tdef in
+    ctx, Typedef tdef
+and tannot_term ctx t = 
+    let ctx, _t = _tannot_term ctx t.place t.value in
+    ctx, {
+        place = t.place;
+        value = _t 
+    }
 
 and tannot_program program = 
-    List.map (tannot_term (fresh_context ())) program
+    snd (List.fold_left_map tannot_term (fresh_context ()) program) (*TODO scan header for recursive definition of function, method and state*)
