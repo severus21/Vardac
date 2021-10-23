@@ -22,12 +22,10 @@ module Make (Args : Params ) : Sig = struct
         let value = rewrite_value place value in
         {AstUtils.place; AstUtils.value}
 
-    let rec rewrite_method0 place : _method0 -> port list * state list * method0 list = 
+    let rec rewrite_method0 place (m:_method0) : port list * state list * method0 list = 
     let fplace = (Error.forge_place "Core.Rewrite.rewrite_method0" 0 0) in
     let auto_place smth = {place = place; value=smth} in
     let auto_fplace smth = {place = fplace; value=smth} in
-    function
-    | CustomMethod ({ghost;} as m) -> begin  
         (* 
             extract_recv "f(s.recv(...))"
             =>
@@ -209,7 +207,7 @@ module Make (Args : Params ) : Sig = struct
         (*
             return (new_ports, ((variable hosting the result of the receive, msgt, continuation), session of the receive, method) list)
         *)
-        let rec split_body acc_stmts (acc_method:__method0) : stmt list -> port list *  ((expr_variable * main_type * main_type) option * expr option * __method0) list = function
+        let rec split_body acc_stmts (acc_method:_method0) : stmt list -> port list *  ((expr_variable * main_type * main_type) option * expr option * _method0) list = function
         | [] -> 
             [], [ 
                 None, None, { acc_method with 
@@ -254,7 +252,9 @@ module Make (Args : Params ) : Sig = struct
                     auto_fplace ( auto_fplace (SType continuation_st), tmp_session);
                 ]; 
                 body = []; (*Will be update later*)
-                contract_opt = None
+                contract_opt = None;
+                on_destroy = false;
+                on_startup = false;
             } in
             
             let acc_method = { acc_method with 
@@ -271,7 +271,7 @@ module Make (Args : Params ) : Sig = struct
         let intermediate_ports, intermediate_methods =  split_body [] {m with body = []} stmts in
         
         (* Add header and footer for each method (i.e. how to propagate arguments) + update args *)
-        let rec rewrite_intermediate : ((expr_variable * main_type * main_type) option * expr option * __method0) list -> state list * __method0 list = function
+        let rec rewrite_intermediate : ((expr_variable * main_type * main_type) option * expr option * _method0) list -> state list * _method0 list = function
         | [] -> [], []
         | [ (_, _, m) ] -> [], [ m ]
         | (x1_opt, s1_opt, m1)::(x2_opt, s2_opt, m2)::ms -> begin
@@ -422,18 +422,9 @@ module Make (Args : Params ) : Sig = struct
         in
 
         let intermediate_states, intermediate_methods = rewrite_intermediate intermediate_methods in
-        let intermediate_methods = List.map (function m -> auto_fplace (CustomMethod m)) intermediate_methods in
+        let intermediate_methods = List.map auto_place intermediate_methods in
 
         intermediate_ports, intermediate_states, intermediate_methods
-    end
-    | OnStartup m -> 
-        let ps, ss, ms = rmethod0 m in
-        assert( ms <> []);
-        ps, ss, auto_fplace (OnStartup (List.hd ms)) :: (List.tl ms)
-    | OnDestroy m -> 
-        let ps, ss, ms = rmethod0 m in
-        assert( ms <> []);
-        ps, ss,  auto_fplace (OnDestroy (List.hd ms)) :: (List.tl ms)
     and rmethod0 m = rewrite_method0 m.place m.value
 
     (* return name of intermediate states * citems *)

@@ -411,29 +411,20 @@ and tannot_contract ctx c = {
     value = _tannot_contract ctx c.place c.value
 }
 
-and _tannot_method ctx place =
+and _tannot_method ctx place (m:_method0) =
     let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
-function
-| CustomMethod m -> 
     let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) (List.map (function (arg: param) -> fst arg.value) m.args) m.ret_type in 
     let outer_ctx = register_expr_type ctx m.name fct_sign in
     let inner_ctx = List.fold_left (fun ctx {value=(mt, x)} -> register_expr_type ctx x mt) ctx m.args in
     
-    outer_ctx, CustomMethod {
-        name = m.name;
-        ghost = m.ghost;
-        ret_type = tannot_main_type ctx m.ret_type;
-        args = List.map (tannot_param ctx) m.args;
-        body = snd (List.fold_left_map tannot_stmt inner_ctx m.body);
-        contract_opt =(Option.map (tannot_contract ctx) m.contract_opt);
+    outer_ctx, {
+        m with
+            ret_type = tannot_main_type ctx m.ret_type;
+            args = List.map (tannot_param ctx) m.args;
+            body = snd (List.fold_left_map tannot_stmt inner_ctx m.body);
+            contract_opt =(Option.map (tannot_contract ctx) m.contract_opt);
     } 
-| OnStartup m -> 
-    let outer_ctx, m = tannot_method ctx m in
-    outer_ctx, OnStartup m
-| OnDestroy m -> 
-    let outer_ctx, m = tannot_method ctx m in
-    outer_ctx, OnDestroy m
 
 and tannot_method ctx m = 
     let ctx, _m = _tannot_method ctx m.place m.value in
@@ -481,14 +472,29 @@ and tannot_component_item ctx citem =
         value = _citem
     }
 
-and _tannot_component_dcl ctx place = function 
+and _tannot_component_dcl ctx place = 
+    let fplace = (Error.forge_place "TypeInference._tannot_component_dcl" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+function 
 | ComponentStructure cdcl -> 
-    let outer_ctx = register_cexpr_type ctx cdcl.name (failwith "TODO defined type of a component") in
+    let inner_ctx, body = List.fold_left_map tannot_component_item  ctx cdcl.body in 
+    let collect_signature citem = match citem.value with
+    | Contract _ -> [] (*TODO*)
+    | Include _ -> []
+    | Method m -> [typeof_var_expr ctx m.value.name]
+    | Port p -> [typeof_var_expr ctx p.value.name]
+    | State {value=StateDcl {name}} | State {value=StateAlias {name}} -> [typeof_var_expr ctx name]
+    | Term t -> [] (*TODO*)
+    in
+    let signature = auto_fplace(CompType(auto_fplace(TStruct (List.flatten (List.map collect_signature body))))) in
+
+
+    let outer_ctx = register_cexpr_type ctx cdcl.name signature in
     outer_ctx, ComponentStructure {
     target_name = cdcl.target_name;
     name = cdcl.name;
     args = List.map (tannot_param ctx) cdcl.args;
-    body = snd (List.fold_left_map tannot_component_item  ctx cdcl.body) (* TODO first pass allow mutual recursive function ?? - only from header *)
+    body =  body (* TODO first pass allow mutual recursive function ?? - only from header *)
 } 
 | ComponentAssign cdcl -> ctx, ComponentAssign {
     name = cdcl.name;

@@ -119,11 +119,10 @@ and generate_slt_stmt { AstUtils.place ; AstUtils.value}= match value with
 | GhostStmt stmt -> generate_slt_stmt stmt
 | _ -> ()
 
-and generate_slt_method { AstUtils.place ; AstUtils.value}= match value with
-| CustomMethod {ret_type; body} ->
+and generate_slt_method ({ AstUtils.place ; AstUtils.value} : method0) = match value with
+| {ret_type; body} ->
     generate_slt_mtype ret_type;
     List.iter generate_slt_stmt body
-| OnStartup m | OnDestroy m -> generate_slt_method m
 
 and generate_slt_state { AstUtils.place ; AstUtils.value}= match value with
 | StateAlias {type0} | StateDcl {type0;body=None} ->

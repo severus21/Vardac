@@ -20,6 +20,7 @@ encode try encode according to arg number in order to mutualised the error messa
 *)
 
 let encode_builtin_fct place name (args:T.expr list) =
+    logger#error ">>> %s" name;
     assert(Core.Builtin.is_builtin_expr name);
     let auto_place t = {place; value=t} in 
     match name with

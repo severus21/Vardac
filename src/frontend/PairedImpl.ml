@@ -108,24 +108,22 @@ end
 and ustate parents : IR.state -> T.state = paired_place paired_state parents 
 
 and paired_method0 parents place : S2._method0 -> T._method0 = function
-| S2.CustomMethod { ghost; ret_type; name; args; body=[]; contract_opt} -> begin
+|{ ghost; ret_type; name; args; body=[]; contract_opt; on_destroy; on_startup} -> begin
     try 
         let key = List.rev ((Atom.hint name)::parents) in 
         mark_method key;
         let bb_impl = Hashtbl.find method_impls key in
-        T.CustomMethod { ghost; ret_type; name; args; body= T.BBImpl bb_impl.value.body; contract_opt }
+        { ghost; ret_type; name; args; body= T.BBImpl bb_impl.value.body; contract_opt; on_destroy; on_startup }
     with Not_found -> Error.error place "Method \"%s\" has no implementation (neither abstract nor blackbox)" (Atom.hint name) 
 end
-| S2.CustomMethod { ghost; ret_type; name; args; body= body; contract_opt} -> begin 
+|{ ghost; ret_type; name; args; body= body; contract_opt; on_destroy; on_startup} -> begin 
     try 
         let key = List.rev ((Atom.hint name)::parents) in 
         mark_method key;
         let bb_impl = Hashtbl.find method_impls key in
         Error.error (place@bb_impl.place) "Method has two implementations : one abstract and one blackbox"
-    with | Not_found -> T.CustomMethod { ghost; ret_type; name; args; body= T.AbstractImpl body; contract_opt }
+    with | Not_found -> { ghost; ret_type; name; args; body= T.AbstractImpl body; contract_opt; on_destroy; on_startup }
 end
-| S2.OnStartup m -> T.OnStartup (umethod0 parents m) 
-| S2.OnDestroy m -> T.OnDestroy (umethod0 parents m)
 and umethod0 parents: S2.method0 -> T.method0 = paired_place paired_method0 parents
 
 and paired_component_item parents place : S2._component_item -> T._component_item = function

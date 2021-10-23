@@ -443,56 +443,46 @@ any_param_:
     t = placed(any_param_)
     {t}
 
-core_method_:
+core_method:
 (* Abstract method *)
 | ret_type=any_type name=LID LPAREN args=right_flexible_list(COMMA, any_param) RPAREN SEMICOLON
-    { CustomMethod {
+    { {
         ghost=false;
         ret_type=ret_type;
         name=name;
         args=args;
-        abstract_impl= []
+        abstract_impl= [];
+        on_destroy = false;
+        on_startup = false;
     } }
 | ret_type=any_type name=LID LPAREN args=right_flexible_list(COMMA, any_param) RPAREN LCURLYBRACKET stmts=flexible_sequence(any_stmt) RCURLYBRACKET 
-    { CustomMethod {
+    { {
         ghost=false;
         ret_type=ret_type;
         name=name;
         args=args;
-        abstract_impl= stmts
+        abstract_impl= stmts;
+        on_destroy = false;
+        on_startup = false;
     } }
 
-%inline core_method:
-  t = placed(core_method_)
-    { t }
+
 
 lifetime_method_:
 | ONSTARTUP  m=core_method
-    { OnStartup m }
+    { {m with on_startup = true} }
 | ONDESTROY  m=core_method
-    { OnDestroy m }
+    { {m with on_destroy = true} }
 
 any_method_:
-| m = core_method_
+| m = core_method
     { m }
 | m =  lifetime_method_
     { m }
-| GHOST m=core_method_ 
-    {     
-        match m with
-            | CustomMethod _m -> CustomMethod {_m with ghost=true}
-            | _ -> failwith "core_method must not generate OnStartup or OnDestroy method"
-    }    
-| GHOST  m=lifetime_method_ 
-    {
-        match m with 
-        | OnStartup m | OnDestroy m -> begin 
-            match m.value with
-            | CustomMethod _m -> CustomMethod {_m with ghost=true}   
-            | _ -> Core.Error.error m.place "Lifetime keyword (onstatup, ondestroy) can not be nested!"
-        end 
-        | _ -> raise (Core.Error.PlacedDeadbranchError ([$loc], "lifetime method can only be OnStartup or on Destroy"))
-   }
+| GHOST m=core_method 
+    { {m with ghost=true} }    
+| GHOST m=lifetime_method_ 
+    { {m with ghost=true} }
 %inline any_method:
   t = placed(any_method_)
     { t }

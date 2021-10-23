@@ -758,36 +758,33 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
     methods
 and fcontract actor_name (method0 : T.method0) : S.contract -> T.method0 list = function m -> finish_contract m.place method0 m.value
     
-and finish_method place actor_name ?is_constructor:(is_constructor=false) : S._method0 -> T.method0 list = function
-    | S.CustomMethod m0 ->  
-        let body = match m0.body with
-            | S.AbstractImpl stmts -> T.AbstractImpl (List.map fstmt stmts)
-            | S.BBImpl body -> T.BBImpl body
-        in
+and finish_method place actor_name (m0 : S._method0) : T.method0 list = 
+    assert( false = m0.on_destroy); (* TODO not yet supported*)
+    let body = match m0.body with
+        | S.AbstractImpl stmts -> T.AbstractImpl (List.map fstmt stmts)
+        | S.BBImpl body -> T.BBImpl body
+    in
 
-        let new_method : T.method0 = {
-            place;
-            value = { 
-                decorators      = []; 
-                annotations     = [ T.Visibility T.Public ]; 
-                v = {
-                    ret_type        = fmtype m0.ret_type;
-                    name            = if is_constructor then actor_name else m0.name;
-                    args            = (List.map fparam m0.args);
-                    body            = body; 
-                    is_constructor  = is_constructor 
-                }
+    let new_method : T.method0 = {
+        place;
+        value = { 
+            decorators      = []; 
+            annotations     = [ T.Visibility T.Public ]; 
+            v = {
+                ret_type        = fmtype m0.ret_type;
+                name            = if m0.on_startup then actor_name else m0.name;
+                args            = (List.map fparam m0.args);
+                body            = body; 
+                is_constructor  = m0.on_startup 
             }
-        } in
+        }
+    } in
 
-        begin
-            match m0.contract_opt with
-            | None -> [new_method]
-            | Some contract -> fcontract actor_name new_method contract 
-        end
-
-    | S.OnStartup m0 -> finish_method m0.place actor_name ~is_constructor:true m0.value   
-    | S.OnDestroy _ -> failwith "ondestroy is not yet supported"
+    begin
+        match m0.contract_opt with
+        | None -> [new_method]
+        | Some contract -> fcontract actor_name new_method contract 
+    end
 and fmethod actor_name : S.method0 -> T.method0 list = function m -> finish_method m.place actor_name m.value
 
 

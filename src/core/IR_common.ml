@@ -72,6 +72,7 @@ module type TIRC = sig
 
     and _component_type =
         | CompTUid of component_variable 
+        | TStruct of main_type list (*types of states, methods, ports, ... and subcomponents *)
         (* Polymorphsim*)
         | TPolyCVar of component_variable
     and component_type = _component_type placed
@@ -319,6 +320,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     and _component_type =
         | CompTUid of component_variable 
+        | TStruct of main_type list (*types of states, methods, ports, ... and subcomponents *)
         (* Polymorphsim*)
         | TPolyCVar of component_variable
     and component_type = _component_type placed

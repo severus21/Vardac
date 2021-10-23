@@ -98,8 +98,8 @@ let process_compile places targets_file impl_filename filename =
     let module Rewrite = ((Core.Rewrite.Make((struct let gamma = gamma end))):Core.Rewrite.Sig) in
     let ir =
         ir
-        |> Core.TypeInference.tannot_program
-        |> function x-> logger#sinfo "IR has been annotated with types (type reconstruction only)"; x
+        (*|> Core.TypeInference.tannot_program
+        |> function x-> logger#sinfo "IR has been annotated with types (type reconstruction only)"; x*)
         |> Core.AstUtils.dump "annotated IR (with types)" IR.show_program
         |> Core.PartialEval.peval_program
         |> function x-> logger#sinfo "IR has been partially evaluated"; x

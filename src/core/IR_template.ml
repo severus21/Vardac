@@ -67,20 +67,17 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
     and state = _state placed
 
 
-    and __method0 = {
+    and _method0 = {
         ghost: bool; 
         ret_type: main_type; 
         name: component_variable; 
         args: param list; 
         body: _custom_method0_body; 
-        contract_opt: contract option
+        contract_opt: contract option;
+        on_destroy: bool;
+        on_startup: bool;
     }
 
-    and _method0 = 
-        | CustomMethod of __method0
-        (* Activation liftime management*)
-        | OnStartup of method0
-        | OnDestroy of method0
     and method0 = _method0 placed
 
 

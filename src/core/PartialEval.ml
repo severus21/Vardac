@@ -459,8 +459,7 @@ and peval_param env place (mt, x) =
     env, (snd(pe_mtype env mt), x)
 and pe_param env: param -> env * param = peval_place peval_param env
 
-and peval_method env place = function
-| CustomMethod m -> 
+and peval_method env place m = 
     let contract_opt = Option.map (function c -> snd(pe_contract env c)) m.contract_opt in
     (* Cleansing: elminates empty contract *)
     let contract_opt = match contract_opt with
@@ -468,14 +467,12 @@ and peval_method env place = function
     | c_opt -> c_opt 
     in
 
-    env, CustomMethod {m with
+    env, {m with
             ret_type = snd(pe_mtype env m.ret_type);
             args = List.map (function param -> snd(pe_param env param)) m.args;
             body = List.map (snd <-> pe_stmt env) m.body;
             contract_opt = contract_opt
     } 
-| OnStartup m -> env, OnStartup (snd (pe_method env m)) 
-| OnDestroy m -> env, OnDestroy (snd (pe_method env m))
 and pe_method env: method0 -> env * method0 = peval_place peval_method env
 
 and peval_port env place port = 
@@ -529,23 +526,14 @@ and peval_component_dcl env place : _component_dcl -> env * _component_dcl = fun
     let contracts : IR.contract Env.t = List.fold_left collect_contracts Env.empty cdcl.body in (* method_name -> contract *)
 
     (* Remove contracts from body and pair method with contracts *)
-    let rec get_method_name (m: method0) = 
-        match m.value with
-        | CustomMethod m -> m.name
-        | OnDestroy m | OnStartup m -> get_method_name m
-    in
     let body = List.filter_map (function (item:component_item) ->
         match item.value with 
         | Contract _ -> None 
         | Method m -> begin
             let rec aux (m: method0) = 
-                match m.value with
-                | CustomMethod _m -> begin
-                        let contract : contract = (Env.find _m.name contracts) in
-                        { AstUtils.place; value = (CustomMethod { _m with contract_opt = Some contract }) }
-                end 
-                | OnDestroy m -> { AstUtils.place; value = OnDestroy (aux m) }
-                | OnStartup m -> { AstUtils.place; value = OnStartup (aux m) }
+                let _m = m.value in
+                let contract : contract = (Env.find _m.name contracts) in
+                { AstUtils.place; value = { _m with contract_opt = Some contract } }
             in
             try
                 Some { AstUtils.place; value = Method (aux m) }

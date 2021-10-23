@@ -16,18 +16,13 @@ module Env = Map.Make(String)
 type env = unit
 let fresh_env () = ()
 
-(* TODO put into Core as a general elper function on ast*)
-let rec name_of_method0 : Core.IR.method0 -> Atom.atom = function
-| {value=CustomMethod m} -> m.name
-| {value=OnStartup m} | {value=OnDestroy m} -> name_of_method0 m
-
 let rec find_atom_citem place : string list -> Core.IR.component_item list -> Atom.atom = function 
 | [] -> raise (Error.DeadbranchError "empty clpath") 
 | name::clpath -> begin function
     | [] -> Error.error place "atom not found %s" name
-    | {value=Method m;}::_  when Atom.hint (name_of_method0 m) = name -> 
+    | {value=Method m;}::_  when Atom.hint m.value.name = name -> 
         assert(clpath = []);
-        name_of_method0 m
+        m.value.name
     | {value=Term t;}::citems -> begin  
         try
             find_atom_term place clpath [t]

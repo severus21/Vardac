@@ -173,15 +173,14 @@ and _type_replace_state to_be_replaced by = function
 | StateAlias _ -> failwith "not support in IRI replace"
 and type_replace_state to_be_replaced by = replace_place (_type_replace_state to_be_replaced by)
 
-and _type_replace_method to_be_replaced by = function
-| CustomMethod m ->  CustomMethod {m with
-    ret_type = type_replace_main_type to_be_replaced by m.ret_type;
-    args = List.map (type_replace_param to_be_replaced by) m.args;
-    body = type_replace__custom_method0_body to_be_replaced by m.body;
-    contract_opt = Option.map (type_replace_contract to_be_replaced by) m.contract_opt
-}
-| OnStartup m -> OnStartup (type_replace_method to_be_replaced by m)
-| OnDestroy m -> OnDestroy (type_replace_method to_be_replaced by m)
+and _type_replace_method to_be_replaced by (m:_method0)= 
+    {
+        m with
+        ret_type = type_replace_main_type to_be_replaced by m.ret_type;
+        args = List.map (type_replace_param to_be_replaced by) m.args;
+        body = type_replace__custom_method0_body to_be_replaced by m.body;
+        contract_opt = Option.map (type_replace_contract to_be_replaced by) m.contract_opt
+    }
 
 and type_replace_method to_be_replaced by = replace_place (_type_replace_method to_be_replaced by)
 

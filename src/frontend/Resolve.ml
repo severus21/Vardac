@@ -73,12 +73,11 @@ and resolve_contract (c:S._contract) : T._contract =
             returns= Option.map rexpr c.returns;
 }
 
-and resolve_method : S._method0 -> T._method0 = function 
-| S.CustomMethod m -> T.CustomMethod {m with
+and resolve_method (m: S._method0) : T._method0 =
+    { m with
         abstract_impl= List.map rstmt m.abstract_impl   
     }
-| S.OnStartup m -> T.OnStartup (rmethod m) 
-| S.OnDestroy m -> T.OnDestroy (rmethod m) 
+
 and rmethod m = resolve_placed resolve_method m
 
 and resolve_port (port:S._port) : T._port =

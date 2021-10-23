@@ -227,15 +227,9 @@ let rec shallow_scan_component_item (current_set, env) ({place; value}: S.compon
 match value with
 | S.Term t -> shallow_scan_term (current_set, env) t
 | S.Method m -> begin 
-    let rec aux (m:S.method0) : place StringMap.t * env =
-    match m.value with 
-    | CustomMethod m -> begin 
-        match StringMap.find_opt m.name current_set with
-        | None -> StringMap.add m.name place current_set, fst (bind_this env place m.name) 
-        | Some p -> Error.error (p@place) "multiple definitions of %s" m.name
-    end
-    | OnStartup m | OnDestroy m -> aux m
-    in aux m
+    match StringMap.find_opt m.value.name current_set with
+    | None -> StringMap.add m.value.name place current_set, fst (bind_this env place m.value.name) 
+    | Some p -> Error.error (p@place) "multiple definitions of %s" m.value.name
 end
 | _ -> current_set, env
 and shallow_scan_component_dcl (current_set, env) ({place; value}: S.component_dcl) : place StringMap.t * env = 
@@ -734,12 +728,10 @@ and cook_contract env place (contract:S._contract): env * T._contract =
 and ccontract env: S.contract -> env * T.contract = cook_place cook_contract env
 
 
-and cook_method0 env place : S._method0 -> env * T._method0 = 
+and cook_method0 env place (m: S._method0) : env * T._method0 = 
 let fplace = (Error.forge_place "Coook.cook_method0" 0 0) in
 let auto_place smth = {AstUtils.place = place; value=smth} in
 let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
-function
-| S.CustomMethod m ->
     (* method name has been already binded when scanning the structure of the component *)
     let name = cook_var_this env place m.name in 
     let inner_env, args = List.fold_left_map cparam env m.args in
@@ -756,20 +748,16 @@ function
     let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (T.CType (auto_fplace(T.TArrow (t1, t2))))) (List.map (function (arg: T.param) -> fst arg.value) args) ret_type in 
     register_gamma name fct_sign;
 
-    env << [inner_env; env1; env2], T.CustomMethod {
+    env << [inner_env; env1; env2], {
         ghost = m.ghost;
         ret_type = ret_type;
         name;
         args;
         contract_opt = None; (* Pairing between contract and method0 is done during a next pass, see. Core.PartialEval.ml *)
-        body = body 
+        body = body;
+        on_destroy = m.on_destroy;
+        on_startup = m.on_startup 
     } 
-| S.OnStartup m -> 
-    let new_env, new_m = cmethod0 env m in
-    new_env, T.OnStartup new_m
-| S.OnDestroy m -> 
-    let new_env, new_m = cmethod0 env m in
-    new_env, T.OnDestroy new_m
 and cmethod0 env: S.method0 -> env * T.method0 = cook_place cook_method0 env
 
 and cook_port env place (port:S._port) : env * T._port =
@@ -816,11 +804,11 @@ and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = 
     let env = {env with component = new_env.component } in
 
     (* Check that there is at most one constructor/destructor per component *)
-    let constructors = List.filter (function |{AstUtils.value=S.Method {value= S.OnStartup _; _};_} -> true | _-> false) cdcl.body in 
+    let constructors = List.filter (function |{AstUtils.value=S.Method m} when m.value.on_startup -> true | _-> false) cdcl.body in 
     if List.length constructors > 1 then
         Error.error (List.flatten (List.map (function (item:S.component_item) -> item.place) constructors)) "multiple onstartup in component %s" cdcl.name;
 
-    let destructors = List.filter (function |{AstUtils.value=S.Method {value= S.OnDestroy _; _};_} -> true | _-> false) cdcl.body in 
+    let destructors = List.filter (function |{AstUtils.value=S.Method m} when m.value.on_destroy -> true | _-> false) cdcl.body in 
     if List.length destructors > 1 then
         Error.error (List.flatten (List.map (function (item:S.component_item) -> item.place) destructors)) "multiple ondestroy in component %s" cdcl.name;
 

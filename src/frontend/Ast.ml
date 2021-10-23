@@ -203,17 +203,15 @@ and _contract = { (* TODO GADT *)
 }
 and contract = _contract placed
 
-and _method0 = 
-    | CustomMethod of {
+and _method0 = {
         ghost: bool; 
         ret_type: main_type; 
         name: variable; 
         args: param list; 
         abstract_impl: stmt list; 
+        on_destroy: bool;
+        on_startup: bool
     }
-    (* Activation liftime management*)
-    | OnStartup of method0 
-    | OnDestroy of method0 
 and method0 = _method0 placed
 
 and _port = {

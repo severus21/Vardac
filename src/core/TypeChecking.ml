@@ -239,8 +239,8 @@ and _a2d_contract place (p:_contract) = {
 } 
 and a2d_contract c = a2d_place _a2d_contract c
 
-and _a2d_method place = function
-| CustomMethod m -> CustomMethod {
+and _a2d_method place m = {
+    m with
     name = a2d_var_component m.name;
     ghost = m.ghost;
     ret_type = a2d_main_type m.ret_type;
@@ -248,8 +248,6 @@ and _a2d_method place = function
     body = List.map a2d_stmt m.body;
     contract_opt = Option.map a2d_contract m.contract_opt;
 } 
-| OnStartup m -> OnStartup (a2d_method m)
-| OnDestroy m -> OnDestroy (a2d_method m)
 and a2d_method m = a2d_place _a2d_method m
 
 and _a2d_state place = function 
