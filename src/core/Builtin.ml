@@ -166,26 +166,84 @@ let t_sleep () =
         mtype_of_ft TInt,
         mtype_of_ft TVoid
     ))
+let t_add2dict () = 
+    quantify ["k"; "v"] (function [k;v] ->
+        mtype_of_ct(TArrow(
+            mtype_of_ct (TDict (mtype_of_var k, mtype_of_var v)),
+            mtype_of_ct(TArrow(
+                mtype_of_var k,
+                mtype_of_ct(TArrow(
+                    mtype_of_var v,
+                    mtype_of_ft TVoid
+                ))
+            ))
+        ))    
+    )
+let t_get2dict () = 
+    quantify ["k"; "v"] (function [k;v] ->
+        mtype_of_ct(TArrow(
+            mtype_of_ct (TDict (mtype_of_var k, mtype_of_var v)),
+            mtype_of_ct(TArrow(
+                mtype_of_var k,
+                mtype_of_var v
+            ))
+        ))    
+    )
+let t_remove2dict () = 
+    quantify ["k"; "v"] (function [k;v] ->
+        mtype_of_ct(TArrow(
+            mtype_of_ct (TDict (mtype_of_var k, mtype_of_var v)),
+            mtype_of_ct(TArrow(
+                mtype_of_var k,
+                mtype_of_ft TVoid
+            ))
+        ))    
+    )
+let t_dict () = 
+    mtype_of_ct(TArrow(
+        mtype_of_ft TVoid,
+        quantify ["k"; "v"] (function [k;v] ->
+            mtype_of_ct (TDict (mtype_of_var k, mtype_of_var v))
+        )
+    ))
 
+let t_nth () = (* TODO can not work - number of elmt not knwon*)
+    mtype_of_ct(TArrow(
+        mtype_of_ct (TTuple [mtype_of_ft TWildcard]),
+        mtype_of_ft TWildcard
+    ))
+
+let t_sessionid () =
+    mtype_of_ct (TArrow(
+        quantify ["st"] (function [st] -> mtype_of_svar st),
+        mtype_of_ft TInt
+    ))
+        
 (* name, signature string, description, signature () -> .. , neeed a closure to generate fresh types *)
 let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "activationsat", "place -> set<activation_info>", "", t_activationat;
+    "add2dict", "dict<k,v> -> k -> v -> ()", "add in place",t_add2dict ;
     "bridge", "() -> Bridge<'A, 'B, 'a>", "create a new bridge with a fresh id",
     fresh_tbridge;
     "fire", "STSend<'msg, 'continuation> -> 'msg -> 'continuation", "TODO", t_fire
     ;
     "current_place", " unit -> place", "current place", t_current_place;
+    "dict", "() -> dict", "create a new dict", t_dict;
     "first", "Tuple<'a, 'b> -> 'a", "Return the first element of list, failed if empty", t_first;
+    "get2dict", "dict<k,v> -> k -> v", "get", t_get2dict;
     "initiate_session_with", "TODO", "TODO", 
     t_initiate;
     "listget", " list<T> -> int -> t", "", t_listget;
+    "nth", "tuple -> int -> ...", "nème elmt", t_nth;
     "placeof", "abs -> place option", "Give the current place where the abstraction is running. Returns None if the abstraction is not yet placed.", t_placeof;
     "place_to_string", "place -> string", "", t_place_to_string;
     "places", "() -> list<place>", "TODO", t_places;
     "print", "string -> unit", "TODO", t_print;
     "receive", "STReceive<'msg,'continuation> -> 'msg * 'continuation", "TODO", t_receive;
+    "remove2dict", "dict<k,v> -> k -> v", "remove and return", t_remove2dict;
     "second", "Tuple<'a, 'b> -> 'b", "Return the second element of list, failed if empty", t_second;
     "select_places", "label -> (place -> bool) -> place", "", t_select;
+    "sessionid", "'st -> int", "Return the id of the session", t_sessionid;
     "sleep", "int -> unit", "sleep", t_sleep;
     (*
 
@@ -198,12 +256,6 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "ipaddress", "TODO->TODO", "";
     "pick", "TODO", "Random choice in a sequence, failed if empty";
     "children", "TODO", "child of places";
-    "dict", "() -> dict", "create a new dict";
-    "add2dict", "dict<k,v> -> k -> v -> ()", "add in place";
-    "get2dict", "dict<k,v> -> k -> v", "get";
-    "remove2dict", "dict<k,v> -> k -> v", "remove and return";
-    "sessionid", "session -> id", "TODO";
-    "nth", "tuple -> int -> ...", "nème elmt";
     *)
 ]
 
