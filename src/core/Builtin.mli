@@ -1,4 +1,4 @@
-val builtin_fcts : (string * string * string) list
+val builtin_fcts : (string * string * string * (unit -> IR.main_type)) list
 val builtin_atomic_types : string list  
 
 val is_builtin_component : string -> bool

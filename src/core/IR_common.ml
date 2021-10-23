@@ -65,10 +65,15 @@ module type TIRC = sig
         | STSelect of (type_variable * session_type *  applied_constraint option) list               
         | STRec of type_variable * session_type (* X * type*) 
         | STInline of type_variable (* syntaxic suggar in order to inline an existing session type definition*)
+
+        (* Polymorphsim*)
+        | STPolyVar of type_variable
     and session_type = _session_type placed
 
     and _component_type =
         | CompTUid of component_variable 
+        (* Polymorphsim*)
+        | TPolyCVar of component_variable
     and component_type = _component_type placed
 
     and _main_type = 
@@ -308,10 +313,14 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | STSelect of (type_variable * session_type *  applied_constraint option) list               
         | STRec of type_variable * session_type (* X * type*) 
         | STInline of type_variable (* syntaxic suggar in order to inline an existing session type definition*)
+        (* Polymorphsim*)
+        | STPolyVar of type_variable
     and session_type = _session_type placed
 
     and _component_type =
         | CompTUid of component_variable 
+        (* Polymorphsim*)
+        | TPolyCVar of component_variable
     and component_type = _component_type placed
 
     and _main_type = 

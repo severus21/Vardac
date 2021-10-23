@@ -19,9 +19,12 @@ let fresh_context () =
         self = None 
     }
 let typeof_var_expr ctx x : main_type =
-    try
-        Atom.VMap.find x ctx.ectx
-    with Not_found -> failwith (Printf.sprintf "notfound type of expr %s" (Atom.to_string x))
+    if Atom.is_builtin x then
+        Builtin.type_of (Atom.hint x)
+    else
+        try
+            Atom.VMap.find x ctx.ectx
+        with Not_found -> failwith (Printf.sprintf "notfound type of expr %s" (Atom.to_string x))
 
 let typeof_var_cexpr ctx x : main_type =
     try
