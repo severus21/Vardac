@@ -248,6 +248,8 @@ module type TIRC = sig
     val dual : session_type -> session_type
     val free_vars_stmt : Variable.Set.t -> stmt -> Variable.Set.t * expr_variable list
     val  timers_of_headers : constraint_header list -> expr_variable list
+    val replace_type_main_type : type_variable ->(type_variable option * _main_type option) -> main_type -> main_type
+    val replace_stype_session_type : type_variable ->(type_variable option * _session_type option) -> session_type -> session_type
 end
 
 
@@ -617,6 +619,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             replace_type_main_type x_to_replace replaceby mt1,
             replace_type_main_type x_to_replace replaceby mt2
         ) 
+        | TPolyVar x when x = x_to_replace && replaceby_x_opt <> None -> TPolyVar (Option.get replaceby_x_opt)
+        | TForall (x, mt) when x = x_to_replace && replaceby_x_opt <> None -> TForall (Option.get replaceby_x_opt, replace_type_main_type x_to_replace replaceby mt)
+        | TForall (x, mt) -> TForall (x, replace_type_main_type x_to_replace replaceby mt)
     and replace_type_composed_type x_to_replace replaceby = replace_type_place (_replace_type_composed_type x_to_replace replaceby)
     
     and _replace_type_session_type x_to_replace ((replaceby_x_opt, _)as replaceby) place = function
@@ -663,4 +668,44 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | CType ct -> CType (replace_type_composed_type x_to_replace replaceby ct)
     | SType st -> SType (replace_type_session_type x_to_replace replaceby st) 
     and replace_type_main_type (x_to_replace:type_variable) (replaceby:type_variable option * _main_type option) = replace_type_place (_replace_type_main_type x_to_replace replaceby)
+
+
+    let rec _replace_stype_session_type x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) place = function
+    | STEnd -> STEnd 
+    | STVar x when x = x_to_replace && replaceby_x_opt <> None -> STVar (Option.get replaceby_x_opt) 
+    | STVar x when x = x_to_replace && replaceby_e_opt <> None -> (Option.get replaceby_e_opt) 
+    | STVar x -> STVar x 
+    | STSend (mt, st) -> STSend (
+        mt,
+        replace_stype_session_type x_to_replace replaceby st
+    ) 
+    | STRecv (mt, st) -> STRecv (
+        mt,
+        replace_stype_session_type x_to_replace replaceby st
+    ) 
+    | STBranch branches -> STBranch (
+        List.map (function (l, st, guard_opt) ->
+            l,
+            replace_stype_session_type x_to_replace replaceby st,
+            guard_opt (*Not rewrite here for now TODO*)
+        ) branches
+    )            
+    | STSelect branches -> STSelect (
+        List.map (function (l, st, guard_opt) ->
+            l,
+            replace_stype_session_type x_to_replace replaceby st,
+            guard_opt
+        ) branches
+    )               
+
+    | STRec (x, st) when x = x_to_replace && replaceby_x_opt <> None -> STRec (
+        Option.get replaceby_x_opt,
+        replace_stype_session_type x_to_replace replaceby st
+    ) 
+    | STRec (x, st) -> STRec (
+        x,
+        replace_stype_session_type x_to_replace replaceby st
+    ) 
+    | STInline x -> STInline x 
+    and replace_stype_session_type x_to_replace replaceby = replace_type_place (_replace_stype_session_type x_to_replace replaceby)
 end

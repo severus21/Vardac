@@ -12,7 +12,86 @@ open IR
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
 
+let rec _is_subtype_ct place1 place2 ct1 ct2 =  
+    (=) ct1 ct2 || (* Impl optimization to avoid runing complex computation if possible 
+        capture the subtype relation for flattype
+        *)
+    match (ct1, ct2) with
+    | TActivationInfo mt1, TActivationInfo mt2 -> is_subtype mt1 mt2
+    | TArrow (mt1_a, mt1_b), TArrow (mt2_a, mt2_b) ->
+        is_subtype mt2_a mt1_a && (* contravariance *)
+        is_subtype mt1_b mt2_b
+    | TArray mt1, TArray mt2 | TList mt1, TList mt2 | TOption mt1, TOption mt2 | TSet mt1, TSet mt2 -> is_subtype mt1 mt2
+    | TDict (mt1_a, mt1_b), TDict (mt2_a, mt2_b) | TResult (mt1_a, mt1_b), TResult (mt2_a, mt2_b)-> is_subtype mt1_a mt2_a && is_subtype mt1_b mt2_b
+    | TTuple mts1, TTuple mts2 -> List.fold_left (fun flag (mt1,mt2) -> flag && is_subtype mt1 mt2) true (List.combine mts1 mts2)
+    | TVPlace _, TVPlace _ -> failwith "Subtyping for vplace not yet defined"
+    | TUnion (mt1_a, mt1_b), TUnion (mt2_a, mt2_b) -> 
+        (* FIXME is it the wanted semantics*)
+        is_subtype mt1_a mt2_a && is_subtype mt1_b mt2_b
+    | TBridge tb1, TBridge tb2 -> 
+        is_subtype tb1.in_type tb2.in_type &&
+        is_subtype tb1.out_type tb2.out_type &&
+        is_subtype tb1.protocol tb2.protocol
+    | TPolyVar x, TPolyVar y -> x = y
+    | TForall (x1, mt1), TForall(x2, mt2) -> (*TODO add bounded polymorphism*)
+        (* x1 = x2 in the context since we are not  using Debruijn variable *)
+        let mt2' = IR.replace_type_main_type x2 (Some x1, None) mt2 in
+        is_subtype mt1 mt2'
+    | _ -> false 
+and is_subtype_ct ct1 ct2 = _is_subtype_ct ct1.place ct2.place ct1.value ct2.value
+and _is_subtype_st (known_subtypes:(_session_type * _session_type) list) place1 place2 st1 st2 =  
+    (=) st1 st2 || (* Impl optimization to avoid runing complex computation if possible *)
+    List.mem (st1, st2) known_subtypes || (* for recursive types *)
+    match (st1, st2) with
+    | STRecv (mt1, st1), STRecv(mt2, st2) ->
+        is_subtype mt1 mt2 && (* co-variance *)
+        is_subtype_st st1 st2
+    | STSend (mt1, st1), STSend(mt2, st2) ->
+        is_subtype mt2 mt1 && (* contra-variance *)
+        is_subtype_st st1 st2
+    | STBranch branches1, STBranch branches2 -> 
+        let labels1 = (Atom.Set.of_seq (List.to_seq (List.map (function (x, _, _) ->x) branches1))) in
+        let tbl1 = (Atom.VMap.of_seq (List.to_seq (List.map (function (x,y,z) -> (x,(y,z))) branches1))) in
+        let labels2 = (Atom.Set.of_seq (List.to_seq (List.map (function (x, _, _) -> x) branches2))) in
+        let tbl2 = (Atom.VMap.of_seq (List.to_seq (List.map (function (x,y,z) -> (x,(y,z))) branches2))) in
 
+        let common_labels = Atom.Set.inter labels1 labels2 in
+
+        common_labels = labels1 && (* labels 1 \subset labels 2*)
+        Seq.fold_left (fun flag label ->
+            let st1,_ = Atom.VMap.find label tbl1 in
+            let st2,_ = Atom.VMap.find label tbl2 in
+            flag && is_subtype_st st1 st2 (* TODO FIXME check implication *)
+        ) true (Atom.Set.to_seq common_labels)
+    | STVar x, STVar y -> x = y
+    | st0, (STRec (x, st1) as st_rec) ->
+        (* One unfolding *)
+        let st1 = replace_stype_session_type x (None, Some st_rec) st1 in
+        let known_subtypes = (st0,st_rec)::known_subtypes in
+        _is_subtype_st known_subtypes place1 st1.place st0 st1.value
+    | STPolyVar x, STPolyVar y -> x = y
+    | _ -> false
+and is_subtype_st ?known_subtypes:(known_subtypes=[]) st1 st2 = _is_subtype_st known_subtypes st1.place st2.place st1.value st2.value
+
+and _is_subtype_cmt place1 place2 cmt1 cmt2 =  
+    (=) cmt1 cmt2 || (* Impl optimization to avoid runing complex computation if possible *)
+    match (cmt1, cmt2) with
+    | CompTUid x, CompTUid y -> x = y
+    | TStruct mts1, TStruct mts2 -> failwith "TODO subtyping relation between components"
+    | TPolyCVar x, TPolyCVar y -> x = y
+    | _ -> false 
+and is_subtype_cmt cmt1 cmt2 = _is_subtype_cmt cmt1.place cmt2.place cmt1.value cmt2.value
+and _is_subtype place1 place2 mt1 mt2 = 
+    (=) mt1 mt2 || (* Impl optimization to avoid runing complex computation if possible *)
+    match (mt1, mt2) with
+    | _, CType {value=TFlatType TWildcard} -> true
+    | CType ct1, CType ct2 -> is_subtype_ct ct1 ct2
+    | SType st1, SType st2 -> is_subtype_st st1 st2
+    | CompType cmt1, CompType cmt2 -> is_subtype_cmt cmt1 cmt2 
+    | ConstrainedType (mt1,_), ConstrainedType (mt2,_) -> is_subtype mt1 mt2
+    (* TODO FIXME implication also*)
+    | _ -> false 
+and is_subtype mt1 mt2 = _is_subtype mt1.place mt2.place mt1.value mt2.value
 
 let rec a2d_place a2d_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
     let value = a2d_value place value in
