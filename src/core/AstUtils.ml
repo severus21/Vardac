@@ -95,14 +95,8 @@ and binop =
     (* Iterators *)
     | In
 
-    (* Others TODO*)
-    (*
-    | Dot
-    | Sequence
-    *)
-
 and block = 
-    | Block
+    | Block (* tODO FIXME is used, if not get ride of this*)
     | List 
     | Tuple
     | Set

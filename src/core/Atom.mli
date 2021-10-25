@@ -70,6 +70,9 @@ module VMap : sig
   val domain: 'a t -> Set.t
   val codomain: ('a -> Set.t) -> 'a t -> Set.t
 
+  val pp : ('a->'c) -> Ppx_deriving_runtime.Format.formatter -> 'b t -> unit (*Ppx_deriving_runtime.Format.formatter -> 'a t -> Ppx_deriving_runtime.unit*)
+  val show : 'a t -> Ppx_deriving_runtime.string
+
 end
 
 module AtomsMap : sig

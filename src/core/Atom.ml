@@ -227,6 +227,9 @@ module VMap = struct
 
   let codomain f m =
     fold (fun _ v accu -> Set.union (f v) accu) m Set.empty
+  
+  let pp _ fmt m = failwith "TODO pp for VMap"
+  let show m = failwith "TODO show for VMap"
 
 end
 
