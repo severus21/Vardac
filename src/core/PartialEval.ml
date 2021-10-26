@@ -1,6 +1,7 @@
 open IR
 open Easy_logging
 open Utils
+open AstUtils
 
 let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
@@ -45,10 +46,6 @@ let print_env env =
     print_string "}";
     print_newline ()
 
-let rec peval_place peval_value env ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
-    let env, value = peval_value env place value in
-    env, {AstUtils.place; AstUtils.value}
-
 let rec peval_composed_type env place : _composed_type -> env * _composed_type = function
 | TActivationInfo mt -> env, TActivationInfo ((snd <-> pe_mtype env) mt)
 | (TArrow (mt1, mt2) as ct) | (TUnion (mt1, mt2) as ct)-> 
@@ -91,7 +88,7 @@ let rec peval_composed_type env place : _composed_type -> env * _composed_type =
         out_type = (snd <-> pe_mtype env) out_type;
         protocol = (snd <-> pe_mtype env) protocol 
     }
-and pe_ctype env: composed_type -> env * composed_type = peval_place peval_composed_type env
+and pe_ctype env: composed_type -> env * composed_type = map2_place (peval_composed_type env)
 
 
 and peval_stype env place : _session_type -> env * _session_type = 
@@ -128,7 +125,7 @@ and peval_stype env place : _session_type -> env * _session_type =
         env, STSend (mt', st')
     | STVar x -> 
         env, STVar x
-and pe_stype env: session_type -> env * session_type = peval_place peval_stype env
+and pe_stype env: session_type -> env * session_type = map2_place (peval_stype env)
 
 and is_type_of_component x = Str.string_match (Str.regexp "[A-Z].*") (Atom.hint x) 0
 
@@ -159,7 +156,7 @@ and peval_mtype env place : _main_type -> env * _main_type = function
     snd(pe_mtype env mt), 
     snd (peval_applied_constraint env cst)) 
 | elmt -> env, elmt (*TODO*)
-and pe_mtype env: main_type -> env * main_type = peval_place peval_mtype env
+and pe_mtype env: main_type -> env * main_type = map2_place (peval_mtype env)
 
 (******************************** Constraints ********************************)
 and peval_applied_constraint env : applied_constraint -> env * applied_constraint = function x -> env, x 
@@ -347,7 +344,7 @@ and peval_expr env place (e, mt) :  env * (_expr * main_type) =
         | x -> env, x 
     in
     env, (e, mt)
-and pe_expr env: expr -> env * expr = peval_place peval_expr env
+and pe_expr env: expr -> env * expr = map2_place (peval_expr env)
 
 and peval_stmt env place : _stmt -> env * _stmt = function 
 | EmptyStmt -> env, EmptyStmt
@@ -427,7 +424,7 @@ end
     let new_env, new_e = pe_expr env e in
     new_env, (ExpressionStmt new_e)
 | x -> env, x
-and pe_stmt env: stmt -> env * stmt = peval_place peval_stmt env
+and pe_stmt env: stmt -> env * stmt = map2_place (peval_stmt env)
 
 
 (************************************ Component *****************************)
@@ -453,11 +450,11 @@ and peval_contract env place contract =
         ensures = clean_predicate ensures;
         returns = clean_predicate returns 
     }
-and pe_contract env: contract -> env * contract = peval_place peval_contract env
+and pe_contract env: contract -> env * contract = map2_place (peval_contract env)
 
 and peval_param env place (mt, x) = 
     env, (snd(pe_mtype env mt), x)
-and pe_param env: param -> env * param = peval_place peval_param env
+and pe_param env: param -> env * param = map2_place (peval_param env)
 
 and peval_method env place m = 
     let contract_opt = Option.map (function c -> snd(pe_contract env c)) m.contract_opt in
@@ -473,9 +470,9 @@ and peval_method env place m =
             body = List.map (snd <-> pe_stmt env) m.body;
             contract_opt = contract_opt
     } 
-and pe_method env: method0 -> env * method0 = peval_place peval_method env
+and pe_method env: method0 -> env * method0 = map2_place (peval_method env)
 
-and peval_port env place port = 
+and peval_port env place (port, mt_port) = 
     let expecting_st = snd(pe_mtype env port.expecting_st) in 
     
     begin
@@ -485,12 +482,12 @@ and peval_port env place port =
         | _ -> Error.error place "port expecting value must be a session type"
     end;
 
-    env, { port with
+    env, ({ port with
         input =  snd(pe_expr env port.input);
         expecting_st;
         callback = snd(pe_expr env port.callback)
-    }
-and pe_port env: port -> env * port = peval_place peval_port env
+    }, mt_port)
+and pe_port env: port -> env * port = map2_place (peval_port env)
 
 and peval_state env place = function 
 | StateDcl s -> env, StateDcl {s with 
@@ -498,7 +495,7 @@ and peval_state env place = function
     body = Option.map (function e -> snd(pe_expr env e)) s.body
 } 
 | StateAlias _ -> failwith "partial-evaluation does not support yet StateAlias" 
-and pe_state env: state -> env * state = peval_place peval_state env
+and pe_state env: state -> env * state = map2_place (peval_state env)
 
 and peval_component_item env place : _component_item -> env * _component_item = function 
 | Contract c -> raise (Error.PlacedDeadbranchError (place, "contract should be paired with method before partial_evaluation, therefore no contract should remains as a component_item"))
@@ -508,7 +505,7 @@ and peval_component_item env place : _component_item -> env * _component_item = 
 | State s -> env, State (snd(pe_state env s))
 | Term t -> env, Term (snd(pe_term env t))
 
-and pe_component_item env: component_item -> env * component_item = peval_place peval_component_item env
+and pe_component_item env: component_item -> env * component_item = map2_place (peval_component_item env)
 
 and peval_component_dcl env place : _component_dcl -> env * _component_dcl = function  
 | ComponentAssign {name; args; value} -> env, ComponentAssign {
@@ -546,7 +543,7 @@ and peval_component_dcl env place : _component_dcl -> env * _component_dcl = fun
     let new_env, citems = List.fold_left_map pe_component_item env body in 
     new_env, ComponentStructure {cdcl with body = citems }
 
-and pe_component_dcl env: component_dcl -> env * component_dcl = peval_place peval_component_dcl env
+and pe_component_dcl env: component_dcl -> env * component_dcl = map2_place (peval_component_dcl env)
 
 (********************** Manipulating component structure *********************)
 and peval_component_expr env place (ce, mt_ce) = (* TODO peval for this*)
@@ -556,7 +553,7 @@ and peval_component_expr env place (ce, mt_ce) = (* TODO peval for this*)
         | UnboxCExpr e -> env, UnboxCExpr (snd(pe_expr env e)) 
         | AnyExpr e -> env, AnyExpr (snd(pe_expr env e)) 
     in env, (ce, mt_ce)
-and pe_component_expr env: component_expr -> env * component_expr = peval_place peval_component_expr env
+and pe_component_expr env: component_expr -> env * component_expr = map2_place (peval_component_expr env)
 
 (************************************ Program *****************************)
 and peval_term env place : _term -> env * _term = function
@@ -603,7 +600,7 @@ end
         | EventDef _ -> EventDef (x, args, ())
     })
 end
-and pe_term env: term -> env * term = peval_place peval_term env
+and pe_term env: term -> env * term = map2_place (peval_term env)
 
 and pe_terms env terms : env * IR.term list =
     let env, program = List.fold_left_map pe_term (fresh_env ()) terms in

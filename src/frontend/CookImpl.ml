@@ -3,6 +3,7 @@ open Core.Error
 open Core.Builtin
 open Fieldslib
 open Easy_logging
+open AstUtils
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
 (* The source calculus. *)
@@ -18,13 +19,6 @@ let fresh_env () : env = {
     default_target = None
 }
 
-let rec cook_place cook_value env ({ Core.AstUtils.place ; Core.AstUtils.value}: 'a Core.AstUtils.placed) = 
-    let env, value = cook_value env place value in
-    env, {Core.AstUtils.place; Core.AstUtils.value}
-
-
-
-
 let rec cook_item_impl env place : S._component_item_impl -> env * T._component_item_impl = function 
 | S.MethodImpl mimpl -> env, T.MethodImpl {
     name = mimpl.name;
@@ -34,7 +28,7 @@ let rec cook_item_impl env place : S._component_item_impl -> env * T._component_
     name = mstate.name;
     body = mstate.body;
 }
-and citem_impl env :  S.component_item_impl -> env * T.component_item_impl = cook_place cook_item_impl env
+and citem_impl env :  S.component_item_impl -> env * T.component_item_impl = map2_place (cook_item_impl env)
 
 and cook_component_impl place env (cimpl:S.component_impl) :  env * T.component_impl = 
     let _, items = List.fold_left_map citem_impl env cimpl.body in

@@ -22,11 +22,6 @@ let deduplicate_annotations annots =
 let deduplicate_decorators dcs = 
 SDecorator.elements (SDecorator.of_list dcs)
 
-let rec clean_place clean_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
-    let value = clean_value place value in
-    {AstUtils.place; AstUtils.value}
-
-
 let clean_return_type stmts ret_type = 
     match ret_type.value with
     | TAtomic "Void" ->
@@ -62,7 +57,7 @@ let rec clean_expr place : _expr -> _expr = function
 | UnaryExpr (op, e) -> UnaryExpr (op, cexpr e)
 | VarExpr x -> VarExpr x
 | RawExpr s -> RawExpr s
-and cexpr e = clean_place clean_expr e 
+and cexpr e = map_place clean_expr e 
 
 and clean_stmt place : _stmt -> _stmt = function
 | BlockStmt stmts -> BlockStmt (List.map cstmt stmts)
@@ -87,7 +82,7 @@ and clean_stmt place : _stmt -> _stmt = function
         cstmt stmt
     ) branches
 )
-and cstmt e = clean_place clean_stmt e 
+and cstmt e = map_place clean_stmt e 
 
 and clean_body_v place : _body -> _body = function 
 | ClassOrInterfaceDeclaration cid ->
@@ -108,12 +103,12 @@ and clean_body place {annotations; decorators; v} = {
     decorators = deduplicate_decorators decorators;
     v = clean_body_v place v;
 }
-and cbody b = clean_place clean_body b 
+and cbody b = map_place clean_body b 
     
 and clean_item place = function
 | Body b -> Body (cbody b) 
 | Stmt stmt -> Stmt (cstmt stmt)
 | item -> item 
-and citem item =  clean_place clean_item item 
+and citem item =  map_place clean_item item 
 
 let clean_program program = List.map citem program 

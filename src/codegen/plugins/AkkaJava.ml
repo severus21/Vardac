@@ -746,11 +746,6 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
     in
     flatten_stages stages
 
-let rec finish_place finish_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
-    let value = finish_value place value in
-    {AstUtils.place; AstUtils.value}
-
-
 let rec finish_visibility = function
     | S.Private -> T.Private
     | S.Protected -> T.Protected
@@ -811,7 +806,7 @@ function
     end 
     | S.TVar v -> T.TVar v
     | S.TRaw str -> T.TAtomic str
-and fctype ct : T.jtype = finish_place finish_ctype ct
+and fctype ct : T.jtype = map_place finish_ctype ct
 
 
 
@@ -824,7 +819,7 @@ let rec finish_literal place : S._literal -> T._literal= function
     | S.FloatLit f -> T.FloatLit f
     | S.IntLit f -> T.IntLit f
     | S.StringLit s -> T.StringLit s
-and fliteral lit : T.literal = finish_place finish_literal lit
+and fliteral lit : T.literal = map_place finish_literal lit
 
 and finish_expr place : S._expr -> T._expr = function
     | S.AccessExpr (e1,e2) -> T.AccessExpr (fexpr e1, fexpr e2)
@@ -914,7 +909,7 @@ and finish_expr place : S._expr -> T._expr = function
     | S.VarExpr x -> T.VarExpr x             
     | S.NewExpr (e, es) -> T.NewExpr (fexpr e, List.map fexpr es)             
     | S.RawExpr str -> T.RawExpr str
-and fexpr expr : T.expr = finish_place finish_expr expr
+and fexpr expr : T.expr = map_place finish_expr expr
 
 and finish_stmt place : S._stmt -> T._stmt = function
     | S.AssignExpr (e1, e2) -> T.ExpressionStmt ( {place; value=T.AssignExpr(fexpr e1, T.AssignOp, fexpr e2)})
@@ -937,7 +932,7 @@ and finish_stmt place : S._stmt -> T._stmt = function
             fstmt stmt
         ) branches
     )
-and fstmt stmt : T.stmt = finish_place finish_stmt stmt
+and fstmt stmt : T.stmt = map_place finish_stmt stmt
 
 let rec finish_state  (state:S.state) : T.str_items list = 
 match state.value with
@@ -1026,7 +1021,7 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
             }
         }
     }
-and fevent e : T.str_items = finish_place finish_event e
+and fevent e : T.str_items = map_place finish_event e
 
 and finish_arg ((ctype,variable):(S.ctype * Atom.atom)) : T.parameter =
     (fctype ctype, variable)
@@ -1178,7 +1173,7 @@ and finish_method_v is_guardian is_actor_method place ({ret_type; name; body; ar
             parameters  = List.map finish_arg args;
             body
         }
-and fmethod is_guardian is_actor_method m : T.str_items = {place=m.place; value= T.Body (finish_place (finish_annoted (finish_method_v is_guardian is_actor_method)) m)}
+and fmethod is_guardian is_actor_method m : T.str_items = {place=m.place; value= T.Body (map_place (finish_annoted (finish_method_v is_guardian is_actor_method)) m)}
 
 and finish_actor place ({is_guardian; extended_types; implemented_types; name; methods; states; events; nested_items; receiver}: S._actor): T._str_items =
     let fplace = place@(Error.forge_place "Plg=Akka/finish_actor" 0 0) in
@@ -1482,7 +1477,7 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
             }
         }
     } 
-and factor a : T.str_items = finish_place finish_actor a
+and factor a : T.str_items = map_place finish_actor a
 
 (*
     is_cl_toplevel
@@ -1571,7 +1566,7 @@ match t with
         }
     }
     | TemplateClass raw -> T.Raw raw.value (* TODO FIXME we should  keep raw.place here *) 
-and fterm ?(is_cl_toplevel=false) t : T.str_items = finish_place (finish_term is_cl_toplevel) t
+and fterm ?(is_cl_toplevel=false) t : T.str_items = map_place (finish_term is_cl_toplevel) t
 
 and finish_program target (_cstate, program): (string * Fpath.t * T.program) List.t = 
     cstate := _cstate;

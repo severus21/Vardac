@@ -409,9 +409,6 @@ and reset_timers env st = {
 and reset_timers_of st = reset_timers Env.empty st
 
 (**************************************************************)
-let rec gtransform_place gtransform_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
-    let value = gtransform_value place value in
-    {AstUtils.place; AstUtils.value}
 
 
 let rec gtransform_mt_ place = function 
@@ -428,7 +425,7 @@ end
 | CType ct -> CType ct (* Since guard can only apprears in a procotoldef *)
 | CompType ct -> CompType ct 
 | ConstrainedType (mt, ac) -> ConstrainedType (mt, ac)
-and gtransform_mt mt = gtransform_place gtransform_mt_ mt
+and gtransform_mt mt = map_place gtransform_mt_ mt
 
 and gtransform_citem_ place = function
 (* protocoldef can only be hidden in subterm *)
@@ -440,7 +437,7 @@ and gtransform_citem_ place = function
 | Contract c -> Contract c
 | Port p -> Port p
 | Include _ -> raise (Error.DeadbranchError "gtransform_citem: Include not supported, include should have been resolved")
-and gtransform_citem citem = gtransform_place gtransform_citem_ citem 
+and gtransform_citem citem = map_place gtransform_citem_ citem 
 
 and gtransform_cdcl_ place = function
 | ComponentStructure cdcl -> ComponentStructure {
@@ -449,7 +446,7 @@ and gtransform_cdcl_ place = function
         body = List.map gtransform_citem cdcl.body
 }
 | ComponentAssign _ -> failwith "component assign is not supported by guard transform, semantics undefined"
-and gtransform_cdcl cdcl = gtransform_place gtransform_cdcl_ cdcl 
+and gtransform_cdcl cdcl = map_place gtransform_cdcl_ cdcl 
 
 and gtransform_term_ place = function
 | EmptyTerm -> EmptyTerm
@@ -461,7 +458,7 @@ and gtransform_term_ place = function
 | Typedef {place=p_p; value=ProtocolDef (x, mt)} ->
     Typedef {place=p_p; value=ProtocolDef (x, gtransform_mt mt)} 
 | Typedef _ as t -> t
-and gtransform_term term = gtransform_place gtransform_term_ term
+and gtransform_term term = map_place gtransform_term_ term
 
 and gtransform_program terms = 
     List.map gtransform_term terms

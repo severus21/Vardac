@@ -103,3 +103,13 @@ and block =
 and block2 =
     | Dict
 [@@deriving show { with_path = false }]
+
+
+let rec map0_place (fct:Error.place -> 'a -> 'b) ({place; value}:'a placed) : 'b  = 
+    fct place value 
+let rec map_place (fct:Error.place -> 'a -> 'b) ({place; value}:'a placed) : 'b placed = 
+    { place; value = fct place value }
+
+let rec map2_place (fct:Error.place -> 'a -> 'b * 'c) ({place; value}:'a placed) : 'b * 'c placed = 
+    let env, value = fct place value in
+    env, { place; value = value }

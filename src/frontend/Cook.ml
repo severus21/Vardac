@@ -250,10 +250,6 @@ match value with
 | S.Component c -> shallow_scan_component_dcl (current_set, env) c
 | _ -> current_set, env
 
-let rec cook_place cook_value env ({ Core.AstUtils.place ; Core.AstUtils.value}: 'a Core.AstUtils.placed) = 
-    let env, value = cook_value env place value in
-    env, {Core.AstUtils.place; Core.AstUtils.value}
-
 (*
         @return flag; flag = true if it is a component like (instanciation needed)
 *)
@@ -342,7 +338,7 @@ and cook_composed_type (env:env) place: S._composed_type -> env * T._composed_ty
 | S.TVPlace mt -> 
     let env1, mt = cmtype env mt in
     env << [env1], T.TVPlace mt
-and cctype env ct: env * T.composed_type = cook_place cook_composed_type env ct
+and cctype env ct: env * T.composed_type = map2_place (cook_composed_type env) ct
 
 and cook_session_type env place: S._session_type -> env * T._session_type = function
 | (S.STBranch entries as st0) | (S.STSelect entries as st0) ->
@@ -384,12 +380,12 @@ end
 | S.STInline x ->  
     let y = cook_var_type env place x in  
     env, T.STInline y
-and cstype env st: env * T.session_type = cook_place cook_session_type env st
+and cstype env st: env * T.session_type = map2_place (cook_session_type env) st
 
 and cook_component_type env place: S._component_type -> env * T._component_type = function
 | S.CompTUid x -> 
     env, T.CompTUid (cook_var_type env place x)
-and ccomptype env cmt : T.component_type = snd(cook_place cook_component_type env cmt)
+and ccomptype env cmt : T.component_type = snd(map2_place (cook_component_type env) cmt)
 and cook_expression = function (e:S.expr) -> snd (cexpr (fresh_env ()) e)
 
 and cook_mtype env place: S._main_type -> env * T._main_type = function
@@ -413,7 +409,7 @@ and cook_mtype env place: S._main_type -> env * T._main_type = function
     let env1, mt = cmtype env mt in
     let env2, aconst = caconst env aconst in
     env << [env1; env2], T.ConstrainedType (mt, aconst)
-and cmtype env mt : env * T.main_type = cook_place cook_mtype env mt
+and cmtype env mt : env * T.main_type = map2_place (cook_mtype env) mt
 
 (******************************** Constraints ********************************)
 and cook_constraint_header env place: S._constraint_header -> env * T._constraint_header = function
@@ -425,10 +421,10 @@ and cook_constraint_header env place: S._constraint_header -> env * T._constrain
     (* alreay added when defining a session type *)
     env, T.SetTimer (cook_var_expr env place x)
 
-and cconst env const : env * T.constraints = cook_place cook_expr env const
+and cconst env const : env * T.constraints = map2_place (cook_expr env) const
 
 and caconst env (headers,const_opt): env * T.applied_constraint = 
-    let (env1, new_headers) : (env * T.constraint_header list ) = List.fold_left_map (cook_place cook_constraint_header) env headers in
+    let (env1, new_headers) : (env * T.constraint_header list ) = List.fold_left_map (function env -> map2_place (cook_constraint_header env)) env headers in
     match const_opt with
     | Some const ->
         let env2, new_const = cconst env1 const in
@@ -446,7 +442,7 @@ and cook_literal env place : S._literal -> env * T._literal = function
 
 (** Activations *)
 | S.ActivationInfo _ -> env, T.ActivationInfo () (* TODO *)
-and cliteral env lit: env * T.literal = cook_place cook_literal env lit
+and cliteral env lit: env * T.literal = map2_place (cook_literal env) lit
 
 (*
  bool parameter - create_instance_flag
@@ -540,7 +536,7 @@ and cook_expr env place e : env * (T._expr * T.main_type) =
             env << (envs1@envs2), T.Block2Expr (b, es)
     in
     env, (e, auto_fplace T.EmptyMainType)
-and cexpr env e: env * T.expr = cook_place cook_expr env e
+and cexpr env e: env * T.expr = map2_place (cook_expr env) e
 
 and cook_stmt env place: S._stmt -> env * T._stmt = function
 | S.EmptyStmt -> env, T.EmptyStmt
@@ -607,7 +603,7 @@ end
 | S.GhostStmt stmt -> 
     let env1, stmt = cstmt env stmt in
     env << [env1], T.GhostStmt stmt
-and cstmt env : S.stmt -> env * T.stmt = cook_place cook_stmt env
+and cstmt env : S.stmt -> env * T.stmt = map2_place (cook_stmt env)
 
 and cook_function env place : S._function_dcl -> env * T._function_dcl = 
 let fplace = (Error.forge_place "Coook.cook_function" 0 0) in
@@ -638,7 +634,7 @@ function
             args;
             body = body 
     } 
-and cfdcl env: S.function_dcl -> env * T.function_dcl = cook_place cook_function env
+and cfdcl env: S.function_dcl -> env * T.function_dcl = map2_place (cook_function env)
 
 (************************************ Component *****************************)
 and cook_state env place : S._state -> env * T._state = function
@@ -658,7 +654,7 @@ and cook_state env place : S._state -> env * T._state = function
                 name    = y;
                 body = body}
 | S.StateAlias _ -> failwith "cook: state alias not yet supported" (*TODO*)
-and cstate env: S.state -> env * T.state = cook_place cook_state env
+and cstate env: S.state -> env * T.state = map2_place (cook_state env)
 
 
 and cook_param env place (mt, x) : env * T._param = 
@@ -668,7 +664,7 @@ and cook_param env place (mt, x) : env * T._param =
     register_gamma y mt;
     
     new_env<<[env1], (mt, y)
-and cparam env: S.param -> env * T.param = cook_place cook_param env
+and cparam env: S.param -> env * T.param = map2_place (cook_param env)
 
 and cook_contract env place (contract:S._contract): env * T._contract =
     let fplace = (Error.forge_place "Frontend.Cook.cook_contract" 0 0) in
@@ -725,7 +721,7 @@ and cook_contract env place (contract:S._contract): env * T._contract =
             ensures;
             returns}
 
-and ccontract env: S.contract -> env * T.contract = cook_place cook_contract env
+and ccontract env: S.contract -> env * T.contract = map2_place (cook_contract env)
 
 
 and cook_method0 env place (m: S._method0) : env * T._method0 = 
@@ -758,15 +754,18 @@ let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
         on_destroy = m.on_destroy;
         on_startup = m.on_startup 
     } 
-and cmethod0 env: S.method0 -> env * T.method0 = cook_place cook_method0 env
+and cmethod0 env: S.method0 -> env * T.method0 = map2_place (cook_method0 env)
 
-and cook_port env place (port:S._port) : env * T._port =
+and cook_port env place (port:S._port) : env * (T._port * T.main_type)=
+    let fplace = (Error.forge_place "Coook.cook_method0" 0 0) in
+    let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
+
     let new_env, name = bind_this env place port.name in
     let env1, input = cexpr env port.input in
     let env2, expecting_st = cmtype env port.expecting_st in 
     let env3, callback = cexpr env port.callback in 
-    new_env << [env1; env2; env3], { name; input; expecting_st; callback}
-and cport env: S.port -> env * T.port = cook_place cook_port env
+    new_env << [env1; env2; env3], ({ name; input; expecting_st; callback}, auto_fplace T.EmptyMainType)
+and cport env: S.port -> env * T.port = map2_place (cook_port env)
 
 and cook_component_item env _ : S._component_item -> env * T._component_item = function
 | S.State s ->
@@ -786,7 +785,7 @@ and cook_component_item env _ : S._component_item -> env * T._component_item = f
 | S.Include ce -> 
     let env1, ce = ccexpr env ce in
     env << [env1], T.Include (ce)
-and ccitem env: S.component_item -> env * T.component_item = cook_place cook_component_item env
+and ccitem env: S.component_item -> env * T.component_item = map2_place (cook_component_item env)
 
 and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = function
 | S.ComponentStructure cdcl -> 
@@ -831,7 +830,7 @@ and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = 
     let inner_env, value = ccexpr inner_env cdcl.value in
     (* TODO what should i do with the inner_env + should i refresh the env ?? *)
     new_env, T.ComponentAssign {name; args; value }
-and ccdcl env: S.component_dcl -> env * T.component_dcl = cook_place cook_component_dcl env
+and ccdcl env: S.component_dcl -> env * T.component_dcl = map2_place (cook_component_dcl env)
 
 (********************** Manipulating component structure *********************)
 and cook_component_expr env place ce : env * (T._component_expr * T.main_type)=
@@ -854,7 +853,7 @@ and cook_component_expr env place ce : env * (T._component_expr * T.main_type)=
             let cenv1, e = cexpr env e in
             env << [cenv1], T.AnyExpr e
     in env, (ce, auto_fplace T.EmptyMainType)
-and ccexpr env : S.component_expr -> env * T.component_expr = cook_place cook_component_expr env
+and ccexpr env : S.component_expr -> env * T.component_expr = map2_place (cook_component_expr env)
 
 (********************** Signatures *********************)
 
@@ -936,7 +935,7 @@ end
         | EventDef _ -> EventDef (y, args, ())
     })
     
-and cterm env: S.term -> env * T.term = cook_place cook_term env
+and cterm env: S.term -> env * T.term = map2_place (cook_term env)
 
 let cook_program _places terms =    
     let rec hydrate_places parent_name (p:IR.vplace) = 

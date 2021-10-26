@@ -18,9 +18,6 @@ module Make (Args : Params ) : Sig = struct
             TODO FIXME only scan component method at this point
     *)
     let gamma = Args.gamma
-    let rec rewrite_place rewrite_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
-        let value = rewrite_value place value in
-        {AstUtils.place; AstUtils.value}
 
     let rec rewrite_method0 place (m:_method0) : port list * state list * method0 list = 
     let fplace = (Error.forge_place "Core.Rewrite.rewrite_method0" 0 0) in
@@ -224,7 +221,7 @@ module Make (Args : Params ) : Sig = struct
             (*let intermediate_state_name = Areceivetom.fresh ((Atom.hint m.name)^"_intermediate_state") in*)
             
 
-            let intermediate_port = auto_fplace {
+            let intermediate_port = auto_fplace ({
                 name = intermediate_port_name;
                 input = bridge;
                 expecting_st = auto_fplace (SType( auto_fplace (STRecv (msg_t, continuation_st)))); (* TODO need type annotation to support more cases *)
@@ -238,7 +235,7 @@ module Make (Args : Params ) : Sig = struct
                         auto_fplace EmptyMainType
                     )
                 ), auto_fplace EmptyMainType);
-            } in
+            }, auto_fplace EmptyMainType) in
             
             let tmp_event = Atom.fresh_builtin "e" in
             let tmp_session = Atom.fresh_builtin "session" in
@@ -477,7 +474,7 @@ module Make (Args : Params ) : Sig = struct
         let body = body @ [intermediate_states_index] in 
 
         ComponentStructure { cdcl with body }
-    and rcdcl cdcl = rewrite_place rewrite_component_dcl cdcl 
+    and rcdcl cdcl = map_place rewrite_component_dcl cdcl 
 
     and rewrite_term place = function
     | EmptyTerm -> EmptyTerm
@@ -487,7 +484,7 @@ module Make (Args : Params ) : Sig = struct
     | Function fcdcl -> Function fcdcl
     | Typealias _ as t -> t
     | Typedef _ as t -> t
-    and rterm term = rewrite_place rewrite_term term
+    and rterm term = map_place rewrite_term term
 
     and rewrite_program terms = 
         List.map rterm terms

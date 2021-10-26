@@ -136,10 +136,6 @@ let group_cdcl_by (citems:  S.component_item list) : items_grps =
 
 (************************************* Base types ****************************)
 
-let rec finish_place finish_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
-    let value = finish_value place value in
-    {AstUtils.place; AstUtils.value}
-
 (************************************ Types **********************************)
 let rec finish_ctype place : S._composed_type ->  T._ctype = function
     | S.TActivationInfo mt -> T.ActorRef (fmtype mt) 
@@ -171,7 +167,7 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
     | S.TVPlace mt -> (t_lg4dc_vplace place).value
     | S.TBridge b -> (t_lg4dc_bridge place).value
     | S.TRaw bbraw -> T.TRaw bbraw.value.body
-and fctype ct :  T.ctype = finish_place finish_ctype ct
+and fctype ct :  T.ctype = map_place finish_ctype ct
 
 (* Represent an ST object in Java type *)
 and finish_stype place : S._session_type -> T._ctype = function 
@@ -228,7 +224,7 @@ and finish_stype place : S._session_type -> T._ctype = function
 
     | S.STInline x -> 
         raise (Error.PlacedDeadbranchError (place, "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass."))
-and fstype st : T.ctype = finish_place finish_stype st
+and fstype st : T.ctype = map_place finish_stype st
 
 (* Represent an ST object in Java value *)
 and finishv_stype place : S._session_type -> T._expr = 
@@ -312,11 +308,11 @@ function
     | S.STRec (_,st) -> failwith "Not yet supported"
     | S.STInline x -> 
         raise (Error.PlacedDeadbranchError (place, "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass."))
-and fvstype st : T.expr = finish_place finishv_stype st
+and fvstype st : T.expr = map_place finishv_stype st
 
 and finish_component_type place : S._component_type -> T._ctype = function
 | S.CompTUid x -> T.TVar x 
-and fcctype ct : T.ctype = finish_place finish_component_type ct
+and fcctype ct : T.ctype = map_place finish_component_type ct
 
 and finish_mtype place : S._main_type -> T.ctype = 
 let fplace = place@(Error.forge_place "Plg=Akka/finish_mtype" 0 0) in
@@ -356,7 +352,7 @@ and finish_literal place : S._literal -> T._literal = function
 
     | S.Place _ -> failwith "Place is not yet supported"
     | S.Bridge _ -> raise (Error.DeadbranchError "Bridge should have been process by the finish_expr (returns an expr)")
-and fliteral lit : T.literal = finish_place finish_literal lit
+and fliteral lit : T.literal = map_place finish_literal lit
 
 (************************************ Expr & Stmt *****************************)
 
@@ -495,7 +491,7 @@ match e with
     | S.ResultExpr (_,_) -> raise (Core.Error.PlacedDeadbranchError (place, "finish_expr : a result expr can not be Ok and Err at the same time."))
     | S.BlockExpr (b, es) -> T.BlockExpr(b, List.map fexpr es)
     | S.Block2Expr (b, xs) -> failwith "block not yet supported"
-and fexpr e : T.expr = finish_place finish_expr e
+and fexpr e : T.expr = map_place finish_expr e
 
 and finish_stmt place : S._stmt -> T._stmt = function
     | S.EmptyStmt -> T.CommentsStmt (AstUtils.LineComment "Empty Statement")
@@ -530,7 +526,7 @@ and finish_stmt place : S._stmt -> T._stmt = function
     | S.BlockStmt stmts -> T.BlockStmt (List.map fstmt stmts)
     
     | S.GhostStmt _ -> raise (Core.Error.PlacedDeadbranchError (place, "finish_stype : GhostStmt should have been remove by a previous compilation pass."))
-and fstmt stmt : T.stmt = finish_place finish_stmt stmt
+and fstmt stmt : T.stmt = map_place finish_stmt stmt
 
 and finish_eventdef (inner_place:Error.place) (name, mts, body) : T.event =
 match body with  
@@ -587,7 +583,7 @@ and finish_state place : S._state -> T._stmt = function
         T.LetStmt (fmtype type0, name, Some ({place=bb_term.place; value = T.RawExpr re}))
     (*use global x as y;*)
     | S.StateAlias {ghost; type0; name} -> failwith "finish_state StateAlias is not yet supported" 
-and fstate s : T.stmt = finish_place finish_state s
+and fstate s : T.stmt = map_place finish_state s
 
 
 and finish_param place : S._param -> (T.ctype * T.variable) = function
@@ -867,7 +863,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     (* Step1 - create {event_name: {(bridge_expr, st, remaining_step i.e st) ->  callbak}} *)
     let env : (Atom.atom, (T.expr * S.session_type * S.session_type, T.expr) Hashtbl.t) Hashtbl.t = Hashtbl.create 16 in
     let hydrate_env (p: S.port) = 
-        let expecting_st, (msg_type, remaining_st) = match p.value.expecting_st.value with 
+        let expecting_st, (msg_type, remaining_st) = match (fst p.value).expecting_st.value with 
         | S.SType st -> begin
             st,
             match st.value with
@@ -876,9 +872,9 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             | S.STBranch xs -> failwith "TODO"
             | S.STEnd | S.STVar _ |S.STRecv _-> failwith "TOTO"
             | S.STInline _ -> failwith "TITI"
-            | _ -> Core.Error.error p.value.expecting_st.place "%s plugin: expecting type can only start by the reception of a message or of a label" plg_name  
+            | _ -> Core.Error.error (fst p.value).expecting_st.place "%s plugin: expecting type can only start by the reception of a message or of a label" plg_name  
         end 
-        | _ -> Core.Error.error p.value.expecting_st.place "%s plugin do not support main type for port expecting" plg_name  
+        | _ -> Core.Error.error (fst p.value).expecting_st.place "%s plugin do not support main type for port expecting" plg_name  
         in
        
         let inner_env : (T.expr * S.session_type * S.session_type, T.expr) Hashtbl.t= begin 
@@ -887,13 +883,13 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             with Not_found -> let _inner_env = Hashtbl.create 8 in Hashtbl.add env msg_type _inner_env; _inner_env
         end in
 
-        let key = (fexpr p.value.input, expecting_st, remaining_st) in
+        let key = (fexpr (fst p.value).input, expecting_st, remaining_st) in
 
         (* check that key are not duplicated for the current event *)
         try
             ignore (Hashtbl.find inner_env key);
             Error.error (place@p.place) "Tuple (bridge, st) is not unique for the component %s" (Atom.hint name)
-        with Not_found -> Hashtbl.add inner_env key (fexpr p.value.callback)
+        with Not_found -> Hashtbl.add inner_env key (fexpr (fst p.value).callback)
     in
 
     List.iter hydrate_env grp_items.ports;
@@ -1200,7 +1196,7 @@ and fcdcl  : S.component_dcl -> T.actor list = function cdcl -> finish_component
 and finish_component_expr place = function
     | S.VarCExpr x, _ -> T.VarExpr x
     | _ -> failwith "Akka plg do not support yet advance component expr" 
-and fcexpr ce : T.expr = finish_place finish_component_expr ce
+and fcexpr ce : T.expr = map_place finish_component_expr ce
 
 (************************************ Program *****************************)
 

@@ -3,6 +3,7 @@ open Core.Error
 open Core.Builtin
 open Fieldslib
 open Easy_logging
+open AstUtils
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
 (* The source calculus. *)
@@ -84,9 +85,6 @@ let scan_program terms =
     List.iter (scan_term []) terms  
 
 (************************************ Pass 2 *****************************)
-let rec paired_place paired_value parents ({ Core.AstUtils.place ; Core.AstUtils.value}: 'a Core.AstUtils.placed) = 
-    let value = paired_value parents place value in
-    {Core.AstUtils.place; Core.AstUtils.value}
 
 let rec paired_state parents place : S2._state -> T._state = function
 | S2.StateDcl { ghost; type0; name; body=None} -> begin
@@ -105,7 +103,7 @@ end
     with Not_found -> T.StateDcl { ghost; type0; name; body= T.InitExpr body } 
 end
 | S2.StateAlias _ -> failwith "paired: state alias not yet supported" (*TODO*)
-and ustate parents : IR.state -> T.state = paired_place paired_state parents 
+and ustate parents : IR.state -> T.state = map_place (paired_state parents)
 
 and paired_method0 parents place : S2._method0 -> T._method0 = function
 |{ ghost; ret_type; name; args; body=[]; contract_opt; on_destroy; on_startup} -> begin
@@ -124,7 +122,7 @@ end
         Error.error (place@bb_impl.place) "Method has two implementations : one abstract and one blackbox"
     with | Not_found -> { ghost; ret_type; name; args; body= T.AbstractImpl body; contract_opt; on_destroy; on_startup }
 end
-and umethod0 parents: S2.method0 -> T.method0 = paired_place paired_method0 parents
+and umethod0 parents: S2.method0 -> T.method0 = map_place (paired_method0 parents)
 
 and paired_component_item parents place : S2._component_item -> T._component_item = function
 | S2.Contract c -> T.Contract c
@@ -133,7 +131,7 @@ and paired_component_item parents place : S2._component_item -> T._component_ite
 | S2.Port p -> T.Port p
 | S2.State s -> T.State (ustate parents s)
 | S2.Term t -> T.Term (uterm parents t)
-and ucitem parents: S2.component_item -> T.component_item  = paired_place paired_component_item parents 
+and ucitem parents: S2.component_item -> T.component_item  = map_place (paired_component_item parents)
 
 and paired_component_dcl parents place : S2._component_dcl -> T._component_dcl = function
 | S2.ComponentStructure {name; args; body} -> begin 
@@ -145,7 +143,7 @@ and paired_component_dcl parents place : S2._component_dcl -> T._component_dcl =
     with | Not_found -> raise (Error.PlacedDeadbranchError (place, "A target should have been assign to each component"))
 end
 | S2.ComponentAssign {name; args; value} -> T.ComponentAssign {name; args; value} 
-and ccdcl parents: S2.component_dcl -> T.component_dcl = paired_place paired_component_dcl parents 
+and ccdcl parents: S2.component_dcl -> T.component_dcl = map_place (paired_component_dcl parents)
 
 and paired_function_dcl parents place : S2._function_dcl -> T._function_dcl = function
 | {ret_type; name; args; body=[] } -> begin
@@ -164,7 +162,7 @@ end
         Error.error (place@bb_impl.place) "Function has two implementations : one abstract and one blackbox"
     with | Not_found -> { ret_type; name; args; body= T.AbstractImpl body }
 end
-and ufunction_dcl parents: S2.function_dcl -> T.function_dcl = paired_place paired_function_dcl parents
+and ufunction_dcl parents: S2.function_dcl -> T.function_dcl = map_place (paired_function_dcl parents)
 
 and paired_term parents place : S2._term -> T._term = function
 | S2.EmptyTerm -> T.EmptyTerm
@@ -224,7 +222,7 @@ end
         value = ProtocolDef (x, mt) 
     }  (* Implict constructor *)
 end
-and uterm parents: S2.term -> T.term = paired_place paired_term parents 
+and uterm parents: S2.term -> T.term = map_place (paired_term parents)
 
 let paired_program targets terms impl_terms =    
     (* Pass 1 *)
