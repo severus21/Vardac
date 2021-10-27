@@ -730,6 +730,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     and _replace_type_main_type (x_to_replace:type_variable) ((replaceby_x, replaceby_e_opt)as replaceby) place = function
     | CType {value=TVar x} when x = x_to_replace && replaceby_e_opt <> None -> 
         Option.get replaceby_e_opt
+    | CType {value=TPolyVar x} when x = x_to_replace && replaceby_e_opt <> None -> 
+        Option.get replaceby_e_opt
     | CType ct -> CType (replace_type_composed_type x_to_replace replaceby ct)
     | SType st -> SType (replace_type_session_type x_to_replace replaceby st) 
     and replace_type_main_type (x_to_replace:type_variable) (replaceby:type_variable option * _main_type option) = replace_type_place (_replace_type_main_type x_to_replace replaceby)
