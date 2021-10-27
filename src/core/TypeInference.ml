@@ -11,13 +11,6 @@ open IR
 
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
-
-
-
-let rec typeof_place typeof_value ({ place ; value}: 'a placed) = 
-    let value = typeof_value place value in
-    {place; value}
-
 let typeof_literal l = 
     let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
@@ -103,9 +96,56 @@ let typeof_block2 b (mts: (main_type * main_type) list) =
         | Dict -> TDict (mt1, mt2) 
     )))
 
-let rec tannot_place (tannot_value:Error.place -> 'a -> 'a) ({ AstUtils.place ; AstUtils.value}: 'a placed) = 
-    let value : 'a = tannot_value place value in
-    {place; value}
+let typeof_arrow ret_type args= 
+    let fplace = (Error.forge_place "TypeInference.typeof_arrow" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+    List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) (List.map (function (arg: param) -> fst arg.value) args) ret_type 
+let typeof_method (m:method0) = typeof_arrow m.value.ret_type m.value.args
+let typeof_function fdcl = typeof_arrow fdcl.value.ret_type fdcl.value.args
+
+let typeof_port p = 
+    snd p.value (* Already computed from programmer annotation *)
+let typeof_state s = 
+    match s.value with
+    | StateDcl sdcl -> sdcl.type0
+    | _ -> failwith "typeof_state state alias not supported"
+
+(* Search for component definition
+    We do not implement equi/iso recursive types
+    we used named type for components and we unfold the definition when needed (e.g. subtyping)
+    But we compute the signature of a component - based on named types - before doing more.
+*)
+let rec _shallow_scan_component_item ctx place = function
+| Contract _ -> ctx, [] (*TODO*)
+| Include _ -> ctx, []
+| Method m -> register_expr_type ctx m.value.name (typeof_method m), [m.value.name, typeof_method m]
+| Port p -> register_expr_type ctx (fst p.value).name (typeof_port p), [(fst p.value).name, typeof_port p]
+| State ({value=StateDcl {name}} as s)| State ({value=StateAlias {name}} as s) -> 
+    register_expr_type ctx name (typeof_state s), [name, typeof_state s]
+| Term t -> shallow_scan_term ctx t
+and shallow_scan_component_item ctx = map0_place (_shallow_scan_component_item ctx)
+and _shallow_scan_component_dcl ctx place = 
+    let fplace = (Error.forge_place "TypeInference._tannot_constraint_header" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+function
+| ComponentStructure cdcl -> begin
+    logger#warning "collect %s" (Atom.to_string cdcl.name);
+    let ctx, cstruct = List.fold_left_map shallow_scan_component_item ctx cdcl.body in (*TODO should we propagate this ctx ?*)
+    let cstruct = Atom.VMap.of_seq (List.to_seq (List.flatten cstruct)) in
+    let signature = auto_fplace(CompType(auto_fplace(TStruct cstruct))) in
+    register_cexpr_type ctx cdcl.name signature, [cdcl.name, signature]
+end
+| ComponentAssign cdcl -> failwith "TypeInference shallow ComponentAssign not yet supported" 
+and shallow_scan_component_dcl ctx = map0_place (_shallow_scan_component_dcl ctx)
+
+and _shallow_scan_term ctx place = function 
+| Component c -> shallow_scan_component_dcl ctx c 
+| _ -> ctx, [] 
+and shallow_scan_term ctx = map0_place (_shallow_scan_term ctx)
+
+and top_shallow_scan_term ctx t = fst (shallow_scan_term ctx t) 
+
+
 
 (************************************ Types **********************************)
 
@@ -171,7 +211,7 @@ and tannot_composed_type ctx ct : composed_type = {
 
 and _tannot_component_type ctx place = function
 | CompTUid x -> CompTUid x
-and tannot_component_type ctx ct = failwith "" (*tannot_place _tannot_component_type ctx ct*) 
+and tannot_component_type ctx ct = failwith "" (*map_place _tannot_component_type ctx ct*) 
 
 and _tannot_main_type ctx place = function
 | CType ct -> ctx, CType (tannot_composed_type ctx ct)
@@ -237,92 +277,135 @@ and tannot_vplace ctx (vp:vplace) =
 
 (************************************* Literals ******************************)
 
-and _tannot_expr ctx place (e, {value=EmptyMainType}) =
+and _tannot_expr ctx place (e, mt_e) =
     let fplace = (Error.forge_place "TypeInference.typeof_block" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
     let ctypeof x = auto_fplace (CType(auto_fplace x)) in
 
-    match e with  
-        | VarExpr x -> VarExpr x, typeof_var_expr ctx x 
-        | AccessExpr (e1, e2) -> AccessExpr(
-            tannot_expr ctx e1,
-            tannot_expr ctx e2
-        ), failwith "todo typeof_expr" 
-        | BinopExpr (e1, op, e2) ->
-            let e1 = tannot_expr ctx e1 in
-            let e2 = tannot_expr ctx e2 in
-            BinopExpr (e1, op, e2), typeof_binop op (snd e1.value) (snd e2.value)
-        | LambdaExpr (x, mt, e) -> 
-            let ctx = register_expr_type ctx x mt in
-            let e = tannot_expr ctx e in
-            LambdaExpr (x, mt, e), ctypeof (TArrow (mt, snd e.value))
-        | LitExpr l -> LitExpr l, typeof_literal l.value
-        | UnopExpr (op, e) -> 
-            let e = tannot_expr ctx e in
-            UnopExpr (op, e), typeof_unop op (snd e.value) 
-        | CallExpr (e, es) -> 
-            let e = tannot_expr ctx e in
-            let es = List.map (tannot_expr ctx) es in
-            let rec ret_typeof depth mt = match mt.value with (*TODO check types here ??*)
-                | _ when depth = 0 -> mt
-                | CType{value=TArrow (_, mt2)} -> ret_typeof (depth-1) mt2 
-                | _ -> Error.error place "Function expect %d args, not %d" ((List.length es)-depth) (List.length es)
-            in
-            CallExpr(e, es), ret_typeof (List.length es) (snd e.value) 
-        | NewExpr (e, es) -> 
-            let e = tannot_expr ctx e in
-            let es = List.map (tannot_expr ctx) es in
-            let rec ret_typeof depth mt = match mt.value with (*TODO check types here ??*)
-                | _ when depth = 0 -> mt
-                | CType{value=TArrow (_, mt2)} -> ret_typeof (depth-1) mt2 
-                | _ -> Error.error place "Function expect %d args, not %d" ((List.length es)-depth) (List.length es)
-            in
-            NewExpr(
-                tannot_expr ctx e,
-                List.map (tannot_expr ctx) es
-            ), ret_typeof (List.length es) (snd e.value)
-        | This -> begin 
-            match ctx.self with
-            | None -> Error.error place "[this] can not be used outside component definition" 
-            | Some self -> This, auto_fplace( CompType (auto_fplace (CompTUid (self))))
-        end
-        | Spawn spawn -> 
-            let c = tannot_component_expr ctx spawn.c in
-            Spawn {
-            c = c;
-            args = List.map (tannot_expr ctx) spawn.args;
-            at = Option.map (tannot_expr ctx) spawn.at;
-        }, ctypeof(TActivationInfo(snd c.value))
-        | BoxCExpr ce -> failwith "BoxCExpr Typeinference"
-        | OptionExpr e_opt ->  
-            let e_opt = Option.map (tannot_expr ctx) e_opt in
-            let ct = match e_opt with
-                | Some {value=(_, mt)} -> TOption mt
-                | None -> 
-                    let x = Atom.fresh "x" in
-                    TForall(x, ctypeof(TOption (ctypeof (TPolyVar x))))
-            in
-            OptionExpr e_opt, ctypeof ct
-        | ResultExpr (e1_opt, e2_opt) -> 
-            let e1_opt = Option.map (tannot_expr ctx) e1_opt in
-            let e2_opt = Option.map (tannot_expr ctx) e2_opt in
+    (match mt_e.value with 
+    | EmptyMainType -> begin 
+        match e with  
+            | VarExpr x -> 
+                VarExpr x, typeof_var_expr ctx x 
+            | AccessExpr (e1, e2) -> begin
+                let e1 = tannot_expr ctx e1 in
+                let e2 = tannot_expr ctx e2 in
 
-            let x = Atom.fresh "x" in
-            let ct = match e1_opt, e2_opt with
-                | Some {value=(_, mt)}, None  -> 
-                    TForall(x, ctypeof(TResult (mt, ctypeof(TPolyVar x))))
-                | None, Some{value=(_, mt)} -> TForall(x, ctypeof( TResult (ctypeof(TPolyVar x), mt)))
-            in
-            ResultExpr (e1_opt, e2_opt), ctypeof ct 
-        | BlockExpr (b, es) -> 
-            let es = List.map (tannot_expr ctx) es in
-            let mt = typeof_block b (List.map (function e -> snd e.value)  es) in
-            BlockExpr ( b, es), mt
-        | Block2Expr (b, es) -> 
-            let es = List.map (function (e1, e2) -> tannot_expr ctx e1, tannot_expr ctx e2) es in
-            let mt = typeof_block2 b (List.map (function (e1, e2) -> snd e1.value, snd e2.value) es) in
-            
-            Block2Expr (b, es), mt
+                let field = match fst e2.value with 
+                    | VarExpr f -> f 
+                    | _ -> Error.error e2.place "This is not a valid attribute"
+                in
+                
+                let sign = match (snd e1.value).value with
+                    | CompType {value=TStruct sign} -> sign
+                    | CompType {value=CompTUid name} -> begin 
+                        match (typeof_var_cexpr ctx name).value with 
+                        |  CompType {value=TStruct sign} -> sign
+                        | _ -> Error.error e1.place "internal error when fetching structural type of component"
+                    end
+                    | _ -> Error.error e1.place "This expr has no attributes" 
+                in
+
+                let ret_type = 
+                    match Atom.VMap.find_opt field sign with
+                    | None -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered component have no field named %s" (Atom.to_string field))))
+                    | Some mt_field -> mt_field 
+                in
+                
+                AccessExpr(e1, e2), ret_type 
+            end
+            | BinopExpr (e1, op, e2) ->
+                let e1 = tannot_expr ctx e1 in
+                let e2 = tannot_expr ctx e2 in
+                BinopExpr (e1, op, e2), typeof_binop op (snd e1.value) (snd e2.value)
+            | LambdaExpr (x, mt, e) -> 
+                let ctx = register_expr_type ctx x mt in
+                let e = tannot_expr ctx e in
+                LambdaExpr (x, mt, e), ctypeof (TArrow (mt, snd e.value))
+            | LitExpr l -> LitExpr l, typeof_literal l.value
+            | UnopExpr (op, e) -> 
+                let e = tannot_expr ctx e in
+                UnopExpr (op, e), typeof_unop op (snd e.value) 
+            | CallExpr (e, es) -> 
+                let e = tannot_expr ctx e in
+                let es = List.map (tannot_expr ctx) es in
+                let rec ret_typeof depth mt = match mt.value with (*TODO check types here ??*)
+                    | _ when depth = 0 -> mt
+                    | CType{value=TArrow (_, mt2)} -> ret_typeof (depth-1) mt2 
+                    | CType{value=TForall(_, mt)} -> ret_typeof depth mt
+                    | _ -> Error.error place "Function expect %d args, not %d" ((List.length es)-depth) (List.length es)
+                in
+
+                CallExpr(e, es), ret_typeof (List.length es) (snd e.value) 
+            | NewExpr (e, es) -> 
+                let e = tannot_expr ctx e in
+                let es = List.map (tannot_expr ctx) es in
+                let rec ret_typeof depth mt = match mt.value with (*TODO check types here ??*)
+                (* TODO dedup with call expr*)
+                    | _ when depth = 0 -> mt
+                    | CType{value=TArrow (_, mt2)} -> ret_typeof (depth-1) mt2 
+                    | CType{value=TForall(_, mt)} -> ret_typeof depth mt
+                    | _ -> Error.error place "Type constructor expect %d args, not %d" ((List.length es)-depth) (List.length es)
+                in
+                NewExpr(e, es), ret_typeof (List.length es) (snd e.value)
+            | This -> begin 
+                match ctx.self with
+                | None -> Error.error place "[this] can not be used outside component definition" 
+                | Some self -> This, auto_fplace( CompType (auto_fplace (CompTUid (self))))
+            end
+            | Spawn spawn -> 
+                let c = tannot_component_expr ctx spawn.c in
+                Spawn {
+                c = c;
+                args = List.map (tannot_expr ctx) spawn.args;
+                at = Option.map (tannot_expr ctx) spawn.at;
+            }, ctypeof(TActivationInfo(snd c.value))
+            | BoxCExpr ce -> failwith "BoxCExpr Typeinference"
+            | OptionExpr e_opt ->  
+                let e_opt = Option.map (tannot_expr ctx) e_opt in
+                let ct = match e_opt with
+                    | Some {value=(_, mt)} -> TOption mt
+                    | None -> 
+                        let x = Atom.fresh "x" in
+                        TForall(x, ctypeof(TOption (ctypeof (TPolyVar x))))
+                in
+                OptionExpr e_opt, ctypeof ct
+            | ResultExpr (e1_opt, e2_opt) -> 
+                let e1_opt = Option.map (tannot_expr ctx) e1_opt in
+                let e2_opt = Option.map (tannot_expr ctx) e2_opt in
+
+                let x = Atom.fresh "x" in
+                let ct = match e1_opt, e2_opt with
+                    | Some {value=(_, mt)}, None  -> 
+                        TForall(x, ctypeof(TResult (mt, ctypeof(TPolyVar x))))
+                    | None, Some{value=(_, mt)} -> TForall(x, ctypeof( TResult (ctypeof(TPolyVar x), mt)))
+                in
+                ResultExpr (e1_opt, e2_opt), ctypeof ct 
+            | BlockExpr (b, es) -> 
+                let es = List.map (tannot_expr ctx) es in
+                let mt = typeof_block b (List.map (function e -> snd e.value)  es) in
+                BlockExpr ( b, es), mt
+            | Block2Expr (b, es) -> 
+                let es = List.map (function (e1, e2) -> tannot_expr ctx e1, tannot_expr ctx e2) es in
+                let mt = typeof_block2 b (List.map (function (e1, e2) -> snd e1.value, snd e2.value) es) in
+                
+                Block2Expr (b, es), mt
+            | PolyApp (e, mts) -> 
+                let e = tannot_expr ctx e in
+                let mt = snd e.value in
+                let rec apply = function
+                | {value=CType{value=TForall (x, mt)}}, mt'::mts' ->
+                    replace_type_main_type x (None, Some mt'.value) (apply (mt, mts'))
+                | mt, [] -> mt  
+                | mt,_ -> Error.error (place@mt.place) "Type specialization error"
+                in
+                (fst e.value, apply (mt, mts))
+    end
+    | CType{value=TVPlace _ } -> e, mt_e
+    | other -> Error.error (place@mt_e.place) "Should not be hydrated %s\n%s" (show__expr e) (show__main_type other)
+    );
+
+
 and tannot_expr ctx e = {
     place = e.place;
     value = _tannot_expr ctx e.place e.value
@@ -330,14 +413,22 @@ and tannot_expr ctx e = {
 
 and _tannot_stmt ctx place : _stmt -> context * _stmt = function
 | EmptyStmt -> ctx, EmptyStmt
-| AssignExpr (x, e) -> ctx, AssignExpr (
-    x,
-    tannot_expr ctx e
-)
-| AssignThisExpr (x, e) -> ctx, AssignThisExpr (
-    x,
-    tannot_expr ctx e
-)
+| AssignExpr (x, e) -> 
+    let mt_x = typeof_var_expr ctx x in
+    let e = tannot_expr ctx e in
+
+    if Bool.not (is_subtype (snd e.value) mt_x) then
+        Error.error place "Type error: types do not match";
+    
+    ctx, AssignExpr (x, e)
+| AssignThisExpr (x, e) -> 
+    let mt_x = typeof_var_cexpr ctx x in
+    let e = tannot_expr ctx e in
+
+    if Bool.not (is_subtype (snd e.value) mt_x) then
+        Error.error place "Type error: types do not match";
+    
+    ctx, AssignThisExpr (x, e)
 | LetExpr (mt, x, e) -> 
     let ctx = register_expr_type ctx x mt in
     let e = tannot_expr ctx e in 
@@ -380,17 +471,28 @@ and tannot_param ctx arg = {
     value = _tannot_param ctx arg.place arg.value
 }
 
-and _tannot_port ctx place (p:_port) = ctx, {
+and _tannot_port ctx place ((p, mt_p):_port*main_type) = ctx, {
     name = p.name;
     input = tannot_expr ctx p.input;
     expecting_st = tannot_main_type ctx p.expecting_st;
     callback = tannot_expr ctx p.callback;
 } 
 and tannot_port ctx p = 
+    let fplace = (Error.forge_place "TypeInference.tannot_port" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+    let ctypeof x = auto_fplace (CType(auto_fplace x)) in
+
     let ctx, _p = _tannot_port ctx p.place p.value in
-    ctx, {
+    let mt_port = ctypeof (TPort (
+        snd _p.input.value,
+        _p.expecting_st
+    )) in
+    (* TODO FIXME outer_ctx should be remove from here since it is already compute when doing the shallow_scan*)
+    let outer_ctx = register_expr_type ctx _p.name mt_port in
+
+    outer_ctx, {
         place = p.place;
-        value = _p
+        value = _p, mt_port 
     }
 
 
@@ -414,6 +516,7 @@ and tannot_contract ctx c = {
 and _tannot_method ctx place (m:_method0) =
     let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
+    (* TODO FIXME outer_ctx should be remove from here since it is already compute when doing the shallow_scan*)
     let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) (List.map (function (arg: param) -> fst arg.value) m.args) m.ret_type in 
     let outer_ctx = register_expr_type ctx m.name fct_sign in
     let inner_ctx = List.fold_left (fun ctx {value=(mt, x)} -> register_expr_type ctx x mt) ctx m.args in
@@ -435,6 +538,7 @@ and tannot_method ctx m =
 
 and _tannot_state ctx place = function 
 | StateDcl s -> 
+    (* TODO FIXME outer_ctx should be remove from here since it is already compute when doing the shallow_scan*)
     let outer_ctx = register_expr_type ctx s.name s.type0 in
 
     outer_ctx, StateDcl {
@@ -476,20 +580,12 @@ and _tannot_component_dcl ctx place =
     let fplace = (Error.forge_place "TypeInference._tannot_component_dcl" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
 function 
-| ComponentStructure cdcl -> 
-    let inner_ctx, body = List.fold_left_map tannot_component_item  ctx cdcl.body in 
-    let collect_signature citem = match citem.value with
-    | Contract _ -> [] (*TODO*)
-    | Include _ -> []
-    | Method m -> [typeof_var_expr ctx m.value.name]
-    | Port p -> [typeof_var_expr ctx p.value.name]
-    | State {value=StateDcl {name}} | State {value=StateAlias {name}} -> [typeof_var_expr ctx name]
-    | Term t -> [] (*TODO*)
-    in
-    let signature = auto_fplace(CompType(auto_fplace(TStruct (List.flatten (List.map collect_signature body))))) in
+| ComponentStructure cdcl as c0 -> 
+    let inner_ctx = register_self ctx  cdcl.name in 
+    let _, body = List.fold_left_map tannot_component_item  inner_ctx cdcl.body in 
 
+    let outer_ctx = fst (shallow_scan_component_dcl ctx {place; value=c0}) in
 
-    let outer_ctx = register_cexpr_type ctx cdcl.name signature in
     outer_ctx, ComponentStructure {
     target_name = cdcl.target_name;
     name = cdcl.name;
@@ -602,4 +698,6 @@ and tannot_term ctx t =
     }
 
 and tannot_program program = 
-    snd (List.fold_left_map tannot_term (fresh_context ()) program) (*TODO scan header for recursive definition of function, method and state*)
+    (* Scan header for recursive definition of function, method and state *)
+    let toplevel_ctx = List.fold_left top_shallow_scan_term (fresh_context ()) program in
+    snd (List.fold_left_map tannot_term toplevel_ctx program) 

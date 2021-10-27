@@ -118,6 +118,7 @@ and _expr =
     (** *)
     (* TODO closure/lamba*)
     | CallExpr of expr * expr list(** method and fct can be recursive *)
+    | PolyApp of expr * main_type list 
 
     (** Control flow *)
 
@@ -217,6 +218,7 @@ and method0 = _method0 placed
 and _port = {
     name: variable;
     input: expr;
+    input_type: main_type;
     expecting_st: main_type;
     callback: expr
 }

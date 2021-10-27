@@ -286,10 +286,12 @@ any_expr_:
     { LambdaExpr (x, mt, e) }
 | l = any_literal
     {LitExpr l}
-| t = any_op_
-    { t }
 | e1 = any_expr LPAREN args = right_flexible_list(COMMA,any_expr) RPAREN
     { CallExpr (e1, args) }
+| t = any_op_
+    { t }
+| e = any_expr LANGLEBRACKET LANGLEBRACKET mts=right_flexible_list(COMMA,any_type) RANGLEBRACKET RANGLEBRACKET (* For some reason the parser can not distinguish between e<e> and e<mt> - NB. however e<e> should not be accepted*)
+    { PolyApp (e,mts) }
 
 (* Control-flow *)
 (* TODO Ternary*)
@@ -488,8 +490,8 @@ any_method_:
     { t }
 
 any_port_:
-| PORT name=LID ON chan=any_expr EXPECTING t=any_type EQ callback=any_expr
-    { {name=name; input=chan; expecting_st=t; callback=callback} }
+| PORT name=LID ON chan=any_expr DOUBLE_COLON chan_type=any_type EXPECTING t=any_type EQ callback=any_expr
+    { {name=name; input=chan; input_type=chan_type; expecting_st=t; callback=callback} }
 %inline any_port:
   t = placed(any_port_)
     { t }

@@ -193,9 +193,9 @@ and _type_replace_contract to_be_replaced by c =
 }
 and type_replace_contract to_be_replaced by = replace_place (_type_replace_contract to_be_replaced by)
 
-and _type_replace_port to_be_replaced by p =
+and _type_replace_port to_be_replaced by (p, mt_p) =
 { p with expecting_st = type_replace_main_type to_be_replaced by p.expecting_st
-}
+}, type_replace_main_type to_be_replaced by mt_p 
 and type_replace_port to_be_replaced by = replace_place (_type_replace_port to_be_replaced by)
 
 and _type_replace_component_item to_be_replaced by = function

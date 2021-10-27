@@ -489,6 +489,11 @@ and cook_expr env place e : env * (T._expr * T.main_type) =
             let envs, es = List.split (List.map (cexpr env) es) in
 
             env << (env1::envs), T.NewExpr (e1, es)
+        | S.PolyApp (e, mts) -> 
+            let env1, e = cexpr env e in
+            let envs, mts = List.split (List.map (cmtype env) mts) in
+
+            env << (env1::envs), T.PolyApp (e, mts)
         | S.CallExpr (e1, es) -> 
             List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) es;
 
@@ -764,7 +769,8 @@ and cook_port env place (port:S._port) : env * (T._port * T.main_type)=
     let env1, input = cexpr env port.input in
     let env2, expecting_st = cmtype env port.expecting_st in 
     let env3, callback = cexpr env port.callback in 
-    new_env << [env1; env2; env3], ({ name; input; expecting_st; callback}, auto_fplace T.EmptyMainType)
+    let env4, input_type = cmtype env port.input_type in
+    new_env << [env1; env2; env3; env4], ({ name; input; expecting_st; callback}, input_type)
 and cport env: S.port -> env * T.port = map2_place (cook_port env)
 
 and cook_component_item env _ : S._component_item -> env * T._component_item = function
@@ -908,12 +914,15 @@ end
     *)
     let new_env1, y = bind_type env place x in
     let new_env2 = register_expr new_env1 place ~create_instance:false y in
+    
+    let mt =  auto_place(T.CType(auto_place(T.TVPlace(auto_place(T.CType(auto_place(T.TVar y))))))) in 
+
     try
         new_env2, T.Stmt(auto_place(T.BlockStmt(
             [auto_place(T.LetExpr(
-                auto_place(T.CType(auto_place(T.TVPlace(auto_place(T.CType(auto_place(T.TVar y))))))),  
+                mt,  
                 y,
-                auto_place(T.LitExpr(auto_place(T.VPlace (Hashtbl.find places name))), auto_fplace T.EmptyMainType) 
+                auto_place(T.LitExpr(auto_place(T.VPlace (Hashtbl.find places name))), mt) 
             ))]
         )))
     with Not_found -> Error.error place "vplace does not exists in configuration file"

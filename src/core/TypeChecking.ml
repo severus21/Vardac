@@ -12,412 +12,404 @@ open IR
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
 
-let rec _is_subtype_ct place1 place2 ct1 ct2 =  
-    (=) ct1 ct2 || (* Impl optimization to avoid runing complex computation if possible 
-        capture the subtype relation for flattype
-        *)
-    match (ct1, ct2) with
-    | TActivationInfo mt1, TActivationInfo mt2 -> is_subtype mt1 mt2
-    | TArrow (mt1_a, mt1_b), TArrow (mt2_a, mt2_b) ->
-        is_subtype mt2_a mt1_a && (* contravariance *)
-        is_subtype mt1_b mt2_b
-    | TArray mt1, TArray mt2 | TList mt1, TList mt2 | TOption mt1, TOption mt2 | TSet mt1, TSet mt2 -> is_subtype mt1 mt2
-    | TDict (mt1_a, mt1_b), TDict (mt2_a, mt2_b) | TResult (mt1_a, mt1_b), TResult (mt2_a, mt2_b)-> is_subtype mt1_a mt2_a && is_subtype mt1_b mt2_b
-    | TTuple mts1, TTuple mts2 -> List.fold_left (fun flag (mt1,mt2) -> flag && is_subtype mt1 mt2) true (List.combine mts1 mts2)
-    | TVPlace _, TVPlace _ -> failwith "Subtyping for vplace not yet defined"
-    | TUnion (mt1_a, mt1_b), TUnion (mt2_a, mt2_b) -> 
-        (* FIXME is it the wanted semantics*)
-        is_subtype mt1_a mt2_a && is_subtype mt1_b mt2_b
-    | TBridge tb1, TBridge tb2 -> 
-        is_subtype tb1.in_type tb2.in_type &&
-        is_subtype tb1.out_type tb2.out_type &&
-        is_subtype tb1.protocol tb2.protocol
-    | TPolyVar x, TPolyVar y -> x = y
-    | TForall (x1, mt1), TForall(x2, mt2) -> (*TODO add bounded polymorphism*)
-        (* x1 = x2 in the context since we are not  using Debruijn variable *)
-        let mt2' = IR.replace_type_main_type x2 (Some x1, None) mt2 in
-        is_subtype mt1 mt2'
-    | _ -> false 
-and is_subtype_ct ct1 ct2 = _is_subtype_ct ct1.place ct2.place ct1.value ct2.value
-and _is_subtype_st (known_subtypes:(_session_type * _session_type) list) place1 place2 st1 st2 =  
-    (=) st1 st2 || (* Impl optimization to avoid runing complex computation if possible *)
-    List.mem (st1, st2) known_subtypes || (* for recursive types *)
-    match (st1, st2) with
-    | STRecv (mt1, st1), STRecv(mt2, st2) ->
-        is_subtype mt1 mt2 && (* co-variance *)
-        is_subtype_st st1 st2
-    | STSend (mt1, st1), STSend(mt2, st2) ->
-        is_subtype mt2 mt1 && (* contra-variance *)
-        is_subtype_st st1 st2
-    | STBranch branches1, STBranch branches2 -> 
-        let labels1 = (Atom.Set.of_seq (List.to_seq (List.map (function (x, _, _) ->x) branches1))) in
-        let tbl1 = (Atom.VMap.of_seq (List.to_seq (List.map (function (x,y,z) -> (x,(y,z))) branches1))) in
-        let labels2 = (Atom.Set.of_seq (List.to_seq (List.map (function (x, _, _) -> x) branches2))) in
-        let tbl2 = (Atom.VMap.of_seq (List.to_seq (List.map (function (x,y,z) -> (x,(y,z))) branches2))) in
+(*
+TODO FIXME tcheck_... should retourn unit or raise an error
+*)
 
-        let common_labels = Atom.Set.inter labels1 labels2 in
+let fplace = (Error.forge_place "TypeChecking" 0 0)
+let auto_fplace smth = {place = fplace; value=smth}
 
-        common_labels = labels1 && (* labels 1 \subset labels 2*)
-        Seq.fold_left (fun flag label ->
-            let st1,_ = Atom.VMap.find label tbl1 in
-            let st2,_ = Atom.VMap.find label tbl2 in
-            flag && is_subtype_st st1 st2 (* TODO FIXME check implication *)
-        ) true (Atom.Set.to_seq common_labels)
-    | STVar x, STVar y -> x = y
-    | st0, (STRec (x, st1) as st_rec) ->
-        (* One unfolding *)
-        let st1 = replace_stype_session_type x (None, Some st_rec) st1 in
-        let known_subtypes = (st0,st_rec)::known_subtypes in
-        _is_subtype_st known_subtypes place1 st1.place st0 st1.value
-    | STPolyVar x, STPolyVar y -> x = y
-    | _ -> false
-and is_subtype_st ?known_subtypes:(known_subtypes=[]) st1 st2 = _is_subtype_st known_subtypes st1.place st2.place st1.value st2.value
-
-and _is_subtype_cmt place1 place2 cmt1 cmt2 =  
-    (=) cmt1 cmt2 || (* Impl optimization to avoid runing complex computation if possible *)
-    match (cmt1, cmt2) with
-    | CompTUid x, CompTUid y -> x = y
-    | TStruct mts1, TStruct mts2 -> failwith "TODO subtyping relation between components"
-    | TPolyCVar x, TPolyCVar y -> x = y
-    | _ -> false 
-and is_subtype_cmt cmt1 cmt2 = _is_subtype_cmt cmt1.place cmt2.place cmt1.value cmt2.value
-and _is_subtype place1 place2 mt1 mt2 = 
-    (=) mt1 mt2 || (* Impl optimization to avoid runing complex computation if possible *)
-    match (mt1, mt2) with
-    | _, CType {value=TFlatType TWildcard} -> true
-    | CType ct1, CType ct2 -> is_subtype_ct ct1 ct2
-    | SType st1, SType st2 -> is_subtype_st st1 st2
-    | CompType cmt1, CompType cmt2 -> is_subtype_cmt cmt1 cmt2 
-    | ConstrainedType (mt1,_), ConstrainedType (mt2,_) -> is_subtype mt1 mt2
-    (* TODO FIXME implication also*)
-    | _ -> false 
-and is_subtype mt1 mt2 = _is_subtype mt1.place mt2.place mt1.value mt2.value
-
-let rec a2d_place a2d_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
-    let value = a2d_value place value in
-    {AstUtils.place; AstUtils.value}
-
-
-let rec a2d_var_expr x = x 
-and a2d_var_type x = x
-and a2d_var_component x = x
 
 (************************************ Types **********************************)
 
-(* notation debruin uniquement pour les expressions le reste reste en atom*)
-and _a2d_composed_type ct = function 
-| TActivationInfo mt -> TActivationInfo (a2d_main_type mt)
-| TArrow (mt1, mt2) -> TArrow (
-    a2d_main_type mt1,
-    a2d_main_type mt2
-)
-| TVar x -> TVar (a2d_var_type x)
-| TFlatType ft -> TFlatType ft
-| TArray mt -> TArray (a2d_main_type mt)
-| TDict (mt1, mt2) -> TDict (
-    a2d_main_type mt1,
-    a2d_main_type mt2
-)
-| TList mt -> TList (a2d_main_type mt)
-| TOption mt -> TOption (a2d_main_type mt)
-| TResult (mt1, mt2) -> TResult (
-    a2d_main_type mt1,
-    a2d_main_type mt2
-)
-| TSet mt -> TSet (a2d_main_type mt)
-| TTuple mts -> TTuple (List.map a2d_main_type mts)
-| TVPlace mt -> TVPlace (a2d_main_type mt)
-| TUnion (mt1, mt2) -> TUnion (
-    a2d_main_type mt1,
-    a2d_main_type mt2
-)
-| TBridge b -> TBridge {
-    in_type = a2d_main_type b.in_type;
-    out_type = a2d_main_type b.out_type;
-    protocol = a2d_main_type b.protocol;
-}
-| TRaw bt -> TRaw bt
-and a2d_composed_type ct = a2d_place _a2d_composed_type ct
+(* we need to find constraints to type check them *)
+let rec _tcheck_composed_type ct = function 
+| TActivationInfo mt -> tcheck_main_type mt
+| TArrow (mt1, mt2) -> 
+    tcheck_main_type mt1; 
+    tcheck_main_type mt2
+| TVar x -> () 
+| TFlatType ft -> () 
+| TArray mt -> tcheck_main_type mt
+| TDict (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2)->
+    tcheck_main_type mt1;
+    tcheck_main_type mt2
+| TList mt | TOption mt | TSet mt | TVPlace mt-> tcheck_main_type mt
+| TTuple mts -> List.iter tcheck_main_type mts
+| TBridge b ->
+    tcheck_main_type b.in_type;
+    tcheck_main_type b.out_type;
+    tcheck_main_type b.protocol
+| TRaw _ ->  () 
+and tcheck_composed_type ct = map0_place _tcheck_composed_type ct
 
-and _a2d_session_type place = function
-| STEnd -> STEnd
-| STVar x -> STVar x
-| STSend (mt, st) -> 
-    let mt = a2d_main_type mt in
-    let st = a2d_session_type st in
-    STSend (mt, st)
-| STRecv (mt, st) -> 
-    let mt = a2d_main_type mt in
-    let st = a2d_session_type st in
-    STRecv (mt, st)
-| STRec (x, st) -> 
-    let st = a2d_session_type st in
-    STRec (x, st)
-| STInline x -> STInline x 
-and a2d_session_type st = a2d_place _a2d_session_type st
+and _tcheck_session_type place = function
+| STEnd -> () 
+| STVar _ -> () 
+| STSend (mt, st) | STRecv (mt, st) -> 
+    tcheck_main_type mt;
+    tcheck_session_type st
+| STRec (_, st) -> tcheck_session_type st 
+| STInline _ -> () 
+and tcheck_session_type st = map0_place _tcheck_session_type st
 
-and _a2d_component_type place = function
-| CompTUid x -> CompTUid x
-and a2d_component_type ct = a2d_place _a2d_component_type ct 
+and _tcheck_component_type place = function
+| CompTUid _ -> () 
+| TStruct mts -> Atom.VMap.iter (function _ -> tcheck_main_type) mts
+| TPolyCVar _ -> () 
+and tcheck_component_type ct = map0_place _tcheck_component_type ct 
 
-and _a2d_main_type place = function
-| CType ct -> CType (a2d_composed_type ct)
-| SType st -> SType (a2d_session_type st)
-| CompType ct -> CompType (a2d_component_type ct)
-| ConstrainedType (mt, guard) -> ConstrainedType (
-    a2d_main_type mt, 
-    a2d_applied_constraint guard)
-and a2d_main_type mt = a2d_place _a2d_main_type mt 
+and _tcheck_main_type place = function
+| CType ct -> tcheck_composed_type ct
+| SType st -> tcheck_session_type st
+| CompType ct -> tcheck_component_type ct
+| ConstrainedType (mt, guard) -> 
+    tcheck_main_type mt;
+    tcheck_applied_constraint guard
+and tcheck_main_type mt = map0_place _tcheck_main_type mt 
 
 (******************************** Constraints ********************************)
 
-and _a2d_constraint_header place = function
-| UseMetadata (mt, x) -> 
-    UseMetadata (
-        a2d_main_type mt,
-        a2d_var_expr x
-    )
-| SetTimer x -> SetTimer (a2d_var_expr x)
-| SetFireTimer (x, i) -> SetFireTimer (a2d_var_expr x, i)
-and a2d_constraint_header h= a2d_place _a2d_constraint_header h
+and _tcheck_constraint_header place = function
+| UseMetadata (mt, x) -> tcheck_main_type mt
+| SetTimer x -> () 
+| SetFireTimer (x, i) -> () 
+and tcheck_constraint_header h= map0_place _tcheck_constraint_header h
 
-and a2d_applied_constraint (headers, guard_opt) = 
-    List.map a2d_constraint_header headers, Option.map a2d_expr guard_opt
+and tcheck_applied_constraint (headers, guard_opt) = 
+    List.iter tcheck_constraint_header headers;
+    Option.iter tcheck_expr guard_opt
 
 (************************************ (V) - Place ****************************)
 
-and a2d_vplace (vp:vplace) = 
- {
-    name = a2d_var_component vp.name;
-    nbr_instances = a2d_expr vp.nbr_instances;
-    features = vp.features;
-    children = List.map a2d_vplace vp.children;
-}
+and tcheck_vplace (vp:vplace) = tcheck_expr vp.nbr_instances
 
 (************************************* Literals ******************************)
 
-and _a2d_literal place = function
-| VoidLit -> VoidLit
-| BoolLit b -> BoolLit b
-| FloatLit f -> FloatLit f
-| IntLit i -> IntLit i
-| LabelLit l -> failwith "a2d_literal label"
-| StringLit s -> StringLit s
-| VPlace vp -> VPlace (a2d_vplace vp)
-| Bridge b -> Bridge {
-    id = a2d_var_component b.id;
-    protocol_name = a2d_var_component b.protocol_name;
-}
-and a2d_literal lit = a2d_literal lit
+and _tcheck_literal place = function
+| VPlace vp -> tcheck_vplace vp
+| _ -> () 
+and tcheck_literal lit = tcheck_literal lit
 
-and _a2d_expr place (e, mt_e) =
-    let e = match e with  
-        | VarExpr x -> VarExpr (a2d_var_expr x) 
-        | AccessExpr (e1, e2) -> AccessExpr (
-            a2d_expr e1,
-            a2d_expr e2
+and tcheck_binop place ret_mt op mt_e1 mt_e2 = 
+match (op, mt_e1.value, mt_e2.value) with
+| And, _,_ | Or, _, _ -> begin
+    (*mt_ret == TBool by reconstruction algo *)
+    if Bool.not (equal_mtype mt_e1 mt_e2) then
+        Error.error place "Type error: this operation expect type equality (and not subtyping relation)";
+    match mt_e1.value with 
+    | CType{value=TFlatType TBool} -> () (*FIXME add subtype of bool *)
+    | _ -> Error.error place "Type error: this operation expect boolean arguments" 
+end
+| StructuralEqual, _ ,_ | Equal, _, _ ->
+    (*mt_ret == TBool by reconstruction algo *)
+    if Bool.not (equal_mtype mt_e1 mt_e2) then (* No subtyping for equality *)
+        Error.error place "Type error: equality expected type equality (and not subtyping relation)"
+| GreaterThanEqual, _,_ | LessThanEqual, _,_ | GreaterThan, _, _ | LessThan, _, _ ->
+    begin
+    (*mt_ret == TBool by reconstruction algo *)
+    if Bool.not (equal_mtype mt_e1 mt_e2) then (* No subtyping *) 
+        Error.error place "Type error: this operation expect type equality (and not subtyping relation)";
+
+    match mt_e1.value with
+    | CType{value=TFlatType TInt} | CType{value=TFlatType TFloat} | CType{value=TFlatType TTimer}-> () (* Timer is just an int *) 
+    | _ -> Error.error place "Type error: this operation is only defined for Int and Float" 
+end
+| In, _, CType{value=t} -> begin
+    (*mt_ret == TBool by reconstruction algo *)
+    match t with
+    | TArray mt_elt | TList mt_elt | TSet mt_elt ->    
+        if Bool.not (equal_mtype mt_elt mt_e1) then
+            Error.error place "Type error: types mismatched (subtyping is forbiden)"
+    | TDict (mt_key, mt_value) -> 
+        if Bool.not (equal_mtype mt_key mt_e1) then
+            Error.error place "Type error: types mismatched (subtyping is forbiden)"
+    | _ -> Error.error place "[in] operation is not defined for this type of data structure" 
+end
+| _, CType{value=TFlatType TInt},CType{value=TFlatType TInt} -> begin   
+    match op with
+    | Plus | Minus | Mult | Divide -> 
+        if Bool.not (equal_mtype ret_mt mt_e1 && equal_mtype mt_e1 mt_e2) then 
+            Error.error place "Type error: types mismatched (subtyping is forbiden)"
+end
+| _, CType{value=TFlatType TFloat},CType{value=TFlatType TFloat} -> begin   
+    match op with
+    | Plus | Minus | Mult | Divide -> 
+        if Bool.not (equal_mtype ret_mt mt_e1 && equal_mtype mt_e1 mt_e2) then 
+            Error.error place "Type error: types mismatched (subtyping is forbiden)"
+end
+
+and tcheck_unop place ret_mt op mt_e = 
+match (op, mt_e.value) with
+| Not, CType{value=TFlatType TBool} -> 
+    (*mt_ret == TBool by reconstruction algo *)
+    () 
+| Not, _ -> Error.error place "[not] expect a boolean expression"
+| UnpackResult, CType{value=TResult (mt_res,_)} ->
+    if Bool.not (equal_mtype mt_res mt_res) then
+        Error.error place "Type error: types mismatched (subtyping is forbiden)"
+| UnpackResult, _ -> Error.error place "[?] expect a result expression"
+
+
+and check_call place mt_e = 
+    let fplace = (Error.forge_place "Akka.GuardTransform.filter_headers" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+    let ctypeof ct = auto_fplace(CType(auto_fplace ct)) in
+function
+| mt1, [] -> 
+    if Bool.not (equal_mtype mt_e {value=mt1;place}) then
+        Error.error place "Type error: ret types mismatched (equality error)"
+ 
+| CType{value=TArrow (mt1, mt2)}, mt3::mts -> 
+    if Bool.not (is_subtype mt3 mt1 || is_instance mt3 mt1) then
+        Error.error place "Type error: types mismatched (subtyping or instance error)"
+    else
+        check_call place mt_e (mt2.value, mts)
+| mt0, mt3::mts  ->
+    let cvar = Atom.fresh "'a" in
+    let tconstraint = Equality ( auto_fplace mt0, (ctypeof (TArrow (mt3, ctypeof (TVar cvar))))) in
+    ignore(mgu_solver place [tconstraint]);
+    Error.error place "unification ok"
+| _, _::_ -> Error.error place "Type error: called expr is not an arrow"
+| _ -> Error.error place "Type error: wrong number of parameters"
+
+and _tcheck_expr place (e, mt_e) =
+    match e with
+        | VarExpr x -> () 
+        | AccessExpr (e1, e2) -> 
+            (* Access type [mt_e] is already checked during type reconstruction - otherwise reconstruction can not be performed *) 
+            tcheck_expr e1;
+            tcheck_expr e2
+        | BinopExpr (e1, op, e2) -> 
+            tcheck_binop place mt_e op (snd e1.value) (snd e2.value)
+        | LambdaExpr (x, mt, e) -> 
+            tcheck_main_type mt;
+            tcheck_expr e (* propagation of mt already done  by TypeInference and mt_e is the mt -> type of e by type inference *)
+        | LitExpr l -> () 
+        | UnopExpr (op, e) -> tcheck_unop place mt_e op (snd e.value)
+        | CallExpr (e, es) | NewExpr (e, es) -> begin
+           check_call place mt_e ((snd e.value).value, List.map (function e -> snd e.value) es)
+        end
+        | This -> () 
+        | Spawn spawn -> begin 
+            match spawn.at with 
+            | None | Some {value=_,{value=CType {value=TFlatType (TPlace _)}}} -> 
+                check_call place mt_e ((snd spawn.c.value).value, List.map (function e -> snd e.value) spawn.args)
+            | _ -> Error.error place "Type error: spawn @ must be a place"
+        end
+        | BoxCExpr ce -> begin
+            match (snd ce.value).value with
+            | CompType _ -> tcheck_component_expr ce
+            | _ -> Error.error place "Type error: boxing expects cexpr"
+        end
+        | OptionExpr None -> () 
+        | OptionExpr Some e -> tcheck_expr e 
+        | ResultExpr (e1_opt, e2_opt) -> begin
+            match Option.map tcheck_expr e1_opt, Option.map tcheck_expr e2_opt with
+            | Some b,_ | _, Some b -> b
+        end
+        | BlockExpr (b, es) -> begin
+            match mt_e.value with 
+            | CType{value=TList t_elt} | CType{value=TSet t_elt} -> 
+                ignore(List.fold_left (fun previous_mt current -> 
+                    if equal_mtype previous_mt (snd current.value) then
+                        Error.error place "Type error: types mismatched (equality error)"
+                    else
+                        snd current.value
+                ) t_elt es)
+            | CType{value=TTuple _} -> () 
+        end
+        | Block2Expr (b, ees) -> begin
+            match mt_e.value with 
+            |  CType{value=TDict (t_key, t_elt)} -> 
+                List.fold_left (fun (t_key, t_elt) (key,elt) -> 
+                    equal_mtype t_key (snd key.value); 
+                    equal_mtype t_elt (snd elt.value); snd key.value, snd elt.value
+                )  (t_key, t_elt) ees;
+                ()  
+        end
+and tcheck_expr (e:expr) : unit = map0_place _tcheck_expr e
+
+and _tcheck_stmt ret_type_opt place : _stmt -> unit = function
+| EmptyStmt -> () 
+| AssignExpr (x, e) -> () (* Type checking in TypeInference -> FIXME to it here we need to have a context ..... but having context here is redundent ..... *) 
+| AssignThisExpr (x, e) -> () (* cf. AssignExpr*) 
+| LetExpr (mt, x, e) as ee -> 
+    tcheck_main_type mt; 
+    tcheck_expr e; 
+    (* type of e must a subtype of mt or mt must be an instance of the general type of e *)
+    if Bool.not (is_subtype (snd e.value) mt || is_instance mt (snd e.value)) then
+        Error.error place "Type error: type mismatch (no equality, no subtyping relation) - let"
+        (* The propagation of x:mt has been done by TypeInference to scope of the let *)
+| CommentsStmt _ -> () 
+| BreakStmt -> () 
+| ContinueStmt -> () 
+| ExitStmt i -> () 
+| ForStmt (mt, x, e, stmt) -> begin
+    match (snd e.value).value with 
+    | CType{value=TList mt_elt } | CType{value=TSet mt_elt} ->
+        tcheck_main_type mt;
+        tcheck_stmt ret_type_opt stmt; (* The propagation of x:mt has been done by TypeInference to scope of the let *)
+
+        if Bool.not (is_subtype mt_elt mt) then 
+            Error.error place "Type error: type mismatch (no equality, no subtyping relation) - for"
+    | _ -> Error.error e.place "Type error: this expression is not iterable"
+end
+| IfStmt (e, stmt1, stmt2_opt) -> begin 
+    match (snd e.value).value with 
+    | CType{value=TFlatType TBool} -> 
+        Option.iter (tcheck_stmt ret_type_opt) stmt2_opt;
+        tcheck_stmt ret_type_opt stmt1
+    | _ -> Error.error e.place "Type error: if condition must be a boolean"
+end
+| MatchStmt (e, branches) -> failwith "TODO typecheck match" 
+| ReturnStmt e -> begin
+    tcheck_expr e;
+    match ret_type_opt with 
+    | None -> Error.error place "Type error: return statement can not be used outside a function or a method"
+    | Some ret_type -> 
+        if Bool.not (is_subtype (snd e.value) ret_type) then
+            Error.error place "Type error: type mismatch (no equality, no subtyping relation) - return"
+        else ()
+end
+| ExpressionStmt e -> tcheck_expr e
+| BlockStmt stmts -> List.iter (tcheck_stmt ret_type_opt) stmts
+(* ret_type_opt - expected return type if in method/function *)
+and tcheck_stmt ret_type_opt stmt =  map0_place (_tcheck_stmt ret_type_opt) stmt
+
+and _tcheck_param place (mt, x) = tcheck_main_type mt
+and tcheck_param arg = map0_place _tcheck_param arg
+
+and _tcheck_port place (p, mt_p) = 
+
+    tcheck_expr p.input; 
+    tcheck_expr p.callback;
+    (match mt_p.value with 
+    | CType{value=TPort (mt_bridge, mt_st)} -> begin 
+        (* Just checking that the Type reconstruction is correct *)
+        assert(equal_mtype mt_bridge (snd p.input.value) &&
+        equal_mtype mt_st p.expecting_st);
+
+        (match mt_bridge.value with 
+        | CType{value=TBridge tb} -> () (* TODO FIXME check that tb is a subtype of TBridge <current, Top, Top> *)
+        | _-> Error.error p.input.place "Type error: must be a bridge"
+        );
+
+        (match mt_st.value with 
+        | SType st -> 
+            match (unfold_st_star st).value with 
+            | STRecv (mt_msg, mt_continuation) -> begin 
+                match (snd p.callback.value).value with
+                | CType{value=TArrow (mt1, {value=CType{value=TArrow (mt2, {value=CType{value=TFlatType TBool}})}})} ->
+                    if Bool.not (is_subtype mt_msg mt1 &&
+                    is_subtype (auto_fplace (SType mt_continuation)) mt2) then (* continuation is subtype *)
+                        Error.error place "Type error: types mismatched"
+
+                | _ -> Error.error place "Type error: port callback must be of type msg -> continuation -> bool"
+            end
+            | STBranch _ -> failwith "TODO tcheck_port STBranch"
+            | _ -> Error.error place "Type error: should expected an incomming label or message"
+        | _-> Error.error p.expecting_st.place "Type error: must be a session type"
         )
-        | BinopExpr (e1, op, e2) -> BinopExpr (
-            a2d_expr e1,
-            op,
-            a2d_expr e2
-        )
-        | LambdaExpr (x, mt, stmt) -> failwith "TODO a2d_expr binder"
-        | LitExpr l -> LitExpr (a2d_literal l)
-        | UnopExpr (op, e) -> UnopExpr (op, a2d_expr e)
-        | CallExpr (e, es) -> CallExpr(
-            a2d_expr e,
-            List.map a2d_expr es
-        )
-        | NewExpr (e, es) -> NewExpr(
-            a2d_expr e,
-            List.map a2d_expr es
-        )
-        | This -> This 
-        | Spawn spawn -> Spawn {
-            c = a2d_component_expr spawn.c;
-            args = List.map a2d_expr spawn.args;
-            at = Option.map a2d_expr spawn.at;
-        } 
-        | BoxCExpr ce -> BoxCExpr (a2d_component_expr ce)
-        | OptionExpr e_opt -> OptionExpr (Option.map a2d_expr e_opt)
-        | ResultExpr (e1_opt, e2_opt) -> ResultExpr (Option.map a2d_expr e1_opt, Option.map a2d_expr e2_opt)
-        | BlockExpr (b, es) -> BlockExpr (
-            b,
-            List.map a2d_expr es
-        )
-        | Block2Expr (b, es) -> Block2Expr (
-            b,
-            List.map (function (e1, e2) -> a2d_expr e1, a2d_expr e2) es
-        )
-    in
-    e, mt_e
-and a2d_expr e = a2d_place _a2d_expr e
-
-and _a2d_stmt place : _stmt -> _stmt = function
-| EmptyStmt -> EmptyStmt
-| AssignExpr (x, e) -> AssignExpr (
-    a2d_var_expr x,
-    a2d_expr e
-)
-| AssignThisExpr (x, e) -> AssignThisExpr (
-    a2d_var_component x,
-    a2d_expr e
-)
-| LetExpr _ -> failwith "binders"
-| CommentsStmt c -> CommentsStmt c
-
-| BreakStmt -> BreakStmt
-| ContinueStmt -> ContinueStmt
-| ExitStmt i -> ExitStmt i
-| ForStmt (mt, x, e, stmt) -> ForStmt (
-    a2d_main_type mt,
-    a2d_var_expr x,
-    a2d_expr e,
-    a2d_stmt stmt
-)
-| IfStmt (e, stmt1, stmt2_opt) -> IfStmt (
-    a2d_expr e,
-    a2d_stmt stmt1,
-    Option.map a2d_stmt stmt2_opt
-)
-| MatchStmt (e, branches) -> MatchStmt (
-    a2d_expr e,
-    List.map (function (e, stmt) -> 
-        a2d_expr e, a2d_stmt stmt
-    ) branches
-)
-| ReturnStmt e -> ReturnStmt (a2d_expr e)
-| ExpressionStmt e -> ExpressionStmt (a2d_expr e)
-| BlockStmt stmts -> 
-    let stmts = List.map a2d_stmt stmts in
-    BlockStmt stmts
-and a2d_stmt stmt =  a2d_place _a2d_stmt stmt
-
-and _a2d_param place (mt, x) = ( a2d_main_type mt, a2d_var_expr x)
-and a2d_param arg = a2d_place _a2d_param arg
-
-and _a2d_port place (p:_port) = {
-    name = a2d_var_component p.name;
-    input = a2d_expr p.input;
-    expecting_st = a2d_main_type p.expecting_st;
-    callback = a2d_expr p.callback;
-} 
-and a2d_port p = a2d_place _a2d_port p
+    end
+    )
+and tcheck_port p = map0_place _tcheck_port p
 
 
-and _a2d_contract place (p:_contract) = {
-    method_name = a2d_var_component p.method_name;
-    pre_binders = List.map (function (mt, x, e) -> 
-        a2d_main_type mt,
-        a2d_var_expr x,
-        a2d_expr e
+and _tcheck_contract place (p:_contract) = 
+    List.iter (function (mt, x, e) -> 
+        tcheck_main_type mt; 
+        if Bool.not (is_subtype (snd e.value) mt) then
+            Error.error place "Type error: types mismatched (equality error)"
+            (* The propagation of x:mt has been done by TypeInference to scope of the binder *)
     ) p.pre_binders;
-    ensures = Option.map a2d_expr p.ensures;
-    returns = Option.map a2d_expr p.returns;
-} 
-and a2d_contract c = a2d_place _a2d_contract c
+    Option.map tcheck_expr p.ensures;
+    Option.map tcheck_expr p.returns;
+    ()
+and tcheck_contract c = map0_place _tcheck_contract c
 
-and _a2d_method place m = {
-    m with
-    name = a2d_var_component m.name;
-    ghost = m.ghost;
-    ret_type = a2d_main_type m.ret_type;
-    args =  List.map a2d_param m.args;
-    body = List.map a2d_stmt m.body;
-    contract_opt = Option.map a2d_contract m.contract_opt;
-} 
-and a2d_method m = a2d_place _a2d_method m
+and _tcheck_method place (m:_method0) = 
+    tcheck_main_type m.ret_type;
+    List.map tcheck_param m.args;
+    List.map (tcheck_stmt(Some m.ret_type))  m.body; (* propagation of mt already done  by TypeInference and mt_e is the mt -> type of e by type inference *)
+    Option.map tcheck_contract m.contract_opt;
+    ()
+and tcheck_method (m:method0) = map0_place _tcheck_method m
 
-and _a2d_state place = function 
-| StateDcl s -> StateDcl {
-    name = a2d_var_component s.name;
-    ghost = s.ghost;
-    type0 = a2d_main_type s.type0;
-    body = Option.map a2d_expr s.body;
-} 
-and a2d_state s = a2d_place _a2d_state s
+and _tcheck_state place = function 
+| StateDcl s ->
+    tcheck_main_type s.type0;
+    match s.body with
+    | None -> ()
+    | Some e -> 
+        tcheck_expr e;
+        if Bool.not (is_subtype (snd e.value) s.type0) then  
+            Error.error place "Type error: types mismatched (subtyping error)"
+and tcheck_state s = map0_place _tcheck_state s
 
-and _a2d_component_item place = function 
-| Contract s -> Contract (a2d_contract s)
-| Include ce -> Include (a2d_component_expr ce)
-| Method m -> Method (a2d_method m)
-| Port p -> Port (a2d_port p)
-| State s -> State (a2d_state s)
-| Term t -> Term (a2d_term t)
-and a2d_component_item citem= a2d_place _a2d_component_item citem
+and _tcheck_component_item place = function 
+| Contract s -> tcheck_contract s
+| Include ce -> tcheck_component_expr ce
+| Method m -> tcheck_method m
+| Port p -> tcheck_port p
+| State s -> tcheck_state s
+| Term t -> tcheck_term t
+and tcheck_component_item citem= map0_place _tcheck_component_item citem
 
 
-and _a2d_component_dcl place = function 
-| ComponentStructure cdcl -> ComponentStructure {
-    target_name = cdcl.target_name;
-    name = a2d_var_component cdcl.name;
-    args = List.map a2d_param cdcl.args;
-    body = List.map a2d_component_item cdcl.body
-} 
-| ComponentAssign cdcl -> ComponentAssign {
-    name = a2d_var_component cdcl.name;
-    args = List.map a2d_param cdcl.args;
-    value = a2d_component_expr cdcl.value;
-} 
-and a2d_component_dcl cdcl = a2d_place _a2d_component_dcl cdcl
+and _tcheck_component_dcl place = function 
+| ComponentStructure cdcl ->
+    List.iter tcheck_param cdcl.args;
+    List.iter tcheck_component_item cdcl.body
+| ComponentAssign cdcl -> 
+    List.iter tcheck_param cdcl.args;
+    tcheck_component_expr cdcl.value
+and tcheck_component_dcl cdcl = map0_place _tcheck_component_dcl cdcl
 
 
 
 (********************** Manipulating component structure *********************)
-and _a2d_component_expr place (ce, mt_ce)=
-    let ce = match ce with 
-        | VarCExpr x -> VarCExpr (a2d_var_component x)
-        | AppCExpr (ce1, ce2) -> AppCExpr (
-            a2d_component_expr ce1,
-            a2d_component_expr ce2
-        )
-        | UnboxCExpr e -> UnboxCExpr (a2d_expr e)
-        | AnyExpr e -> AnyExpr (a2d_expr e)
-    in ce, mt_ce
-and a2d_component_expr ce = a2d_place _a2d_component_expr ce
+and _tcheck_component_expr place (ce, mt_ce)=
+    match ce with 
+        | VarCExpr x -> () 
+        | AppCExpr (ce1, ce2) -> failwith "TODO tcheck cexpr AppCExpr" 
+        | UnboxCExpr e -> begin
+            match (snd e.value).value with
+            | CompType _ -> tcheck_expr e
+            | _ -> Error.error place "Type error: unboxing expects cexpr"
+        end
+        | AnyExpr e -> tcheck_expr e (*FIXME TODO used ??? or remove *)
+and tcheck_component_expr ce = map0_place _tcheck_component_expr ce
 
 (************************************ Program *****************************)
 
-and _a2d_function_dcl place (fdcl:_function_dcl) : _function_dcl = {
-    name = a2d_var_expr fdcl.name;
-    ret_type = a2d_main_type fdcl.ret_type;
-    args = List.map a2d_param fdcl.args;
-    body = List.map a2d_stmt fdcl.body;
-} 
-and a2d_function_dcl fdcl = a2d_place _a2d_function_dcl fdcl
+and _tcheck_function_dcl place (fdcl:_function_dcl) : unit = 
+    tcheck_main_type fdcl.ret_type;
+    List.iter tcheck_param fdcl.args;
+    List.iter (tcheck_stmt(Some fdcl.ret_type)) fdcl.body (* propagation of mt already done  by TypeInference and mt_e is the mt -> type of e by type inference *)
+and tcheck_function_dcl fdcl = map0_place _tcheck_function_dcl fdcl
 
-and _a2d_typedef place = function 
-| ClassicalDef (x, mts, body) -> ClassicalDef (
-    a2d_var_type x,
-    List.map a2d_main_type mts,
-    body
-) 
-| EventDef (x, mts, body) -> EventDef (
-    a2d_var_type x,
-    List.map a2d_main_type mts,
-    body
-)  
-| ProtocolDef (x, mt) -> ProtocolDef (
-    a2d_var_type x,
-    a2d_main_type mt
-)  
-and a2d_typedef tdef = a2d_place _a2d_typedef tdef
+and _tcheck_typedef place = function 
+(* propagation of mt already done  by TypeInference *)
+| ClassicalDef (x, mts, ()) -> 
+    List.iter tcheck_main_type mts
+| EventDef (x, mts, ()) -> 
+    List.iter tcheck_main_type mts
+| ProtocolDef (x, mt) ->
+    tcheck_main_type mt
+and tcheck_typedef tdef = map0_place _tcheck_typedef tdef
 
-and _a2d_term place = function 
-| EmptyTerm -> EmptyTerm
-| Comments c -> Comments c
-| Stmt stmt -> 
-    let stmt = a2d_stmt stmt in
-    Stmt stmt
-| Component c -> Component (a2d_component_dcl c)
-| Function f -> Function (a2d_function_dcl f)
-| Typealias (x, body) -> Typealias (
-    a2d_var_type x,
-    Option.map a2d_main_type body
-)
-| Typedef tdef -> Typedef (a2d_typedef tdef)
-and a2d_term t = a2d_place _a2d_term t
+and _tcheck_term place = function 
+(* propagation of binders already done  by TypeInference *)
+| EmptyTerm -> () 
+| Comments c -> ()
+| Stmt stmt -> tcheck_stmt None stmt
+| Component c -> tcheck_component_dcl c
+| Function f -> tcheck_function_dcl f
+| Typealias (x, body) -> Option.iter tcheck_main_type body
+| Typedef tdef -> tcheck_typedef tdef
+and tcheck_term t = map0_place _tcheck_term t
 
-and a2d_program program = 
-    List.map a2d_term program
+and tcheck_program program = 
+    List.iter tcheck_term program;
+    program

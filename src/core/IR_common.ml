@@ -52,12 +52,13 @@ module type TIRC = sig
 
         (** Message-passing *)
         | TBridge of tbridge
+        | TPort of main_type * main_type (* session_type * bridge type *)
 
         | TRaw of Impl_common.blackbox_term (*TODO move it to IRI by doing so composed type should not be any more in common *)
 
         (* Polymorphsim*)
-        | TPolyVar of type_variable
-        | TForall of type_variable * main_type
+        | TPolyVar of type_variable (* TODO do we need the disctinction between TVar and TPolyVar ????? *)
+        | TForall of type_variable * main_type 
     and composed_type = _composed_type placed
 
     and _session_type =  
@@ -166,6 +167,7 @@ module type TIRC = sig
         (* TODO closure/lamba*)
         | CallExpr of expr * expr list(** method and fct can be recursive *)
         | NewExpr of expr * expr list                   
+        | PolyApp of expr * main_type list
 
         (** Control flow *)
 
@@ -222,7 +224,7 @@ module type TIRC = sig
         expecting_st: main_type;
         callback: expr
     }
-    and port = _port placed
+    and port = (_port * main_type) placed
 
     (******************************** Contracts **********************************)
     and _contract = { (* TODO GADT *)
@@ -251,9 +253,12 @@ module type TIRC = sig
     (****** BEGIN EDIT BY HUMAN*****)
     val dual : session_type -> session_type
     val free_vars_stmt : Variable.Set.t -> stmt -> Variable.Set.t * expr_variable list
+    val free_tvars_mtype : Atom.Set.t -> main_type -> type_variable list
     val  timers_of_headers : constraint_header list -> expr_variable list
     val replace_type_main_type : type_variable ->(type_variable option * _main_type option) -> main_type -> main_type
     val replace_stype_session_type : type_variable ->(type_variable option * _session_type option) -> session_type -> session_type
+    val equal_ctype : composed_type -> composed_type -> bool
+    val equal_cmtype : component_type -> component_type -> bool
     val equal_stype : session_type -> session_type -> bool
     val equal_mtype : main_type -> main_type -> bool
     val equal_expr : expr -> expr -> bool
@@ -309,6 +314,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
         (** Message-passing *)
         | TBridge of tbridge
+        | TPort of main_type * main_type (* session_type * bridge type *)
 
         | TRaw of Impl_common.blackbox_term (*TODO move it to IRI by doing so composed type should not be any more in common *)
 
@@ -419,6 +425,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         (* TODO closure/lamba*)
         | CallExpr of expr * expr list(** method and fct can be recursive *)
         | NewExpr of expr * expr list                   
+        | PolyApp of expr * main_type list
 
         (** Control flow *)
 
@@ -475,7 +482,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         expecting_st: main_type;
         callback: expr
     }
-    and port = _port placed
+    and port = (_port * main_type) placed
 
     (******************************** Contracts **********************************)
     and _contract = { (* TODO GADT *)
@@ -514,9 +521,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     and dual st : session_type = 
     { st with value = _dual st.place st.value }
 
-    let rec free_variable_place free_variable_value ({ AstUtils.place ; AstUtils.value}: 'a AstUtils.placed) = 
-        free_variable_value place value
-
     let rec free_vars_expr_ (already_binded:Variable.Set.t) place (e,mt) : Variable.Set.t * expr_variable list = 
         match e with 
         | LambdaExpr (x, mt, e) ->
@@ -541,7 +545,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) fvars es
         | BlockExpr (_, es) | Spawn {args=es} -> 
             already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) [] es
-    and free_vars_expr (already_binded:Variable.Set.t) expr : Variable.Set.t * expr_variable list = free_variable_place (free_vars_expr_ already_binded) expr
+    and free_vars_expr (already_binded:Variable.Set.t) expr : Variable.Set.t * expr_variable list = map0_place (free_vars_expr_ already_binded) expr
 
     and free_vars_stmt_ (already_binded:Variable.Set.t) place : _stmt -> Variable.Set.t * expr_variable list = function 
     | EmptyStmt -> already_binded, []
@@ -582,7 +586,58 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let _, fvars = free_vars_expr already_binded e in
         already_binded, fvars
 
-    and free_vars_stmt (already_binded:Variable.Set.t) stmt : Variable.Set.t * expr_variable list = free_variable_place (free_vars_stmt_ already_binded) stmt
+    and free_vars_stmt (already_binded:Variable.Set.t) stmt : Variable.Set.t * expr_variable list = map0_place (free_vars_stmt_ already_binded) stmt
+
+    (*retrun free  type variable *)
+    let rec _free_tvars_ctype already_binded place = function
+    | TFlatType _ -> []
+    | TActivationInfo mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt -> free_tvars_mtype already_binded mt
+    | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) | TPort (mt1, mt2) -> 
+        let ftvars1 = free_tvars_mtype already_binded mt1 in
+        let ftvars2 = free_tvars_mtype already_binded mt2 in
+        ftvars1@ftvars2
+    | TBridge b -> 
+        let ftvars1 = free_tvars_mtype already_binded b.in_type in
+        let ftvars2 = free_tvars_mtype already_binded b.out_type in
+        let ftvars3 = free_tvars_mtype already_binded b.protocol in
+        ftvars1@ftvars2@ftvars3
+    | TVar x | TPolyVar x when Atom.Set.find_opt x already_binded <> None  -> [] 
+    | TVar x when Atom.is_builtin x -> [] 
+    | TVar x | TPolyVar x  -> 
+        logger#error "free tvar of %s " (Atom.to_string x);
+        [x]
+    | TForall (x, mt) -> free_tvars_mtype (Atom.Set.add x already_binded) mt
+    and free_tvars_ctype (already_binded:Atom.Set.t) = map0_place (_free_tvars_ctype already_binded) 
+
+    and _free_tvars_stype already_binded place = function
+    | STEnd -> []
+    | STVar x | STPolyVar x when Atom.Set.find_opt x already_binded <> None  -> []
+    | STVar x | STPolyVar x -> [x]
+    | STRecv (mt, st) | STSend (mt, st) -> 
+        let ftvars1 = free_tvars_mtype already_binded mt in
+        let ftvars2 = free_tvars_stype already_binded st in
+        ftvars1@ftvars2
+    | STBranch branches | STSelect branches -> 
+        (*TODO FIXME constraint to proccess*)
+        List.flatten(List.map (function (_,st,_) -> free_tvars_stype already_binded st) branches)
+    | STRec (x, st) -> free_tvars_stype (Atom.Set.add x already_binded) st
+    | STInline _ -> raise (Error.DeadbranchError "STInline should have been resolved before running free_tvars")
+    and free_tvars_stype (already_binded:Atom.Set.t) = map0_place (_free_tvars_stype already_binded) 
+
+    and _free_tvars_cmtype already_binded place = function
+    | CompTUid _ | TPolyCVar _ -> [] (*Not a type variable but a component variable *)
+    | TStruct sign -> List.flatten(List.map (free_tvars_mtype already_binded) (List.map snd (List.of_seq (Atom.VMap.to_seq sign))))
+    and free_tvars_cmtype (already_binded:Atom.Set.t) = map0_place (_free_tvars_cmtype already_binded) 
+
+    and _free_tvars_mtype already_binded place = function
+    | EmptyMainType -> []
+    | CType ct -> free_tvars_ctype already_binded ct
+    | SType st -> free_tvars_stype already_binded st
+    | CompType cmt -> free_tvars_cmtype already_binded cmt
+    | ConstrainedType (mt,ac) -> free_tvars_mtype already_binded mt (* TODO FIXME tvars in ac to proccessed yet *)
+    
+    and free_tvars_mtype (already_binded:Atom.Set.t) = map0_place (_free_tvars_mtype already_binded) 
+
 
     let rec timers_of_headers = function
         | [] -> []
@@ -606,7 +661,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             replace_type_main_type x_to_replace replaceby mt2
         ) 
         | TVar x when x = x_to_replace && replaceby_x_opt <> None -> TVar (Option.get replaceby_x_opt)
-        | (TVar _ as t) | (TBridge _ as t) | (TRaw _ as t) | (TFlatType _ as t) -> t
+        | TPolyVar x when x = x_to_replace && replaceby_x_opt <> None -> TPolyVar (Option.get replaceby_x_opt)
+        | (TVar _ as t) | (TBridge _ as t) | (TRaw _ as t) | (TFlatType _ as t) | (TPolyVar _ as t) -> t
         | TArray mt -> TArray (replace_type_main_type x_to_replace replaceby mt)  
         | TDict (mt1, mt2) -> TDict (
             replace_type_main_type x_to_replace replaceby mt1,
@@ -629,7 +685,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             replace_type_main_type x_to_replace replaceby mt1,
             replace_type_main_type x_to_replace replaceby mt2
         ) 
-        | TPolyVar x when x = x_to_replace && replaceby_x_opt <> None -> TPolyVar (Option.get replaceby_x_opt)
         | TForall (x, mt) when x = x_to_replace && replaceby_x_opt <> None -> TForall (Option.get replaceby_x_opt, replace_type_main_type x_to_replace replaceby mt)
         | TForall (x, mt) -> TForall (x, replace_type_main_type x_to_replace replaceby mt)
     and replace_type_composed_type x_to_replace replaceby = replace_type_place (_replace_type_composed_type x_to_replace replaceby)
@@ -792,6 +847,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | TArrow (mt1_a, mt1_b), TArrow (mt2_a, mt2_b) | TDict (mt1_a, mt1_b), TDict (mt2_a, mt2_b) | TResult (mt1_a, mt1_b), TResult (mt2_a, mt2_b) | TUnion (mt1_a, mt1_b), TUnion (mt2_a, mt2_b) ->
         equal_mtype mt1_a mt2_a && equal_mtype mt1_b mt1_b
     | TVar x1, TVar x2 -> x1 = x2
+    | TFlatType TInt, TFlatType TTimer | TFlatType TTimer, TFlatType TInt -> true 
     | TFlatType ft1, TFlatType ft2 -> ft1 = ft2
     | TTuple mts1, TTuple mts2 -> List.equal equal_mtype mts1 mts2
     | TBridge b1, TBridge b2 ->
@@ -804,7 +860,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let mt2' = replace_type_main_type x2 (Some x1, None) mt2 in
         equal_mtype mt1 mt2'
     | _ -> false
-    and equal_ctype ct1 ct2 = equal_place _equal_ctype ct1 ct2
+    and equal_ctype ct1 ct2 = 
+    (=) ct1 ct2 || (* optimization *)
+    equal_place _equal_ctype ct1 ct2
 
     and _equal_stype = function
     | STEnd, STEnd -> true 
@@ -823,14 +881,19 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | STInline x1, STInline x2 -> x1 = x2
     | STPolyVar x1, STPolyVar x2 -> x1 = x2
     | _ -> false
-    and equal_stype st1 st2 = equal_place _equal_stype st1 st2
+    and equal_stype st1 st2 = 
+    (=) st1 st2 ||
+    equal_place _equal_stype st1 st2
+
 
     and _equal_cmtype = function
     | CompTUid x1, CompTUid x2 -> x1 = x2
     | TStruct struct1, TStruct struct2 -> failwith "FIXME TODO equality for TStruct i.e. replace list by hashtbl"
     | TPolyCVar x1, TPolyCVar x2 -> x1 = x2
     | _ -> false
-    and equal_cmtype cmt1 cmt2 = equal_place _equal_cmtype cmt1 cmt2
+    and equal_cmtype cmt1 cmt2 =
+    (=) cmt1 cmt2 ||
+    equal_place _equal_cmtype cmt1 cmt2
 
     and _equal_mtype = function
     | EmptyMainType, EmptyMainType -> true 
@@ -840,7 +903,10 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | ConstrainedType (mt1, ac1), ConstrainedType (mt2, ac2) ->
         equal_mtype mt1 mt2 &&
         failwith "TODO equal guard not yet defined"
-    and equal_mtype mt1 mt2 = equal_place _equal_mtype mt1 mt2
+    | _ -> false
+    and equal_mtype mt1 mt2 = 
+    (=) mt1 mt2 ||
+    equal_place _equal_mtype mt1 mt2
 
     (* return flag * variable to replace for equality of the second argument*)
     and _equal_header = function
@@ -848,7 +914,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         equal_mtype mt1 mt2, (x1,x2)
     | SetTimer x1, SetTimer x2 -> true, (x1, x2)
     | SetFireTimer (x1, i1), SetFireTimer (x2, i2) -> i1 = i2, (x1, x2)
-    and equal_header (h1, h2) = equal_place _equal_header h1 h2
+    and equal_header (h1, h2) = 
+    equal_place _equal_header h1 h2
 
     and equal_applied_constraint (hs1, g1_opt) (hs2, g2_opt) = 
         let tmp = List.map equal_header (List.combine hs1 hs2) in
@@ -915,7 +982,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             equal_expr e2a e2b
         ) ees1 ees2
     | _ -> false
-    and equal_expr (e1:expr) (e2:expr) = _equal_expr ((fst e1.value), (fst e2.value))
+    and equal_expr (e1:expr) (e2:expr) =
+    (=) e1 e2 ||
+    _equal_expr ((fst e1.value), (fst e2.value))
 
     and _equal_cexpr = function
     | VarCExpr x1, VarCExpr x2 -> x1 = x2
@@ -924,7 +993,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         equal_cexpr ce1b  ce2b
     | UnboxCExpr e1, UnboxCExpr e2 -> equal_expr e1 e2
     | AnyExpr e1, AnyExpr e2 -> equal_expr e1 e2
-    and equal_cexpr ce1 ce2 = _equal_cexpr ((fst ce1.value), (fst ce2.value))
+    and equal_cexpr ce1 ce2 = 
+    (=) ce1 ce2 ||
+    _equal_cexpr ((fst ce1.value), (fst ce2.value))
 
 
     (* Return form do not start with an µx.*)

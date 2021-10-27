@@ -17,29 +17,6 @@ let mtype_of_st st =
 let mtype_of_ft ft = 
     mtype_of_ct (TFlatType ft)
 
-(* FIXME TODO can we mutualize functions with type reconstruction ???*)
-let fresh_tbridge () = 
-    let a = Atom.fresh "a" in
-    let b = Atom.fresh "b" in
-    let p = Atom.fresh "p" in
-    mtype_of_ct (TArrow(
-        mtype_of_ft TVoid,
-        mtype_of_ct(TForall(
-            a, 
-            mtype_of_ct(TForall (
-                b, 
-                mtype_of_ct(TForall(
-                    p, 
-                    mtype_of_ct (TBridge {
-                        in_type  = mtype_of_var a;
-                        out_type = mtype_of_var b;
-                        protocol = mtype_of_var p
-                    })
-                ))
-            ))
-        ))
-    ))
-
 let quantify labels make : main_type =
     let vars = List.map Atom.fresh labels in
     let rec aux = function
@@ -47,6 +24,23 @@ let quantify labels make : main_type =
     | x::xs -> mtype_of_ct (TForall(x, aux xs))
     in
     aux vars
+(* FIXME TODO can we mutualize functions with type reconstruction ???*)
+let fresh_tbridge () = 
+    let a = Atom.fresh "a" in
+    let b = Atom.fresh "b" in
+    let p = Atom.fresh "p" in
+    quantify ["a"; "b"; "p"]
+    ( function [a; b; p] ->
+        mtype_of_ct (TArrow(
+            mtype_of_var p,
+            mtype_of_ct (TBridge {
+                in_type  = mtype_of_var a;
+                out_type = mtype_of_var b;
+                protocol = mtype_of_var p
+            })
+        ))
+    )
+
 
 let t_fire () = 
     quantify 
@@ -70,10 +64,13 @@ let t_receive () =
                 mtype_of_st(STSend(
                     mtype_of_var msg, auto_fplace(STPolyVar continuation) 
                 )),
-                mtype_of_ct(TTuple[
-                    mtype_of_var msg;
-                    mtype_of_svar continuation
-                ])
+                mtype_of_ct(TArrow(
+                    fresh_tbridge (), (* Temporary needed until we use control flow information to retrieve statically the bridge of a session - because we need it when doing the Rewrite pass *)
+                    mtype_of_ct(TTuple[
+                        mtype_of_var msg;
+                        mtype_of_svar continuation
+                    ])
+                ))
             ))
         )
 

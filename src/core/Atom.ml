@@ -216,25 +216,7 @@ module Set = struct
 
 end
 
-module VMap = struct
 
-  include Map.Make(Order)
-
-  (* This is O(nlog n), whereas in principle O(n) is possible.
-     The abstraction barrier in OCaml's [Set] module hinders us. *)
-  let domain m =
-    fold (fun a _ accu -> Set.add a accu) m Set.empty
-
-  let codomain f m =
-    fold (fun _ v accu -> Set.union (f v) accu) m Set.empty
-  
-  let pp _ fmt m = failwith "TODO pp for VMap"
-  let show m = failwith "TODO show for VMap"
-
-end
-
-type renaming =
-  atom VMap.t
 
 (* Printing *)
 let output_atom out builtin_eval (x:atom)=
@@ -252,6 +234,25 @@ let p_to_string builtin_eval (x:atom)=
 
 (* Sets and maps. *)
 
+module VMap = struct
+
+  include Map.Make(Order)
+
+  (* This is O(nlog n), whereas in principle O(n) is possible.
+     The abstraction barrier in OCaml's [Set] module hinders us. *)
+  let domain m =
+    fold (fun a _ accu -> Set.add a accu) m Set.empty
+
+  let codomain f m =
+    fold (fun _ v accu -> Set.union (f v) accu) m Set.empty
+  
+  let show m = Format.sprintf "" 
+  let pp _ fmt m = Format.fprintf fmt "%a" (Error.pp_list ";" (fun out (x,_)-> Format.fprintf out "%s" (to_string x))) (List.of_seq (to_seq m)) 
+
+end
+
+type renaming =
+  atom VMap.t
 module AtomsOrder = struct
   type t = atom list
   let compare xs ys= 

@@ -1,5 +1,6 @@
 %left BINOP 
 %nonassoc UNOP 
+%right LANGLEBRACKET RANGLEBRACKET
 %start<Ast.program> entry
 
 %{
