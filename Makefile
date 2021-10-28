@@ -25,8 +25,11 @@ plugins: bin
 #### XXX tests ###########################################################
 
 .PHONY: tests
-tests: bin
+tests: clean
+# Hard copy since dune do not pack external files in the test (ie. ../examples)
+	@rm -rf tests/examples && cp -rf examples tests/examples
 	@dune runtest --profile release
+	@rm -rf tests/examples
 	#dune test -p $(NAME) 
 	#@printf "## Decision tree tests ##\n"
 	#@dune exec -p $(NAME) --  
