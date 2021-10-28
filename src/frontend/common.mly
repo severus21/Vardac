@@ -76,7 +76,7 @@ any_composed_type_:
             | _ -> Core.Error.error ct.place "activation_info except exactly one type parameter (a Component type)"
         end
         (* User defined parametrized types *)
-        | _ -> Core.Error.error ct.place "Parametrized type syntax not yet supporter except for Option and Result!"
+        | _ -> Core.Error.error ct.place "Unknow parametric constructor"
     }
 (* TODO other composed types *)
 %public %inline any_composed_type:
