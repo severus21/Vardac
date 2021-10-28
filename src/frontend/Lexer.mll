@@ -139,7 +139,7 @@ let uppercase =
 let identchar =
   ['A'-'Z' 'a'-'z' '_' '\192'-'\214' '\216'-'\246' '\248'-'\255' '0'-'9']
 
-let str_character = uppercase | lowercase | [':' '.' ';' '/' '-']
+let str_character = uppercase | lowercase | [':' '.' ';' '/' '-' ' ' '\n']
  
 
 let digit =
