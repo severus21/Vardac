@@ -1,0 +1,8 @@
+- target: akka1 
+  codegen: 
+    language: Java
+    runtime: Akka
+- target: toto 
+  codegen: 
+    language: Java
+    runtime: Akka

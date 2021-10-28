@@ -1,0 +1,50 @@
+(*{=
+    import com.bmartin.kvs;
+=}*)
+
+(* TODO Issue with the scope : ComponentA::...::ComponentZ::method *)
+
+impl type v java{= String =}
+impl type error java{= String =}
+
+(* define default target *)
+target akka1;
+
+impl type _begintx java{= float =}
+
+impl component PositiveCounter {
+    void decrement () java{==}
+    void increment () java{==}
+    int read () java{==}
+}
+
+impl component Client {
+    txid tx_id java{= 0 =}
+    Result<void, error> put(k k, v v) java{= return "TODO"; =}
+    Result<void, error> get(k k, v v) java{= return "TODO"; =}
+}
+
+impl component TransactionManager {
+    txid fresh_tx_id () java{= return "TODO"; =}
+}
+
+impl type local_journal java {= List<String> =}
+
+
+impl component TransactionCoordinator target toto {
+    txid tx_id java{= 0 =}
+
+    Result<v, Error> get (k key) java{=
+        return blabla({{args.key}}); 
+        return blabla({{args | join(",")}});
+    =}
+
+    Result<void, Error> abort () java{= return "TODO"; =}
+    Result<void, Error> commit () java{= return "TODO"; =}
+    Result<v, Error> get (k key) java{= return "TODO"; =}
+    Result<void, Error> put (k key, v value) java{= return "TODO"; =}
+}
+
+impl component B {
+}
+impl component B::C {}

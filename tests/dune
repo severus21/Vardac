@@ -2,9 +2,11 @@
 ;; TODO FIXME examples/*/*.... if any (nothing is working with dune) or generate the dune files
 (test
  (name main)
+ (action (run %{test} --long))
  (deps
   (glob_files data/*.spec)
   (glob_files examples/0-ping-pong/*.spec)
+  (glob_files examples/*/*.spec)
   (glob_files examples/0-ping-pong/*.impl)
   (glob_files examples/0-ping-pong/*.yml)
  )

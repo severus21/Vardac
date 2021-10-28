@@ -10,18 +10,13 @@ let long =
     Printf.sprintf "Usage: %s <options> <filename>" Sys.argv.(0)
   
   let () =
-    Arg.parse options (fun _ -> ()) usage (* discards any non label arguments *)
-  
-  
-  let () =
-      let long_tests =  OUnit2.test_list [
+    Arg.parse options (fun _ -> ()) usage; (* discards any non label arguments *)
+    let long_tests =  OUnit2.test_list [
         Example.unittests ();
-      ] in
-      let tests = OUnit2.test_list [
-          Parser.unittests ();
-      ] in
-  
-      OUnit2.run_test_tt_main tests;
-      if !long then  OUnit2.run_test_tt_main long_tests
-  ;;
-  
+    ] in
+    let tests = OUnit2.test_list [
+        Parser.unittests ();
+    ] in
+
+    OUnit2.run_test_tt_main tests;
+    if !long then  OUnit2.run_test_tt_main long_tests
