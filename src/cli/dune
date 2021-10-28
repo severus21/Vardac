@@ -3,5 +3,5 @@
     (public_name compspec)
     (modes byte native)
     (modules :standard)
-    (libraries ounit2 yaml "yaml.unix" "rresult" "fileutils" compspec.core compspec.frontend compspec.codegen compspec.codegen.plugins.java compspec.codegen.plugins.akka compspec.codegen.plugins compspec.check) ;TODO clean libraries
+    (libraries ounit2 yaml "yaml.unix" "rresult" "fileutils" compspeclib) ;TODO clean libraries
 )

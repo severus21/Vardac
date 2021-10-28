@@ -1,0 +1,8 @@
+(library
+    (name compspeclib)
+    (public_name compspec.compspeclib)
+    (preprocess (pps ppx_deriving.show ppx_import))
+    (modules :standard)
+    (libraries ounit2 yaml "yaml.unix" "rresult" "fileutils" compspec.core compspec.frontend compspec.codegen compspec.codegen.plugins.java compspec.codegen.plugins.akka compspec.codegen.plugins compspec.check) ;TODO clean libraries
+)
+
