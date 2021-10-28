@@ -1,3 +1,6 @@
+# Test examples (just a temporary copy of toplevel examples)
+tests/examples
+
 # VSCode
 .VSCodeCounter
 .vscode

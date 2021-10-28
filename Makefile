@@ -25,7 +25,7 @@ plugins: bin
 #### XXX tests ###########################################################
 
 .PHONY: tests
-tests: clean
+tests:
 # Hard copy since dune do not pack external files in the test (ie. ../examples)
 	@rm -rf tests/examples && cp -rf examples tests/examples
 	@dune runtest --profile release
