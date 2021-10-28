@@ -1,10 +1,18 @@
-type action_protocol = µ x. 
+event k of;
+event v of;
+event abord of;
+event commit of;
+event ack of;
+
+protocol action_protocol = µ x. 
 &{ (* non deterministic fire *)
-    "get": !K ?Result<V, Error> . x; (* recursif *)
-    "put": !Tuple<K,V> ?Result<unit, Error> . x; (* recursif *)
-    "abort": !Abort ?Ack . ; (* non-recursif *)
-    "commit": !Commit ?Result<unit, Error> . (* non-recursif *)
+    "get": !k ?v - x; (* recursif *)
+    "put": !k!v ?ack - x; (* recursif *)
+    "abort": !abort ?ack . ; (* non-recursif *)
+    "commit": !commit ?ack . (* non-recursif *)
 };
 
-type tc_protocol = ?TXInfo (inline action_protocol);
-type full_tx_protocol = !BeginTX (inline tc_protocol);
+event txinfo of;
+event begintx of;
+protocol tc_protocol = ?txinfo (inline action_protocol);
+protocol full_tx_protocol = !begintx (inline tc_protocol);

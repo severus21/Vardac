@@ -1,3 +1,3 @@
-component TransactionManager () {
-    port port_name on c expecting !int. = toto;
+component A () {
+    port port_name on c :: bridge<A, A, !int.> expecting !int. = toto;
 }

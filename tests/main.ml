@@ -14,7 +14,9 @@ let long =
   
   
   let () =
-      let long_tests =  OUnit2.test_list [] in
+      let long_tests =  OUnit2.test_list [
+        Example.unittests ();
+      ] in
       let tests = OUnit2.test_list [
           Parser.unittests ();
       ] in

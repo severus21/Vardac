@@ -1,9 +1,11 @@
 (data_only_dirs examples data)
-
+;; TODO FIXME examples/*/*.... if any (nothing is working with dune) or generate the dune files
 (test
  (name main)
  (deps
   (glob_files data/*.spec)
-  (glob_files examples/kvs/*.spec)
+  (glob_files examples/0-ping-pong/*.spec)
+  (glob_files examples/0-ping-pong/*.impl)
+  (glob_files examples/0-ping-pong/*.yml)
  )
- (libraries compspec.core compspec.frontend ounit2))
+ (libraries compspec.core compspec.frontend compspec.compspeclib ounit2))
