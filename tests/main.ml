@@ -11,12 +11,11 @@ let long =
   
   let () =
     Arg.parse options (fun _ -> ()) usage; (* discards any non label arguments *)
-    let long_tests =  OUnit2.test_list [
+    let long_tests = [
         Example.unittests ();
     ] in
-    let tests = OUnit2.test_list [
+    let tests = [
         Parser.unittests ();
     ] in
 
-    OUnit2.run_test_tt_main tests;
-    if !long then  OUnit2.run_test_tt_main long_tests
+    OUnit2.run_test_tt_main (OUnit2.test_list (if !long then tests@long_tests else tests));
