@@ -32,7 +32,7 @@ import java.util.concurrent.ExecutionException;
 import com.bmartin.SpawnProtocol;
 
 public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Command> {
-    public static final String NAME = "system_{{project_name}}";
+    public static final String NAME = "{{system_name}}";
     public static final short MAX_CLUSTER_CONNECT_RETRY = 5;
     public static final ServiceKey<SpawnProtocol.Command> SERVICE_KEY
             = ServiceKey.create(SpawnProtocol.Command.class, NAME);

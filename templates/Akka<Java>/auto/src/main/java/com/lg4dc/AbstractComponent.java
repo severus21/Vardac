@@ -24,7 +24,7 @@ import akka.cluster.typed.SingletonActor;
 import akka.actor.typed.javadsl.TimerScheduler;
 
 public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
-    public static final String NAME = "system_{{project_name}}_component_";
+    public static final String NAME = "{{system_name}}_component_";
     public static final ServiceKey SERVICE_KEY
             = ServiceKey.create(String.class, NAME);
 

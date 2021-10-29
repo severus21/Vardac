@@ -77,8 +77,24 @@ docker build .
 
 Start a compiler with the compiled jar
 ```
-docker-compose up
+docker-compose up -d
 ```
+
+# Docker and Docker-Compose
+
+A little tweak/hack is currently needed for the console application to work from outside a docker context.
+Add the following to /etc/hosts: `127.0.0.1 host.docker.internal kvs-server-seed`
+
+
+## build
+```docker-compose build```
+
+## run
+start all services
+```docker-compose up -d```
+
+start a shell in a container that is on the same network as the kvs services 
+```docker run -it --rm --network kvs_default kvs-server```
 
 ## Vizualisation tools
 
