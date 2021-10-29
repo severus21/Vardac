@@ -5,3 +5,11 @@
     (modules :standard)
     (libraries ounit2 yaml "yaml.unix" "rresult" "fileutils" compspeclib) ;TODO clean libraries
 )
+
+(rule
+ (target build.ml)
+ (deps (universe) build.sh)
+ (action
+  (with-stdout-to
+   %{target}
+   (bash "./build.sh"))))

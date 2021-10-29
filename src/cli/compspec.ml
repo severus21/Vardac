@@ -7,6 +7,7 @@ open Compspeclib
 
 let logger = Logging.make_logger "_1_ compspec" Debug [Cli Debug];;
 
+
 (* Parse the command line. *)
 
 let filenames = ref []
@@ -45,11 +46,15 @@ let options_compile =
 
 let options_check = common_options
 
+
+let display_build_info = ref false
+let list_codegen_plg = ref false
+let list_check_plg = ref false
 let options_info = 
     Arg.align [
-        "--codegen-plgs", Arg.Unit (function () -> Codegen.display_available_plugins ()), "Display available plugins for codegeneration";
-        "--debug", Arg.Set Config._debug, " Enable debugging output";
-        "--version", Arg.Unit (function () -> Printf.fprintf stdout "Version: %s\n" Config.version), " Enable debugging output";
+        "--codegen-plgs", Arg.Set list_codegen_plg, "Display available plugins for codegeneration";
+        "--check-plgs", Arg.Set list_check_plg, "Display available plugins for verification";
+        "--build", Arg.Set display_build_info , "Build information";
     ]
 
 let record a= 
@@ -87,5 +92,14 @@ let () =
         with
         | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
     end
-    | "info" -> ()
+    | "info" -> begin 
+        Printf.fprintf stdout "Version: %s\n" Config.version;
+
+        if !display_build_info then 
+            Printf.fprintf stdout "Commit: %s Built on: %s\n" Build.git_revision Build.build_time;
+
+        if !list_codegen_plg then Codegen.display_available_plugins ();
+        if !list_check_plg then Check.display_available_plugins ();
+        ()
+    end
 

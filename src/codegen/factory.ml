@@ -21,7 +21,7 @@ let _ = register_cg_plugin (module Plugins.AkkaJava: Plugin.Cg_plg)
 
 let display_available_plugins () = 
     let n = Hashtbl.length cg_plugins in
-    Printf.fprintf stdout "%d plugin%s %s available:\n" n (if n>1 then "s" else "") (if n>1 then "are" else "is");
+    Printf.fprintf stdout "%d codegen plugin%s %s available:\n" n (if n>1 then "s" else "") (if n>1 then "are" else "is");
 
     let display_plug (key, value) = 
         let module Plug = (val value:Plugins.Plugin.Plug) in    

@@ -21,7 +21,7 @@ let _ = ()
 
 let display_available_plugins () = 
     let n = Hashtbl.length plugins in
-    Printf.fprintf stdout "%d plugin%s %s available:\n" n (if n>1 then "s" else "") (if n>1 then "are" else "is");
+    Printf.fprintf stdout "%d verification plugin%s %s available:\n" n (if n>1 then "s" else "") (if n>1 then "are" else "is");
 
     let display_plug (key, value) = 
         let module Plug = (val value:Plugin.Plug) in    
