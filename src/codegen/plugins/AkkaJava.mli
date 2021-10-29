@@ -1,9 +1,13 @@
 val name: string
+val logger: Easy_logging.Logging.logger
 
 (* The runtime used. *)
 module Rt = Akka 
 (* The target programming language. *)
 module Lg = Java 
+
+val templates_location : string
+val externals_location : string
 
 (* file * program in file *)
 val finish_program : Core.Target.target -> Rt.Finish.collected_state * Rt.Ast.program -> (string * Fpath.t * Lg.Ast.program) list  

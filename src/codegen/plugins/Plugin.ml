@@ -33,8 +33,13 @@ end
 
 module type Cg_plg = sig
     val name: string
+    val logger: Easy_logging.Logging.logger
+
     module Rt : Rt_plg
     module Lg : Lg_plg 
+
+    val templates_location : string
+    val externals_location : string
 
     (* TODO places could be just field of Plug in order not to have to proapgate it and to recompute it 
     
@@ -55,7 +60,7 @@ end
 
 module type Plug = sig
     include Cg_plg
-
+    
     val init_build_dir : Core.Target.target -> Fpath.t -> Fpath.t -> unit
     val resolve_templates : Core.IR.vplace list -> Core.Target.target -> Fpath.t -> Fpath.t -> unit
 end
@@ -87,14 +92,21 @@ module Make (Plg: Cg_plg) = struct
 let filter_custom root path =
     match Bos.OS.Path.exists path with
     | Rresult.Ok true -> true
-    | Rresult.Ok false when root <> (Fpath.v ".") -> false
-    | Rresult.Ok false -> logger#debug "root=%s" (Fpath.to_string path);
-    logger#error "plugin %s requires that %s exists" name (Fpath.to_string root); exit 1(* TODO handle it with a custom exception ?? *) 
+    | Rresult.Ok false when root <> None -> false
+    | Rresult.Ok false -> logger#error "plugin %s requires that %s exists" name (Fpath.to_string path); exit 1(* TODO handle it with a custom exception ?? *) 
     | Rresult.Error _ -> failwith "some error occurs when checking external/template existence"
 
 (******************************** External **********************************)
-    let auto_externals_dir root = List.fold_left Fpath.add_seg root ["externals"; name; "auto"]
-    let custom_externals_dir root = List.fold_left Fpath.add_seg root ["externals"; name; "custom"]
+    let auto_externals_dir = function
+    | None -> List.fold_left Fpath.add_seg (Fpath.v externals_location) [name; "auto"]
+    | Some root -> (* Load project specialized externals *)
+        List.fold_left Fpath.add_seg root ["externals"; name; "auto"]
+
+    let custom_externals_dir = function
+    | None -> List.fold_left Fpath.add_seg (Fpath.v externals_location) [name; "custom"]
+    | Some root -> (* Load project specialized externals *)
+        List.fold_left Fpath.add_seg root ["externals"; name; "custom"]
+
 
     let preprocess_auto_external root build_dir external0 : (Fpath.t * Fpath.t) = 
         let destfile = match Fpath.relativize (auto_externals_dir root) external0 with
@@ -110,20 +122,24 @@ let filter_custom root path =
         let destfile = Fpath.append build_dir  destfile in
         (external0, destfile)
     let process_externals root build_dir = 
-        let copy_external (src, dst) : unit = 
-            FileUtil.cp ~recurse:true [Fpath.to_string src] (Fpath.to_string dst)
-        in
-
-        (* auto_externals *)
-        let _auto_externals_dir = auto_externals_dir root in
-        begin
-            match Bos.OS.Dir.exists _auto_externals_dir with 
-            | Rresult.Ok true -> begin 
-                FileUtil.ls (Fpath.to_string _auto_externals_dir)
+        (* Since dune-site provide links and not files we need to manualy copy the content, we can not rely only on [FileUtil.cp]*)
+        let rec copy_external (src, dst) : unit = 
+            let src = FileUtil.readlink (Fpath.to_string src) in 
+            match (FileUtil.stat src).kind with
+            | FileUtil.File -> FileUtil.cp ~recurse:true [src] (Fpath.to_string dst)
+            | FileUtil.Dir -> begin
+                FileUtil.mkdir (Fpath.to_string (snd(preprocess_auto_external root build_dir (Fpath.v src))));
+                FileUtil.ls src 
                 |> List.map Fpath.v
                 |> List.map (preprocess_auto_external root build_dir)
                 |> List.iter copy_external;
             end
+        in
+        (* auto_externals *)
+        let _auto_externals_dir = auto_externals_dir root in
+        begin
+            match Bos.OS.Dir.exists _auto_externals_dir with 
+            | Rresult.Ok true ->  copy_external (preprocess_auto_external root build_dir _auto_externals_dir)
             | Rresult.Ok false -> ()
             | Rresult.Error _ -> failwith "error filesystem TODO"
         end;
@@ -137,8 +153,14 @@ let filter_custom root path =
 (******************************** Templates **********************************)
 
     (* resolve and generate [auto] templates *)
-    let auto_templates_dir root = List.fold_left Fpath.add_seg root ["templates"; name; "auto"]
-    let custom_templates_dir root = List.fold_left Fpath.add_seg root ["templates"; name; "custom"]
+    let auto_templates_dir = function
+    | None -> List.fold_left Fpath.add_seg (Fpath.v templates_location) [name; "auto"]
+    | Some root -> (* Load project specialized templates *)
+        List.fold_left Fpath.add_seg root ["templates"; name; "auto"]
+    let custom_templates_dir  = function
+    | None -> List.fold_left Fpath.add_seg (Fpath.v templates_location) [name; "custom"]
+    | Some root -> (* Load project specialized templates *)
+        List.fold_left Fpath.add_seg root ["templates"; name; "custom"]
 
     let resolve_template (template, env, destfile) : unit =
         Utils.create_directory_hierarchy (Fpath.parent destfile);
@@ -170,8 +192,6 @@ let filter_custom root path =
 
     (** @param root - empty for lg4dc or projec_name directory *)
     let process_templates places target root build_dir = 
-        logger#debug "> root=%s" (Fpath.to_string root);
-
         (* auto_templates *)
         let _auto_templates_dir = auto_templates_dir root in
 
@@ -205,10 +225,10 @@ let filter_custom root path =
         |> List.iter resolve_template
 
     let init_build_dir target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
-        process_externals (Fpath.v ".") build_dir;
-        process_externals project_dir build_dir
+        process_externals None build_dir; (* Plugin wide *)
+        process_externals (Some project_dir) build_dir (* Project specific *)
 
     let resolve_templates places target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
-        process_templates places target (Fpath.v ".") build_dir;
-        process_templates places target project_dir build_dir
+        process_templates places target None build_dir; (* Plugin wide *)
+        process_templates places target (Some project_dir) build_dir (* Project specific *)
 end

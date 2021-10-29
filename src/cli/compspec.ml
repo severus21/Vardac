@@ -22,6 +22,7 @@ let action = ref ""
 
 let options = ref []
 
+let build_dir = ref Config.default_build_dir
 
 let set_provenance x = 
     match Config.provenance_lvl_of_enum x with
@@ -36,6 +37,7 @@ let common_options =
     "--targets", Arg.Set_string targets_file, "Load a YAML file describing the targets";
     "--filename", Arg.String (function x-> filenames := x::!filenames), "Spec file to compile";
     "--provenance", Arg.Int set_provenance, "Select how provenance information should be propagated; 0: None; 1: Medium; 2:Full";
+    "-o", Arg.String (function dir -> build_dir := Fpath.v dir), Printf.sprintf "Specify the build directory, by default %s" (Fpath.to_string Config.default_build_dir)
 ]
 
 let options_compile = 
@@ -82,13 +84,13 @@ let () =
     match !action with
     | "check" -> begin
         try
-            List.iter (process_check !places_file) filenames
+            List.iter (process_check !build_dir !places_file) filenames
         with
         | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
     end
     | "compile" -> begin
         try
-            List.iter (process_compile !places_file !targets_file !impl_filename) filenames
+            List.iter (process_compile !build_dir !places_file !targets_file !impl_filename) filenames
         with
         | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
     end

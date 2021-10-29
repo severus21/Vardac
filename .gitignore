@@ -1,6 +1,11 @@
 # Test examples (just a temporary copy of toplevel examples)
 tests/examples
 
+# Both are generated from dune.j2
+tests/dune
+templates/dune 
+externals/dune 
+
 # VSCode
 .VSCodeCounter
 .vscode

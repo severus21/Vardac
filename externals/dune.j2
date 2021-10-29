@@ -1,0 +1,7 @@
+ (install
+  (section (site (compspec externals)))
+  (files 
+   {% for location in locations %} ({{location.filename}} as {{location.filename}})
+   {% endfor %}
+  )
+ )

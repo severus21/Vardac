@@ -1,4 +1,5 @@
 (lang dune 2.8)
+(using dune_site 0.1)
 (name compspec)
 
 (using menhir 2.1)
@@ -16,4 +17,6 @@
  (depends
   (ocaml (>= 4.11.0))
   (menhir (>= 2.1))
-))
+ )
+ (sites (share externals) (share templates))
+)

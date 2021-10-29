@@ -19,6 +19,10 @@ module T = Lg.Ast
 
 let system_name = "system"^(String.capitalize_ascii (Config.project_name ())) 
 
+(* TODO FIXME each plugin should have its own sites - separate compilation one day - now at least templates .... inside the plugin directory not toplevel templates/externals*)
+let [templates_location] = Mysites.Sites.templates
+let [externals_location] = Mysites.Sites.externals
+
 let cstate : Rt.Finish.collected_state ref = ref (Rt.Finish.empty_cstate ())
 
 

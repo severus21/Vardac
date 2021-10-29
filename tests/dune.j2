@@ -5,10 +5,7 @@
  (action (run %{test} --long))
  (deps
   (glob_files data/*.spec)
-     (glob_files examples/0-ping-pong/places.yml)
-     (glob_files examples/0-ping-pong/targets.yml)
-     (glob_files examples/0-ping-pong/pingpong.spec)
-     (glob_files examples/0-ping-pong/pingpong.impl)
-    
+    {% for location in locations %} (glob_files {{location.filename}})
+    {% endfor %}
  )
  (libraries compspec.core compspec.frontend compspec.compspeclib ounit2))

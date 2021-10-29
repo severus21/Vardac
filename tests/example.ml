@@ -6,6 +6,9 @@
         - the glue should be generated without errors
         - the glue should compiles without errors
         - (future work) the glue should run without errors -> run docker testbench (*TODO FIXME*)
+
+    Side tools:
+        - check that sltopology.dot is present and can render to .png
     
     Notes : ensure no regression + ensure examples are up-to-date
 *)
@@ -26,6 +29,7 @@ let find_examples f =
 
 let collect_examples f = 
     List.map ( function dirname ->
+        Printf.fprintf stdout "Loading example %s\n" dirname;
         Filename.basename dirname,
         (let [f] = Core.Utils.scandir dirname ".spec" in f),
         (let [f] = Core.Utils.scandir dirname ".impl" in f),
@@ -35,23 +39,30 @@ let collect_examples f =
 
 
 let examples () = collect_examples "examples"
-(*
-assert(examples () <> []) (* Just to be sure, that collection of examples works *)
-*)
 
 (* Generate tests for an example *)
 let testsfrom (name, spec_file, impl_file, targets_file, places_file) : OUnit2.test = 
+    (* TODO intermediate passes *)
     name >::: [ 
     (* Parsing *)
-    (Printf.sprintf "parsing_%s" name) >:: function _ -> ignore (Frontend.Parse.parse "" (Core.Utils.file_get_contents spec_file));
-    (*(Printf.sprintf "parsing_impl_%s" name) >:: function _ -> ignore (Frontend.ParseImpl.read impl_file);
-    (Printf.sprintf "parsing_places_%s" name) >:: function _ -> ignore (Frontend.Main.process_place places_file);
-    (Printf.sprintf "parsing_targets_%s" name) >:: function _ -> ignore (Frontend.ParseTarget.parse_targets targets_file);
-
-    (* TODO intermediate passes *)
-
+    ((Printf.sprintf "parsing_%s" name) >:: function _ -> ignore (Frontend.Parse.parse "" (Core.Utils.file_get_contents spec_file)));
+    ((Printf.sprintf "parsing_impl_%s" name) >:: function _ -> ignore (Frontend.ParseImpl.read impl_file));
+    ((Printf.sprintf "parsing_places_%s" name) >:: function _ -> ignore (Frontend.Main.process_place places_file));
+    ((Printf.sprintf "parsing_targets_%s" name) >:: function _ -> ignore (Frontend.ParseTarget.parse_targets targets_file));
+    (* Check *)
+    (*((Printf.sprintf "check_%s" name) >:: function ctx -> ignore (Compspeclib.process_check (Fpath.v (OUnit2.bracket_tmpdir ctx)) places_file spec_file));
     (* Codegen *)
-    (Printf.sprintf "parsing_targets_%s" name) >:: (function _ -> ignore (Compspeclib.process_compile places_file targets_file impl_file spec_file));*)
+    ((Printf.sprintf "codegen_%s" name) >:: function ctx -> 
+        ignore (Compspeclib.process_compile (Fpath.v (OUnit2.bracket_tmpdir ctx)) places_file targets_file impl_file spec_file)
+    );
+    *)
+    ((Printf.sprintf "glu compilation%s" name) >:: function ctx -> begin 
+        let build_dir = OUnit2.bracket_tmpdir ctx in
+        ignore (Compspeclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
+        let code = Sys.command ("cd "^build_dir^"/akka && make build > /tmp/log.log") in
+        Printf.fprintf stdout "Code %d\n" code;
+        assert_equal 0 code 
+    end)
 ]
 
 let unittests () =

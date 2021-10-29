@@ -2,5 +2,9 @@
     (name plugins)
     (public_name compspec.codegen.plugins)
     (modules :standard)
-    (libraries ounit2 easy_logging core dynlink akka java jingoo)
+    (libraries dune-site ounit2 easy_logging core dynlink akka java jingoo)
 )
+
+(generate_sites_module
+ (module mysites)
+ (sites compspec))

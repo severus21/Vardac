@@ -6,7 +6,7 @@ NAME = compspec
 all: bin
 
 .PHONY: bin
-bin:
+bin: generatedune
 	#dune build @all --profile release
 	dune build -p $(NAME)
 
@@ -20,14 +20,20 @@ odoc:
 plugins: bin
 	echo "TODO"
 
+.PHONY:generatedune
+
+generatedune: 
+	@find templates -type f | grep -v "dune.j2" | sed -e "s/templates\///" | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o templates/dune -f json -d - templates/dune.j2
+	@find externals -type f | grep -v "dune.j2" | sed -e "s/externals\///" | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o externals/dune -f json -d - externals/dune.j2
 #### Unit tests and sanity check #############################################
 
 #### XXX tests ###########################################################
 
 .PHONY: tests
-tests:
+tests: generatedune
 # Hard copy since dune do not pack external files in the test (ie. ../examples)
 	@rm -rf tests/examples && cp -rf examples tests/examples
+	@find examples -type f | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o tests/dune -f json -d - tests/dune.j2
 	@dune runtest --profile release
 	@rm -rf tests/examples
 	#dune test -p $(NAME) 
@@ -44,8 +50,10 @@ ifeq (run,$(firstword $(MAKECMDGOALS)))
   $(eval $(RUN_ARGS):;@:)
 endif
 
-.PHONY: run
-run: bin 
+.PHONY: run 
+
+
+run: generatedune bin 
 	@dune exec --profile release -- compspec $(RUN_ARGS)
 
 #### Cleaning targets ########################################################
