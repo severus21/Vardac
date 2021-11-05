@@ -78,6 +78,7 @@ and _stmt =
     | ContinueStmt
     | ExpressionStmt of expr
     | IfStmt of expr * stmt * stmt option               
+    | ForStmt of ctype * variable * expr * stmt
     | ReturnStmt of expr
     | TryStmt of stmt * (ctype * variable * stmt) list
 and stmt = _stmt placed
@@ -308,6 +309,12 @@ and _apply_rename_stmt rename_binders (renaming : Atom.atom -> Atom.atom) place 
         apply_rename_stmt rename_binders renaming stmt1,
         Option.map (apply_rename_stmt rename_binders renaming) stmt2_opt    
     )
+    | ForStmt(ct, x, e, stmt) -> ForStmt (
+        apply_rename_ctype renaming ct,
+        (if rename_binders then renaming x else x),
+        apply_rename_expr rename_binders renaming e,
+        apply_rename_stmt rename_binders renaming stmt
+    )
     | ReturnStmt e -> ReturnStmt (apply_rename_expr rename_binders renaming e)
     | TryStmt (stmt, branches) -> TryStmt (
         apply_rename_stmt rename_binders renaming stmt,
@@ -498,7 +505,23 @@ and _rewriteexpr_stmt selector rewriter place : _stmt -> _stmt = function
     rewriteexpr_stmt selector rewriter stmt1,
     Option.map (rewriteexpr_stmt selector rewriter) stmt2_opt
 )
+| ForStmt(mt, x, e, stmt) -> ForStmt(
+    mt,
+    x,
+    rewriteexpr_expr selector rewriter e,
+    rewriteexpr_stmt selector rewriter stmt
+)
 | ReturnStmt e -> ReturnStmt (rewriteexpr_expr selector rewriter e)
+| TryStmt (stmt, branches) ->
+    TryStmt(
+        rewriteexpr_stmt selector rewriter stmt,
+        List.map (function (ct, x, stmt2) -> (
+            ct,
+            x,
+            rewriteexpr_stmt selector rewriter stmt2
+        
+        )) branches
+    )
 and rewriteexpr_stmt selector rewriter = apply_rewrite_place (_rewriteexpr_stmt selector rewriter)
 
 

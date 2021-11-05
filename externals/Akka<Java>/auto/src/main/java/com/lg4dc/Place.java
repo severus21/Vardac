@@ -70,15 +70,23 @@ public class Place {
 
     }
     public static Place of_actor_ref(ActorContext context, ActorRef ref){
+        assert(ref!=null);
         Address addr = ref.path().address();
+        System.out.println("######## "+addr.getHost());
+        if( !addr.getHost().isPresent() ){
+            return currentPlace(context);
+        }
 
         //Searching
         Iterable<Member> members = Cluster.get(context.getSystem()).state().getMembers();
+
         for(Member member : members){
-            if(member.address() == addr)
+            System.out.println(member.address().toString());
+            if(member.address().equals(addr))
                 return of_member(member); 
         }
-
+        System.out.println("########");
+        /// TODO handle error
         return null;
     }
 
@@ -94,12 +102,28 @@ public class Place {
     }
 
     public static List<Place> places(ActorContext context, VPlace vp, Predicate<Place> predicate) {
+        assert(vp.name != null);
+        assert(predicate != null);
         return places(context).stream()
-                    .filter(x -> x.vp == vp && predicate.test(x))
+                    .filter(x -> x.vp.equals(vp) && predicate.test(x))
                     .collect(Collectors.toList());
     }
 
     public static Place currentPlace(ActorContext context){
         return Place.of_member(Cluster.get(context.getSystem()).selfMember());
+    }
+
+    public boolean equals(Object obj) {
+        assert(obj != null);
+        if (obj == this) {
+            return true;
+        }
+
+        if (!(obj instanceof Place)) {
+            return false;
+        }   
+
+        Place b = (Place) obj;
+        return this.address.equals(b.address);
     }
 }

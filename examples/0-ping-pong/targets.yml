@@ -9,3 +9,9 @@
       mainWithGuardian:
         bootstrap: Orchestrator 
         entrypoint: titi 
+      multiPlayer:
+        bootstrap: MultiJVMOrchestrator
+        entrypoint: titia
+      passivePlayer:
+        bootstrap: PassivePlayer
+        entrypoint: titib 

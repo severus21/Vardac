@@ -4,13 +4,15 @@ import java.util.List;
 
 public class VPlace {
     //DC::Node -> [DC, Node]
-    String name; 
+    String name = ""; 
 
     public VPlace(String name){
+        assert(name != null);
         this.name = name;
     }    
 
     public boolean equals(Object obj) {
+        assert(obj != null);
         if (obj == this) {
             return true;
         }

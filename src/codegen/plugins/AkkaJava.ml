@@ -924,6 +924,7 @@ and finish_stmt place : S._stmt -> T._stmt = function
     | S.ExpressionStmt e -> T.ExpressionStmt(fexpr e)
     | S.EmptyStmt -> T.EmptyStmt
     | S.IfStmt (e, stmt1, stmt2_opt) -> T.IfStmt (fexpr e, fstmt stmt1, Option.map fstmt stmt2_opt)              
+    | S.ForStmt (mt, x, e, stmt) -> T.ForStmt(fctype mt, x, fexpr e, fstmt stmt)
     | S.LetStmt (ct, x, None) -> 
         T.NamedExpr (fctype ct, x, None) (* TODO FIXME maybe not the semantic that we want, we need to add this to the doc*)  
     | S.LetStmt (ct, x, Some e) -> T.NamedExpr (fctype ct, x, Some (fexpr e))

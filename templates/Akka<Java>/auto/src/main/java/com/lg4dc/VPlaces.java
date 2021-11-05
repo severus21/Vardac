@@ -10,7 +10,9 @@ public class VPlaces {
 
     public static VPlace get(String key){
         //System.out.println("Building vplace from key "+key);
-        return vplaces.get(key);
+        VPlace tmp = vplaces.get(key);
+        assert(tmp != null); //TODO instead raise an exception saying this vp does not exists
+        return tmp;
     }
 
     public static boolean containsKey(String key){

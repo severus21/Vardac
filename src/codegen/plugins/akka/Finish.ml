@@ -167,6 +167,7 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
     | S.TVPlace mt -> (t_lg4dc_vplace place).value
     | S.TBridge b -> (t_lg4dc_bridge place).value
     | S.TRaw bbraw -> T.TRaw bbraw.value.body
+    | S.TUnion _-> T.TRaw "Object" (* TODO maybe a better solution*)
 and fctype ct :  T.ctype = map_place finish_ctype ct
 
 (* Represent an ST object in Java type *)
@@ -371,7 +372,7 @@ match e with
         T.CallExpr (
             auto_place(T.VarExpr (Atom.fresh_builtin "VPlaces.get")),
             [
-                auto_place (T.LitExpr(auto_place(T.StringLit (Atom.to_string vp.name))))
+                auto_place (T.LitExpr(auto_place(T.StringLit (Atom.hint vp.name))))
             ]
         )
     end
@@ -428,42 +429,55 @@ match e with
       ); 
         *)
 
+        (* Local variable for lambda - should be unique to avoid name clash with constructor arguments. *)
+        let a_context = Atom.fresh "context" in
+        let a_guardian = Atom.fresh "guardian" in
+        let a_timers = Atom.fresh "timers" in
+
         (* TODO ?? DUplicated with AkkaJAva [arg_lambda] ?? *)
-        let runnable = auto_place (T.LambdaExpr (
-            [a_context],
+        let runnable = 
+        auto_place (T.LambdaExpr (
+            [a_guardian],
             auto_place (T.BlockStmt [
                 auto_place (T.ReturnStmt (
-                    auto_place(T.CallExpr(
-                        e_behaviors_with_timers fplace,
-                        [
-                            auto_place (T.LambdaExpr (
-                                [a_timers],
-                                auto_place (T.BlockStmt [
-                                    auto_place (T.ExpressionStmt (
-                                    e_debug_of 
-                                        place 
-                                        (auto_place (T.VarExpr a_context)) 
-                                        [
-                                            auto_place (T.LitExpr (auto_place (T.StringLit ("SpawnAT::create"))))
-                                        ]
-                                    ));
-                                    auto_place (T.ReturnStmt (auto_place (
-                                        T.NewExpr (
-                                            fcexpr c,
-                                            (
-                                                List.map (function x -> auto_place (T.VarExpr x)) (a_context
-                                                ::a_timers
-                                                ::a_guardian
-                                                ::[]
-                                            )
-                                            @(List.map fexpr args))
+                    auto_place (T.LambdaExpr (
+                        [a_context],
+                        auto_place (T.BlockStmt [
+                            auto_place (T.ReturnStmt (
+                                auto_place(T.CallExpr(
+                                    e_behaviors_with_timers fplace,
+                                    [
+                                        auto_place (T.LambdaExpr (
+                                            [a_timers],
+                                            auto_place (T.BlockStmt [
+                                                auto_place (T.ExpressionStmt (
+                                                e_debug_of 
+                                                    place 
+                                                    (auto_place (T.VarExpr a_context)) 
+                                                    [
+                                                        auto_place (T.LitExpr (auto_place (T.StringLit ("SpawnAT::create"))))
+                                                    ]
+                                                ));
+                                                auto_place (T.ReturnStmt (auto_place (
+                                                    T.NewExpr (
+                                                        fcexpr c,
+                                                        (
+                                                            List.map (function x -> auto_place (T.VarExpr x)) (a_context
+                                                            ::a_timers
+                                                            ::a_guardian
+                                                            ::[]
+                                                        )
+                                                        @(List.map fexpr args))
 
-                                        )
-                                    )));
-                                ])
-                            ))
-                        ]
-                ))))
+                                                    )
+                                                )));
+                                            ])
+                                        ))
+                                    ]
+                            ))))
+                        ])
+                    ))
+                ))
             ])
         )) in
         T.CallExpr(
@@ -514,7 +528,7 @@ and finish_stmt place : S._stmt -> T._stmt = function
     | S.BreakStmt -> T.BreakStmt
     | S.ContinueStmt -> T.ContinueStmt
     | S.ExitStmt _ -> failwith "Exist is not yet supported"
-    | S.ForStmt (_,_,_,_) -> failwith "For is not yet supported" 
+    | S.ForStmt (mt,x,e,stmt) -> T.ForStmt(fmtype mt, x, fexpr e, fstmt stmt)
     | S.IfStmt (e, s1, s2_opt) -> T.IfStmt (fexpr e, fstmt s1, Option.map fstmt s2_opt)
     | S.MatchStmt (_,_) -> Core.Error.error place "Match is not yet supported"
     | S.ReturnStmt e -> T.ReturnStmt (fexpr e) 

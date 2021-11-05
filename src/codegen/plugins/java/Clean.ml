@@ -71,6 +71,12 @@ and clean_stmt place : _stmt -> _stmt = function
     cstmt stmt1,
     Option.map cstmt stmt2_opt
 )              
+| ForStmt(ct, x, e, stmt) -> ForStmt (
+    ct,
+    x, 
+    cexpr e,
+    cstmt stmt
+)
 | NamedExpr (t, x, e_opt) -> NamedExpr (t, x, Option.map cexpr e_opt)
 | ReturnStmt e -> ReturnStmt (cexpr e) 
 | RawStmt s -> RawStmt s 

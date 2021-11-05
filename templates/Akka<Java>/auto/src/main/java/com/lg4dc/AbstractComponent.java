@@ -25,8 +25,6 @@ import akka.actor.typed.javadsl.TimerScheduler;
 
 public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     public static final String NAME = "{{system_name}}_component_";
-    public static final ServiceKey SERVICE_KEY
-            = ServiceKey.create(String.class, NAME);
 
     public AbstractComponent(ActorContext<T> context){
         super(context);

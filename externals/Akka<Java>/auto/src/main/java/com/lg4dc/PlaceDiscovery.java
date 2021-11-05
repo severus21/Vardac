@@ -27,7 +27,7 @@ public class PlaceDiscovery {
     }
 
     public static ServiceKey<SpawnProtocol.Command> serviceKeyOf(Address addr){
-        return ServiceKey.create(SpawnProtocol.Command.class, AbstractSystem.NAME+addr.toString());
+        return ServiceKey.create(SpawnProtocol.Command.class, AbstractSystem.NAME);//+"_"+addr.toString());
     } 
 
 
@@ -36,7 +36,8 @@ public class PlaceDiscovery {
     }
 
     public static ServiceKey activationsServiceKeyOf(Address addr){
-        return ServiceKey.create(SpawnProtocol.Command.class, AbstractSystem.NAME+"_activations_"+addr.toString());
+        return ServiceKey.create(SpawnProtocol.Command.class, AbstractSystem.NAME+"_activations_");
+        //+addr.toString());
     }
 
     public static <_T> ActorRef<_T> spawnAt(ActorContext context, ActorRef<SpawnProtocol.Command> guardian,  SpawnProtocol.SerializableRunnable<_T> runnable, String name, Props props, Place at){
@@ -46,21 +47,25 @@ public class PlaceDiscovery {
         assert( name != null);
         assert( at != null);
         assert( at.address != null);
-        context.getLog().info("PlaceDiscovery::spawnAt");
+        context.getLog().info("Requesting for spawn "+context.getSelf().toString());
+        context.getLog().info("PlaceDiscovery::spawnAt at "+at.toString());
 
         CompletionStage<WrappedActorRef<_T>> ask = AskPattern.ask(
             guardian,
             replyTo -> new SpawnProtocol.SpawnAt(runnable, name, props, at.address, replyTo),
-            Duration.ofSeconds(10),
+            Duration.ofSeconds(100),
             context.getSystem().scheduler());
 
         context.getLog().info("waiting PlaceDiscovery::spawnAt");
         try{
+            // blocking call
             WrappedActorRef<_T> tmp = ask.toCompletableFuture().get();
-            return tmp.response; // blocking call
+            context.getLog().info("end PlaceDiscovery::spawnAt");
+            return tmp.response; 
         } catch (Exception e){
             System.out.println(e);
         }
+        context.getLog().info("end PlaceDiscovery::spawnAt");
 
         return null;
     }
@@ -79,8 +84,9 @@ public class PlaceDiscovery {
 
         context.getLog().info("waiting PlaceDiscovery::componentAt");
         try{
+            // blocking call
             WrappedActorRefs tmp = ask.toCompletableFuture().get();
-            return tmp.response; // blocking call
+            return tmp.response;
         } catch (Exception e){
             System.out.println(e);
         }

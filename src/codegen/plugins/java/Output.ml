@@ -110,6 +110,7 @@ and output_stmt out : _stmt -> unit = function
     | ExpressionStmt e -> fprintf out "%a;" oexpr e 
     | IfStmt (e, stmt1, None) -> fprintf out "if(@[<hv 3>%a@]){@;@[<v 3>@;%a@]@;}" oexpr e ostmt stmt1
     | IfStmt (e, stmt1, Some stmt2) -> fprintf out "if(@[<hv 3>%a@]){@;@[<v 3>@;%a@]@;}else{@;@[<v 3>@;%a@]@;}" oexpr e ostmt stmt1 ostmt stmt2
+    | ForStmt (jt, x, e, stmt) -> fprintf out "for(@[<hv 3>%a %a : %a @]){@;@[<v 3>@;%a@]@;}" ojtype jt output_var x oexpr e ostmt stmt
     | NamedExpr (jt, x, Some e) -> fprintf out "%a %a = @[<hv>%a@];" ojtype jt output_var x oexpr e
     | NamedExpr (jt, x, None) -> fprintf out "%a %a;" ojtype jt output_var x 
     | ReturnStmt e -> fprintf out "return %a;" oexpr e

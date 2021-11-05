@@ -5,6 +5,8 @@
 *)
 vplacedef vpcloud of "Cloud";
 vplace<vpcloud> vp1 = vpcloud;
+vplacedef vpa of "placeA";
+vplace<vpa> vp2 = vpa;
 
 (************************** Point to point communication **************************)
 (* Ex0 - fire and forget
@@ -64,8 +66,7 @@ component A () {
 
     onstartup void toto (activation_info<B> b) {
         session<p_pingpong> s0 = initiate_session_with(b0, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationInfo<'A> -> 'st *)
-
-       ?pong. s1 = fire(s0, ping()); (* fire : !'a 'st -> 'a -> Result<'st, error> *)
+        ?pong. s1 = fire(s0, ping()); (* fire : !'a 'st -> 'a -> Result<'st, error> *)
         int i = 1;
         tuple<pong, !ping!ping.> res = receive(s1, b0);  (*Tuple2<e, s>*)
         print("pong_or_timeout");
@@ -145,8 +146,69 @@ component Orchestrator () {
     }
 }
 
+component PassivePlayer() {
+    onstartup void toto () {
+        print("Start passive player"); 
+    }
+}
+
+component MultiJVMOrchestrator (){
+    component Inner (){ (* FIXME needed since @ place can not be used directly in the guardian *)
+        onstartup void toto () {
+            print("Start active player"); 
+            for( place x in places()) {
+                print(place_to_string(x));
+            }
+            list<place> ps1 = select_places(vpcloud, x  : place -> true);
+            list<place> ps2 = select_places(vpa, x  : place -> true);
+            place p1 = listget(ps1, 0);
+            place p2 = listget(ps2, 0);
+            activation_info<B> c = spawn B() @ p1;
+            print(">>>");
+            print(placeof(c));
+            print("<<<");
+            (*
+
+            print("Map");
+            (* FIXME A|B should be Top *)
+            for( activation_info<A|B> x in activationsat(p1)){
+                print(x);
+            }
+
+            activation_info<A> a2 = spawn A(c) @ p2;
+            print(">>>");
+            print(placeof(a2));
+            print("<<<");
+
+            activation_info<B> tmp = spawn B();
+            print(">>>");
+            print(placeof(tmp));
+            print("<<<");
+
+
+
+            print("Mapp");
+            (* FIXME A|B should be Top *)
+            for( activation_info<A|B> x in activationsat(p2)){
+                print("activationsat");
+                print(x);
+            }
+            *)
+        }
+    }
+    onstartup void toto (){
+        spawn Inner();
+    }
+}
+
 void titi (array<string> args){
     print("apossiblemain");
+}
+void titia (array<string> args){
+    print("Multi player main");
+}
+void titib (array<string> args){
+    print("Passive player main");
 }
 
 activation_info<B> b = (spawn B()); (* B() -> call the oncreate method of B with the argument whereas B(A) will be a functor application TODO fix the syntax *) 

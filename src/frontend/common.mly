@@ -357,6 +357,13 @@ any_stmt_:
     { IfStmt (e1, e2, Some e3) }
 | IF LPAREN e1=any_expr RPAREN LCURLYBRACKET e2=any_stmt RCURLYBRACKET
     { IfStmt (e1, e2, None) }
+| FOR LPAREN mt = any_type x=LID IN e=any_expr RPAREN LCURLYBRACKET stmts = flexible_sequence(any_stmt) RCURLYBRACKET
+    { 
+        match stmts with
+        | [] -> ForStmt (mt, x, e, {place=[$loc]; value=EmptyStmt})
+        | [stmt] -> ForStmt (mt, x, e, stmt)
+        | stmts -> ForStmt (mt, x, e, {place=[$loc]; value=BlockStmt stmts})
+    }
 | MATCH e1=any_expr LCURLYBRACKET exprs=flexible_sequence(match_entry) RCURLYBRACKET
     { MatchStmt (e1, exprs) }
 (* TODO for*)
