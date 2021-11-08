@@ -15,14 +15,19 @@ import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.TimerScheduler;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import com.lg4dc.timers.*;
 import com.bmartin.*;
 
 // Session types as values
 public final class ASTStype {
-    public static final class MsgT {
+    public static final class MsgT implements CborSerializable{
         public Object value;
-        public MsgT(Object value){
+
+        @JsonCreator
+        public MsgT(@JsonProperty("value") Object value){
             this.value = value;
         }
 
@@ -42,7 +47,7 @@ public final class ASTStype {
     public static enum TimerKind {
         LB, HB
     }
-    public static class TimerHeader {
+    public static class TimerHeader implements CborSerializable{
 
 
         public TimerKind kind;
@@ -87,7 +92,7 @@ public final class ASTStype {
         }
     }
 
-    public static class Base {
+    public static class Base implements CborSerializable{
         /*
             Empty continuation <=> End
             Send and Receive [("", continuation)]

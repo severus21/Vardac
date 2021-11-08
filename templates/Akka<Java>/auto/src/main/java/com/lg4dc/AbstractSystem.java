@@ -109,7 +109,7 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
 
     private Behavior<SpawnProtocol.Command> onListing(SpawnProtocol.WrappedListing msg) {
         getContext().getLog().info("onListing "+msg.response.getKey().id());
-        if(msg.response.getKey().id().contains("_activations_")){ //fragile but there is no api to break down the key correctly
+        if(msg.response.getKey().id().contains("_activations_")){ //TODO FIXME fragile but there is no api to break down the key correctly
             this.activations_listing = msg.response;
         } else {
             this.root_listing = msg.response;
@@ -151,7 +151,7 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
                 // Can not do ask with self in Akka, see
                 // https://stackoverflow.com/questions/22319660/akka-2-0-send-message-to-self
                 SpawnProtocol.Spawn<_T> spawn = new SpawnProtocol.Spawn(msg.runnable, msg.name, msg.props, root);
-                ActorRef<_T> actorRef = applySpawn(spawn);
+                ActorRef<_T> actorRef = applySpawn(getContext(), spawn);
                 getContext().getLog().info("replying  with actorref to " + msg.replyTo.toString());
                 msg.replyTo.tell(new WrappedActorRef(actorRef));
                 return Behaviors.same();
@@ -160,11 +160,11 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
             ActorRef<_T> actorRef = null;
             if (root != null) {
                 System.out.println("ghdghsdu");
-                CompletionStage<ActorRef<_T>> ask = AskPattern.ask(root,
+                CompletionStage<WrappedActorRef<_T>> ask = AskPattern.ask(root,
                         replyTo -> new SpawnProtocol.Spawn(msg.runnable, msg.name, msg.props, replyTo),
                         Duration.ofSeconds(10), getContext().getSystem().scheduler());
                 try {
-                    actorRef = ask.toCompletableFuture().get(); // blocking call
+                    actorRef = ask.toCompletableFuture().get().response; // blocking call
                 } catch (Exception e) {
                     System.out.println(e);
                 }
@@ -195,15 +195,15 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
         return Behaviors.same();
     }
 
-    private <_T> ActorRef<_T> applySpawn(SpawnProtocol.Spawn<_T> spawn) {
-        ActorContext ctx = getContext();
+    // Direct call from place discovery
+    static public <_T> ActorRef<_T> applySpawn(ActorContext ctx, SpawnProtocol.Spawn<_T> spawn) {
         ActorRef<_T> actorRef;
         if (null == spawn.name || spawn.name.isEmpty()) {
             // anonymous spawn
-            actorRef = ctx.spawnAnonymous(Behaviors.setup(spawn.runnable.apply(getContext().getSelf())::apply),
+            actorRef = ctx.spawnAnonymous(Behaviors.setup(spawn.runnable.apply(ctx.getSelf())::apply),
                     null == spawn.props ? Props.empty() : spawn.props);
         } else {
-            actorRef = SpawnProtocol.spawnWithUniqueName(0, spawn.name, ctx, Behaviors.setup(spawn.runnable.apply(getContext().getSelf())::apply),
+            actorRef = SpawnProtocol.spawnWithUniqueName(0, spawn.name, ctx, Behaviors.setup(spawn.runnable.apply(ctx.getSelf())::apply),
                     null == spawn.props ? Props.empty() : spawn.props);
         }
         return actorRef;
@@ -214,7 +214,10 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
             getContext().getLog().info("onSpawn");
             SpawnProtocol.Spawn<_T> spawn = (SpawnProtocol.Spawn<_T>) _spawn;
 
-            ActorRef<_T> actorRef = applySpawn(spawn);
+            ActorRef<_T> actorRef = applySpawn(getContext(), spawn);
+            if (actorRef == null)
+                getContext().getLog().warn("Local instanciation failed, from remote command");
+
             spawn.replyTo.tell(new WrappedActorRef(actorRef));
         } catch (Exception e) {
             System.out.println(e);

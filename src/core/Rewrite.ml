@@ -14,8 +14,10 @@ end
 
 module Make (Args : Params ) : Sig = struct
     (*
+        Architecture remains unchanged - rewriting architecture is done in an other module (to be written)
         - get ride of session.receive only use ports
             TODO FIXME only scan component method at this point
+        - make explict the implicit constructor arguments and stored then as component attributes
     *)
     let gamma = Args.gamma
 
@@ -276,7 +278,7 @@ module Make (Args : Params ) : Sig = struct
             Atom.Set.iter (function x -> logger#error "already binded2 %s" (Atom.to_string x)) already_binded;*)
             let already_binded = Atom.Set.empty in
             let _, intermediate_args = List.fold_left_map free_vars_stmt already_binded m2.body in
-            let intermediate_args : expr_variable list = List.flatten intermediate_args in
+            let intermediate_args : expr_variable list = List.map snd (List.flatten intermediate_args) in
 
             (* Remove components *)
             let intermediate_args = List.filter (function x -> 
@@ -454,6 +456,49 @@ module Make (Args : Params ) : Sig = struct
     function
     | ComponentAssign _ as cdcl -> cdcl
     | ComponentStructure cdcl -> 
+        let body = cdcl.body in
+        (* Make implicit constructor variables explicit *)
+        let _, implicit_vars = free_vars_component_dcl (List.fold_left (fun set {value=mt,x} -> Atom.Set.add x set ) Atom.Set.empty cdcl.args)  {place; value=ComponentStructure cdcl} in (* Variable coming from outside the component, that have not been reduced to value during partial evaluation*)
+
+        (* [(mt, implicit_x, explicit_x)]*)
+        let implicit_vars = List.map (function (mt, x) -> (mt, x, (Atom.fresh ("explicit_"^(Atom.hint x))) )) implicit_vars in
+
+        (* Add fields to store implicit_vars *) 
+        let body = 
+            (List.map (
+                function (mt, _, x) -> 
+                auto_fplace (State (auto_fplace (StateDcl {
+                    ghost = false;
+                    type0 = mt;
+                    name = x;
+                    body = None;
+                })))
+            ) implicit_vars)
+            @ body
+        in
+
+        (* Add implicit fields hydratation onstartup *)
+        let rec update_constructor = function
+        | [] -> []
+        | {place; value=Method m}::citems when m.value.on_startup -> 
+            {
+                place;
+                value=Method {m with value = {m.value with 
+                    args = (List.map (function (mt, _, x) -> auto_fplace (mt,x)) implicit_vars) @ m.value.args;
+                    body = List.map (function (mt, x, y) -> auto_fplace(AssignThisExpr (y, auto_fplace (VarExpr x, mt))) ) implicit_vars 
+                }}
+            }::(update_constructor citems) 
+        | citem::citems ->  citem::(update_constructor citems) in
+        let body = update_constructor body in
+
+        (* Rewrite spawning with implict *)
+        let replace_implict_var (mt, x, y) stmts = List.map (replace_expr_stmt x (Some y, None)) stmts in 
+        let body = List.fold_left (fun body (mt, x, y) -> replace_implict_var (mt, x, y) body) body implicit_vars in
+
+        let cdcl = {cdcl with body} in
+
+
+        (* Elimination of sync receiv *)
         let intermediate_state_names, body = List.split(List.map rcitem cdcl.body) in
         let intermediate_state_names = List.flatten(intermediate_state_names) in
         let body = List.flatten body in

@@ -53,6 +53,7 @@ public class Session {
 
         e.hydrate(this.bridge_id,  this.session_id,  this.left, this.st, new NoMetadata());
         this.right.tell(e);
+        context.getLog().debug(String.format("Message send from %s to %s", context.getSelf().path().toString(), this.right.path().toString()));
 
         ASTStype.TimerHeader.apply_headers(context, contextTimers, frozen_sessions, dead_sessions, this);
 

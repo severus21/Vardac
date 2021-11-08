@@ -252,9 +252,13 @@ module type TIRC = sig
 
     (****** BEGIN EDIT BY HUMAN*****)
     val dual : session_type -> session_type
-    val free_vars_stmt : Variable.Set.t -> stmt -> Variable.Set.t * expr_variable list
+    val free_vars_expr : Variable.Set.t -> expr -> Variable.Set.t * (main_type*expr_variable) list
+    val free_vars_stmt : Variable.Set.t -> stmt -> Variable.Set.t * (main_type*expr_variable) list
+    val free_vars_mtype : Variable.Set.t -> main_type -> Variable.Set.t * (main_type*expr_variable) list
     val free_tvars_mtype : Atom.Set.t -> main_type -> type_variable list
     val  timers_of_headers : constraint_header list -> expr_variable list
+    val replace_expr_expr : expr_variable -> (expr_variable option * _expr option) -> expr -> expr
+    val replace_expr_stmt : expr_variable -> (expr_variable option * _expr option) -> stmt -> stmt
     val replace_type_main_type : type_variable ->(type_variable option * _main_type option) -> main_type -> main_type
     val replace_stype_session_type : type_variable ->(type_variable option * _session_type option) -> session_type -> session_type
     val equal_ctype : composed_type -> composed_type -> bool
@@ -521,7 +525,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     and dual st : session_type = 
     { st with value = _dual st.place st.value }
 
-    let rec free_vars_expr_ (already_binded:Variable.Set.t) place (e,mt) : Variable.Set.t * expr_variable list = 
+    let rec free_vars_expr_ (already_binded:Variable.Set.t) place (e,mt) : Variable.Set.t * (main_type*expr_variable) list = 
         match e with 
         | LambdaExpr (x, mt, e) ->
             already_binded, snd (free_vars_expr (Variable.Set.add x already_binded) e)
@@ -529,7 +533,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | VarExpr x when Variable.is_builtin x -> already_binded, [] 
         | VarExpr x -> 
             logger#error "free var of %s " (Variable.to_string x);
-            already_binded, [x]
+            already_binded, [mt, x]
         | BoxCExpr _ | LitExpr _ | OptionExpr None | ResultExpr (None, None) |This -> already_binded, []
         | AccessExpr (e1, e2) | BinopExpr (e1, _, e2) | ResultExpr (Some e1, Some e2) ->
             let _, fvars1 = free_vars_expr already_binded e1 in
@@ -545,9 +549,12 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) fvars es
         | BlockExpr (_, es) | Spawn {args=es} -> 
             already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) [] es
-    and free_vars_expr (already_binded:Variable.Set.t) expr : Variable.Set.t * expr_variable list = map0_place (free_vars_expr_ already_binded) expr
+    and free_vars_expr (already_binded:Variable.Set.t) expr : Variable.Set.t * (main_type*expr_variable) list = map0_place (free_vars_expr_ already_binded) expr
 
-    and free_vars_stmt_ (already_binded:Variable.Set.t) place : _stmt -> Variable.Set.t * expr_variable list = function 
+    (* TODO FIXME to be used in side fvars_expr/stmt *)
+    and free_vars_mtype already_binded mt = already_binded, [] (* TODO FIXME to be implemented*)
+
+    and free_vars_stmt_ (already_binded:Variable.Set.t) place = function 
     | EmptyStmt -> already_binded, []
     | AssignExpr (x, e) ->
         free_vars_expr already_binded e
@@ -586,7 +593,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let _, fvars = free_vars_expr already_binded e in
         already_binded, fvars
 
-    and free_vars_stmt (already_binded:Variable.Set.t) stmt : Variable.Set.t * expr_variable list = map0_place (free_vars_stmt_ already_binded) stmt
+    and free_vars_stmt (already_binded:Variable.Set.t) stmt = map0_place (free_vars_stmt_ already_binded) stmt
 
     (*retrun free  type variable *)
     let rec _free_tvars_ctype already_binded place = function
@@ -836,6 +843,41 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     )
     and replace_expr_expr x_to_replace replaceby = replace_expr_place (_replace_expr_expr x_to_replace replaceby)
 
+
+    and _replace_expr_stmt x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) place = function 
+        | EmptyStmt -> EmptyStmt
+        | AssignExpr (x, e) -> AssignExpr (x, replace_expr_expr x_to_replace replaceby e) 
+        | AssignThisExpr (x, e) -> AssignThisExpr (x, replace_expr_expr x_to_replace replaceby e)
+        | LetExpr (mt, x, e) when x = x_to_replace -> failwith "can not replace explictly binded variable"
+        | LetExpr (mt, x, e) -> (* TODO FIXME expr in type are not yet concerned *)
+            LetExpr (mt, x, replace_expr_expr x_to_replace replaceby e)
+        | CommentsStmt c -> CommentsStmt c
+        | BreakStmt -> BreakStmt
+        | ContinueStmt -> ContinueStmt
+        | ExitStmt i -> ExitStmt i
+        | ForStmt (mt, x, e, stmt) -> (* TODO FIXME expr in type are not yet concerned *)
+            ForStmt(mt, x, 
+                replace_expr_expr x_to_replace replaceby e,
+                replace_expr_stmt x_to_replace replaceby stmt)
+        | IfStmt (e, stmt1, stmt2_opt) ->
+            IfStmt (
+                replace_expr_expr x_to_replace replaceby e,
+                replace_expr_stmt x_to_replace replaceby stmt1,
+                Option.map (replace_expr_stmt x_to_replace replaceby) stmt2_opt
+            )
+        | MatchStmt (e, branches) ->
+            MatchStmt (
+                replace_expr_expr x_to_replace replaceby e,
+                List.map (function (e, stmt) ->
+                    replace_expr_expr x_to_replace replaceby e,
+                    replace_expr_stmt x_to_replace replaceby stmt
+                ) branches
+            )
+        | ReturnStmt e -> ReturnStmt (replace_expr_expr x_to_replace replaceby e) 
+        | ExpressionStmt e -> ExpressionStmt (replace_expr_expr x_to_replace replaceby e) 
+        | BlockStmt stmts -> BlockStmt (List.map (replace_expr_stmt x_to_replace replaceby) stmts) 
+        | GhostStmt stmt -> GhostStmt (replace_expr_stmt x_to_replace replaceby stmt)
+    and replace_expr_stmt x_to_replace replaceby = map_place (_replace_expr_stmt x_to_replace replaceby)
 
 
 

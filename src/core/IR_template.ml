@@ -57,8 +57,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
             body: _state_dcl_body
         }
 
-        (* TODO to remove ????*)
-        (* use global x as y; *)
+        (* TODO to be removed *)
         | StateAlias of  {
             ghost: bool; 
             type0: main_type; 
@@ -186,5 +185,8 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
     (* The following annotation requests the automatic generation of a [show_]
         function for each of the types defined above.*)
     [@@deriving show { with_path = false }]
+
+
+
 
 end  

@@ -29,7 +29,7 @@ import com.lg4dc.WrappedActorRef;
 public class SpawnProtocol {
     @JsonSerialize(using = LambdaJsonSerializer.class)
     @JsonDeserialize(using = LambdaJsonDeserializer.class)
-    public interface SerializableRunnable<_T> extends Function<ActorRef<SpawnProtocol.Command>, Function<ActorContext<_T>, Behavior<_T>>>, Serializable {
+    public interface SerializableRunnable<_T> extends Function<ActorRef, Function<ActorContext<_T>, Behavior<_T>>>, Serializable {
     }
 
     static class LambdaJsonSerializer<_T> extends JsonSerializer<SerializableRunnable<_T>> {

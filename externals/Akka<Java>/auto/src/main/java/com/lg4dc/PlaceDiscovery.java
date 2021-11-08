@@ -50,22 +50,30 @@ public class PlaceDiscovery {
         context.getLog().info("Requesting for spawn "+context.getSelf().toString());
         context.getLog().info("PlaceDiscovery::spawnAt at "+at.toString());
 
-        CompletionStage<WrappedActorRef<_T>> ask = AskPattern.ask(
-            guardian,
-            replyTo -> new SpawnProtocol.SpawnAt(runnable, name, props, at.address, replyTo),
-            Duration.ofSeconds(100),
-            context.getSystem().scheduler());
+        if(at.equals(Place.currentPlace(context))){
+            //Local spawn, the current actor is the parent of the child actor
+            SpawnProtocol.Spawn<_T> spawn = new SpawnProtocol.Spawn(runnable, name, props, null);
+            ActorRef<_T> actorRef = AbstractSystem.applySpawn(context, spawn);
+            context.getLog().info("spawnAt has been converted into local spawn");
+            return actorRef;
+        } else {
+            CompletionStage<WrappedActorRef<_T>> ask = AskPattern.ask(
+                guardian,
+                replyTo -> new SpawnProtocol.SpawnAt(runnable, name, props, at.address, replyTo),
+                Duration.ofSeconds(10),
+                context.getSystem().scheduler());
 
-        context.getLog().info("waiting PlaceDiscovery::spawnAt");
-        try{
-            // blocking call
-            WrappedActorRef<_T> tmp = ask.toCompletableFuture().get();
+            context.getLog().info("waiting PlaceDiscovery::spawnAt");
+            try{
+                // blocking call
+                WrappedActorRef<_T> tmp = ask.toCompletableFuture().get();
+                context.getLog().info("end PlaceDiscovery::spawnAt");
+                return tmp.response; 
+            } catch (Exception e){
+                System.out.println(e);
+            }
             context.getLog().info("end PlaceDiscovery::spawnAt");
-            return tmp.response; 
-        } catch (Exception e){
-            System.out.println(e);
         }
-        context.getLog().info("end PlaceDiscovery::spawnAt");
 
         return null;
     }

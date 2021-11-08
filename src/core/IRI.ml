@@ -1,3 +1,5 @@
+open AstUtils
+
 module IRC = IR.IRC
 
 (* IR extended with blackbox implementation for type, methods and states *)
@@ -235,3 +237,5 @@ and _type_replace_term to_be_replaced by = function
     })
 | term -> term
 and type_replace_term to_be_replaced by = replace_place (_type_replace_term to_be_replaced by)
+
+    
