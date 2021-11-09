@@ -87,14 +87,16 @@ let scan_program terms =
 (************************************ Pass 2 *****************************)
 
 let rec paired_state parents place : S2._state -> T._state = function
-| S2.StateDcl { ghost; type0; name; body=None} -> begin
+| S2.StateDcl { ghost; type0; name; body=None} as s-> begin
     try 
         let key = List.rev ((Atom.hint name)::parents) in 
         mark_state key;
         let bb_impl = Hashtbl.find state_impls key in
 
         T.StateDcl { ghost; type0; name; body= T.InitBB bb_impl.value.body}
-    with Not_found -> Error.error place "State has no implementation (neither abstract nor blackbox)" 
+    with Not_found -> 
+        logger#warning "State %s is not initialized (neither abstract nor blackbox)" (Atom.to_string name);
+        T.StateDcl { ghost; type0; name; body=NoInit}
 end
 | S2.StateDcl { ghost; type0; name; body=Some body} -> begin
     try 

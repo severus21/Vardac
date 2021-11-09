@@ -98,13 +98,13 @@ component A () {
             list<place> ps1 = places();
             print("psone_done");
             print(place_to_string(listget(ps1, 0)));
-            place current = current_place();
+            place currenta = current_place();
             print("current_done");
             list<place> ps2 = select_places(vpcloud, x  : place -> true);
             print("pstwo_done");
 
             (*set<activation_info<??>> activations = activationsat(current); TODO general do not exists for generics ....*)
-            activationsat(current);
+            activationsat(currenta);
             print("activations_done");
 
         }

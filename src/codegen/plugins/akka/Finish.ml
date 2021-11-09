@@ -336,7 +336,7 @@ function
     )
 }
 | S.CompType ct -> fcctype ct
-| _ -> Core.Error.error place "Akka: Type translation is only supported for composed types and session types"
+| ct -> Core.Error.error place "Akka: Type translation is only supported for composed types and session types : %s" (S.show__main_type ct)
 and fmtype : S.main_type ->  T.ctype = function mt -> finish_mtype mt.place mt.value
 
 (************************************ Literals *****************************)
@@ -596,6 +596,8 @@ and finish_state place : S._state -> T._stmt = function
         in
         T.LetStmt (fmtype type0, name, Some ({place=bb_term.place; value = T.RawExpr re}))
     (*use global x as y;*)
+    | S.StateDcl { ghost; type0; name; body = S.NoInit} ->
+        T.LetStmt (fmtype type0, name, None)
     | S.StateAlias {ghost; type0; name} -> failwith "finish_state StateAlias is not yet supported" 
 and fstate s : T.stmt = map_place finish_state s
 

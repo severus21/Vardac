@@ -255,7 +255,7 @@ module type TIRC = sig
     val free_vars_expr : Variable.Set.t -> expr -> Variable.Set.t * (main_type*expr_variable) list
     val free_vars_stmt : Variable.Set.t -> stmt -> Variable.Set.t * (main_type*expr_variable) list
     val free_vars_mtype : Variable.Set.t -> main_type -> Variable.Set.t * (main_type*expr_variable) list
-    val free_tvars_mtype : Atom.Set.t -> main_type -> type_variable list
+    val free_tvars_mtype : Atom.Set.t -> main_type -> Atom.Set.t * type_variable list
     val  timers_of_headers : constraint_header list -> expr_variable list
     val replace_expr_expr : expr_variable -> (expr_variable option * _expr option) -> expr -> expr
     val replace_expr_stmt : expr_variable -> (expr_variable option * _expr option) -> stmt -> stmt
@@ -549,7 +549,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) fvars es
         | BlockExpr (_, es) | Spawn {args=es} -> 
             already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) [] es
-    and free_vars_expr (already_binded:Variable.Set.t) expr : Variable.Set.t * (main_type*expr_variable) list = map0_place (free_vars_expr_ already_binded) expr
+    and free_vars_expr (already_binded:Variable.Set.t) expr : Variable.Set.t * (main_type*expr_variable) list = 
+        let already_binded, fvars = map0_place (free_vars_expr_ already_binded) expr in
+        already_binded, Utils.deduplicate snd fvars 
 
     (* TODO FIXME to be used in side fvars_expr/stmt *)
     and free_vars_mtype already_binded mt = already_binded, [] (* TODO FIXME to be implemented*)
@@ -593,57 +595,67 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let _, fvars = free_vars_expr already_binded e in
         already_binded, fvars
 
-    and free_vars_stmt (already_binded:Variable.Set.t) stmt = map0_place (free_vars_stmt_ already_binded) stmt
+    and free_vars_stmt (already_binded:Variable.Set.t) stmt =       
+        let already_binded, fvars = map0_place (free_vars_stmt_ already_binded) stmt in
+        already_binded, Utils.deduplicate snd fvars 
 
     (*retrun free  type variable *)
     let rec _free_tvars_ctype already_binded place = function
-    | TFlatType _ -> []
+    | TFlatType _ -> already_binded, []
     | TActivationInfo mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt -> free_tvars_mtype already_binded mt
     | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) | TPort (mt1, mt2) -> 
-        let ftvars1 = free_tvars_mtype already_binded mt1 in
-        let ftvars2 = free_tvars_mtype already_binded mt2 in
-        ftvars1@ftvars2
+        let _, ftvars1 = free_tvars_mtype already_binded mt1 in
+        let _, ftvars2 = free_tvars_mtype already_binded mt2 in
+        already_binded, ftvars1@ftvars2
     | TBridge b -> 
-        let ftvars1 = free_tvars_mtype already_binded b.in_type in
-        let ftvars2 = free_tvars_mtype already_binded b.out_type in
-        let ftvars3 = free_tvars_mtype already_binded b.protocol in
-        ftvars1@ftvars2@ftvars3
-    | TVar x | TPolyVar x when Atom.Set.find_opt x already_binded <> None  -> [] 
-    | TVar x when Atom.is_builtin x -> [] 
+        let _, ftvars1 = free_tvars_mtype already_binded b.in_type in
+        let _, ftvars2 = free_tvars_mtype already_binded b.out_type in
+        let _, ftvars3 = free_tvars_mtype already_binded b.protocol in
+        already_binded, ftvars1@ftvars2@ftvars3
+    | TVar x | TPolyVar x when Atom.Set.find_opt x already_binded <> None  -> already_binded, [] 
+    | TVar x when Atom.is_builtin x -> already_binded, [] 
     | TVar x | TPolyVar x  -> 
         logger#error "free tvar of %s " (Atom.to_string x);
-        [x]
+        already_binded, [x]
     | TForall (x, mt) -> free_tvars_mtype (Atom.Set.add x already_binded) mt
-    and free_tvars_ctype (already_binded:Atom.Set.t) = map0_place (_free_tvars_ctype already_binded) 
+    and free_tvars_ctype (already_binded:Atom.Set.t) ct = 
+        let already_binded, fvars = map0_place (_free_tvars_ctype already_binded) ct in
+        already_binded, Utils.deduplicate Fun.id fvars 
 
     and _free_tvars_stype already_binded place = function
-    | STEnd -> []
-    | STVar x | STPolyVar x when Atom.Set.find_opt x already_binded <> None  -> []
-    | STVar x | STPolyVar x -> [x]
+    | STEnd -> already_binded, []
+    | STVar x | STPolyVar x when Atom.Set.find_opt x already_binded <> None  -> already_binded, []
+    | STVar x | STPolyVar x -> already_binded, [x]
     | STRecv (mt, st) | STSend (mt, st) -> 
-        let ftvars1 = free_tvars_mtype already_binded mt in
-        let ftvars2 = free_tvars_stype already_binded st in
-        ftvars1@ftvars2
+        let _, ftvars1 = free_tvars_mtype already_binded mt in
+        let _, ftvars2 = free_tvars_stype already_binded st in
+        already_binded, ftvars1@ftvars2
     | STBranch branches | STSelect branches -> 
         (*TODO FIXME constraint to proccess*)
-        List.flatten(List.map (function (_,st,_) -> free_tvars_stype already_binded st) branches)
+        already_binded, List.flatten(List.map (function (_,st,_) -> snd (free_tvars_stype already_binded st)) branches)
     | STRec (x, st) -> free_tvars_stype (Atom.Set.add x already_binded) st
     | STInline _ -> raise (Error.DeadbranchError "STInline should have been resolved before running free_tvars")
-    and free_tvars_stype (already_binded:Atom.Set.t) = map0_place (_free_tvars_stype already_binded) 
+    and free_tvars_stype (already_binded:Atom.Set.t) st = 
+        let already_binded, fvars = map0_place (_free_tvars_stype already_binded) st in
+        already_binded, Utils.deduplicate Fun.id fvars
 
     and _free_tvars_cmtype already_binded place = function
-    | CompTUid _ | TPolyCVar _ -> [] (*Not a type variable but a component variable *)
-    | TStruct sign -> List.flatten(List.map (free_tvars_mtype already_binded) (List.map snd (List.of_seq (Atom.VMap.to_seq sign))))
-    and free_tvars_cmtype (already_binded:Atom.Set.t) = map0_place (_free_tvars_cmtype already_binded) 
+    | CompTUid _ | TPolyCVar _ -> already_binded, [] (*Not a type variable but a component variable *)
+    | TStruct sign -> already_binded, List.flatten(List.map (function mt -> snd (free_tvars_mtype already_binded mt)) (List.map snd (List.of_seq (Atom.VMap.to_seq sign))))
+    and free_tvars_cmtype (already_binded:Atom.Set.t) cmt = 
+        let already_binded, fvars =  map0_place (_free_tvars_cmtype already_binded) cmt in
+        already_binded, Utils.deduplicate Fun.id fvars
 
     and _free_tvars_mtype already_binded place = function
-    | EmptyMainType -> []
+    | EmptyMainType -> already_binded, []
     | CType ct -> free_tvars_ctype already_binded ct
     | SType st -> free_tvars_stype already_binded st
     | CompType cmt -> free_tvars_cmtype already_binded cmt
     | ConstrainedType (mt,ac) -> free_tvars_mtype already_binded mt (* TODO FIXME tvars in ac to proccessed yet *)
     
-    and free_tvars_mtype (already_binded:Atom.Set.t) = map0_place (_free_tvars_mtype already_binded) 
+    and free_tvars_mtype (already_binded:Atom.Set.t) mt = 
+        let already_binded, fvars =  map0_place (_free_tvars_mtype already_binded) mt in
+        already_binded, Utils.deduplicate Fun.id fvars
 
 
     let rec timers_of_headers = function
@@ -848,7 +860,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | EmptyStmt -> EmptyStmt
         | AssignExpr (x, e) -> AssignExpr (x, replace_expr_expr x_to_replace replaceby e) 
         | AssignThisExpr (x, e) -> AssignThisExpr (x, replace_expr_expr x_to_replace replaceby e)
-        | LetExpr (mt, x, e) when x = x_to_replace -> failwith "can not replace explictly binded variable"
+        | LetExpr (mt, x, e) when x = x_to_replace -> failwith ("can not replace explictly binded variable "^(Variable.to_string x))
         | LetExpr (mt, x, e) -> (* TODO FIXME expr in type are not yet concerned *)
             LetExpr (mt, x, replace_expr_expr x_to_replace replaceby e)
         | CommentsStmt c -> CommentsStmt c

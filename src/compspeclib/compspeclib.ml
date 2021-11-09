@@ -37,9 +37,9 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     let module Rewrite = ((Core.Rewrite.Make((struct let gamma = gamma end))):Core.Rewrite.Sig) in
     let ir =
         ir
-        (*|> Core.TypeInference.tannot_program
+        |> Core.TypeInference.tannot_program
         |> function x-> logger#sinfo "IR has been annotated with types (type reconstruction only)"; x
-        |> Core.TypeChecking.tcheck_program 
+        (*|> Core.TypeChecking.tcheck_program 
         |> function x-> logger#sinfo "IR has been typed checked successfully"; x*)
         |> Core.AstUtils.dump "annotated IR (with types)" IR.show_program
         |> Core.PartialEval.peval_program

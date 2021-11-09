@@ -463,6 +463,13 @@ module Make (Args : Params ) : Sig = struct
         (* [(mt, implicit_x, explicit_x)]*)
         let implicit_vars = List.map (function (mt, x) -> (mt, x, (Atom.fresh ("explicit_"^(Atom.hint x))) )) implicit_vars in
 
+        Printf.fprintf stdout  "Implicit vars for %s\n" (Atom.to_string cdcl.name);
+        print_string "> implict -> explicit\n";
+        List.iter (function (mt, x, y) -> 
+           Printf.fprintf stdout "> %s -> %s\n" (Atom.to_string x) (Atom.to_string y)
+        ) implicit_vars;
+        print_string "\n\n";
+
         (* Add fields to store implicit_vars *) 
         let body = 
             (List.map (
@@ -485,21 +492,31 @@ module Make (Args : Params ) : Sig = struct
                 place;
                 value=Method {m with value = {m.value with 
                     args = (List.map (function (mt, _, x) -> auto_fplace (mt,x)) implicit_vars) @ m.value.args;
-                    body = List.map (function (mt, x, y) -> auto_fplace(AssignThisExpr (y, auto_fplace (VarExpr x, mt))) ) implicit_vars 
+                    body = (List.map (function (mt, x, y) -> auto_fplace(AssignThisExpr (y, auto_fplace (VarExpr x, mt))) ) implicit_vars) @ m.value.body
                 }}
             }::(update_constructor citems) 
         | citem::citems ->  citem::(update_constructor citems) in
         let body = update_constructor body in
-
-        (* Rewrite spawning with implict *)
-        let replace_implict_var (mt, x, y) stmts = List.map (replace_expr_stmt x (Some y, None)) stmts in 
+            
+        (* Use explicit instead of explicit *)
+        let replace_implict_var (mt, x, y) stmts = List.map (replace_expr_component_item x (Some y, None)) stmts in 
         let body = List.fold_left (fun body (mt, x, y) -> replace_implict_var (mt, x, y) body) body implicit_vars in
 
-        let cdcl = {cdcl with body} in
-
+        (* Rewrite spawning with implicit *)
+        (* should be done in parent scope also since mutually*)
+        let replace_spawn e = 
+        match e.value with 
+            | Spawn {c={value=VarCExpr name, _} as c; args; at} when name = cdcl.name-> {place = e.place@fplace;value=Spawn {
+                c; 
+                args = (List.map (function(mt, x,_) -> auto_fplace (VarExpr x, mt)) implicit_vars)@args;
+                at} 
+            }
+            | _ -> e 
+        in
+        
 
         (* Elimination of sync receiv *)
-        let intermediate_state_names, body = List.split(List.map rcitem cdcl.body) in
+        let intermediate_state_names, body = List.split(List.map rcitem body) in
         let intermediate_state_names = List.flatten(intermediate_state_names) in
         let body = List.flatten body in
 

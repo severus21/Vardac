@@ -88,5 +88,7 @@ val output_atom : out_channel -> (atom -> string) -> atom -> unit
 val to_string : atom -> string
 val p_to_string : (atom -> string) -> atom -> string
 
+val deduplicate : atom list -> atom list
+
 
 module AtomVariable : (AstUtils.TVariable with type t = atom and module Set = Set)

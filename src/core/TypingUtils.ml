@@ -211,7 +211,8 @@ let rec mgu_solver place = function
 (* TODO for other form of variable ?? *)
 | Equality ({value=CType{value=TVar x}},mt)::u -> 
     (* TODO change the return type for free_var *)
-    if List.mem x (free_tvars_mtype Atom.Set.empty mt) then Error.error place "mgu_solver failure"
+    let _, ftvars = free_tvars_mtype Atom.Set.empty mt in
+    if List.mem x ftvars then Error.error place "mgu_solver failure"
     else
         mgu_solver place (List.map (replace_type_tconstraint x (None, Some mt.value)) u) @ [x,mt]
 | Equality (mt1,({value=CType{value=TVar y}} as mt2))::u -> begin

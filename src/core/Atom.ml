@@ -270,6 +270,10 @@ module AtomsMap = struct
   include Map.Make(AtomsOrder)
 end
 
+let deduplicate atoms = 
+    Set.elements (Set.of_list atoms)
+
+
 module AtomVariable = struct 
   type t = atom
   [@@deriving show { with_path = false }]

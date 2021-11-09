@@ -8,6 +8,7 @@ type iri_target_name = string
 and iri_state_dcl_body = 
 | InitExpr of IRC.expr
 | InitBB of Impl_common.blackbox_term
+| NoInit
 
 and iri_custom_method0_body = 
 | AbstractImpl of IRC.stmt list

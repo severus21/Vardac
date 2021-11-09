@@ -133,3 +133,12 @@ let create_directory_hierarchy (parentdir:Fpath.t): unit =
         end
     | Rresult.Ok true -> ()
     | Rresult.Error _ -> logger#error "directory exist check fails for %s" (Fpath.to_string parentdir); exit 1
+
+let deduplicate key elts = 
+    let keys = Hashtbl.create 32 in
+    List.filter (function elt -> 
+        let k = key elt in
+        match Hashtbl.find_opt keys k with
+        | None -> Hashtbl.add keys k (); true 
+        | Some _ -> false 
+    ) elts
