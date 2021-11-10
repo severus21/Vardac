@@ -252,6 +252,9 @@ module type TIRC = sig
 
     (****** BEGIN EDIT BY HUMAN*****)
     val dual : session_type -> session_type
+    val collect_expr_expr : Variable.Set.t -> (_expr -> bool) -> (Variable.Set.t -> expr -> 'a list) -> expr -> Variable.Set.t * 'a list * (main_type*expr_variable) list
+    val collect_expr_stmt : Variable.Set.t -> (_expr -> bool) -> (Variable.Set.t -> expr -> 'a list) -> stmt -> Variable.Set.t * 'a list * (main_type*expr_variable) list
+    val collect_expr_mtype : Variable.Set.t -> (_expr -> bool) -> (Variable.Set.t -> expr -> 'a list) -> main_type -> Variable.Set.t * 'a list *(main_type*expr_variable) list
     val free_vars_expr : Variable.Set.t -> expr -> Variable.Set.t * (main_type*expr_variable) list
     val free_vars_stmt : Variable.Set.t -> stmt -> Variable.Set.t * (main_type*expr_variable) list
     val free_vars_mtype : Variable.Set.t -> main_type -> Variable.Set.t * (main_type*expr_variable) list
@@ -527,78 +530,116 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     and dual st : session_type = 
     { st with value = _dual st.place st.value }
 
-    let rec free_vars_expr_ (already_binded:Variable.Set.t) place (e,mt) : Variable.Set.t * (main_type*expr_variable) list = 
+    (* TODO get ride of return fvars and encode it as a selector collector if possible ?? links with stmt ?? *)
+    (* collector : env -> expr -> 'a list*)
+    let rec collect_expr_expr_ (already_binded:Variable.Set.t) selector (collector:Variable.Set.t -> expr -> 'a list) place (e,mt) : Variable.Set.t * 'a list * (main_type * expr_variable) list = 
+        (* Collection *)
+        let collected_elts0 = if selector e then collector already_binded {place; value=(e,mt)} else [] in 
+
+        (* Handling scope and propagation *)
         match e with 
         | LambdaExpr (x, mt, e) ->
-            already_binded, snd (free_vars_expr (Variable.Set.add x already_binded) e)
-        | VarExpr x when Variable.Set.find_opt x already_binded <> None  -> already_binded, [] 
-        | VarExpr x when Variable.is_builtin x -> already_binded, [] 
+            let _, collected_elts1, fvars1 = collect_expr_expr (Variable.Set.add x already_binded) selector collector e in
+            already_binded, collected_elts0@collected_elts1, fvars1
+        | VarExpr x when Variable.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, [] 
+        | VarExpr x when Variable.is_builtin x -> already_binded, collected_elts0, [] 
         | VarExpr x -> 
             logger#error "free var of %s " (Variable.to_string x);
-            already_binded, [mt, x]
-        | BoxCExpr _ | LitExpr _ | OptionExpr None | ResultExpr (None, None) |This -> already_binded, []
+            already_binded, collected_elts0, [mt, x]
+        | BoxCExpr _ | LitExpr _ | OptionExpr None | ResultExpr (None, None) |This -> already_binded, collected_elts0, []
         | AccessExpr (e1, e2) | BinopExpr (e1, _, e2) | ResultExpr (Some e1, Some e2) ->
-            let _, fvars1 = free_vars_expr already_binded e1 in
-            let _, fvars2 = free_vars_expr already_binded e2 in
-            already_binded, fvars1@fvars2
+            let _, collected_elts1, fvars1 = collect_expr_expr already_binded selector collector e1 in
+            let _, collected_elts2, fvars2 = collect_expr_expr already_binded selector collector e2 in
+            already_binded, collected_elts1@collected_elts2, fvars1@fvars2
         | UnopExpr (_, e) | OptionExpr (Some e) | ResultExpr (Some e, None) | ResultExpr (None, Some e)->
-            let _, fvars = free_vars_expr already_binded e in
-            already_binded, fvars
+            let _, collected_elts, fvars = collect_expr_expr already_binded selector collector e in
+            already_binded, collected_elts0@collected_elts, fvars
         | CallExpr ({value=(VarExpr _,_) }, es) | NewExpr ({value=(VarExpr _, _)}, es) -> (* no first class function nor constructor inside stmt - so we get ride of all possible constructors *)
-            already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) [] es
+            let collected_elts, fvars = List.fold_left (fun (acc0, acc1) e -> 
+                let _, collected_elts, fvars = collect_expr_expr already_binded selector collector e in
+                collected_elts@acc0, fvars@acc1
+            ) ([], []) es in 
+            already_binded, collected_elts0@collected_elts, fvars
         | CallExpr (e, es) | NewExpr (e, es) | Spawn {args=es; at = Some e} ->
-            let _, fvars = free_vars_expr already_binded e in
-            already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) fvars es
+            let _, collected_elts1, fvars1 = collect_expr_expr already_binded selector collector e in
+            let collected_elts2, fvars2 = List.fold_left (fun (acc0, acc1) e -> 
+                let _, collected_elts, fvars = collect_expr_expr already_binded selector collector e in
+                collected_elts@acc0, fvars@acc1
+            ) ([], []) es
+            in
+            already_binded, collected_elts0@collected_elts1@collected_elts2, fvars1@fvars2
         | BlockExpr (_, es) | Spawn {args=es} -> 
-            already_binded, List.fold_left (fun acc e -> acc @ (snd (free_vars_expr already_binded e))) [] es
-    and free_vars_expr (already_binded:Variable.Set.t) expr : Variable.Set.t * (main_type*expr_variable) list = 
-        let already_binded, fvars = map0_place (free_vars_expr_ already_binded) expr in
+            let collected_elts, fvars = List.fold_left (fun (acc0, acc1) e -> 
+                let _, collected_elts, fvars = collect_expr_expr already_binded selector collector e in
+                collected_elts@acc0, fvars@acc1) (collected_elts0, []) es
+            in
+            already_binded, collected_elts, fvars
+    and collect_expr_expr (already_binded:Variable.Set.t) selector collector expr = 
+        map0_place (collect_expr_expr_ already_binded selector collector) expr
+    and free_vars_expr already_binded e = 
+        let already_binded, _, fvars = collect_expr_expr  already_binded (function e -> false) (fun env e -> []) e in
         already_binded, Utils.deduplicate snd fvars 
 
     (* TODO FIXME to be used in side fvars_expr/stmt *)
+    and collect_expr_mtype already_binded selector collector mt = already_binded, [], [] (* TODO FIXME to be implemented*)
     and free_vars_mtype already_binded mt = already_binded, [] (* TODO FIXME to be implemented*)
 
-    and free_vars_stmt_ (already_binded:Variable.Set.t) place = function 
-    | EmptyStmt -> already_binded, []
+    and collect_expr_stmt_ (already_binded:Variable.Set.t) selector collector place = function 
+    | EmptyStmt -> already_binded, [], []
     | AssignExpr (x, e) ->
-        free_vars_expr already_binded e
+        collect_expr_expr already_binded selector collector e
     | AssignThisExpr (x, e) ->
-        free_vars_expr already_binded e
+        collect_expr_expr already_binded selector collector e
     | BlockStmt stmts ->
-        let already_binded, fvars = List.fold_left_map (fun already_binded stmt -> free_vars_stmt already_binded stmt) already_binded stmts in 
-        already_binded, List.flatten fvars
-    | BreakStmt -> already_binded, []
-    | CommentsStmt c -> already_binded, []
-    | ContinueStmt -> already_binded, []
+        let _, res = List.fold_left_map (fun already_binded  stmt -> 
+            let already_binded, collected_elts, fvars = collect_expr_stmt already_binded selector collector stmt in
+            already_binded, (collected_elts, fvars)
+        ) already_binded stmts in 
+        let collected_elts = List.map fst res in
+        let fvars = List.map snd res in
+        already_binded, List.flatten collected_elts, List.flatten fvars
+    | BreakStmt -> already_binded, [], []
+    | CommentsStmt c -> already_binded, [], []
+    | ContinueStmt -> already_binded, [], []
     | ExpressionStmt e -> 
-        let _, fvars = free_vars_expr already_binded e in
-        already_binded, fvars
-    | ExitStmt _ -> already_binded, []
+        let _, collected_elts, fvars = collect_expr_expr already_binded selector collector e in
+        already_binded, collected_elts, fvars
+    | ExitStmt _ -> already_binded, [], []
     | ForStmt (mt, x, e, stmt) ->
-        let _, fvars1 = free_vars_expr already_binded e in
-        let _, fvars2 = free_vars_stmt (Variable.Set.add x already_binded) stmt in
-        already_binded, fvars1@fvars2
+        let _, collected_elts1, fvars1 = collect_expr_expr already_binded selector collector e in
+        let _, collected_elts2, fvars2 = collect_expr_stmt (Variable.Set.add x already_binded) selector collector stmt in
+        already_binded, collected_elts1@collected_elts2,  fvars1@fvars2
     | GhostStmt stmt -> 
-        let _, fvars = free_vars_stmt already_binded stmt in
-        already_binded, fvars
-    | IfStmt (e, stmt1, stmt2_opt) -> 
-        let _, fvars0 = free_vars_expr already_binded e in
-        let _, fvars1 = free_vars_stmt already_binded stmt1 in
-        let ret2_opt = Option.map (free_vars_stmt already_binded) stmt2_opt in
-        already_binded, fvars0@fvars1@(if ret2_opt = None then [] else snd (Option.get ret2_opt))
+        let _, collected_elts, fvars = collect_expr_stmt already_binded selector collector stmt in
+        already_binded, collected_elts, fvars
+    | IfStmt (e, stmt1, stmt2_opt) -> begin 
+        let _, collected_elts0, fvars0 = collect_expr_expr already_binded selector collector e in
+        let _, collected_elts1, fvars1 = collect_expr_stmt already_binded selector collector stmt1 in
+
+        match Option.map (collect_expr_stmt already_binded selector collector) stmt2_opt with
+        | None ->already_binded, collected_elts0@collected_elts1, fvars0@fvars1
+        | Some (_, collected_elts2, fvars2) -> already_binded, collected_elts0@collected_elts1@collected_elts2,fvars0@fvars1@fvars2
+    end
     | LetExpr (ct, x, e) -> 
         let already_binded = Variable.Set.add x already_binded in
-        let _, fvars = free_vars_expr already_binded e in  
-        already_binded, fvars 
+        let _, collected_elts, fvars = collect_expr_expr already_binded selector collector e in  
+        already_binded, collected_elts, fvars 
     | MatchStmt (e, branches) ->
-        let _, fvars = free_vars_expr already_binded e in
-        already_binded, List.fold_left (fun acc (_,stmt) -> acc @ (snd (free_vars_stmt already_binded stmt))) fvars branches 
+        let _, collected_elts, fvars = collect_expr_expr already_binded selector collector e in
+        let collected_elts1, fvars1 = List.fold_left (fun (acc0, acc1) (_,stmt) -> 
+            let _, collected_elts, fvars =  collect_expr_stmt already_binded selector collector stmt in
+            acc0@collected_elts, acc1@fvars
+        ) (collected_elts, fvars) branches in
+        already_binded, collected_elts1, fvars1 
     | ReturnStmt e ->
-        let _, fvars = free_vars_expr already_binded e in
-        already_binded, fvars
+        let _, collected_elts, fvars = collect_expr_expr already_binded selector collector e in
+        already_binded, collected_elts, fvars
 
-    and free_vars_stmt (already_binded:Variable.Set.t) stmt =       
-        let already_binded, fvars = map0_place (free_vars_stmt_ already_binded) stmt in
+    and collect_expr_stmt (already_binded:Variable.Set.t) selector collector stmt =       
+        map0_place (collect_expr_stmt_ already_binded selector collector) stmt
+
+    and free_vars_stmt already_binded stmt = 
+        let already_binded, _, fvars = collect_expr_stmt  already_binded (function e -> false) (fun env e -> []) stmt in
         already_binded, Utils.deduplicate snd fvars 
 
     (*retrun free  type variable *)

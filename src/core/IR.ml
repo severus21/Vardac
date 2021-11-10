@@ -42,73 +42,76 @@ include IR_common
 module IR = IR_template.Make(IRC)(Params) 
 include IR
 
-let rec free_vars_contract_ (already_binded:Atom.Set.t) place _contract = failwith "TODO FIXME free vars contract" 
-and free_vars_contract (already_binded:Atom.Set.t) c = 
-   let already_binded, fvars = map0_place (free_vars_contract_ already_binded) c in
-    already_binded, Utils.deduplicate snd fvars
+let rec collect_expr_contract_ (already_binded:Atom.Set.t) place _contract = failwith "TODO FIXME free vars contract" 
+and collect_expr_contract (already_binded:Atom.Set.t) selector collector c = 
+    map0_place (collect_expr_contract_ already_binded selector collector) c 
+and collect_expr_port_ (already_binded:Atom.Set.t) selector collector place (_port, _) =
+    let _, collected_elts1, fvars1 = collect_expr_expr already_binded  selector collector _port.input in
+    let _, collected_elts2, fvars2 = collect_expr_mtype already_binded selector collector _port.expecting_st in
+    let _, collected_elts3, fvars3 = collect_expr_expr already_binded  selector collector _port.callback in
+    already_binded, collected_elts1@collected_elts2@collected_elts3, fvars1@fvars2@fvars3
+and collect_expr_port (already_binded:Atom.Set.t) selector collector p = 
+    map0_place (collect_expr_port_ already_binded selector collector) p
 
-and free_vars_port_ (already_binded:Atom.Set.t) place (_port, _) =
-    let _, fvars1 = free_vars_expr already_binded _port.input in
-    let _, fvars2 = free_vars_mtype already_binded _port.expecting_st in
-    let _, fvars3 = free_vars_expr already_binded _port.callback in
-    already_binded, fvars1@fvars2@fvars3
-and free_vars_port (already_binded:Atom.Set.t) p = 
-    let already_binded, fvars = map0_place (free_vars_port_ already_binded) p in
-    already_binded, Utils.deduplicate snd fvars
-
-and free_vars_state_ (already_binded:Atom.Set.t) place = function 
+and collect_expr_state_ (already_binded:Atom.Set.t) selector collector place = function 
 | StateDcl sdcl -> 
-    let _, fvars1 = free_vars_mtype already_binded sdcl.type0 in
-    let _, fvars2 = match sdcl.body with
-    | Some e -> free_vars_expr already_binded e
-    | None _ -> already_binded, []
+    let _, collected_elts1, fvars1 = collect_expr_mtype already_binded selector collector sdcl.type0 in
+    let _, collected_elts2, fvars2 = match sdcl.body with
+    | Some e -> collect_expr_expr already_binded selector collector e
+    | None _ -> already_binded, [], []
     in
-    already_binded, fvars1@fvars2
-and free_vars_state (already_binded:Atom.Set.t) s = 
-    let already_binded, fvars =  map0_place (free_vars_state_ already_binded) s in
-    already_binded, Utils.deduplicate snd fvars
+    already_binded, collected_elts1@collected_elts2, fvars1@fvars2
+and collect_expr_state (already_binded:Atom.Set.t) selector collector s = 
+    map0_place (collect_expr_state_ already_binded selector collector) s 
 
-and free_vars_function_dcl_ (already_binded:Atom.Set.t) place m =
-    let _, fvars1 = free_vars_mtype already_binded m.ret_type in
-    let _, fvars2 = List.fold_left (fun (set,fvars) {value=mt, x} -> set, (snd (free_vars_mtype set mt))@fvars) (already_binded, []) m.args in
+and collect_expr_function_dcl_ (already_binded:Atom.Set.t) selector collector place m =
+    let _, collected_elts1, fvars1 = collect_expr_mtype already_binded selector collector m.ret_type in
+    let _, collected_elts2, fvars2 = List.fold_left (fun (set, collected_elts0, fvars0) {value=mt, x} -> 
+        let _, collected_elts, fvars = collect_expr_mtype set selector collector mt in
+        set, collected_elts0@collected_elts, fvars0@fvars
+    ) (already_binded, [], []) m.args in
 
     let already_binded = Atom.Set.add m.name already_binded in (*rec support*)
     let already_binded = List.fold_left (fun set {value=_,x} -> Atom.Set.add x set) already_binded m.args in
-    let _, fvars3 = List.fold_left_map (fun already_binded stmt -> free_vars_stmt already_binded stmt) already_binded m.body  in
-    let fvars3 = List.flatten fvars3 in
+    let _, res = List.fold_left_map (fun already_binded stmt ->         
+        let env, a,b  = collect_expr_stmt already_binded selector collector stmt in
+        env, (a,b)
+    ) already_binded m.body  in
+    let collected_elts3 = List.flatten (List.map fst res) in
+    let fvars3 = List.flatten (List.map snd res) in
 
-    already_binded, fvars1@fvars2@fvars3
-and free_vars_function_dcl (already_binded:Atom.Set.t) fdcl = 
-   let already_binded, fvars =  map0_place (free_vars_function_dcl_ already_binded) fdcl in
-    already_binded, Utils.deduplicate snd fvars
+    already_binded, collected_elts1@collected_elts2@collected_elts3, fvars1@fvars2@fvars3
+and collect_expr_function_dcl (already_binded:Atom.Set.t) selector collector fdcl = 
+    map0_place (collect_expr_function_dcl_ already_binded selector collector) fdcl
 
-and free_vars_method0_ (already_binded:Atom.Set.t) place (m:_method0) =
-    let _, fvars1 = free_vars_function_dcl_ already_binded place {
+and collect_expr_method0_ (already_binded:Atom.Set.t) selector collector place (m:_method0) =
+    let _, collected_elts1, fvars1 = collect_expr_function_dcl_ already_binded selector collector place {
         name        = m.name;
         ret_type    = m.ret_type;
         args        = m.args;
         body        = m.body;
     } in 
-    let _, fvars4 = match m.contract_opt with
-        | Some c -> free_vars_contract already_binded c
-        | None -> already_binded, []
+    let _, collected_elts4, fvars4 = match m.contract_opt with
+        | Some c -> collect_expr_contract already_binded selector collector c
+        | None -> already_binded, [],[]
     in
-    already_binded, fvars1@fvars4
-and free_vars_method0 (already_binded:Atom.Set.t) m = 
-    let already_binded, fvars = map0_place (free_vars_method0_ already_binded) m in
-    already_binded, Utils.deduplicate snd fvars
+    already_binded, collected_elts1@collected_elts4, fvars1@fvars4
+and collect_expr_method0 (already_binded:Atom.Set.t) selector collector m = 
+    map0_place (collect_expr_method0_ already_binded selector collector) m 
+and collect_expr_component_item_ (already_binded:Atom.Set.t) selector collector place = function 
+    | Contract c -> collect_expr_contract already_binded selector collector c
+    | Method m -> collect_expr_method0 already_binded selector collector m
+    | State s -> collect_expr_state already_binded selector collector s 
+    | Port p  -> collect_expr_port already_binded selector collector p
+    | Term t -> collect_expr_term already_binded selector collector t    
+and collect_expr_component_item (already_binded:Atom.Set.t) selector collector citem =              
+    map0_place (collect_expr_component_item_ already_binded selector collector) citem
 
-and free_vars_component_item_ (already_binded:Atom.Set.t) place = function 
-    | Contract c -> free_vars_contract already_binded c
-    | Method m -> free_vars_method0 already_binded m
-    | State s -> free_vars_state already_binded s 
-    | Port p  -> free_vars_port already_binded p
-    | Term t -> free_vars_term already_binded t    
-and free_vars_component_item (already_binded:Atom.Set.t) citem =              
-    let already_binded, fvars = map0_place (free_vars_component_item_ already_binded) citem in
-    already_binded, Utils.deduplicate snd fvars
+and free_vars_component_item already_binded citem = 
+    let already_binded, _, fvars = collect_expr_component_item  already_binded (function e -> false) (fun env e -> []) citem in
+    already_binded, Utils.deduplicate snd fvars 
 
-and free_vars_component_dcl_ (already_binded:Atom.Set.t) place = function 
+and collect_expr_component_dcl_ (already_binded:Atom.Set.t) selector collector place = function 
 | ComponentStructure cdcl ->
     assert(cdcl.args = []);
     (* FIXME TODO do i need to propagate field/method name binding ???*)
@@ -127,33 +130,42 @@ and free_vars_component_dcl_ (already_binded:Atom.Set.t) place = function
             | Term t -> already_binded
     ) already_binded cdcl.body in
 
-    let _, fvars = List.fold_left_map (fun already_binded citem -> free_vars_component_item already_binded citem) already_binded cdcl.body in
-    already_binded, List.flatten fvars
-and free_vars_component_dcl (already_binded:Atom.Set.t) cdcl = 
-    let already_binded, fvars = map0_place (free_vars_component_dcl_ already_binded) cdcl in
-    already_binded, Utils.deduplicate snd fvars
+    let _, res = List.fold_left_map (fun already_binded citem -> 
+        let env, a,b = collect_expr_component_item already_binded selector collector citem in
+        env, (a,b)    
+    ) already_binded cdcl.body in
+    let collected_elts = List.flatten (List.map fst res) in
+    let fvars = List.flatten (List.map snd res) in
+    already_binded, collected_elts, fvars
+and collect_expr_component_dcl (already_binded:Atom.Set.t) selector collector cdcl = 
+    map0_place (collect_expr_component_dcl_ already_binded selector collector ) cdcl
 
-and free_vars_typedef_ (already_binded:Atom.Set.t) place = function 
+and free_vars_component_dcl already_binded cdcl = 
+    let already_binded, _, fvars = collect_expr_component_dcl  already_binded (function e -> false) (fun env e -> []) cdcl in
+    already_binded, Utils.deduplicate snd fvars 
+
+and collect_expr_typedef_ (already_binded:Atom.Set.t) selector collector place = function 
 (* already binded left unchanged since it is type binder *)
-| ClassicalDef  (x, targs, body) -> already_binded, []
-| EventDef (x, targs, body) -> already_binded, []
-| ProtocolDef (x, mt) -> free_vars_mtype already_binded mt
-and free_vars_typedef (already_binded:Atom.Set.t) tdef= 
-    let already_binded, fvars = map0_place (free_vars_typedef_ already_binded) tdef in
-    already_binded, Utils.deduplicate snd fvars
+| ClassicalDef  (x, targs, body) -> already_binded, [], []
+| EventDef (x, targs, body) -> already_binded, [], []
+| ProtocolDef (x, mt) -> collect_expr_mtype already_binded selector collector mt
+and collect_expr_typedef (already_binded:Atom.Set.t) selector collector tdef= 
+    map0_place (collect_expr_typedef_ already_binded selector collector) tdef
 
 
-and free_vars_term_ (already_binded:Atom.Set.t) place = function 
-    | EmptyTerm | Comments _ -> already_binded, []
-    | Stmt stmt -> free_vars_stmt already_binded stmt
-    | Component cdcl -> free_vars_component_dcl already_binded cdcl
-    | Function fdcl -> free_vars_function_dcl already_binded fdcl
-    | Typealias _ -> already_binded, [] (* type binder but not an expr binder so already_binded is left unchanged*)
-    | Typedef typedef -> free_vars_typedef already_binded typedef
-and free_vars_term (already_binded:Atom.Set.t) t = 
-    let already_binded, fvars = map0_place (free_vars_term_ already_binded) t in
-    already_binded, Utils.deduplicate snd fvars
+and collect_expr_term_ (already_binded:Atom.Set.t) selector collector place = function 
+    | EmptyTerm | Comments _ -> already_binded, [], []
+    | Stmt stmt -> collect_expr_stmt already_binded selector collector stmt
+    | Component cdcl -> collect_expr_component_dcl already_binded selector collector cdcl
+    | Function fdcl -> collect_expr_function_dcl already_binded selector collector fdcl
+    | Typealias _ -> already_binded, [], [] (* type binder but not an expr binder so already_binded is left unchanged*)
+    | Typedef typedef -> collect_expr_typedef already_binded selector collector typedef
+and collect_expr_term (already_binded:Atom.Set.t) selector collector t = 
+    map0_place (collect_expr_term_ already_binded selector collector) t
 
+and free_vars_term already_binded citem = 
+    let already_binded, _, fvars = collect_expr_term  already_binded (function e -> false) (fun env e -> []) citem in
+    already_binded, Utils.deduplicate snd fvars 
 
 let rec rewrite_expr_contract_ selector rewriter place _contract =
     {_contract with  
