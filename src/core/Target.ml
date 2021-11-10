@@ -20,3 +20,8 @@ and target = _target placed
 and targets = target list
 [@@deriving show { with_path = false }]
 
+(* component name return true if it is a guardian *)
+let is_guardian (targets: targets) x = 
+    List.exists (function target -> 
+        List.exists (function mdef -> mdef.bootstrap = x) target.value.codegen.mains  
+    ) targets 

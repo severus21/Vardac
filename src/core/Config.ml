@@ -7,7 +7,7 @@ let debug = function () ->
   !_debug
 
 let _debug_cook =
-  ref false
+  ref true 
 
 let debug_cook = function () ->
   !_debug_cook

@@ -257,6 +257,8 @@ module type TIRC = sig
     val free_vars_mtype : Variable.Set.t -> main_type -> Variable.Set.t * (main_type*expr_variable) list
     val free_tvars_mtype : Atom.Set.t -> main_type -> Atom.Set.t * type_variable list
     val  timers_of_headers : constraint_header list -> expr_variable list
+    val rewrite_expr_expr : (_expr -> bool) -> (_expr -> _expr) -> expr -> expr
+    val rewrite_expr_stmt : (_expr -> bool) -> (_expr -> _expr) -> stmt -> stmt
     val replace_expr_expr : expr_variable -> (expr_variable option * _expr option) -> expr -> expr
     val replace_expr_stmt : expr_variable -> (expr_variable option * _expr option) -> stmt -> stmt
     val replace_type_main_type : type_variable ->(type_variable option * _main_type option) -> main_type -> main_type
@@ -799,97 +801,106 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
 
 
-    let rec replace_expr_place replace_expr_value { AstUtils.place ; AstUtils.value} = 
-        let _value = replace_expr_value place (fst value) in
+    let rec rewrite_expr_place rewrite_expr_value { AstUtils.place ; AstUtils.value} = 
+        let _value = rewrite_expr_value place (fst value) in
         {AstUtils.place; AstUtils.value = _value, snd value}
 
-    let rec _replace_expr_expr x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) place = function
-    | VarExpr x  when x = x_to_replace && replaceby_x_opt <> None -> VarExpr (Option.get replaceby_x_opt)
-    | VarExpr x  when x = x_to_replace && replaceby_e_opt <> None -> Option.get replaceby_e_opt
+    let rec _rewrite_expr_expr selector rewriter place = function
+    | e when selector e -> rewriter e
     | VarExpr _ as e -> e
     | AccessExpr (e1, e2) -> AccessExpr (
-        replace_expr_expr x_to_replace replaceby e1,
-        replace_expr_expr x_to_replace replaceby e2
+        rewrite_expr_expr selector rewriter e1,
+        rewrite_expr_expr selector rewriter e2
     )
     | BinopExpr (e1, op, e2) -> BinopExpr (
-        replace_expr_expr x_to_replace replaceby e1,
+        rewrite_expr_expr selector rewriter e1,
         op,
-        replace_expr_expr x_to_replace replaceby e2
+        rewrite_expr_expr selector rewriter e2
     )
     | LambdaExpr (x, mt, e) -> LambdaExpr (
         x,
         mt, (* WARNIN TODO FIXME replace in type predicates *)
-        replace_expr_expr x_to_replace replaceby e
+        rewrite_expr_expr selector rewriter e
     )
     | LitExpr _ as e -> e
-    | UnopExpr (op, e) -> UnopExpr (op, replace_expr_expr x_to_replace replaceby e)
+    | UnopExpr (op, e) -> UnopExpr (op, rewrite_expr_expr selector rewriter e)
     | CallExpr (e, es) -> CallExpr(
-        replace_expr_expr x_to_replace replaceby e,
-        List.map (replace_expr_expr x_to_replace replaceby) es
+        rewrite_expr_expr selector rewriter e,
+        List.map (rewrite_expr_expr selector rewriter) es
     )
     | NewExpr (e, es) -> NewExpr(
-        replace_expr_expr x_to_replace replaceby e,
-        List.map (replace_expr_expr x_to_replace replaceby) es
+        rewrite_expr_expr selector rewriter e,
+        List.map (rewrite_expr_expr selector rewriter) es
     )
     | This -> This 
     | Spawn sp -> Spawn { sp with 
-        args = List.map (replace_expr_expr x_to_replace replaceby) sp.args;
-        at = Option.map (replace_expr_expr x_to_replace replaceby) sp.at
+        args = List.map (rewrite_expr_expr selector rewriter) sp.args;
+        at = Option.map (rewrite_expr_expr selector rewriter) sp.at
     }
     | BoxCExpr _ as e -> e
     | OptionExpr e_opt -> OptionExpr (
-        Option.map (replace_expr_expr x_to_replace replaceby) e_opt
+        Option.map (rewrite_expr_expr selector rewriter) e_opt
     ) 
     | ResultExpr (e1_opt, e2_opt) -> ResultExpr (
-        Option.map (replace_expr_expr x_to_replace replaceby) e1_opt,
-        Option.map (replace_expr_expr x_to_replace replaceby) e2_opt
+        Option.map (rewrite_expr_expr selector rewriter) e1_opt,
+        Option.map (rewrite_expr_expr selector rewriter) e2_opt
     ) 
     | BlockExpr(b, es) -> BlockExpr (b,
-        List.map (replace_expr_expr x_to_replace replaceby) es 
+        List.map (rewrite_expr_expr selector rewriter) es 
     )
     | Block2Expr(b, ees) -> Block2Expr (b,
         List.map (function (e1,e2) ->
-            replace_expr_expr x_to_replace replaceby e1,
-            replace_expr_expr x_to_replace replaceby e2
+            rewrite_expr_expr selector rewriter e1,
+            rewrite_expr_expr selector rewriter e2
         ) ees 
     )
-    and replace_expr_expr x_to_replace replaceby = replace_expr_place (_replace_expr_expr x_to_replace replaceby)
+    and rewrite_expr_expr selector rewriter = rewrite_expr_place (_rewrite_expr_expr selector rewriter)
 
-
-    and _replace_expr_stmt x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) place = function 
+    and _rewrite_expr_stmt selector rewriter place = function 
         | EmptyStmt -> EmptyStmt
-        | AssignExpr (x, e) -> AssignExpr (x, replace_expr_expr x_to_replace replaceby e) 
-        | AssignThisExpr (x, e) -> AssignThisExpr (x, replace_expr_expr x_to_replace replaceby e)
-        | LetExpr (mt, x, e) when x = x_to_replace -> failwith ("can not replace explictly binded variable "^(Variable.to_string x))
+        | AssignExpr (x, e) -> AssignExpr (x, rewrite_expr_expr selector rewriter e) 
+        | AssignThisExpr (x, e) -> AssignThisExpr (x, rewrite_expr_expr selector rewriter e)
         | LetExpr (mt, x, e) -> (* TODO FIXME expr in type are not yet concerned *)
-            LetExpr (mt, x, replace_expr_expr x_to_replace replaceby e)
+            LetExpr (mt, x, rewrite_expr_expr selector rewriter e)
         | CommentsStmt c -> CommentsStmt c
         | BreakStmt -> BreakStmt
         | ContinueStmt -> ContinueStmt
         | ExitStmt i -> ExitStmt i
         | ForStmt (mt, x, e, stmt) -> (* TODO FIXME expr in type are not yet concerned *)
             ForStmt(mt, x, 
-                replace_expr_expr x_to_replace replaceby e,
-                replace_expr_stmt x_to_replace replaceby stmt)
+                rewrite_expr_expr selector rewriter e,
+                rewrite_expr_stmt selector rewriter stmt)
         | IfStmt (e, stmt1, stmt2_opt) ->
             IfStmt (
-                replace_expr_expr x_to_replace replaceby e,
-                replace_expr_stmt x_to_replace replaceby stmt1,
-                Option.map (replace_expr_stmt x_to_replace replaceby) stmt2_opt
+                rewrite_expr_expr selector rewriter e,
+                rewrite_expr_stmt selector rewriter stmt1,
+                Option.map (rewrite_expr_stmt selector rewriter) stmt2_opt
             )
         | MatchStmt (e, branches) ->
             MatchStmt (
-                replace_expr_expr x_to_replace replaceby e,
+                rewrite_expr_expr selector rewriter e,
                 List.map (function (e, stmt) ->
-                    replace_expr_expr x_to_replace replaceby e,
-                    replace_expr_stmt x_to_replace replaceby stmt
+                    rewrite_expr_expr selector rewriter e,
+                    rewrite_expr_stmt selector rewriter stmt
                 ) branches
             )
-        | ReturnStmt e -> ReturnStmt (replace_expr_expr x_to_replace replaceby e) 
-        | ExpressionStmt e -> ExpressionStmt (replace_expr_expr x_to_replace replaceby e) 
-        | BlockStmt stmts -> BlockStmt (List.map (replace_expr_stmt x_to_replace replaceby) stmts) 
-        | GhostStmt stmt -> GhostStmt (replace_expr_stmt x_to_replace replaceby stmt)
-    and replace_expr_stmt x_to_replace replaceby = map_place (_replace_expr_stmt x_to_replace replaceby)
+        | ReturnStmt e -> ReturnStmt (rewrite_expr_expr selector rewriter e) 
+        | ExpressionStmt e -> ExpressionStmt (rewrite_expr_expr selector rewriter e) 
+        | BlockStmt stmts -> BlockStmt (List.map (rewrite_expr_stmt selector rewriter) stmts) 
+        | GhostStmt stmt -> GhostStmt (rewrite_expr_stmt selector rewriter stmt)
+    and rewrite_expr_stmt selector rewriter = map_place (_rewrite_expr_stmt selector rewriter)
+    
+    let make x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) = 
+        let selector = function |VarExpr x when x = x_to_replace -> true | _ -> false in
+        let rewriter e = match replaceby_x_opt with | Some x -> VarExpr x | None -> Option.get replaceby_e_opt in
+        selector, rewriter
+    let replace_expr_expr x_to_replace replaceby = 
+        let selector, rewriter = make x_to_replace replaceby in
+        rewrite_expr_expr selector rewriter
+    let replace_expr_stmt x_to_replace replaceby = 
+        let selector, rewriter = make x_to_replace replaceby in
+        rewrite_expr_stmt selector rewriter
+
 
 
 
@@ -982,7 +993,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             {
                 place = g2.place;
                 value = List.fold_left (fun (e2, mt) (x1, x2) -> 
-                _replace_expr_expr  x2 (Some x1, None) g2.place e2 ,mt    
+                (replace_expr_expr x2 (Some x1, None) {place=g2.place;value=(e2, mt)}).value    
             ) g2.value vars
             }
 

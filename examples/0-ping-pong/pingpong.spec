@@ -3,11 +3,8 @@
     An identifier starting by an uppercase character denotes a component
     Otherwise it starts with a lowercase character
 *)
-vplacedef vpcloud of "Cloud";
-vplace<vpcloud> vp1 = vpcloud;
 vplacedef vpa of "placeA";
-vplace<vpa> vp2 = vpa;
-
+vplacedef vpcloud of "Cloud";
 (************************** Point to point communication **************************)
 (* Ex0 - fire and forget
     A:a --- ping ----> B:b
@@ -157,7 +154,12 @@ component PassivePlayer() {
 
 component MultiJVMOrchestrator (){
     component Inner (){ (* FIXME needed since @ place can not be used directly in the guardian *)
+
+
         onstartup void toto () {
+            vplace<vpcloud> vp1 = vpcloud;
+            vplace<vpa> vp2 = vpa;
+
             print("Start active player"); 
             for( place x in places()) {
                 print(place_to_string(x));

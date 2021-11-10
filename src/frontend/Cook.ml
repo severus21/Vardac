@@ -773,25 +773,25 @@ and cook_port env place (port:S._port) : env * (T._port * T.main_type)=
     new_env << [env1; env2; env3; env4], ({ name; input; expecting_st; callback}, input_type)
 and cport env: S.port -> env * T.port = map2_place (cook_port env)
 
-and cook_component_item env _ : S._component_item -> env * T._component_item = function
+and cook_component_item env _ : S._component_item -> env * T._component_item list = function
 | S.State s ->
     let new_env, new_s = cstate env s in
-    new_env, T.State new_s
+    new_env, [T.State new_s]
 | S.Method m ->
     let new_env, new_m = cmethod0 env m in
-    new_env, T.Method new_m
+    new_env, [T.Method new_m]
 | S.Contract c -> 
-    env, T.Contract (snd( ccontract env c))
+    env, [T.Contract (snd( ccontract env c))]
 | S.Port p ->
     let new_env, new_p = cport env p in
-    new_env, T.Port new_p
+    new_env, [T.Port new_p]
 | S.Term t ->
-    let new_env, new_t = cterm env t in
-    new_env, T.Term new_t
+    let new_env, new_ts = cterm env t in
+    new_env, List.map (fun t -> T.Term t) new_ts
 | S.Include ce -> 
     let env1, ce = ccexpr env ce in
-    env << [env1], T.Include (ce)
-and ccitem env: S.component_item -> env * T.component_item = map2_place (cook_component_item env)
+    env << [env1], [T.Include (ce)]
+and ccitem env: S.component_item -> env * T.component_item list = map2_places (cook_component_item env)
 
 and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = function
 | S.ComponentStructure cdcl -> 
@@ -822,6 +822,7 @@ and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = 
     (* Prepare env for mutual binding between components and methods/states *)
     let (_, inner_env) = List.fold_left shallow_scan_component_item (StringMap.empty,inner_env) cdcl.body in
     let inner_env, body = List.fold_left_map ccitem inner_env cdcl.body in
+    let body = List.flatten body in
 
     (* Add collected label events to body *)
     let collect_labelevents = citems_of_eventdef_from_labels inner_env in 
@@ -864,33 +865,33 @@ and ccexpr env : S.component_expr -> env * T.component_expr = map2_place (cook_c
 (********************** Signatures *********************)
 
 (************************************ Program *****************************)
-and cook_term env place : S._term -> env * T._term = 
+and cook_term env place : S._term -> env * T._term list = 
 let fplace = (Error.forge_place "Coook.cook_term" 0 0) in
     let auto_place smth = {AstUtils.place = place; value=smth} in
     let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
 function
-| S.Comments c -> env, T.Comments c
+| S.Comments c -> env, [T.Comments c]
 | S.PPTerm _ -> raise (PlacedDeadbranchError (place, "No preprocessing term should remains when cooking the AST."))
 
 | S.Stmt stmt ->
     let new_env, new_stmt = cstmt env stmt in
-    new_env, T.Stmt new_stmt
+    new_env, [T.Stmt new_stmt]
 | S.Function f -> 
     let new_env, new_f = cfdcl env f in
-    new_env, T.Function new_f
+    new_env, [T.Function new_f]
 | S.Component c ->
     let new_env, new_c = ccdcl env c in
     (* Restaure component env *)
-    {new_env with component = env.component}, T.Component new_c
+    {new_env with component = env.component}, [T.Component new_c]
 
 | S.Typealias (x, mt_opt) -> begin
     let new_env, y = bind_type env place x in
     (* No type constructor for alias *)
     match mt_opt with 
-    | None -> new_env, T.Typealias (y, None) 
+    | None -> new_env, [T.Typealias (y, None)]
     | Some mt -> 
         let cenv1, mt = cmtype env mt in
-        new_env << [cenv1], T.Typealias (y, Some mt)
+        new_env << [cenv1], [T.Typealias (y, Some mt)]
 end
 | Typedef {value= ProtocolDef (x, mt) as tdef; place} -> 
     let new_env1, y = bind_type env place x in
@@ -905,8 +906,8 @@ end
     )))) in
     register_gamma y constructor_type;
 
-    new_env2 << [env3], T.Typedef ({ place; value = 
-    ProtocolDef (y, mt) })
+    new_env2 << [env3], [T.Typedef ({ place; value = 
+    ProtocolDef (y, mt) })]
 
 | Typedef {value= VPlaceDef (x, name) as tdef; place} -> begin 
     (* create a type x -> to be used as vplace<x> ...
@@ -916,15 +917,17 @@ end
     let new_env2 = register_expr new_env1 place ~create_instance:false y in
     
     let mt =  auto_place(T.CType(auto_place(T.TVPlace(auto_place(T.CType(auto_place(T.TVar y))))))) in 
-
+    
     try
-        new_env2, T.Stmt(auto_place(T.BlockStmt(
-            [auto_place(T.LetExpr(
-                mt,  
-                y,
-                auto_place(T.LitExpr(auto_place(T.VPlace (Hashtbl.find places name))), mt) 
-            ))]
-        )))
+        new_env2, [
+            T.Typedef {place; value=T.ClassicalDef (y, [], ())};
+            T.Stmt(auto_place(T.LetExpr(
+                    mt,  
+                    y,
+                    auto_place(T.LitExpr(auto_place(T.VPlace (Hashtbl.find places name))), mt) 
+                ))
+            )
+        ]
     with Not_found -> Error.error place "vplace does not exists in configuration file"
 end
 | Typedef {value= ClassicalDef (x, args) as tdef; place} | Typedef {value= EventDef (x, args) as tdef; place} -> 
@@ -938,13 +941,13 @@ end
     let constructor_type = List.fold_right (fun t1 t2 -> auto_fplace (T.CType (auto_fplace(T.TArrow (t1, t2))))) args (auto_fplace(T.CType(auto_fplace(T.TVar y)))) in 
     register_gamma y constructor_type;
 
-    new_env2 << envs, T.Typedef ({ place; value = 
+    new_env2 << envs, [T.Typedef ({ place; value = 
     match tdef with 
         | ClassicalDef _ -> ClassicalDef (y, args, ())
         | EventDef _ -> EventDef (y, args, ())
-    })
+    })]
     
-and cterm env: S.term -> env * T.term = map2_place (cook_term env)
+and cterm env: S.term -> env * T.term list = map2_places (cook_term env)
 
 let cook_program _places terms =    
     let rec hydrate_places parent_name (p:IR.vplace) = 
@@ -962,4 +965,5 @@ let cook_program _places terms =
     let toplevel_env = refresh_component_env toplevel_env (Atom.fresh_builtin "toplevel") in
 
     let toplevel_env,  program = (List.fold_left_map cterm toplevel_env terms) in 
+    let program = List.flatten program in
     gamma, (terms_of_eventdef_from_labels toplevel_env) @ program

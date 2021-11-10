@@ -113,3 +113,7 @@ let rec map_place (fct:Error.place -> 'a -> 'b) ({place; value}:'a placed) : 'b 
 let rec map2_place (fct:Error.place -> 'a -> 'b * 'c) ({place; value}:'a placed) : 'b * 'c placed = 
     let env, value = fct place value in
     env, { place; value = value }
+
+let map2_places (fct:Error.place -> 'a -> 'b * 'c list) ({place; value}:'a placed) : 'b * ('c placed list)= 
+    let env, values = fct place value in
+    env, List.map (function v -> { place; value = v}) values

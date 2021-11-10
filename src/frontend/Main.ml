@@ -26,7 +26,7 @@ let to_ir places filename =
     |> dump "ResolveAst" Ast.show_program  
     |> Cook.cook_program places
     |> function (gamma, ast) -> logger#sinfo "AST is cooked, IR has been generated"; (gamma, ast) 
-    |> function (gamma, ast) -> dump ~print:(Config.debug_cook ()) "IR" IR.show_program; (gamma, ast)
+    |> function (gamma, ast) -> dump ~print:(Config.debug_cook ()) "IR" IR.show_program ast; (gamma, ast)
 
 let process_place (filename:string) =
     filename

@@ -155,58 +155,66 @@ and free_vars_term (already_binded:Atom.Set.t) t =
     already_binded, Utils.deduplicate snd fvars
 
 
-let rec replace_expr_contract_  x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) place _contract =
+let rec rewrite_expr_contract_ selector rewriter place _contract =
     {_contract with  
-        pre_binders = List.map (function (mt, x, e) -> (mt, x, replace_expr_expr x_to_replace replaceby e)) _contract.pre_binders; (*TODO replace for mt*)
-        ensures = Option.map (replace_expr_expr x_to_replace replaceby) _contract.ensures;
-        returns = Option.map (replace_expr_expr x_to_replace replaceby) _contract.returns;
+        pre_binders = List.map (function (mt, x, e) -> (mt, x, rewrite_expr_expr selector rewriter e)) _contract.pre_binders; (*TODO replace for mt*)
+        ensures = Option.map (rewrite_expr_expr selector rewriter) _contract.ensures;
+        returns = Option.map (rewrite_expr_expr selector rewriter) _contract.returns;
     }
-and replace_expr_contract x_to_replace replaceby = map_place (replace_expr_contract_ x_to_replace replaceby) 
+and rewrite_expr_contract selector rewriter = map_place (rewrite_expr_contract_ selector rewriter) 
 
-and replace_expr_port_  x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) place (_port, mt) =
+and rewrite_expr_port_  selector rewriter place (_port, mt) =
     ({ _port with
-        input = replace_expr_expr x_to_replace replaceby _port.input; 
-        (* TODO replace_expr_mt expecting_st*)
-        callback = replace_expr_expr x_to_replace replaceby _port.callback; 
+        input = rewrite_expr_expr selector rewriter _port.input; 
+        (* TODO rewrite_expr_mt expecting_st*)
+        callback = rewrite_expr_expr selector rewriter _port.callback; 
     }, mt)
     
-and replace_expr_port x_to_replace replaceby = map_place (replace_expr_port_ x_to_replace replaceby) 
+and rewrite_expr_port selector rewriter = map_place (rewrite_expr_port_ selector rewriter) 
 
-and replace_expr_state_  x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) place = function 
+and rewrite_expr_state_  selector rewriter place = function 
 | StateDcl sdcl -> StateDcl {
-    sdcl with body = Option.map (replace_expr_expr x_to_replace replaceby) sdcl.body;
+    sdcl with body = Option.map (rewrite_expr_expr selector rewriter) sdcl.body;
 }
-and replace_expr_state x_to_replace replaceby = map_place (replace_expr_state_ x_to_replace replaceby) 
+and rewrite_expr_state selector rewriter = map_place (rewrite_expr_state_ selector rewriter) 
 
-and replace_expr_function_dcl_  x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) place m =
-    { m with body = List.map (replace_expr_stmt x_to_replace replaceby) m.body }
-and replace_expr_function_dcl x_to_replace replaceby = map_place (replace_expr_function_dcl_ x_to_replace replaceby) 
+and rewrite_expr_function_dcl_  selector rewriter place m =
+    { m with body = List.map (rewrite_expr_stmt selector rewriter) m.body }
+and rewrite_expr_function_dcl selector rewriter = map_place (rewrite_expr_function_dcl_ selector rewriter) 
 
-and replace_expr_method0_  x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) place (m:_method0) =
+and rewrite_expr_method0_  selector rewriter place (m:_method0) =
     { m with 
-        body = List.map (replace_expr_stmt x_to_replace replaceby) m.body;
-        contract_opt = Option.map (replace_expr_contract x_to_replace replaceby) m.contract_opt;
+        body = List.map (rewrite_expr_stmt selector rewriter) m.body;
+        contract_opt = Option.map (rewrite_expr_contract selector rewriter) m.contract_opt;
      }
-and replace_expr_method0 x_to_replace replaceby = map_place (replace_expr_method0_ x_to_replace replaceby) 
+and rewrite_expr_method0 selector rewriter = map_place (rewrite_expr_method0_ selector rewriter) 
 
-and replace_expr_component_item_  x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) place = function 
-    | Contract c -> Contract (replace_expr_contract x_to_replace replaceby c)
-    | Method m -> Method (replace_expr_method0 x_to_replace replaceby m)
-    | State s -> State (replace_expr_state x_to_replace replaceby s )
-    | Port p  -> Port (replace_expr_port x_to_replace replaceby p)
-    | Term t -> Term (replace_expr_term x_to_replace replaceby t)
-and replace_expr_component_item x_to_replace replaceby = map_place (replace_expr_component_item_ x_to_replace replaceby) 
+and rewrite_expr_component_item_  selector rewriter place = function 
+    | Contract c -> Contract (rewrite_expr_contract selector rewriter c)
+    | Method m -> Method (rewrite_expr_method0 selector rewriter m)
+    | State s -> State (rewrite_expr_state selector rewriter s )
+    | Port p  -> Port (rewrite_expr_port selector rewriter p)
+    | Term t -> Term (rewrite_expr_term selector rewriter t)
+and rewrite_expr_component_item selector rewriter = map_place (rewrite_expr_component_item_ selector rewriter) 
 
-and replace_expr_component_dcl_  x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) place = function 
+and rewrite_expr_component_dcl_  selector rewriter place = function 
 | ComponentStructure cdcl -> 
-    ComponentStructure { cdcl with body = List.map (replace_expr_component_item x_to_replace replaceby) cdcl.body}
-and replace_expr_component_dcl x_to_replace replaceby = map_place (replace_expr_component_dcl_ x_to_replace replaceby) 
+    ComponentStructure { cdcl with body = List.map (rewrite_expr_component_item selector rewriter) cdcl.body}
+and rewrite_expr_component_dcl selector rewriter = map_place (rewrite_expr_component_dcl_ selector rewriter) 
 
-and replace_expr_term_  x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) place = function 
+and rewrite_expr_term_ selector rewriter place = function 
 | EmptyTerm -> EmptyTerm 
 | Comments c -> Comments c
-| Stmt stmt -> Stmt (replace_expr_stmt x_to_replace replaceby stmt)
-| Component cdcl -> Component (replace_expr_component_dcl x_to_replace replaceby cdcl)
-| Function fdcl -> Function (replace_expr_function_dcl x_to_replace replaceby fdcl)
+| Stmt stmt -> Stmt (rewrite_expr_stmt selector rewriter stmt)
+| Component cdcl -> Component (rewrite_expr_component_dcl selector rewriter cdcl)
+| Function fdcl -> Function (rewrite_expr_function_dcl selector rewriter fdcl)
 | (Typealias _ as t) |(Typedef _ as t) -> t
-and replace_expr_term x_to_replace replaceby = map_place (replace_expr_term_ x_to_replace replaceby) 
+and rewrite_expr_term selector rewriter = map_place (rewrite_expr_term_ selector rewriter) 
+
+let make x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) = 
+    let selector = function |VarExpr x when x = x_to_replace -> true | _ -> false in
+    let rewriter e = match replaceby_x_opt with | Some x -> VarExpr x | None -> Option.get replaceby_e_opt in
+    selector, rewriter
+let replace_expr_component_item x_to_replace replaceby = 
+    let selector, rewriter = make x_to_replace replaceby in
+    rewrite_expr_component_item selector rewriter

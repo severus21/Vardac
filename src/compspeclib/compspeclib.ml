@@ -4,7 +4,7 @@ open Utils
 open Codegen
 open Easy_logging
 
-let logger = Logging.make_logger "_1_ compspec" Debug [Cli Debug];;
+let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
 let process_impl filename =
     Frontend.Main.to_impl filename
@@ -33,8 +33,8 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
     let places = Frontend.Main.process_place places_file in
 
+
     let (gamma, ir) = Frontend.Main.to_ir places filename in
-    let module Rewrite = ((Core.Rewrite.Make((struct let gamma = gamma end))):Core.Rewrite.Sig) in
     let ir =
         ir
         |> Core.TypeInference.tannot_program
@@ -46,13 +46,17 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         |> function x-> logger#sinfo "IR has been partially evaluated"; x
         |> Core.AstUtils.dump "pevaled IR" IR.show_program
         |> function program -> Topology.generate_static_logical_topology build_dir program; program
-        |> Rewrite.rewrite_program
-        |> function x-> logger#sinfo "IR has been rewritten";x
-        |> Core.AstUtils.dump "rewritten IR" IR.show_program
     in
 
     (* extract targets definitions from file *)
     let targets = Frontend.Main.process_target ir targets_file in
+
+    let module Rewrite = ((Core.Rewrite.Make((struct let gamma = gamma let targets = targets end))):Core.Rewrite.Sig) in
+    let ir = ir 
+        |> Rewrite.rewrite_program
+        |> function x-> logger#sinfo "IR has been rewritten";x
+        |> Core.AstUtils.dump "rewritten IR" IR.show_program
+    in
 
     ir
     |> Frontend.Main.to_impl targets impl_filename  

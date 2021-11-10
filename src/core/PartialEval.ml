@@ -14,6 +14,7 @@ let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
 (* Environment *)
 module Env = Atom.VMap 
+let toto = ref 0 
 
 type env = { 
     named_types: (main_type option) Env.t; (* namely the list of typealias with their current definition, 
@@ -42,6 +43,9 @@ let print_env env =
     List.iter (
         function (name, l) -> print_string ("\t"^name^"\n\t\t"); print_keys (l env);print_newline (); 
     ) [("named_types", named_types)];
+    List.iter (
+        function (name, l) -> print_string ("\t"^name^"\n\t\t"); print_keys (l env);print_newline (); 
+    ) [("terminal_expr_assignements", terminal_expr_assignements)];
     
     print_string "}";
     print_newline ()
@@ -88,6 +92,8 @@ let rec peval_composed_type env place : _composed_type -> env * _composed_type =
         out_type = (snd <-> pe_mtype env) out_type;
         protocol = (snd <-> pe_mtype env) protocol 
     }
+| TVPlace mt -> env, TVPlace ((snd <-> pe_mtype env) mt)
+| ct -> failwith (show__composed_type ct)
 and pe_ctype env: composed_type -> env * composed_type = map2_place (peval_composed_type env)
 
 
@@ -173,6 +179,7 @@ and is_terminal_expr (e, mt): bool =
     | OptionExpr Some e -> is_terminal_expr e.value
     | ResultExpr (Some e, None) | ResultExpr (None, Some e) -> is_terminal_expr e.value 
     | ResultExpr _ -> raise (Error.DeadbranchError "Result can not be err and ok at the same nor be neither ok nor err")
+    | _ -> false 
 
 and peval_unop env place (op: unop) (e: expr) : env * (_expr * main_type) =
 match (op, e.value) with
@@ -336,8 +343,11 @@ and peval_expr env place (e, mt) :  env * (_expr * main_type) =
             let env, (e, _) = peval_unop env place op e in
             env, e
         | VarExpr x -> begin
+            logger#debug "pe var %s" (Atom.to_string x);
+            print_env env;
             try 
                 let t_e = Env.find x env.terminal_expr_assignements in
+                logger#debug "replace var %s by terminal" (Atom.to_string x);
                 env, fst t_e.value (*TODO should be t_e.place @ place @ partial_eval_var place *)
             with | Not_found -> env, VarExpr x
         end
@@ -346,7 +356,8 @@ and peval_expr env place (e, mt) :  env * (_expr * main_type) =
     env, (e, mt)
 and pe_expr env: expr -> env * expr = map2_place (peval_expr env)
 
-and peval_stmt env place : _stmt -> env * _stmt = function 
+and peval_stmt env place : _stmt -> env * _stmt = 
+function 
 | EmptyStmt -> env, EmptyStmt
 | AssignExpr (x, e) -> 
     let e = snd(pe_expr env e) in
@@ -357,7 +368,8 @@ and peval_stmt env place : _stmt -> env * _stmt = function
         env, AssignExpr (x, e)
 | AssignThisExpr (x, e) -> env, AssignExpr (x,  snd(pe_expr env e ))
 | BlockStmt stmts -> begin 
-    let stmts = List.map (function stmt -> snd ((pe_stmt env) stmt)) stmts in
+    let inner_env, stmts = List.fold_left_map (fun env stmt -> pe_stmt env stmt) env stmts in
+incr toto;
 
     (* Cleansing: removing empty stmt *)
     let stmts = List.filter (function | {AstUtils.value=EmptyStmt;_} -> false | _-> true) stmts in
@@ -379,7 +391,13 @@ end
 | ContinueStmt -> env, ContinueStmt
 | ExitStmt i -> env, ExitStmt i
 | ExpressionStmt e -> env, ExpressionStmt (snd(pe_expr env e))
-| ForStmt (mt, x, e, stmt) -> env, ForStmt (snd (pe_mtype env mt), x, snd (pe_expr env e), snd (pe_stmt env stmt)) (* TODO *)
+| ForStmt (mt, x, e, stmt) -> begin
+    let stmt = snd (pe_stmt env stmt) in
+    match stmt.value with
+    | EmptyStmt -> env, EmptyStmt
+    | BlockStmt [] -> env, EmptyStmt
+    | _ -> env, ForStmt (snd (pe_mtype env mt), x, snd (pe_expr env e), stmt)
+end
 | IfStmt (e, stmt, stmt_opt) -> begin 
     let e = snd (pe_expr env e) in
     let stmt = snd (pe_stmt env stmt) in
@@ -389,13 +407,13 @@ end
     | (LitExpr {value=BoolLit false; _}, _) -> env, Option.value (Option.map (fun (x:stmt) -> x.value) stmt_opt) ~default:EmptyStmt (*TODO should be stmt.place *)
     | _ -> env, IfStmt (e, stmt, stmt_opt)
 end
-| LetExpr ({value=CType {value= TBridge t_b; _}; _ } as let_left, let_x, e_b) -> begin 
-    let _, let_left = pe_mtype env let_left in
-    let _, e_b = pe_expr env e_b in
+| LetExpr (let_mt, let_x, let_e) -> begin 
+    let _, let_mt = pe_mtype env let_mt in
+    let _, let_e = pe_expr env let_e in
 
-    match let_left.value with
+    match let_mt.value with
     | CType {value= TBridge t_b; _} -> begin
-        match e_b.value with
+        match let_e.value with
         | (LitExpr {value=Bridge bridge; _}, _) -> 
             let protocol = match t_b.protocol.value with
             | SType st -> st
@@ -403,17 +421,21 @@ end
             in
 
             env, LetExpr (
-                let_left,
+                let_mt,
                 let_x, 
-                e_b 
+                let_e 
             )
         | _ -> Error.error place "The right-handside of a Bridge<_,_,_> must be partially evaluated to a bridge literal" 
     end
     | _-> 
-        if is_terminal_expr e_b.value then
-            let new_env = bind_terminal_expr env let_x e_b in
-            new_env, LetExpr (let_left, let_x, e_b) (* TODO removing a let needs us to know if their is an assigned somewhere *)
-        else env, LetExpr( let_left, let_x, e_b)
+        if is_terminal_expr let_e.value then (
+            logger#debug "Is terminal %s" (Atom.to_string let_x);
+            let new_env = bind_terminal_expr env let_x let_e in
+            new_env, LetExpr (let_mt, let_x, let_e) (* TODO removing a let needs us to know if their is an assigned somewhere *)
+        ) else(
+            logger#debug "Is not terminal %s" (Atom.to_string let_x);
+            env, LetExpr( let_mt, let_x, let_e)
+        )
 end
 | MatchStmt (e, entries) -> (* TODO *) 
     env, MatchStmt (
@@ -423,8 +445,10 @@ end
 | ExpressionStmt e -> 
     let new_env, new_e = pe_expr env e in
     new_env, (ExpressionStmt new_e)
-| x -> env, x
-and pe_stmt env: stmt -> env * stmt = map2_place (peval_stmt env)
+| ReturnStmt e -> 
+    let new_env, new_e = pe_expr env e in
+    new_env, (ReturnStmt new_e)
+and pe_stmt env : stmt -> env * stmt = map2_place (peval_stmt env)
 
 
 (************************************ Component *****************************)
@@ -558,7 +582,7 @@ and pe_component_expr env: component_expr -> env * component_expr = map2_place (
 (************************************ Program *****************************)
 and peval_term env place : _term -> env * _term = function
 | Comments c -> env, Comments c
-| Stmt stmt -> map_snd (fun x -> Stmt x) (pe_stmt env stmt)
+| Stmt stmt -> map_snd (fun x -> Stmt x) (pe_stmt env stmt) 
 | Component comp -> map_snd (fun x -> Component x) (pe_component_dcl env comp)
 | Function f -> env, Function {
     place = f.place;
@@ -603,7 +627,7 @@ end
 and pe_term env: term -> env * term = map2_place (peval_term env)
 
 and pe_terms env terms : env * IR.term list =
-    let env, program = List.fold_left_map pe_term (fresh_env ()) terms in
+    let env, program = List.fold_left_map pe_term env terms in
     env, List.filter (function |{AstUtils.value=EmptyTerm; _} -> false | _-> true) program
 
 and peval_program (terms: IR.program) : IR.program = 
