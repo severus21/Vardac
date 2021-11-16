@@ -6,7 +6,6 @@ open AstUtils
 let logger = Logging.make_logger "_1_ compspec" Debug [];;
 module type Params = sig
     val gamma : (IR.expr_variable, IR.main_type) Hashtbl.t
-    val targets : Target.targets 
 end
 
 module type Sig = sig
@@ -18,21 +17,8 @@ module Make (Args : Params ) : Sig = struct
         Architecture remains unchanged - rewriting architecture is done in an other module (to be written)
         - get ride of session.receive only use ports
             TODO FIXME only scan component method at this point
-        - make explict the implicit constructor arguments and stored then as component attributes
     *)
     let gamma = Args.gamma
-    let targets = Args.targets
-    (* We need targets since guardian can not have any implicit variables - since there is no shared memory between guardians and instance of guardians 
-    TODO TODOC somewhere *)
-
-    (* Component name -> implicit set*)
-    let implicits = Hashtbl.create 32  
-    (* component name -> list (component name of an inner spawn, already_binded variable of the scope of this spawn) *)
-    let inner_spawns = Hashtbl.create 32
-    (* (selector, rewriter) that should be applied globaly to rewrite spawn *)
-    let spawn_rewritings = ref []
-
-    (* TODO do we need an explicit graph structure ?? *)
 
     let rec rewrite_method0 place (m:_method0) : port list * state list * method0 list = 
     let fplace = (Error.forge_place "Core.Rewrite.rewrite_method0" 0 0) in
@@ -230,7 +216,7 @@ module Make (Args : Params ) : Sig = struct
         (*
             N.B. We use extacly one [s] in the final AST when storing the intermediate arguments
         *)
-            logger#error "acc_mthode with %d stmts" (List.length acc_method.body);
+            logger#error "acc_method with %d stmts" (List.length acc_method.body);
             let intermediate_method_name = Atom.fresh ((Atom.hint m.name)^"_intermediate") in
             let intermediate_port_name = Atom.fresh ((Atom.hint m.name)^"_intermediate_port") in
             (*let intermediate_state_name = Areceivetom.fresh ((Atom.hint m.name)^"_intermediate_state") in*)
@@ -470,36 +456,6 @@ module Make (Args : Params ) : Sig = struct
     | ComponentAssign _ as cdcl -> cdcl
     | ComponentStructure cdcl -> 
         let body = cdcl.body in
-        (* Make implicit constructor variables explicit *)
-        let _, implicit_vars = free_vars_component_dcl (List.fold_left (fun set {value=mt,x} -> Atom.Set.add x set ) Atom.Set.empty cdcl.args)  {place; value=ComponentStructure cdcl} in (* Variable coming from outside the component, that have not been reduced to value during partial evaluation*)
-
-        (*
-
-        Hashtbl.add implicits cdcl.name implicit_vars; (* Free vars only at this point, implicit comming from inner spawn will be computed later on *)
-
-        (* C, scope, args *)
-        let spawns = List.map (collect_expr_component_item selector) body in
-        Hashtbl.add inner_spawns cdcl.name (failwith "Hydrate inner spawns");
-        *)
-        
-        (* Collect spawn rewriting with implicit *)
-        let select_spawn = function 
-            | Spawn {c={value=VarCExpr name, _} as c; args; at} when name = cdcl.name -> true
-            | Spawn {c={value=VarCExpr name, _}} -> logger#debug "spawn of %s in %s" (Atom.to_string name) (Atom.to_string cdcl.name); false
-            | Spawn _ -> failwith "Not a VarCExpr in Spawn, should not happen after partial evaluation" 
-            | _ -> false
-        in
-        let replace_spawn = function
-            | Spawn {c={value=VarCExpr name, _} as c; args; at} when name = cdcl.name-> 
-                logger#debug "Replacing spawn for %s" (Atom.to_string name);
-                Spawn {
-                c; 
-                args = (List.map (function(mt, x) -> auto_fplace (VarExpr x, mt)) implicit_vars)@args;
-                at} 
-            | _ as e -> e 
-        in
-        spawn_rewritings := (select_spawn, replace_spawn) :: !spawn_rewritings; (* Collect golbal rewriting - works since each binders create a unique variable name *)
-        
 
         (* Elimination of sync receiv *)
         let intermediate_state_names, body = List.split(List.map rcitem body) in
@@ -534,109 +490,5 @@ module Make (Args : Params ) : Sig = struct
     | Typedef _ as t -> t
     and rterm term = map_place rewrite_term term
 
-    (* Second pass of rewriting using information gathered during the first pass *)
-    and rewrite_component_item2 place : _component_item -> _component_item = function
-    | Term t -> Term (rterm2 t)
-    | _ as item -> item
-    and rcitem2 citem : component_item = map_place rewrite_component_item2 citem
-
-    and rewrite_component_dcl2 place : _component_dcl -> _component_dcl = 
-        let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
-        let auto_place smth = {place = place; value=smth} in
-        let auto_fplace smth = {place = fplace; value=smth} in
-    function
-    | ComponentAssign _ as cdcl -> cdcl
-    | ComponentStructure cdcl -> 
-        (* Rewrite spawn with implicit has been done during the intermediate pass *)
-
-        (* Processing sub-components first *)
-        let body = List.map rcitem2 cdcl.body in
-
-        (* Make implicit constructor variables explicit *)
-        let _, implicit_vars = free_vars_component_dcl (List.fold_left (fun set {value=mt,x} -> Atom.Set.add x set ) Atom.Set.empty cdcl.args)  {place; value=ComponentStructure cdcl} in (* Variable coming from outside the component, that have not been reduced to value during partial evaluation*)
-
-        (* Must be done in pass2 since we need to detect the implicit variables introduced by calling spawn *)
-        if implicit_vars <> [] && Target.is_guardian targets cdcl.name then
-            Error.error place "Guardian component can not have implicit variables - since there is no shared memory between instances of guardians\n@[<hov>%a@]" (Error.pp_list "\n" (fun out (mt, x) -> Format.fprintf out "- %s" (Atom.to_string x))) implicit_vars;
-
-        (* [(mt, implicit_x, explicit_x)]*)
-        let implicit_vars = List.map (function (mt, x) -> (mt, x, (Atom.fresh ("explicit_"^(Atom.hint x))) )) implicit_vars in
-
-        Printf.fprintf stdout  "Implicit vars for %s\n" (Atom.to_string cdcl.name);
-        print_string "> implict -> explicit\n";
-        List.iter (function (mt, x, y) -> 
-           Printf.fprintf stdout "> %s -> %s\n" (Atom.to_string x) (Atom.to_string y)
-        ) implicit_vars;
-        print_string "\n\n";
-
-        (* Add fields to store implicit_vars *) 
-        let body = 
-            (List.map (
-                function (mt, _, x) -> 
-                auto_fplace (State (auto_fplace (StateDcl {
-                    ghost = false;
-                    type0 = mt;
-                    name = x;
-                    body = None;
-                })))
-            ) implicit_vars)
-            @ body
-        in
-
-        (* Add implicit fields hydratation onstartup *)
-        let has_constructor = List.exists (function |{value=Method m} -> m.value.on_startup | _ -> false) body in
-        let rec update_constructor = function
-        | [] -> []
-        | {place; value=Method m}::citems when m.value.on_startup -> 
-            {
-                place;
-                value=Method {m with value = {m.value with 
-                    args = (List.map (function (mt, _, x) -> auto_fplace (mt,x)) implicit_vars) @ m.value.args;
-                    body = (List.map (function (mt, x, y) -> auto_fplace(AssignThisExpr (y, auto_fplace (VarExpr x, mt))) ) implicit_vars) @ m.value.body
-                }}
-            }::(update_constructor citems) 
-        | citem::citems ->  citem::(update_constructor citems) in
-        let make_constructor () = 
-            auto_fplace(Method (auto_fplace {
-                ghost = false;
-                ret_type = auto_fplace (CType (auto_fplace (TFlatType TVoid)));
-                name = Atom.fresh "implicit2explicit_constructor";
-                args = List.map (function (mt, _, x) -> auto_fplace (mt,x)) implicit_vars;
-                body = List.map (function (mt, x, y) -> auto_fplace(AssignThisExpr (y, auto_fplace (VarExpr x, mt))) ) implicit_vars;
-                contract_opt = None;
-                on_destroy = false;
-                on_startup = true;
-            }))
-        in
-        let body = 
-            if has_constructor then update_constructor body 
-            else (make_constructor ())::body
-        in
-            
-        (* Use explicit instead of explicit *)
-        let replace_implict_var (mt, x, y) stmts = List.map (replace_expr_component_item x (Some y, None)) stmts in 
-        let body = List.fold_left (fun body (mt, x, y) -> replace_implict_var (mt, x, y) body) body implicit_vars in
-        ComponentStructure {cdcl with body = body }
-    and rcdcl2 cdcl = map_place rewrite_component_dcl2 cdcl 
-
-    and rewrite_term2 place = function
-    | EmptyTerm -> EmptyTerm
-    | Comments c -> Comments c
-    | Stmt stmt -> Stmt stmt
-    | Component cdcl -> Component (rcdcl2 cdcl)
-    | Function fcdcl -> Function fcdcl
-    | Typealias _ as t -> t
-    | Typedef _ as t -> t
-    and rterm2 term : term = map_place rewrite_term2 term
-
-    (*Two passes of rewriting since some computation needs to gather information in all scope first
-        - implict 2 explict needs to find all spawn in all scope
-    *)
-    and rewrite_program terms = 
-        let terms = List.map rterm terms in
-        let apply_rewriting term (select, rewriter) = rewrite_expr_term select rewriter term in 
-        let apply_all_rewriting term = List.fold_left apply_rewriting term !spawn_rewritings in
-        let terms = List.map apply_all_rewriting terms in
-        List.map rterm2 terms
-
+    and rewrite_program terms = List.map rterm terms
 end

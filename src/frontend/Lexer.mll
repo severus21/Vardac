@@ -44,6 +44,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
 
     (* binders *)
     "in", IN;
+    "implicit", IMPLICIT;
 
     (* Control-flow *)
     "break", BREAK;

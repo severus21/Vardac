@@ -60,6 +60,7 @@ and collect_expr_state_ (already_binded:Atom.Set.t) selector collector place = f
     | Some e -> collect_expr_expr already_binded selector collector e
     | None _ -> already_binded, [], []
     in
+
     already_binded, collected_elts1@collected_elts2, fvars1@fvars2
 and collect_expr_state (already_binded:Atom.Set.t) selector collector s = 
     map0_place (collect_expr_state_ already_binded selector collector) s 
@@ -122,13 +123,16 @@ and collect_expr_component_dcl_ (already_binded:Atom.Set.t) selector collector p
             match citem.value with
             | Contract _ -> already_binded
             | Method m -> Atom.Set.add m.value.name already_binded
-            | State s -> Atom.Set.add(match s.value with 
-                | StateDcl {name} -> name
-                | StateAlias {name} -> name
+            | State s -> 
+                Atom.Set.add(match s.value with 
+                | StateDcl s -> s.name
+                | StateAlias s -> s.name
             ) already_binded
             | Port p -> Atom.Set.add (fst p.value).name already_binded
             | Term t -> already_binded
     ) already_binded cdcl.body in
+    logger#info "collect component %s [%d]" (Atom.to_string cdcl.name) (List.length cdcl.body);
+    logger#info "%s\n\n" (Atom.Set.show already_binded);
 
     let _, res = List.fold_left_map (fun already_binded citem -> 
         let env, a,b = collect_expr_component_item already_binded selector collector citem in

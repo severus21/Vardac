@@ -267,6 +267,8 @@ any_expr_:
     }}
 | LPAREN e=any_expr_ RPAREN
     { e }
+| IMPLICIT DOUBLE_COLON x = LID
+    { ImplicitVarExpr x}
 | e1 = any_expr DOT e2=any_expr
     {AccessExpr (e1,e2)}
 (* Hack because the lexer ouput a.b.c as an ATTR *)
@@ -404,7 +406,7 @@ any_function_:
 any_state_:
 | mt=any_type name=LID
     { StateDcl { ghost=false; type0=mt; name=name; init_opt=None}}
-|  mt=any_type name=LID EQ e = any_expr
+| mt=any_type name=LID EQ e = any_expr
     { StateDcl { ghost=false; type0=mt; name=name; init_opt=Some e}}
 (*| USE kind name
     { StateAlias {ghost=false; kind=kind; type0= TODO; name=name}}*)
@@ -513,7 +515,18 @@ any_component_item_:
 | p = any_port SEMICOLON
     { Port p}
 | t = any_term
-    { Term t }
+    { 
+        match t.value with
+        | Stmt {place; value=LetExpr (mt, x, e)} -> State {place; value = StateDcl {
+            ghost = false;
+            type0 = mt;
+            name = x;
+            init_opt = Some e
+        }}
+        | Stmt _ -> failwith "Stmt can not be a component item"
+        | Function _ -> failwith "Function can not be a component item"
+        | _ -> Term t 
+    }
 | INCLUDE x = any_component_expr
     { Include x }
 %inline any_component_item:

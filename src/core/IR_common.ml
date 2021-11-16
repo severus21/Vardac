@@ -156,6 +156,7 @@ module type TIRC = sig
 
     and _expr = 
         | VarExpr of expr_variable 
+        | ImplicitVarExpr of expr_variable
 
         | AccessExpr of expr * expr (*e1.e2*)
         | BinopExpr of expr * binop * expr 
@@ -423,6 +424,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     and _expr = 
         | VarExpr of expr_variable 
+        | ImplicitVarExpr of expr_variable
 
         | AccessExpr of expr * expr (*e1.e2*)
         | BinopExpr of expr * binop * expr 
@@ -541,9 +543,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | LambdaExpr (x, mt, e) ->
             let _, collected_elts1, fvars1 = collect_expr_expr (Variable.Set.add x already_binded) selector collector e in
             already_binded, collected_elts0@collected_elts1, fvars1
-        | VarExpr x when Variable.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, [] 
-        | VarExpr x when Variable.is_builtin x -> already_binded, collected_elts0, [] 
-        | VarExpr x -> 
+        | (VarExpr x) | (ImplicitVarExpr x) when Variable.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, [] 
+        | (VarExpr x) | (ImplicitVarExpr x) when Variable.is_builtin x -> already_binded, collected_elts0, [] 
+        | (VarExpr x) | (ImplicitVarExpr x)-> 
             logger#error "free var of %s " (Variable.to_string x);
             already_binded, collected_elts0, [mt, x]
         | BoxCExpr _ | LitExpr _ | OptionExpr None | ResultExpr (None, None) |This -> already_binded, collected_elts0, []
@@ -848,7 +850,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     let rec _rewrite_expr_expr selector rewriter place = function
     | e when selector e -> rewriter e
-    | VarExpr _ as e -> e
+    | (VarExpr _ as e) | (ImplicitVarExpr _ as e) -> e
     | AccessExpr (e1, e2) -> AccessExpr (
         rewrite_expr_expr selector rewriter e1,
         rewrite_expr_expr selector rewriter e2
@@ -930,7 +932,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | BlockStmt stmts -> BlockStmt (List.map (rewrite_expr_stmt selector rewriter) stmts) 
         | GhostStmt stmt -> GhostStmt (rewrite_expr_stmt selector rewriter stmt)
     and rewrite_expr_stmt selector rewriter = map_place (_rewrite_expr_stmt selector rewriter)
-    
+                    
+    (* Warning do not replace ImplictVar !!! *)
     let make x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) = 
         let selector = function |VarExpr x when x = x_to_replace -> true | _ -> false in
         let rewriter e = match replaceby_x_opt with | Some x -> VarExpr x | None -> Option.get replaceby_e_opt in

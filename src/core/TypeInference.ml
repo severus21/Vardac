@@ -287,6 +287,8 @@ and _tannot_expr ctx place (e, mt_e) =
         match e with  
             | VarExpr x -> 
                 VarExpr x, typeof_var_expr ctx x 
+            | ImplicitVarExpr x -> 
+                ImplicitVarExpr x, typeof_var_expr ctx x 
             | AccessExpr (e1, e2) -> begin
                 let e1 = tannot_expr ctx e1 in
                 let e2 = tannot_expr ctx e2 in
@@ -422,7 +424,7 @@ and _tannot_stmt ctx place : _stmt -> context * _stmt = function
     
     ctx, AssignExpr (x, e)
 | AssignThisExpr (x, e) -> 
-    let mt_x = typeof_var_cexpr ctx x in
+    let mt_x = typeof_var_expr ctx x in
     let e = tannot_expr ctx e in
 
     if Bool.not (is_subtype (snd e.value) mt_x) then
@@ -582,6 +584,7 @@ and _tannot_component_dcl ctx place =
 function 
 | ComponentStructure cdcl as c0 -> 
     let inner_ctx = register_self ctx  cdcl.name in 
+    let inner_ctx = fst (shallow_scan_component_dcl inner_ctx {place; value=c0}) in
     let _, body = List.fold_left_map tannot_component_item  inner_ctx cdcl.body in 
 
     let outer_ctx = fst (shallow_scan_component_dcl ctx {place; value=c0}) in

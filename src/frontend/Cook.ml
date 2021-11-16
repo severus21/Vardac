@@ -40,7 +40,8 @@ type entity_env = {
     components:     IR.component_variable Env.t; 
     exprs:          IR.expr_variable  Env.t; 
     instanciations: bool  Env.t; 
-    this:           IR.component_variable  Env.t; 
+    this:           IR.component_variable Env.t; 
+    implicits:       IR.component_variable Env.t;
     types:          IR.type_variable  Env.t} [@@deriving fields] 
 
 let fresh_entity_env () = {
@@ -48,6 +49,7 @@ let fresh_entity_env () = {
     exprs                   = Env.empty;
     instanciations          = Env.empty;
     this                    = Env.empty; (* current state*)
+    implicits               = Env.empty;
     types                   = Env.empty}
 
 (*debug only*)
@@ -63,6 +65,7 @@ let print_entity_env env =
         ("components", components);
         ("exprs", exprs); 
         ("this", this);
+        ("implicits", implicits);
         ("types", types) ];
     
     print_string "}";
@@ -273,8 +276,12 @@ let rec cook_var_expr env place x : Atom.atom =
     else (
         try
             Env.find x env.current.exprs
-        with Not_found ->
-            error place "Unbound variable: %s" x
+        with Not_found -> begin
+            try 
+                Env.find x env.current.implicits
+            with Not_found -> 
+                error place "Unbound variable: %s" x
+        end
     )
 and cook_var_type env place x : Atom.atom = 
     if Str.string_match (Str.regexp "^[A-Z].*") x 0 then
@@ -455,6 +462,7 @@ and cook_expr env place e : env * (T._expr * T.main_type) =
         match e with 
         (* No binding done in an expression can be propagated outside this expression *)
         | S.VarExpr x -> (env, T.VarExpr (cook_var_expr env place x))
+        | S.ImplicitVarExpr x -> (env, T.ImplicitVarExpr (cook_var_expr env place x))
         | S.AccessExpr ({place=p_t; value=S.This}, {place=p_v; value=S.VarExpr v}) -> env, T.AccessExpr (
             {place=p_t; value=T.This, auto_fplace T.EmptyMainType},
             {place=p_v; value= T.VarExpr (cook_var_this env p_v v), auto_fplace T.EmptyMainType}) 
@@ -803,10 +811,17 @@ and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = 
     let name = cook_var_component env place cdcl.name in
     let new_env = 
         {env with 
-        current = {env.current with components=Env.add cdcl.name name env.current.components};
-        component = { (fresh_component_env ()) with  name = name}
+        current = {env.current with 
+            components  = Env.add cdcl.name name env.current.components;
+        };
+        component = { (fresh_component_env ()) with  name = name;
+        }
     } in
-    let env = {env with component = new_env.component } in
+    let env = {env with 
+        current = {env.current with 
+            implicits   = Env.fold (fun k v map -> Env.add k v map) env.current.this env.current.implicits ; (* add binders of parent components in implicit map, iterate over env.currentcomponents and successively add it into env.current.implicits (NB args order differ with List.fold_left) - in order to mask variable if with inner scope if needed *)
+        };
+        component = new_env.component } in
 
     (* Check that there is at most one constructor/destructor per component *)
     let constructors = List.filter (function |{AstUtils.value=S.Method m} when m.value.on_startup -> true | _-> false) cdcl.body in 

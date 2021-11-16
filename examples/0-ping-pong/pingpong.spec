@@ -60,15 +60,18 @@ bridge<A, B, !ping?pong, TLS> b1 = tlsbridge('xxx.cert');*)
     - check that the protocols hosted by the logical bridge also match
 *)
 component A () {
+    int _test = 1;
+    bridge<A, B, inline p_pingpong> _b;
     (*port truc on b0 expecting ?pong. = this.handle_pong;*)
 
-    onstartup void toto (activation_info<B> b) {
+    onstartup void toto (bridge<A, B, inline p_pingpong> b0, activation_info<B> b) {
+        this._b = b0;
         print("> Starting A");
-        session<p_pingpong> s0 = initiate_session_with(b0, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationInfo<'A> -> 'st *)
+        session<p_pingpong> s0 = initiate_session_with(this._b, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationInfo<'A> -> 'st *)
         ?pong. s1 = fire(s0, ping()); (* fire : !'a 'st -> 'a -> Result<'st, error> *)
         int i = 1;
         print("> Ping fired");
-        tuple<pong, !ping!ping.> res = receive(s1, b0);  (*Tuple2<e, s>*)
+        tuple<pong, !ping!ping.> res = receive(s1, this._b);  (*Tuple2<e, s>*)
         print("pong_or_timeout");
         int j = i+1;
         !ping. s2 = fire(second(res), ping());
@@ -92,6 +95,10 @@ component A () {
     }*)
     component C () {
         onstartup void toto () {
+            (* Adding an implicit in C - comming from A *)            
+            int test = implicit::_test; (* can not work as it is - _b => undefined, this._b le truc local, A::_b serait un truc static à A, ::_b serait le _b d'une instance dans laquelle on fait le spawn ?*)
+
+
             list<place> ps1 = places();
             print("psone_done");
             print(place_to_string(listget(ps1, 0)));
@@ -109,6 +116,12 @@ component A () {
 }
 
 component B () {
+    bridge<A, B, inline p_pingpong> _b;
+
+    onstartup void toto (bridge<A, B, inline p_pingpong> b0){
+        this._b = b0;
+    }
+
     (*
         port name - not used, only to ease the debugging by providing meaningfull name 
         port    1. listen [on] a logical bridge (i.e. get the guarantee of the bridge)
@@ -116,9 +129,9 @@ component B () {
                 so we specify which point of the protocol is handled by this port using [expecting]
         then the handling of an incomming interaction is delegated to a callback : 'st -> Result<void, error>
     *)
-    port truc on b0 :: bridge<A, B, inline p_pingpong> expecting ?ping!pong?ping?ping. = this.handle_ping;
-    port truc2 on b0 :: bridge<A, B, inline p_pingpong>  expecting ?ping?ping. = this.handle_ping2;
-    port truc3 on b0 :: bridge<A, B, inline p_pingpong>  expecting ?ping. = this.handle_ping3;
+    port truc on this._b :: bridge<A, B, inline p_pingpong> expecting ?ping!pong?ping?ping. = this.handle_ping;
+    port truc2 on this._b :: bridge<A, B, inline p_pingpong>  expecting ?ping?ping. = this.handle_ping2;
+    port truc3 on this._b :: bridge<A, B, inline p_pingpong>  expecting ?ping. = this.handle_ping3;
 
     result<void, error> handle_ping (ping msg, !pong?ping?ping. s1) {
         print("ping");
@@ -141,8 +154,9 @@ component B () {
 
 component Orchestrator () {
     onstartup void toto () {
-        activation_info<B> c = (spawn B());
-        activation_info<A> a2 = (spawn A(c));  
+        bridge<A, B, inline p_pingpong> b0 = bridge(p_pingpong);
+        activation_info<B> c = (spawn B(b0));
+        activation_info<A> a2 = (spawn A(b0, c));  
     }
 }
 
@@ -155,8 +169,9 @@ component PassivePlayer() {
 component MultiJVMOrchestrator (){
     component Inner (){ (* FIXME needed since @ place can not be used directly in the guardian *)
 
-
         onstartup void toto () {
+            bridge<A, B, inline p_pingpong> b0 = bridge(p_pingpong);
+
             vplace<vpcloud> vp1 = vpcloud;
             vplace<vpa> vp2 = vpa;
 
@@ -168,7 +183,7 @@ component MultiJVMOrchestrator (){
             list<place> ps2 = select_places(vpa, x  : place -> true);
             place p1 = listget(ps1, 0);
             place p2 = listget(ps2, 0);
-            activation_info<B> c = spawn B() @ p1;
+            activation_info<B> c = spawn B(b0) @ p1;
             print(">>> b 0");
             print(placeof(c));
             print("<<<");
@@ -178,7 +193,7 @@ component MultiJVMOrchestrator (){
             }*)
 
             (* FIXME TODO  Should be @p2*)
-            activation_info<A> a2 = spawn A(c);
+            activation_info<A> a2 = spawn A(b0, c);
             print(">>> a");
             print(placeof(a2));
             print("<<<");
@@ -212,8 +227,8 @@ void titib (array<string> args){
     print("Passive player main");
 }
 
-activation_info<B> b = (spawn B()); (* B() -> call the oncreate method of B with the argument whereas B(A) will be a functor application TODO fix the syntax *) 
-activation_info<A> a1 = (spawn A(b));  
+activation_info<B> b = (spawn B(b0)); (* B() -> call the oncreate method of B with the argument whereas B(A) will be a functor application TODO fix the syntax *) 
+activation_info<A> a1 = (spawn A(b0, b));  
 
 
 

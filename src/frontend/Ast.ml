@@ -108,6 +108,7 @@ and block2 =  IR.block2
 
 and _expr = 
     | VarExpr of variable 
+    | ImplicitVarExpr of variable
 
     | AccessExpr of expr * expr (*e1.e2*)
     | BinopExpr of expr * binop * expr 
