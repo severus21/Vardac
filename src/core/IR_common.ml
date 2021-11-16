@@ -549,6 +549,10 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             logger#error "free var of %s " (Variable.to_string x);
             already_binded, collected_elts0, [mt, x]
         | BoxCExpr _ | LitExpr _ | OptionExpr None | ResultExpr (None, None) |This -> already_binded, collected_elts0, []
+        | AccessExpr (e1, {value=VarExpr _, _}) -> (* TODO AccessExpr : expr * Atom.t *)
+            let _, collected_elts1, fvars1 = collect_expr_expr already_binded selector collector e1 in
+            already_binded, collected_elts1, fvars1
+
         | AccessExpr (e1, e2) | BinopExpr (e1, _, e2) | ResultExpr (Some e1, Some e2) ->
             let _, collected_elts1, fvars1 = collect_expr_expr already_binded selector collector e1 in
             let _, collected_elts2, fvars2 = collect_expr_expr already_binded selector collector e2 in

@@ -98,7 +98,17 @@ module Make (Args : Params ) : Sig = struct
                 logger#debug "Replacing spawn for %s" (Atom.to_string name);
                 Spawn {
                 c; 
-                args = (List.map (function(mt, x) -> auto_fplace (VarExpr x, mt)) implicit_vars)@args;
+                args = (List.map (function(mt, x) -> 
+                    auto_fplace (AccessExpr (
+                        auto_fplace (This, auto_fplace (
+                            CompType (auto_fplace(
+                                CompTUid cdcl.name 
+                            ))
+                        )), 
+                        auto_fplace (VarExpr x, mt)
+                    ),
+                    mt)
+                ) implicit_vars)@args;
                 at} 
             | _ as e -> e 
         in

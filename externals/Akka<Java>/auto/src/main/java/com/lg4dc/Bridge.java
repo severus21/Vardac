@@ -5,7 +5,7 @@ import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.ActorContext;
 import com.bmartin.*;
 
-public final class Bridge<P extends Protocol> {
+public final class Bridge<P extends Protocol> implements CborSerializable {
     UUID id;
     
     //private Supplier<P> protocol_supplier;

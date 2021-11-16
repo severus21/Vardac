@@ -56,6 +56,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     let ir = ir 
         |> ImplicitElimination.rewrite_program
         |> function x-> logger#sinfo "Implicit have been removed and turned to explicit";x
+        |> Core.AstUtils.dump "explicit IR" IR.show_program
         |> Rewrite.rewrite_program
         |> function x-> logger#sinfo "IR has been rewritten";x
         |> Core.AstUtils.dump "rewritten IR" IR.show_program

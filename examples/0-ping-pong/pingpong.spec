@@ -60,7 +60,7 @@ bridge<A, B, !ping?pong, TLS> b1 = tlsbridge('xxx.cert');*)
     - check that the protocols hosted by the logical bridge also match
 *)
 component A () {
-    int _test = 1;
+    string _test = "Implicit is working";
     bridge<A, B, inline p_pingpong> _b;
     (*port truc on b0 expecting ?pong. = this.handle_pong;*)
 
@@ -96,7 +96,7 @@ component A () {
     component C () {
         onstartup void toto () {
             (* Adding an implicit in C - comming from A *)            
-            int test = implicit::_test; (* can not work as it is - _b => undefined, this._b le truc local, A::_b serait un truc static à A, ::_b serait le _b d'une instance dans laquelle on fait le spawn ?*)
+            print(implicit::_test); (* can not work as it is - _b => undefined, this._b le truc local, A::_b serait un truc static à A, ::_b serait le _b d'une instance dans laquelle on fait le spawn ?*)
 
 
             list<place> ps1 = places();

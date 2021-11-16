@@ -214,7 +214,7 @@ module Make (Args : Params ) : Sig = struct
             ]
         | {place; value=LetExpr ({value=CType{value=TTuple [msg_t;{value = SType continuation_st}]}}, let_x, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
         (*
-            N.B. We use extacly one [s] in the final AST when storing the intermediate arguments
+            N.B. We use exatcly one [s] in the final AST when storing the intermediate arguments
         *)
             logger#error "acc_method with %d stmts" (List.length acc_method.body);
             let intermediate_method_name = Atom.fresh ((Atom.hint m.name)^"_intermediate") in
@@ -273,9 +273,9 @@ module Make (Args : Params ) : Sig = struct
         | [] -> [], []
         | [ (_, _, m) ] -> [], [ m ]
         | (x1_opt, s1_opt, m1)::(x2_opt, s2_opt, m2)::ms -> begin
-            (*let already_binded = Atom.Set.of_seq (List.to_seq (List.map (function {value=(_,x)} -> x) m.args)) in
-            Atom.Set.iter (function x -> logger#error "already binded2 %s" (Atom.to_string x)) already_binded;*)
-            let already_binded = Atom.Set.empty in
+            let already_binded = Atom.Set.of_seq (List.to_seq (List.map (function {value=(_,x)} -> x) m.args)) in
+            Atom.Set.iter (function x -> logger#error "already binded2 %s" (Atom.to_string x)) already_binded;
+            (*let already_binded = Atom.Set.empty in*)
             let _, intermediate_args = List.fold_left_map free_vars_stmt already_binded m2.body in
             let intermediate_args : expr_variable list = List.map snd (List.flatten intermediate_args) in
 
@@ -291,7 +291,9 @@ module Make (Args : Params ) : Sig = struct
             let intermediate_args = (List.map 
                 (function x -> (
                     auto_fplace(
-                        Hashtbl.find gamma x
+                        
+                        (try Hashtbl.find gamma x
+        with | Not_found -> logger#error "%s not found in gamma\n%s" (Atom.to_string x) (show__method0 m2); raise (Error.PlacedDeadbranchError (place, "NotFoundInGamma")))
                         ,x
                     )
                 ))
