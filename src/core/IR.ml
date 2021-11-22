@@ -42,7 +42,28 @@ include IR_common
 module IR = IR_template.Make(IRC)(Params) 
 include IR
 
-let rec collect_expr_contract_ (already_binded:Atom.Set.t) place _contract = failwith "TODO FIXME free vars contract" 
+let rec collect_expr_contract_ (already_binded:Atom.Set.t) selector collector place _contract = 
+    let inner_already_binded = List.fold_left (fun already_binded (mt, x, e) ->
+        Variable.Set.add x already_binded
+    ) already_binded _contract.pre_binders in
+    let res = List.map (function (_, _, e) -> collect_expr_expr already_binded selector collector e) _contract.pre_binders in
+    let collected_elts1 = List.flatten (List.map (function (_,x,_) -> x) res) in
+    let fvars1 = List.flatten (List.map (function (_,_,x) -> x) res) in
+
+    let _, collected_elts2, fvars2 = 
+    match _contract.ensures with
+    | None -> already_binded, [], []
+    | Some ensures -> collect_expr_expr already_binded selector collector ensures 
+    in
+
+    let _, collected_elts3, fvars3 = 
+    match _contract.returns with
+    | None -> already_binded, [], []
+    | Some returns -> collect_expr_expr already_binded selector collector returns 
+    in
+
+    already_binded, collected_elts1@collected_elts2@collected_elts3, fvars1@fvars2@fvars3
+
 and collect_expr_contract (already_binded:Atom.Set.t) selector collector c = 
     map0_place (collect_expr_contract_ already_binded selector collector) c 
 and collect_expr_port_ (already_binded:Atom.Set.t) selector collector place (_port, _) =

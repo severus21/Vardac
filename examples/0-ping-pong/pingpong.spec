@@ -153,6 +153,11 @@ component B () {
 
         return Ok(());
     }
+
+    contract handle_ping3 
+    invariant 0 == 0 
+    ensures "a" == "a"
+    returns (res : result<void, error> -> res? == () )
 }
 
 component Orchestrator () {
