@@ -6,3 +6,7 @@ build_{{name}}:
 {% endfor %}
 
 build:{% for name in target_mains %} build_{{name}}{%endfor%}
+
+.PHONY: test
+test:
+	gradle test

@@ -5,6 +5,7 @@
         - (future work) should be verified without errors (*TODO FIXME*)
         - the glue should be generated without errors
         - the glue should compiles without errors
+        - the (generated) tests of the glue should be run without errors
         - (future work) the glue should run without errors -> run docker testbench (*TODO FIXME*)
 
     Side tools:
@@ -60,6 +61,13 @@ let testsfrom (name, spec_file, impl_file, targets_file, places_file) : OUnit2.t
         let build_dir = OUnit2.bracket_tmpdir ctx in
         ignore (Compspeclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
         let code = Sys.command ("cd "^build_dir^"/akka && make build > /tmp/log.log") in
+        Printf.fprintf stdout "Code %d\n" code;
+        assert_equal 0 code 
+    end);
+    ((Printf.sprintf "glu test%s" name) >:: function ctx -> begin 
+        let build_dir = OUnit2.bracket_tmpdir ctx in
+        ignore (Compspeclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
+        let code = Sys.command ("cd "^build_dir^"/akka && make test > /tmp/log.log") in
         Printf.fprintf stdout "Code %d\n" code;
         assert_equal 0 code 
     end)
