@@ -17,6 +17,10 @@ import akka.actor.typed.javadsl.TimerScheduler;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
+import com.fasterxml.jackson.annotation.JsonTypeName;
 
 import com.lg4dc.timers.*;
 import com.bmartin.*;
@@ -24,10 +28,11 @@ import com.bmartin.*;
 // Session types as values
 public final class ASTStype {
     public static final class MsgT implements CborSerializable{
-        public Object value;
+        //We use String here otherwise Jackson is not able to correctly reconstruct subtype (except if we provide a list of all subtypes)
+        public String value;
 
         @JsonCreator
-        public MsgT(@JsonProperty("value") Object value){
+        public MsgT(@JsonProperty("value") String value){
             this.value = value;
         }
 
@@ -41,7 +46,16 @@ public final class ASTStype {
             }   
 
             MsgT b = (MsgT) obj;
-            return this.value.equals(b.value);
+            if (this.value.equals(b.value))
+            return true;
+            else{
+                System.out.println("MsgT Equals failed at "+obj.toString());
+                return false;
+            }
+            //return this.value.equals(b.value);
+        }
+        public String toString(){
+            return "MsgT<"+this.value+">";
         }
     }
     public static enum TimerKind {
@@ -92,6 +106,15 @@ public final class ASTStype {
         }
     }
 
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, 
+      include = As.PROPERTY, property = "type") @JsonSubTypes({
+         
+      @JsonSubTypes.Type(value = End.class, name = "End"),
+      @JsonSubTypes.Type(value = Send.class, name = "Send"),
+      @JsonSubTypes.Type(value = Receive.class, name = "Receive"),
+      @JsonSubTypes.Type(value = Branch.class, name = "Branch"),
+      @JsonSubTypes.Type(value = Select.class, name = "Select")
+   })
     public static class Base implements CborSerializable{
         /*
             Empty continuation <=> End
@@ -118,15 +141,23 @@ public final class ASTStype {
             return r1.equals(r2); 
         }
 
+        public String toString(){
+            return "Base";
+        }
+
     }
 
-
+    @JsonTypeName("End")
     public static final class End extends Base {
         public End () {
             assert(this.continuations.isEmpty());
         }
+        public String toString(){
+            return "End";
+        }
     }
 
+    @JsonTypeName("Send")
     public static final class Send extends Base {
         public MsgT msg_type;
         public Send(MsgT msg_type, List<TimerHeader> timers, Base continuation){
@@ -135,7 +166,12 @@ public final class ASTStype {
 
             assert(!this.continuations.isEmpty());
         }
+        public String toString(){
+            return "Send<"+this.msg_type.getClass().toString()+", "+this.continuations.toString()+">";
+        }
     }
+
+    @JsonTypeName("Receive")
     public static final class Receive extends Base {
         public MsgT msg_type;
         public Receive(MsgT msg_type, List<TimerHeader> timers, Base continuation){
@@ -145,19 +181,32 @@ public final class ASTStype {
             assert(!this.continuations.isEmpty());
         }
 
+        public String toString(){
+            return "Receive<"+this.msg_type.getClass().toString()+", "+this.continuations.toString()+">";
+        }
     }
+
+    @JsonTypeName("Branch")
     public static final class Branch extends Base {
         public Branch(List<Tuple3<MsgT, List<TimerHeader>, Base>> continuations){
             this.continuations = continuations;
 
             assert(!this.continuations.isEmpty());
         }
+        public String toString(){
+            return "Branch<"+this.continuations.toString()+">";
+        }
     }
+
+    @JsonTypeName("Select")
     public static final class Select extends Base {
         public Select(List<Tuple3<MsgT, List<TimerHeader>, Base>> continuations){
             this.continuations = continuations;
 
             assert(this.continuations.isEmpty());
+        }
+        public String toString(){
+            return "Select<"+this.continuations.toString()+">";
         }
     }
     // TODO recursion

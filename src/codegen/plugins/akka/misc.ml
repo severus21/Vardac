@@ -342,7 +342,16 @@ let e_debug_of place (context:Ast.expr) (args:Ast.expr list) : Ast.expr =
             e_logger_of_context place context,
             auto_place (Ast.VarExpr (Atom.fresh_builtin "debug"))
         )),
-        args
+        [List.fold_left (fun a b -> auto_place (Ast.BinopExpr (a, AstUtils.Plus, b))) (auto_place (Ast.RawExpr "\"\"")) args]
+    ))
+let e_error_of place (context:Ast.expr) (args:Ast.expr list) : Ast.expr =
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.CallExpr (
+        auto_place (Ast.AccessExpr (
+            e_logger_of_context place context,
+            auto_place (Ast.VarExpr (Atom.fresh_builtin "error"))
+        )),
+        [List.fold_left (fun a b -> auto_place (Ast.BinopExpr (a, AstUtils.Plus, b))) (auto_place (Ast.RawExpr "\"\"")) args]
     ))
 
 let e_super place args = 

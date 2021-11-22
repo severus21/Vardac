@@ -9,10 +9,19 @@ import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.ActorContext;
 
 import com.bmartin.*;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 
-public abstract interface Protocol {
-    public abstract ASTStype.Base get_st();
+@JsonAutoDetect(fieldVisibility = Visibility.ANY)
+public class Protocol implements CborSerializable, java.io.Serializable {
+    public ASTStype.Base get_st(){
+        return new ASTStype.End();
+    }
 }
+
+//public abstract interface Protocol extends CborSerializable {
+//    public abstract ASTStype.Base get_st();
+//}
 /*
 //https://apocalisp.wordpress.com/2008/10/23/heterogeneous-lists-and-the-limits-of-the-java-type-system/
 public abstract class HList<A extends HList<A>> {

@@ -260,7 +260,17 @@ function
             T.NewExpr (
                 constructor,
                 [
-                    e_ASTStype_MsgT_of place (auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.fresh_builtin "class")))));
+                    e_ASTStype_MsgT_of place (
+                        auto_place(
+                            T.CallExpr(
+                                auto_place (T.AccessExpr(
+                                    auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.fresh_builtin "class")))),
+                                    auto_place (T.RawExpr "toString")
+                                )),
+                                []
+                            )
+                        )
+                    );
                     auto_place (Encode.encode_list place encoded_headers);  
                     fvstype st
                 ]
@@ -280,7 +290,17 @@ function
             T.NewExpr (
                 constructor,
                 [
-                    e_ASTStype_MsgT_of place (auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.fresh_builtin "class")))));
+                    e_ASTStype_MsgT_of place (
+                        auto_place(
+                            T.CallExpr(
+                                auto_place (T.AccessExpr(
+                                    auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.fresh_builtin "class")))),
+                                    auto_place (T.RawExpr "toString")
+                                )),
+                                []
+                            )
+                        )
+                    );
                     auto_place (Encode.encode_list place []);  
                     fvstype st
                 ]
@@ -998,7 +1018,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         let add_case (bridge, st, remaining_st) (callback:T.expr) acc : T.stmt =
             auto_place (T.IfStmt (
                 auto_place (T.BinopExpr(
-                    auto_place (T.BinopExpr (e_bridgeid l_event, AstUtils.Equal, bridgeid bridge)),
+                    auto_place (T.BinopExpr (e_bridgeid l_event, AstUtils.StructuralEqual, bridgeid bridge)),
                     AstUtils.And,
                     auto_place (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, fvstype (S.dual st)))
                 )),
@@ -1044,7 +1064,16 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
 
         [
             add_check_session_validity ();
-            Hashtbl.fold add_case inner_env (auto_place (T.EmptyStmt));
+            Hashtbl.fold add_case inner_env (auto_place (T.ExpressionStmt ((e_error_of fplace (e_get_context fplace) [
+                auto_place (T.LitExpr (auto_place(T.StringLit"Dispatcher does not caught message ")));
+                auto_place (T.CallExpr (
+                    auto_place(T.AccessExpr(
+                        l_event,
+                        auto_place (T.RawExpr "toString")
+                    )),
+                    []
+                ));
+            ]))));
             auto_place ret_stmt
         ]
     in
@@ -1348,8 +1377,8 @@ and finish_term place : S._term -> T.term list = function
             decorators = [];
             v = T.ClassOrInterfaceDeclaration {
                 isInterface = false;
-                extended_types = [];
-                implemented_types = [t_lg4dc_protocol place];
+                extended_types = [t_lg4dc_protocol place];
+                implemented_types = [];
                 name = name;
                 body = stmts @ sub_classes @ methods (*@ events*)
             }

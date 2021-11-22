@@ -122,6 +122,14 @@ let encode_builtin_fct place name (args:T.expr list) =
         )
         | _ -> Error.error place "sessionid must take one argument"
     end
+    |"string_of_bridge" -> begin
+        match args with
+        | [ b ] ->  T.CallExpr(
+            { place; value = T.AccessExpr (b, {place; value = T.VarExpr (Atom.fresh_builtin "toString")})},
+            []
+        )
+        | _ -> Error.error place "string_of_bridge must take one argument"
+    end
     | "activationsat" -> begin
         (* TODO rename activationsat or componentsat in order to have same name in java and ocaml code*)
         match args with

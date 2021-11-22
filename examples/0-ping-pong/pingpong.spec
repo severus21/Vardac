@@ -67,6 +67,7 @@ component A () {
     onstartup void toto (bridge<A, B, inline p_pingpong> b0, activation_info<B> b) {
         this._b = b0;
         print("> Starting A");
+        print(string_of_bridge(b0));
         session<p_pingpong> s0 = initiate_session_with(this._b, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationInfo<'A> -> 'st *)
         ?pong. s1 = fire(s0, ping()); (* fire : !'a 'st -> 'a -> Result<'st, error> *)
         int i = 1;
@@ -119,6 +120,8 @@ component B () {
     bridge<A, B, inline p_pingpong> _b;
 
     onstartup void toto (bridge<A, B, inline p_pingpong> b0){
+        print("> Starting B");
+        print(string_of_bridge(b0));
         this._b = b0;
     }
 

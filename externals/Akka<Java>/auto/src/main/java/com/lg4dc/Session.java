@@ -10,17 +10,17 @@ import akka.actor.typed.javadsl.TimerScheduler;
 import com.bmartin.*;
 import com.lg4dc.timers.*;
 
-public class Session {
+public class Session implements CborSerializable {
     public UUID bridge_id;
-    public ActorRef<CborSerializable> left;
-    public ActorRef<CborSerializable> right;
+    public ActorRef left;
+    public ActorRef right;
     public UUID session_id;
     public ASTStype.Base st;
 
     public Session(
         UUID bridge_id,
-        ActorRef<CborSerializable> left, //TODO remove Cbor and Cast
-        ActorRef<CborSerializable> right,
+        ActorRef left, //TODO remove Cbor and Cast
+        ActorRef right,
         ASTStype.Base st) {
         this.bridge_id = bridge_id;
         this.session_id = UUID.randomUUID();
@@ -53,7 +53,7 @@ public class Session {
 
         e.hydrate(this.bridge_id,  this.session_id,  this.left, this.st, new NoMetadata());
         this.right.tell(e);
-        context.getLog().debug(String.format("Message send from %s to %s", context.getSelf().path().toString(), this.right.path().toString()));
+        context.getLog().debug(String.format("Message %s send from %s to %s", e.toString(), context.getSelf().path().toString(), this.right.path().toString()));
 
         ASTStype.TimerHeader.apply_headers(context, contextTimers, frozen_sessions, dead_sessions, this);
 

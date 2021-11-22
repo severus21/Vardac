@@ -210,6 +210,13 @@ let t_nth () = (* TODO can not work - number of elmt not knwon*)
         mtype_of_ft TWildcard
     ))
 
+let t_string_of_bridge () = 
+    mtype_of_ct(TArrow(
+        fresh_tbridge (),
+        mtype_of_ft TStr 
+    ))
+
+
 let t_sessionid () =
     mtype_of_ct (TArrow(
         quantify ["st"] (function [st] -> mtype_of_svar st),
@@ -222,6 +229,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "add2dict", "dict<k,v> -> k -> v -> ()", "add in place",t_add2dict ;
     "bridge", "() -> Bridge<'A, 'B, 'a>", "create a new bridge with a fresh id",
     fresh_tbridge;
+    "string_of_bridge", "bridge -> string", "", t_string_of_bridge;
     "fire", "STSend<'msg, 'continuation> -> 'msg -> 'continuation", "TODO", t_fire
     ;
     "current_place", " unit -> place", "current place", t_current_place;

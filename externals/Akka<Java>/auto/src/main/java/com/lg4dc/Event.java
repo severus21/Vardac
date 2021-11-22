@@ -26,4 +26,8 @@ public class Event<T extends NoMetadata> implements CborSerializable {
         this.st = st;
         this.metadata = metadata;
     }
+
+    public String toString(){
+        return this.getClass().toString()+"<bridgeId="+this.bridge_id+"; session_id="+this.session_id+"; st="+this.st.getClass().toString()+"|"+this.st.toString()+">";
+    }
 }
