@@ -18,8 +18,7 @@ module Make (Args : Params ) : Sig = struct
         - make explict the implicit constructor arguments and stored then as component attributes
             after rewrite all ImplicitVarExpr should have been rewritten to classical VarExpr and this...
     *)
-    let gamma = Args.gamma
-    let targets = Args.targets
+    include Args 
     (* We need targets since guardian can not have any implicit variables - since there is no shared memory between guardians and instance of guardians 
     TODO TODOC somewhere *)
 

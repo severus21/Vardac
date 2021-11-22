@@ -6,3 +6,5 @@
    - components are added according to their target attribute
 *)
 val split_program : Core.Target.targets -> Core.IRI.program -> (Core.Target.target * Core.IRI.program) Seq.t 
+
+val make_component2target : unit -> (Core.Atom.atom, string) Hashtbl.t 

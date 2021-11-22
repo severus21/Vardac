@@ -35,7 +35,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
 
     let (gamma, ir) = Frontend.Main.to_ir places filename in
-    let ir =
+    let ir1 =
         ir
         |> Core.TypeInference.tannot_program
         |> function x-> logger#sinfo "IR has been annotated with types (type reconstruction only)"; x
@@ -45,7 +45,6 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         |> Core.PartialEval.peval_program
         |> function x-> logger#sinfo "IR has been partially evaluated"; x
         |> Core.AstUtils.dump "pevaled IR" IR.show_program
-        |> function program -> Topology.generate_static_logical_topology build_dir program; program
     in
 
     (* extract targets definitions from file *)
@@ -53,7 +52,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
     let module Rewrite = ((Core.Rewrite.Make((struct let gamma = gamma let targets = targets end))):Core.Rewrite.Sig) in
     let module ImplicitElimination = ((Core.ImplicitElimination.Make((struct let gamma = gamma let targets = targets end))):Core.Rewrite.Sig) in
-    let ir = ir 
+    let ir2 = ir1 
         |> ImplicitElimination.rewrite_program
         |> function x-> logger#sinfo "Implicit have been removed and turned to explicit";x
         |> Core.AstUtils.dump "explicit IR" IR.show_program
@@ -62,9 +61,14 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         |> Core.AstUtils.dump "rewritten IR" IR.show_program
     in
 
-    ir
+    ir2
     |> Frontend.Main.to_impl targets impl_filename  
-    |> Codegen.codegen project_dir build_dir places targets
+    |> Codegen.codegen project_dir build_dir places targets;
+
+    (* Before rewriting *)
+    let module TopologyPrinter = ((Core.Topology.Make((struct let component2target = (Codegen.make_component2target ()) end))):Core.Topology.Sig) in (* Warning make_component2target can not be called before spliting until split.ml was improved*)
+    TopologyPrinter.generate_static_logical_topology build_dir ir1;
+    
 
 (* -------------------------------------------------------------------------- *)
 (* Sanitize libs *)

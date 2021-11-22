@@ -18,7 +18,7 @@ module Make (Args : Params ) : Sig = struct
         - get ride of session.receive only use ports
             TODO FIXME only scan component method at this point
     *)
-    let gamma = Args.gamma
+    include Args
 
     let rec rewrite_method0 place (m:_method0) : port list * state list * method0 list = 
     let fplace = (Error.forge_place "Core.Rewrite.rewrite_method0" 0 0) in

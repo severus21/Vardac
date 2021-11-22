@@ -1,4 +1,5 @@
 open Core
+open AstUtils
 open IRI
 open Easy_logging
 open Utils
@@ -7,6 +8,32 @@ let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
 let targets2ast : (string, IRI.program) Hashtbl.t = Hashtbl.create 10 
 let targets2targets : (string, Target.target) Hashtbl.t = Hashtbl.create 10
+
+(* State hydrated during this pass and exported to be used in topology.ml
+TODO export it not just with module inclusion but using Functor
+*)
+let make_component2target () = 
+    assert( Hashtbl.length targets2ast <> 0);
+
+    let component2target : (Atom.atom, string) Hashtbl.t = Hashtbl.create 64 in
+
+    let rec _explore_citem target place = function 
+    | Term t -> explore_term target t
+    | _ -> ()
+    and explore_citem target = map0_place (_explore_citem target)
+    and _explore_term target place = function 
+    | Component {value = ComponentStructure cdcl} -> 
+        Hashtbl.add component2target cdcl.name target; 
+        List.iter (explore_citem target) cdcl.body
+    | Component {value=ComponentAssign cdcl} -> 
+        Hashtbl.add component2target cdcl.name target 
+    | _ -> ()
+    and explore_term target = map0_place (_explore_term target)
+    in
+
+    Hashtbl.iter (fun target -> List.iter (explore_term target)) targets2ast;
+
+    component2target
 
 let add_to_target target term = 
     try 

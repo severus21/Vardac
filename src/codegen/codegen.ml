@@ -38,3 +38,6 @@ let codegen project_dir (build_dir:Fpath.t) places targets program =
     |> Split.split_program targets
     (* Do the codegeneration *) 
     |> Seq.iter (codegen_program project_dir build_dir places)
+
+
+let  make_component2target () = Split.make_component2target ()
