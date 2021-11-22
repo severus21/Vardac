@@ -78,7 +78,8 @@ match Config.provenance_lvl () with
 | Config.None | Config.Medium -> output_literal out lit.value
 | Config.Full -> output_placed out output_literal lit 
 
-and output_expr out : _expr -> unit = function
+and output_expr out (e, _): unit = 
+match e with
     | AccessExpr (e1,e2) -> fprintf out "%a.%a" oexpr e1 oexpr e2
     | AccessMethod (e1,e2) -> fprintf out "%a::%a" oexpr e1 output_var e2
     | AppExpr (e1, es) -> 
@@ -86,6 +87,8 @@ and output_expr out : _expr -> unit = function
     | AssertExpr e -> fprintf out "assert(%a)" oexpr e                   
     | AssignExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_assignop op oexpr e2
     | BinaryExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_binop op oexpr e2
+    | CastExpr (ct, {value=LambdaExpr (variables, stmt),_}) -> (* Otherwise Java error "error: lambda expression not expected here"*)
+        fprintf out "( (%a) (%a) -> { %a } )" ojtype ct output_vars variables ostmt stmt
     | CastExpr (ct, e) -> fprintf out "(%a) %a" ojtype ct oexpr e
     | LiteralExpr lit -> oliteral out lit
     | LambdaExpr (variables, stmt) -> fprintf out "( (%a) -> { %a } )" output_vars variables ostmt stmt
@@ -259,6 +262,7 @@ let output_program package_name outpath items : unit =
         JModule (mock_placed(ImportDirective "java.util.concurrent.CompletableFuture"));
         JModule (mock_placed(ImportDirective "java.util.UUID"));
         JModule (mock_placed(ImportDirective "java.util.stream.Collectors"));
+        JModule (mock_placed(ImportDirective "java.util.function.Function"));
 
 
         (* Akka imports *)

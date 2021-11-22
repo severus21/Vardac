@@ -168,6 +168,8 @@ let rec finish_ctype place : S._composed_type ->  T._ctype = function
     | S.TBridge b -> (t_lg4dc_bridge place).value
     | S.TRaw bbraw -> T.TRaw bbraw.value.body
     | S.TUnion _-> T.TRaw "Object" (* TODO maybe a better solution*)
+    | S.TForall _ -> T.TUnknown (* TODO maybe encode it as class <T> ... { <T> } *)
+    | S.TPolyVar _ -> T.TUnknown (* TODO maybe encode it as class <T> ... { <T> } *)
 and fctype ct :  T.ctype = map_place finish_ctype ct
 
 (* Represent an ST object in Java type *)
@@ -228,7 +230,7 @@ and finish_stype place : S._session_type -> T._ctype = function
 and fstype st : T.ctype = map_place finish_stype st
 
 (* Represent an ST object in Java value *)
-and finishv_stype place : S._session_type -> T._expr = 
+and finishv_stype place : S._session_type -> T._expr * T.ctype = 
 (****** Helpers *****)
 let fplace = place@(Error.forge_place "Plg=Akka/finishv_stype" 0 0) in
 let auto_place smth = {place = fplace; value=smth} in
@@ -240,10 +242,10 @@ let rec encode_guard_header_ place = function
 and encode_guard_header header : T.expr = encode_guard_header_ header.place header.value in 
 
 let encodectype = function
-| {value=T.TVar x; place} -> {value=T.VarExpr x; place} 
+| {value=T.TVar x; place} -> {value=T.VarExpr x, auto_place T.TUnknown; place} 
 in
 function 
-    | S.STEnd -> T.NewExpr (auto_place (T.VarExpr (a_ASTStype_of "End")), [])
+    | S.STEnd -> T.NewExpr (auto_place (T.VarExpr (a_ASTStype_of "End"), auto_place T.TUnknown), []), auto_place T.TUnknown
     (* With guard *)
     | (S.STSend ({place=p_mt; value=S.ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) | (S.STRecv ({place=p_mt; value=S.ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) -> begin 
 
@@ -252,10 +254,10 @@ function
 
         match fmtype mt with
         | ct ->
-            let constructor = auto_place (match st0 with 
+            let constructor = auto_place ((match st0 with 
             | S.STSend _ -> T.VarExpr (a_ASTStype_of "Send")
             | STRecv _ -> T.VarExpr (a_ASTStype_of "Receive")
-            ) in
+            ), auto_place T.TUnknown) in
 
             T.NewExpr (
                 constructor,
@@ -264,17 +266,17 @@ function
                         auto_place(
                             T.CallExpr(
                                 auto_place (T.AccessExpr(
-                                    auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.fresh_builtin "class")))),
-                                    auto_place (T.RawExpr "toString")
-                                )),
+                                    auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.fresh_builtin "class"), auto_place T.TUnknown)), auto_place T.TUnknown),
+                                    auto_place (T.RawExpr "toString", auto_place T.TUnknown)
+                                ), auto_place T.TUnknown),
                                 []
-                            )
+                            ), auto_place T.TUnknown
                         )
                     );
-                    auto_place (Encode.encode_list place encoded_headers);  
+                    auto_place (Encode.encode_list place encoded_headers, auto_place T.TUnknown);  
                     fvstype st
                 ]
-            )
+            ), auto_place T.TUnknown 
         | _ -> raise (Core.Error.PlacedDeadbranchError (mt.place, "finish_stype : STSend/STRecv type should not be a session type."))
     end
 
@@ -282,10 +284,10 @@ function
     | (S.STSend (mt, st) as st0) | (S.STRecv (mt, st) as st0) -> begin 
         match fmtype mt with
         | ct ->
-            let constructor = auto_place (match st0 with 
+            let constructor = auto_place ((match st0 with 
             | S.STSend _ -> T.VarExpr (a_ASTStype_of "Send")
             | STRecv _ -> T.VarExpr (a_ASTStype_of "Receive")
-            ) in
+            ), auto_place T.TUnknown) in
 
             T.NewExpr (
                 constructor,
@@ -294,24 +296,24 @@ function
                         auto_place(
                             T.CallExpr(
                                 auto_place (T.AccessExpr(
-                                    auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.fresh_builtin "class")))),
-                                    auto_place (T.RawExpr "toString")
-                                )),
+                                    auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.fresh_builtin "class"), auto_place T.TUnknown)), auto_place T.TUnknown),
+                                    auto_place (T.RawExpr "toString", auto_place T.TUnknown)
+                                ), auto_place T.TUnknown),
                                 []
-                            )
+                            ), auto_place T.TUnknown
                         )
                     );
-                    auto_place (Encode.encode_list place []);  
+                    auto_place (Encode.encode_list place [], auto_place T.TUnknown);  
                     fvstype st
                 ]
-            )
+            ), auto_place T.TUnknown
         | _ -> raise (Core.Error.PlacedDeadbranchError (mt.place, "finish_stype : STSend/STRecv type should not be a session type."))
     end
     | (S.STBranch xs as st0) | (S.STSelect xs as st0) ->
-        let constructor = auto_place (match st0 with 
+        let constructor = auto_place ((match st0 with 
         | S.STSend _ -> T.VarExpr (a_ASTStype_of "Branch")
         | STRecv _ -> T.VarExpr (a_ASTStype_of "Select")
-        ) in
+        ), auto_place T.TUnknown) in
 
         T.NewExpr (
             constructor,
@@ -320,11 +322,11 @@ function
                     AstUtils.List,
                     List.map (function (label, st, _) -> auto_place (T.BlockExpr (
                         AstUtils.Tuple, 
-                        [ auto_place (T.VarExpr label); fvstype st ]
-                    ))) xs
-                ))
+                        [ auto_place (T.VarExpr label, auto_place T.TUnknown); fvstype st ]
+                    ), auto_place T.TUnknown)) xs
+                ), auto_place T.TUnknown)
             ]
-        )
+        ), auto_place T.TUnknown
     | S.STVar _ -> failwith "Not yet supported" 
     | S.STRec (_,st) -> failwith "Not yet supported"
     | S.STInline x -> 
@@ -333,6 +335,8 @@ and fvstype st : T.expr = map_place finishv_stype st
 
 and finish_component_type place : S._component_type -> T._ctype = function
 | S.CompTUid x -> T.TVar x 
+| S.TStruct x -> T.TUnknown (* Structural types can not be encoded in Java*) 
+| c -> failwith (S.show__component_type c)
 and fcctype ct : T.ctype = map_place finish_component_type ct
 
 and finish_mtype place : S._main_type -> T.ctype = 
@@ -356,7 +360,7 @@ function
     )
 }
 | S.CompType ct -> fcctype ct
-| ct -> Core.Error.error place "Akka: Type translation is only supported for composed types and session types : %s" (S.show__main_type ct)
+| S.EmptyMainType -> {place; value=T.TUnknown}
 and fmtype : S.main_type ->  T.ctype = function mt -> finish_mtype mt.place mt.value
 
 (************************************ Literals *****************************)
@@ -377,22 +381,22 @@ and fliteral lit : T.literal = map_place finish_literal lit
 
 (************************************ Expr & Stmt *****************************)
 
-and finish_expr place (e, _): T._expr =
+and finish_expr place (e, mt): T._expr * T.ctype =
 let fplace = place@(Error.forge_place "Plg=Akka/finish_expr" 0 0) in
 let auto_place smth = {place = fplace; value=smth} in
-match e with
+(match e with
     | S.VarExpr x -> T.VarExpr x
     | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
     | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
     | S.LambdaExpr (x, _, e) -> T.LambdaExpr ([x], auto_place (T.ReturnStmt (fexpr e))) 
     | S.LitExpr {value=S.Bridge b; place=lit_place} -> 
-       (e_bridge_of_protocol lit_place (auto_place (T.VarExpr b.protocol_name))).value 
+       fst (e_bridge_of_protocol lit_place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown))).value 
 
     | S.LitExpr {value=S.VPlace vp} -> begin 
         T.CallExpr (
-            auto_place(T.VarExpr (Atom.fresh_builtin "VPlaces.get")),
+            auto_place(T.VarExpr (Atom.fresh_builtin "VPlaces.get"), auto_place T.TUnknown),
             [
-                auto_place (T.LitExpr(auto_place(T.StringLit (Atom.hint vp.name))))
+                auto_place (T.LitExpr(auto_place(T.StringLit (Atom.hint vp.name))), auto_place T.TUnknown)
             ]
         )
     end
@@ -414,28 +418,21 @@ match e with
     | S.This -> T.This
     | S.Spawn {c; args; at=None} ->
         T.Spawn {
-            context = {place; value = T.CurrentContext};  
-            actor_expr= {place; value = T.CallExpr(
-                { 
-                    place;
-                    value = T.VarExpr (Atom.fresh_builtin "spawn")
-                },
-                [{
-                    place;
-                    value = T.CallExpr ({
-                        place;
-                        value = T.AccessExpr (
+            context = auto_place (T.CurrentContext, auto_place T.TUnknown);  
+            actor_expr= auto_place (T.CallExpr(
+                auto_place (T.VarExpr (Atom.fresh_builtin "spawn")
+                , auto_place T.TUnknown),
+                [auto_place (T.CallExpr (
+                    auto_place (T.AccessExpr (
                             fcexpr c,
-                            { 
-                                place;
-                                value = T.VarExpr (Atom.fresh_builtin "create")
-                            }
-                        )},
+                            auto_place (T.VarExpr (Atom.fresh_builtin "create")
+                            , auto_place T.TUnknown)
+                        ), auto_place T.TUnknown),
                         e_this_guardian fplace
                         :: List.map fexpr args
                     )
-                }] @ [ auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))))]
-            )}
+                , auto_place T.TUnknown)] @ [ auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))), auto_place T.TUnknown)]
+            ), auto_place T.TUnknown)
         }
     | S.Spawn {c; args; at=Some at} ->
         (*
@@ -473,41 +470,41 @@ match e with
                                                 auto_place (T.ExpressionStmt (
                                                 e_debug_of 
                                                     place 
-                                                    (auto_place (T.VarExpr a_context)) 
+                                                    (auto_place (T.VarExpr a_context, auto_place T.TUnknown)) 
                                                     [
-                                                        auto_place (T.LitExpr (auto_place (T.StringLit ("SpawnAT::create"))))
+                                                        auto_place (T.LitExpr (auto_place (T.StringLit ("SpawnAT::create"))), auto_place T.TUnknown)
                                                     ]
                                                 ));
                                                 auto_place (T.ReturnStmt (auto_place (
                                                     T.NewExpr (
                                                         fcexpr c,
                                                         (
-                                                            List.map (function x -> auto_place (T.VarExpr x)) (a_context
+                                                            List.map (function x -> auto_place (T.VarExpr x, auto_place T.TUnknown)) (a_context
                                                             ::a_timers
                                                             ::a_guardian
                                                             ::[]
                                                         )
                                                         @(List.map fexpr args))
 
-                                                    )
+                                                    ), auto_place T.TUnknown
                                                 )));
                                             ])
-                                        ))
+                                        ), auto_place T.TUnknown)
                                     ]
-                            ))))
+                            ), auto_place T.TUnknown)))
                         ])
-                    ))
+                    ), auto_place T.TUnknown)
                 ))
             ])
-        )) in
+        ), auto_place T.TUnknown) in
         T.CallExpr(
             e_lg4dc_spawnat fplace,
             [
                 e_get_context place;
                 e_this_guardian fplace;
                 runnable;
-                auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))));
-                auto_place (T.LitExpr (auto_place T.VoidLit));
+                auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))), auto_place T.TUnknown);
+                auto_place (T.LitExpr (auto_place T.VoidLit), auto_place T.TUnknown);
                 fexpr at;
             ]
         )
@@ -515,29 +512,33 @@ match e with
     
     | S.OptionExpr e_opt -> failwith "option not yet supported" 
     | S.ResultExpr (None, Some err) ->  T.CallExpr (
-        { place; value = T.VarExpr (Atom.fresh_builtin "Either.left")},
+        auto_place (T.VarExpr (Atom.fresh_builtin "Either.left"), auto_place T.TUnknown),
         [fexpr err]
     ) 
     | S.ResultExpr (Some ok, None) -> T.CallExpr (
-        { place; value = T.VarExpr (Atom.fresh_builtin "Either.right")},
+        auto_place (T.VarExpr (Atom.fresh_builtin "Either.right"), auto_place T.TUnknown),
         [fexpr ok]
     ) 
     | S.ResultExpr (_,_) -> raise (Core.Error.PlacedDeadbranchError (place, "finish_expr : a result expr can not be Ok and Err at the same time."))
     | S.BlockExpr (b, es) -> T.BlockExpr(b, List.map fexpr es)
     | S.Block2Expr (b, xs) -> failwith "block not yet supported"
+), fmtype mt
 and fexpr e : T.expr = map_place finish_expr e
 
-and finish_stmt place : S._stmt -> T._stmt = function
+and finish_stmt place : S._stmt -> T._stmt = 
+let fplace = place@(Error.forge_place "Plg=Akka/finish_stmt" 0 0) in
+let auto_place smth = {place = fplace; value=smth} in
+function
     | S.EmptyStmt -> T.CommentsStmt (AstUtils.LineComment "Empty Statement")
 
     (*S.* Binders *)
-    | S.AssignExpr (x, e) -> T.AssignExpr ({place; value=T.VarExpr x}, fexpr e)
+    | S.AssignExpr (x, e) -> T.AssignExpr (auto_place (T.VarExpr x, auto_place T.TUnknown), fexpr e)
     | S.AssignThisExpr (x, e) -> 
         T.AssignExpr ( 
-            {place; value= T.AccessExpr (
-                {place; value=T.This},
-                {place; value= T.VarExpr x})
-            },
+            auto_place (T.AccessExpr (
+                auto_place (T.This, auto_place T.TUnknown),
+                auto_place (T.VarExpr x, auto_place T.TUnknown))
+            , auto_place T.TUnknown),
             fexpr e)        
     | S.LetExpr (mt, x, e) ->  T.LetStmt (fmtype mt, x, Some (fexpr e))                             
 
@@ -604,7 +605,10 @@ and ffunction : S.function_dcl -> T.method0 list = function m -> finish_function
 
 
 (* return type is T._expr for now, since we built only one state with all the variable inside FIXME *)
-and finish_state place : S._state -> T._stmt = function 
+and finish_state place : S._state -> T._stmt = 
+let fplace = (Error.forge_place "Plg=Akka/finish_state" 0 0) in
+let auto_place smth = {place = fplace; value=smth} in
+function 
     | S.StateDcl {ghost; type0; name; body = S.InitExpr e} -> 
         T.LetStmt (fmtype type0, name, Some (fexpr e))
     | S.StateDcl {ghost; type0; name; body = S.InitBB bb_term} -> 
@@ -614,7 +618,7 @@ and finish_state place : S._state -> T._stmt = function
             else
                 bb_term.value.body
         in
-        T.LetStmt (fmtype type0, name, Some ({place=bb_term.place; value = T.RawExpr re}))
+        T.LetStmt (fmtype type0, name, Some ({place=bb_term.place; value = T.RawExpr re, auto_place T.TUnknown}))
     (*use global x as y;*)
     | S.StateDcl { ghost; type0; name; body = S.NoInit} ->
         T.LetStmt (fmtype type0, name, None)
@@ -628,6 +632,9 @@ and fparam : S.param -> (T.ctype * T.variable) = function p -> finish_param p.pl
 
 
 and finish_contract place (method0 : T.method0) (contract : S._contract) : T.method0 list =
+    let fplace = (Error.forge_place "Plg=Akka/finish_contract" 0 0) in
+    let auto_place smth = {place = fplace; value=smth} in
+
     (* Inner logic of the method *)
     let inner_name = Atom.fresh ((Atom.hint contract.method_name)^"_inner") in
     let inner_method = {
@@ -674,15 +681,15 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
                 {place = ensures_expr.place; value = T.UnopExpr ( 
                     AstUtils.Not,
                     {place = ensures_expr.place; value = T.CallExpr ( 
-                        {place = ensures_expr.place; value = T.VarExpr ensures_name}, 
-                        List.map (function param -> {place = ensures_expr.place; value =T.VarExpr (snd param)}) ensures_params 
-                    )}
-                )},
+                        {place = ensures_expr.place; value = T.VarExpr ensures_name, auto_place T.TUnknown}, 
+                        List.map (function param -> {place = ensures_expr.place; value =T.VarExpr (snd param), auto_place T.TUnknown}) ensures_params 
+                    ), auto_place T.TUnknown}
+                ), auto_place T.TUnknown},
                 {place = ensures_expr.place; value = T.ExpressionStmt (
                     {place = ensures_expr.place; value = T.AssertExpr (
                         {place = ensures_expr.place; value = T.LitExpr (
-                            {place = ensures_expr.place; value = T.BoolLit false})}
-                    )}
+                            {place = ensures_expr.place; value = T.BoolLit false}), auto_place T.TUnknown}
+                    ), auto_place T.TUnknown}
                 )}, (*TODO refine*)
                 None
             )}
@@ -694,9 +701,9 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
     | None -> [], [
         {place; value = T.ReturnStmt ( 
             {place; value = T.CallExpr (
-                {place; value=T.VarExpr inner_name},
-                List.map (function param -> {place; value=T.VarExpr (snd param)}) method0.value.v.args
-            )})
+                {place; value=T.VarExpr inner_name, auto_place T.TUnknown},
+                List.map (function param -> {place; value=T.VarExpr (snd param), auto_place T.TUnknown}) method0.value.v.args
+            ), auto_place T.TUnknown})
         }
     ] 
     | Some returns_expr -> begin
@@ -716,8 +723,8 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
                         {place = returns_expr.place; value= T.ReturnStmt (
                             {place = returns_expr.place; value=T.CallExpr(
                                 fexpr returns_expr,
-                                [{place = returns_expr.place; value=T.VarExpr (snd ret_type_param)}]
-                                )
+                                [{place = returns_expr.place; value=T.VarExpr (snd ret_type_param), auto_place T.TUnknown}]
+                                ), auto_place T.TUnknown
                             })
                         }
                     ]);
@@ -732,29 +739,29 @@ and finish_contract place (method0 : T.method0) (contract : S._contract) : T.met
                 method0.value.v.ret_type,
                 (snd ret_type_param),
                 Some ({place; value=T.CallExpr (
-                    {place; value=T.VarExpr inner_name},
-                    List.map (function param -> {place; value=T.VarExpr (snd param)}) method0.value.v.args
-                )})
+                    {place; value=T.VarExpr inner_name, auto_place T.TUnknown},
+                    List.map (function param -> {place; value=T.VarExpr (snd param), auto_place T.TUnknown}) method0.value.v.args
+                ), auto_place T.TUnknown})
             )};
             {place; value=T.IfStmt (
                 {place; value=T.UnopExpr ( 
                     AstUtils.Not,
                     {place; value=T.CallExpr ( 
-                        {place; value=T.VarExpr returns_name}, 
-                        List.map (function param -> {place; value=T.VarExpr (snd param)}) returns_params 
-                    )}
-                )},
+                        {place; value=T.VarExpr returns_name, auto_place T.TUnknown}, 
+                        List.map (function param -> {place; value=T.VarExpr (snd param), auto_place T.TUnknown}) returns_params 
+                    ), auto_place T.TUnknown}
+                ), auto_place T.TUnknown},
                 {place; value=T.ExpressionStmt (
                     {place; value=T.AssertExpr (
                         {place; value=T.LitExpr (
                             {place; value=T.BoolLit false}
-                        )}
-                    )}
+                        ), auto_place T.TUnknown}
+                    ), auto_place T.TUnknown}
                 )}, (*TODO refine*)
                 None
             )};
             {place; value=T.ReturnStmt (
-                {place; value=T.VarExpr (snd ret_type_param)}
+                {place; value=T.VarExpr (snd ret_type_param), auto_place T.TUnknown}
             )}
         ]
     end in
@@ -876,7 +883,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             stmts = [ auto_place(T.LetStmt (
                 auto_place (T.TSet(auto_place( T.Atomic "UUID"))),
                 a_frozen_sessions,
-                Some (auto_place(T.BlockExpr(Core.AstUtils.Set, [])))
+                Some (auto_place(T.BlockExpr(Core.AstUtils.Set, []), auto_place T.TUnknown))
             ))]
         };
         (* Set<UUID> dead_sessions = new HashSet() *)
@@ -884,7 +891,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             stmts = [ auto_place(T.LetStmt (
                 auto_place (T.TSet(auto_place( T.Atomic "UUID"))),
                 a_dead_sesison,
-                Some (auto_place(T.BlockExpr(Core.AstUtils.Set, [])))
+                Some (auto_place(T.BlockExpr(Core.AstUtils.Set, []), auto_place T.TUnknown))
             ))]
         }
     ] @ states in
@@ -894,7 +901,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     (*** Building receiver ***)
     (* Step0 - name of receiver param (event) *)
     let l_event_name : Atom.atom = (Atom.fresh_builtin "e") in
-    let l_event : T.expr = auto_place (T.VarExpr l_event_name) in
+    let l_event : T.expr = auto_place (T.VarExpr l_event_name, auto_place T.TUnknown) in
 
     (* Step1 - create {event_name: {(bridge_expr, st, remaining_step i.e st) ->  callbak}} *)
     let env : (Atom.atom, (T.expr * S.session_type * S.session_type, T.expr) Hashtbl.t) Hashtbl.t = Hashtbl.create 16 in
@@ -936,26 +943,26 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         let bridgeid (bridge: T.expr) = auto_place( T.CallExpr(
             auto_place (T.AccessExpr (
                 bridge,
-                auto_place (T.VarExpr (Atom.fresh_builtin "get_id"))
-            )),
+                auto_place (T.VarExpr (Atom.fresh_builtin "get_id"), auto_place T.TUnknown)
+            ), auto_place T.TUnknown),
             []
-        )) in
+        ), auto_place T.TUnknown) in
         let e_bridgeid e = auto_place (T.AccessExpr (
             e,
-            auto_place (T.VarExpr (Atom.fresh_builtin "bridge_id"))
-        )) in
+            auto_place (T.VarExpr (Atom.fresh_builtin "bridge_id"), auto_place T.TUnknown)
+        ), auto_place T.TUnknown) in
         let e_sessionid e = auto_place (T.AccessExpr (
             e,
-            auto_place (T.VarExpr (Atom.fresh_builtin "session_id"))
-        )) in
+            auto_place (T.VarExpr (Atom.fresh_builtin "session_id"), auto_place T.TUnknown)
+        ), auto_place T.TUnknown) in
         let e_replyto e = auto_place (T.AccessExpr (
             e,
-            auto_place (T.VarExpr (Atom.fresh_builtin "replyTo"))
-        )) in
+            auto_place (T.VarExpr (Atom.fresh_builtin "replyTo"), auto_place T.TUnknown)
+        ), auto_place T.TUnknown) in
         let e_remaining_step e = auto_place (T.AccessExpr (
             e,
-            auto_place (T.VarExpr (Atom.fresh_builtin "st"))
-        )) in
+            auto_place (T.VarExpr (Atom.fresh_builtin "st"), auto_place T.TUnknown)
+        ), auto_place T.TUnknown) in
 
 
         (* Handle frozen/timeout session
@@ -977,9 +984,9 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                     Core.AstUtils.Not,    
                     auto_place (T.CallExpr(
                         auto_place (T.AccessExpr(
-                            auto_place (T.VarExpr (Atom.fresh_builtin "Handlers")),
-                            auto_place (T.VarExpr (Atom.fresh_builtin "is_session_alive"))
-                        )),
+                            auto_place (T.VarExpr (Atom.fresh_builtin "Handlers"), auto_place T.TUnknown),
+                            auto_place (T.VarExpr (Atom.fresh_builtin "is_session_alive"), auto_place T.TUnknown)
+                        ), auto_place T.TUnknown),
                         [ 
                             e_cast fplace "ActorContext" (e_get_context fplace);
                             e_cast fplace "ActorRef" (e_get_self fplace (e_get_context fplace));
@@ -988,8 +995,8 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                             e_sessionid l_event; 
                             e_replyto l_event;
                         ]
-                    ))
-                )),
+                    ), auto_place T.TUnknown)
+                ), auto_place T.TUnknown),
                 auto_place(T.BlockStmt [
                     auto_place(T.ReturnStmt (e_behaviors_same fplace)) 
                 ]),
@@ -1013,15 +1020,15 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         *)
 
         let a_session = Atom.fresh_builtin "s" in
-        let l_session = auto_place (T.VarExpr a_session) in
+        let l_session = auto_place (T.VarExpr a_session, auto_place T.TUnknown) in
 
         let add_case (bridge, st, remaining_st) (callback:T.expr) acc : T.stmt =
             auto_place (T.IfStmt (
                 auto_place (T.BinopExpr(
-                    auto_place (T.BinopExpr (e_bridgeid l_event, AstUtils.StructuralEqual, bridgeid bridge)),
+                    auto_place (T.BinopExpr (e_bridgeid l_event, AstUtils.StructuralEqual, bridgeid bridge), auto_place T.TUnknown),
                     AstUtils.And,
-                    auto_place (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, fvstype (S.dual st)))
-                )),
+                    auto_place (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, fvstype (S.dual st)), auto_place T.TUnknown)
+                ), auto_place T.TUnknown),
                 auto_place (T.BlockStmt [
                     auto_place (T.LetStmt (
                         t_lg4dc_session place,
@@ -1033,17 +1040,17 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                                 auto_place (T.CastExpr(
                                     auto_place (T.TVar (Atom.fresh_builtin "ActorRef")),
                                     e_get_self place (e_get_context place)
-                                ));
+                                ), auto_place T.TUnknown);
                                 e_replyto l_event;
                                 fvstype remaining_st
                             ]
-                        )))
+                        ), auto_place T.TUnknown))
                     ));
                     auto_place (T.ExpressionStmt (auto_place (
                         T.CallExpr(
                             e_setid_of_session fplace a_session,
                             [ e_sessionid l_event]
-                        )
+                        ), auto_place T.TUnknown
                     )));
                     auto_place (T.ExpressionStmt (
                         e_apply_headers fplace l_session
@@ -1052,7 +1059,7 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                         T.CallExpr(
                             callback,
                             [ l_event; l_session ]
-                        )
+                        ), auto_place T.TUnknown
                     )))
                 ]),
                 Some acc
@@ -1065,14 +1072,14 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         [
             add_check_session_validity ();
             Hashtbl.fold add_case inner_env (auto_place (T.ExpressionStmt ((e_error_of fplace (e_get_context fplace) [
-                auto_place (T.LitExpr (auto_place(T.StringLit"Dispatcher does not caught message ")));
+                auto_place (T.LitExpr (auto_place(T.StringLit"Dispatcher does not caught message ")), auto_place T.TUnknown);
                 auto_place (T.CallExpr (
                     auto_place(T.AccessExpr(
                         l_event,
-                        auto_place (T.RawExpr "toString")
-                    )),
+                        auto_place (T.RawExpr "toString", auto_place T.TUnknown)
+                    ), auto_place T.TUnknown),
                     []
-                ));
+                ), auto_place T.TUnknown);
             ]))));
             auto_place ret_stmt
         ]
@@ -1083,24 +1090,24 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
         let init_receiver_expr : T.expr = {place; value=T.CallExpr(
             {place; value=T.VarExpr (
                 Atom.fresh_builtin "newReceiveBuilder"
-            )}, 
+            ), auto_place T.TUnknown}, 
             []
-        )} in
+        ), auto_place T.TUnknown} in
 
         let add_timer_case acc (event_name, handler) =
             {place; value=T.AccessExpr(
                 acc, 
                 {place; value=T.CallExpr(
-                    {place; value=T.VarExpr (Atom.fresh_builtin "onMessage")}, 
+                    {place; value=T.VarExpr (Atom.fresh_builtin "onMessage"), auto_place T.TUnknown}, 
                     [
-                        {place; value=T.ClassOf (auto_place (T.TVar (Atom.fresh_builtin event_name)))};
+                        {place; value=T.ClassOf (auto_place (T.TVar (Atom.fresh_builtin event_name))), auto_place T.TUnknown};
                         auto_place (T.LambdaExpr (
                             [
                                 l_event_name 
                             ],
                             auto_place(T.BlockStmt [
                                 auto_place(T.ExpressionStmt(auto_place(T.CallExpr(
-                                    auto_place (T.VarExpr (Atom.fresh_builtin handler)),
+                                    auto_place (T.VarExpr (Atom.fresh_builtin handler), auto_place T.TUnknown),
                                     [
                                         e_get_context fplace;
                                         e_get_self place (e_get_context fplace);
@@ -1110,15 +1117,15 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
                                         e_this_intermediate_states fplace;
                                         l_event
                                     ]
-                                ))));
+                                ), auto_place T.TUnknown)));
                                 auto_place(T.ReturnStmt(
                                     e_behaviors_same fplace
                                 ))
                             ])
-                        ))
+                        ), auto_place T.TUnknown)
                     ]
-                )}
-            )}
+                ), auto_place T.TUnknown}
+            ), auto_place T.TUnknown}
         in
         let init_receiver_expr = List.fold_left add_timer_case init_receiver_expr [
             "HBSessionTimer", "Handlers.onHBTimer";
@@ -1153,16 +1160,16 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
             ({place; value=T.AccessExpr(
                 acc, 
                 {place; value=T.CallExpr(
-                    {place; value=T.VarExpr (Atom.fresh_builtin "onMessage")}, 
+                    {place; value=T.VarExpr (Atom.fresh_builtin "onMessage"), auto_place T.TUnknown}, 
                     [
-                        {place; value=T.ClassOf (auto_place (T.TVar event_name))};
+                        {place; value=T.ClassOf (auto_place (T.TVar event_name)), auto_place T.TUnknown};
                         auto_place (T.AccessMethod (
-                            auto_place T.This,
+                            auto_place (T.This, auto_place T.TUnknown),
                             _m_name
-                        ))
+                        ), auto_place T.TUnknown)
                     ]
-                )}
-            )}, _m::acc_methods)
+                ), auto_place T.TUnknown}
+            ), auto_place T.TUnknown}, _m::acc_methods)
         in
         Hashtbl.fold add_case env (init_receiver_expr, [])
     in
@@ -1172,9 +1179,9 @@ and finish_component_dcl place : S._component_dcl -> T.actor list = function
     let receiver_expr = {place; value=T.AccessExpr(
         receiver_body, 
         { place; value=T.CallExpr(
-            {place; value=T.VarExpr (Atom.fresh_builtin "build")},
+            {place; value=T.VarExpr (Atom.fresh_builtin "build"), auto_place T.TUnknown},
             []
-        )})}
+        ), auto_place T.TUnknown}), auto_place T.TUnknown}
     in
 
     let receiver : T.method0 = { 
@@ -1239,13 +1246,16 @@ and fcdcl  : S.component_dcl -> T.actor list = function cdcl -> finish_component
 
 (********************** Manipulating component structure *********************)
 and finish_component_expr place = function
-    | S.VarCExpr x, _ -> T.VarExpr x
+    | S.VarCExpr x, mt -> T.VarExpr x, fmtype mt
     | _ -> failwith "Akka plg do not support yet advance component expr" 
 and fcexpr ce : T.expr = map_place finish_component_expr ce
 
 (************************************ Program *****************************)
 
-and finish_term place : S._term -> T.term list = function
+and finish_term place : S._term -> T.term list = 
+let fplace = place@(Error.forge_place "Plg=Akka/finish_term" 0 0) in
+let auto_place smth = {place = fplace; value=smth} in
+function
 | S.Comments c -> [{
     place;
     value= {
@@ -1333,8 +1343,8 @@ and finish_term place : S._term -> T.term list = function
     (*** Helpers ***)
     let l_st = Atom.fresh_builtin "st" in
     let this_st = T.AccessExpr (
-        auto_place T.This, 
-        auto_place (T.VarExpr l_st)
+        auto_place (T.This, auto_place T.TUnknown), 
+        auto_place (T.VarExpr l_st, auto_place T.TUnknown)
     ) in
 
     (* com.lg4dc.Protocol *)
@@ -1411,10 +1421,10 @@ and finish_term place : S._term -> T.term list = function
         let aux (_, arg_name) = 
             { place; value = T.AssignExpr (
                 { place; value = T.AccessExpr (
-                    { place; value = T.This }, 
-                    { place; value = T.VarExpr arg_name }
-                )},
-                { place; value = T.VarExpr arg_name }
+                    { place; value = T.This, auto_place T.TUnknown }, 
+                    { place; value = T.VarExpr arg_name, auto_place T.TUnknown }
+                ), auto_place T.TUnknown},
+                { place; value = T.VarExpr arg_name, auto_place T.TUnknown }
             )}
         in
         T.BlockStmt (List.map aux args)

@@ -40,23 +40,51 @@ let clean_return_type stmts ret_type =
     | _ -> ret_type
 
 
-let rec clean_expr place : _expr -> _expr = function
-| AccessExpr (e1, e2) -> AccessExpr (cexpr e1, cexpr e2)
-| AccessMethod (e, x) -> AccessMethod (cexpr e, x)
-| AppExpr (e, es) -> AppExpr (cexpr e, List.map cexpr es)
-| AssertExpr e -> AssertExpr (cexpr e)
-| AssignExpr (e1, op, e2) -> AssignExpr (cexpr e1, op, cexpr e2)
-| BinaryExpr (e1, AstUtils.StructuralEqual, e2) -> 
-    AppExpr ( {place; value = AccessExpr (cexpr e1, {place; value = VarExpr (Atom.fresh_builtin "equals")})}, [cexpr e2]) 
-| BinaryExpr (e1, op, e2) -> BinaryExpr (cexpr e1, op, cexpr e2)
-| CastExpr (ct, e) -> CastExpr (ct, cexpr e)
-| LiteralExpr l -> LiteralExpr l
-| LambdaExpr (xs, stmt) -> LambdaExpr (xs, cstmt stmt) 
-| NewExpr (e, es) -> NewExpr (cexpr e, List.map cexpr es)
-| ThisExpr -> ThisExpr 
-| UnaryExpr (op, e) -> UnaryExpr (op, cexpr e)
-| VarExpr x -> VarExpr x
-| RawExpr s -> RawExpr s
+let rec clean_expr place (e, jtype): _expr * jtype = 
+let fplace = place@(Error.forge_place "Plg=Akka/clean_expr" 0 0) in
+let auto_place smth = {place = fplace; value=smth} in
+(match e with 
+    | AccessExpr (e1, e2) -> AccessExpr (cexpr e1, cexpr e2)
+    | AccessMethod (e, x) -> AccessMethod (cexpr e, x)
+    | AppExpr (e, es) as e0 -> begin 
+        match (snd (e.value)).value with
+        | ClassOrInterfaceType  ({value=TAtomic "Function"}, [t1; t2]) -> begin
+            match fst e.value with
+            | LambdaExpr _ ->
+                AppExpr(
+                    auto_place(AccessExpr(
+                        auto_place(CastExpr(
+                            auto_place(ClassOrInterfaceType  ( auto_place (TAtomic "Function"), [t1; t2])),
+                            e
+                        ), snd (e.value)),
+                        auto_place (RawExpr "apply", auto_place TUnknown)
+                    ), auto_place TUnknown),
+                    es
+                )
+            | _ -> e0
+        end
+        | _ -> AppExpr (cexpr e, List.map cexpr es)
+    end
+    | AssertExpr e -> AssertExpr (cexpr e)
+    | AssignExpr (e1, op, e2) -> AssignExpr (cexpr e1, op, cexpr e2)
+    | BinaryExpr (e1, AstUtils.StructuralEqual, e2) -> 
+        AppExpr ( 
+            auto_place (AccessExpr (
+                cexpr e1, 
+                auto_place (VarExpr (Atom.fresh_builtin "equals"), auto_place TUnknown)
+            ), auto_place TUnknown),
+            [cexpr e2]
+        ) 
+    | BinaryExpr (e1, op, e2) -> BinaryExpr (cexpr e1, op, cexpr e2)
+    | CastExpr (ct, e) -> CastExpr (ct, cexpr e)
+    | LiteralExpr l -> LiteralExpr l
+    | LambdaExpr (xs, stmt) -> LambdaExpr (xs, cstmt stmt) 
+    | NewExpr (e, es) -> NewExpr (cexpr e, List.map cexpr es)
+    | ThisExpr -> ThisExpr 
+    | UnaryExpr (op, e) -> UnaryExpr (op, cexpr e)
+    | VarExpr x -> VarExpr x
+    | RawExpr s -> RawExpr s
+), jtype
 and cexpr e = map_place clean_expr e 
 
 and clean_stmt place : _stmt -> _stmt = function

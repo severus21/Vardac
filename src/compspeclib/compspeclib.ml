@@ -37,6 +37,8 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     let (gamma, ir) = Frontend.Main.to_ir places filename in
     let ir1 =
         ir
+        |> Core.Reduce.reduce_program 
+        |> function x-> logger#sinfo "IR has been reduced"; x
         |> Core.TypeInference.tannot_program
         |> function x-> logger#sinfo "IR has been annotated with types (type reconstruction only)"; x
         (*|> Core.TypeChecking.tcheck_program 

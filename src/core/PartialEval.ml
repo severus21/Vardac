@@ -538,33 +538,7 @@ and peval_component_dcl env place : _component_dcl -> env * _component_dcl = fun
     value = snd(pe_component_expr env value) 
 } 
 | ComponentStructure cdcl ->
-    (* Collect contracts *)
-    let collect_contracts env (x:component_item) = 
-        match x.value with
-        | Contract c -> Env.add c.value.method_name c env 
-        | _ -> env 
-    in
-    let contracts : IR.contract Env.t = List.fold_left collect_contracts Env.empty cdcl.body in (* method_name -> contract *)
-
-    (* Remove contracts from body and pair method with contracts *)
-    let body = List.filter_map (function (item:component_item) ->
-        match item.value with 
-        | Contract _ -> None 
-        | Method m -> begin
-            let rec aux (m: method0) = 
-                let _m = m.value in
-                let contract : contract = (Env.find _m.name contracts) in
-                { AstUtils.place; value = { _m with contract_opt = Some contract } }
-            in
-            try
-                Some { AstUtils.place; value = Method (aux m) }
-            with Not_found ->
-                Some item 
-        end
-        | x -> Some item 
-        ) cdcl.body in
-    
-    let new_env, citems = List.fold_left_map pe_component_item env body in 
+    let new_env, citems = List.fold_left_map pe_component_item env cdcl.body in 
     new_env, ComponentStructure {cdcl with body = citems }
 
 and pe_component_dcl env: component_dcl -> env * component_dcl = map2_place (peval_component_dcl env)
@@ -631,9 +605,6 @@ and pe_terms env terms : env * IR.term list =
     env, List.filter (function |{AstUtils.value=EmptyTerm; _} -> false | _-> true) program
 
 and peval_program (terms: IR.program) : IR.program = 
-    (*  Hydrate env, namely:
-        -  collect the contract
-        And remove contracts from component_item + add contract inside method0 structure *)
     let env, program = pe_terms (fresh_env ()) terms in
     program
 

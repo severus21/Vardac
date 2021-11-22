@@ -73,7 +73,7 @@ and _expr =
     | UnaryExpr of unop * expr
     | VarExpr of variable
     | RawExpr of string
-and expr = _expr placed
+and expr = (_expr * jtype) placed
 
 and _jmodule = 
     | ImportDirective of string
@@ -101,6 +101,7 @@ and _jtype =
     | TVar of variable
     | TAccess of jtype * jtype
     | TArray of jtype (* string[] *)
+    | TUnknown
 and jtype = _jtype placed
 
 and _str_items =

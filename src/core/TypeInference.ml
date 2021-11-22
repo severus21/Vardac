@@ -498,7 +498,7 @@ and tannot_port ctx p =
     }
 
 
-and _tannot_contract ctx place (p:_contract) = 
+and _tannot_contract ctx ret_type place (p:_contract) = 
     let inner_ctx = List.fold_left (fun ctx (mt, x, _) -> register_expr_type ctx x mt) ctx p.pre_binders in
     {
         method_name = p.method_name;
@@ -508,11 +508,15 @@ and _tannot_contract ctx place (p:_contract) =
             tannot_expr ctx e
         ) p.pre_binders;
         ensures = Option.map (tannot_expr inner_ctx) p.ensures; 
-        returns = Option.map (tannot_expr inner_ctx) p.returns; (* TODO add an Arrow ret_type -> ...*)
+        returns = match p.returns with
+        | None -> None
+        | Some e -> 
+            let e, _ = (tannot_expr inner_ctx e).value in
+            Some {place; value = e, {place; value=T.CType{place; value=T.TArrow (ret_type, {place; value=T.CType{place;value=T.TFlatType AstUtils.TBool}})}}}
     } 
-and tannot_contract ctx c = {
+and tannot_contract ctx ret_type c = {
     place = c.place;
-    value = _tannot_contract ctx c.place c.value
+    value = _tannot_contract ctx ret_type c.place c.value
 }
 
 and _tannot_method ctx place (m:_method0) =
@@ -528,7 +532,7 @@ and _tannot_method ctx place (m:_method0) =
             ret_type = tannot_main_type ctx m.ret_type;
             args = List.map (tannot_param ctx) m.args;
             body = snd (List.fold_left_map tannot_stmt inner_ctx m.body);
-            contract_opt =(Option.map (tannot_contract ctx) m.contract_opt);
+            contract_opt =(Option.map (tannot_contract ctx m.ret_type) m.contract_opt);
     } 
 
 and tannot_method ctx m = 
@@ -557,7 +561,7 @@ and tannot_state ctx s =
     }
 
 and _tannot_component_item ctx place = function 
-| Contract s -> ctx, Contract (tannot_contract ctx s)
+| Contract s -> failwith  "contract must have been bounded to method before calling type inference"
 | Include ce -> ctx, Include (tannot_component_expr ctx ce)
 | Method m -> 
     let ctx, m = tannot_method ctx m in

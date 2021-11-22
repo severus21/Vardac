@@ -138,30 +138,30 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
             a_system,
             Some (auto_place ( S.CallExpr(
                 auto_place (S.AccessExpr(
-                    auto_place (S.VarExpr (Atom.fresh_builtin "ActorSystem")),
-                    auto_place (S.VarExpr (Atom.fresh_builtin "create"))
-                )),
+                    auto_place (S.VarExpr (Atom.fresh_builtin "ActorSystem"), auto_place S.TUnknown),
+                    auto_place (S.VarExpr (Atom.fresh_builtin "create"), auto_place S.TUnknown)
+                ), auto_place S.TUnknown),
                 [
                     (* specify the guardian actor *)
                     auto_place (S.CallExpr(
                         auto_place (S.AccessExpr(
                             guardian,
-                            auto_place (S.VarExpr (Atom.fresh_builtin "create"))
-                        )),
+                            auto_place (S.VarExpr (Atom.fresh_builtin "create"), auto_place S.TUnknown)
+                        ), auto_place S.TUnknown),
                         []
-                    ));
-                    auto_place (S.LitExpr (auto_place (S.StringLit system_name)));
+                    ), auto_place S.TUnknown);
+                    auto_place (S.LitExpr (auto_place (S.StringLit system_name)), auto_place S.TUnknown);
                     auto_place (S.CallExpr (
                         auto_place (S.AccessExpr(
-                            auto_place (S.VarExpr (Atom.fresh_builtin "AbstractMain")),
-                            auto_place (S.VarExpr (Atom.fresh_builtin "get_config"))
-                        )),
+                            auto_place (S.VarExpr (Atom.fresh_builtin "AbstractMain"), auto_place S.TUnknown),
+                            auto_place (S.VarExpr (Atom.fresh_builtin "get_config"), auto_place S.TUnknown)
+                        ), auto_place S.TUnknown),
                         [
-                            auto_place (S.VarExpr (Atom.fresh_builtin "args"))
+                            auto_place (S.VarExpr (Atom.fresh_builtin "args"), auto_place S.TUnknown)
                         ]
-                    ))
+                    ), auto_place S.TUnknown)
                 ]
-            )))
+            ), auto_place S.TUnknown))
         )) in        
 
         auto_place ( {
@@ -193,11 +193,11 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                                     |S.AbstractImpl _ -> S.AbstractImpl (
                                         auto_place(S.ExpressionStmt(
                                             auto_place (S.CallExpr (
-                                                auto_place (S.VarExpr _main.value.v.name),
+                                                auto_place (S.VarExpr _main.value.v.name, auto_place S.TUnknown),
                                                 [
-                                                    auto_place (S.VarExpr (Atom.fresh_builtin "args"))
+                                                    auto_place (S.VarExpr (Atom.fresh_builtin "args"), auto_place S.TUnknown)
                                                 ]
-                                            ))
+                                            ), auto_place S.TUnknown)
                                         ))
                                         :: actor_system
                                         :: []
@@ -375,15 +375,15 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                                         auto_place(S.CallExpr(
                                             auto_place(S.VarExpr (
                                                 Atom.fresh_builtin "newReceiveBuilder"
-                                            )),
+                                            ), auto_place S.TUnknown),
                                             []
-                                        )), 
+                                        ), auto_place S.TUnknown), 
                                         auto_place(S.VarExpr (
                                             Atom.fresh_builtin "build"
-                                        ))
-                                    )),
+                                        ), auto_place S.TUnknown)
+                                    ), auto_place S.TUnknown),
                                     []
-                                ))
+                                ), auto_place S.TUnknown)
                             ))
                         ]);
                         name            = Atom.fresh_builtin "createReceive";
@@ -440,7 +440,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
         assert(Atom.is_builtin mdef.entrypoint && Atom.hint mdef.entrypoint = "no_main");
 
         (* Just starts the actor system with the specific guardian i.e. mdef.bootstrap *)
-        wrap_main mdef.name (auto_place (S.VarExpr (guardian_name_of mdef))) (auto_place {
+        wrap_main mdef.name (auto_place (S.VarExpr (guardian_name_of mdef), auto_place S.TUnknown)) (auto_place {
             S.annotations = [S.Visibility S.Public];
             decorators = [];
             v = {
@@ -536,7 +536,7 @@ let split_akka_ast_to_files (target:Core.Target.target) (akka_program:S.program)
                 in
                 let replace = function
                     | {S.v=S.MethodDeclaration m0} -> 
-                        (wrap_main mdef.name (auto_place (S.VarExpr (guardian_name_of mdef))) m0).value 
+                        (wrap_main mdef.name (auto_place (S.VarExpr (guardian_name_of mdef), auto_place S.TUnknown)) m0).value 
                 in
                 List.map (function stage -> {stage with ast = List.map (S.replaceterm_term false selector replace) stage.ast }) stages 
         in
@@ -810,6 +810,7 @@ function
     end 
     | S.TVar v -> T.TVar v
     | S.TRaw str -> T.TAtomic str
+    | S.TUnknown -> T.TUnknown
 and fctype ct : T.jtype = map_place finish_ctype ct
 
 
@@ -825,7 +826,10 @@ let rec finish_literal place : S._literal -> T._literal= function
     | S.StringLit s -> T.StringLit s
 and fliteral lit : T.literal = map_place finish_literal lit
 
-and finish_expr place : S._expr -> T._expr = function
+and finish_expr place (e, ct) : T._expr * T.jtype = 
+let fplace = place@(Error.forge_place "Plg=AkkaJava/finish_expr" 0 0) in
+let auto_place smth = {place = fplace; value=smth} in
+(match e with
     | S.AccessExpr (e1,e2) -> T.AccessExpr (fexpr e1, fexpr e2)
     | S.AccessMethod (e1,x) -> T.AccessMethod (fexpr e1, x)
     | S.AssertExpr e -> T.AssertExpr (fexpr e)                   
@@ -837,27 +841,27 @@ and finish_expr place : S._expr -> T._expr = function
         match ct.value with
         | S.Atomic x -> T.VarExpr (Atom.fresh_builtin x)
         | S.TVar x -> T.AccessExpr( 
-            {place = ct.place; value=T.VarExpr x}, 
-            {place = ct.place; value = T.VarExpr (Atom.fresh_builtin "class")}
+            {place = ct.place; value=T.VarExpr x, auto_place T.TUnknown}, 
+            {place = ct.place; value = T.VarExpr (Atom.fresh_builtin "class"), auto_place T.TUnknown}
             )
     end 
     | S.CurrentContext -> 
         T.AppExpr (
-            {place; value=T.VarExpr (Atom.fresh_builtin "getContext")},
+            {place; value=T.VarExpr (Atom.fresh_builtin "getContext"), auto_place T.TUnknown},
             []
         )
     | S.CurrentSystem -> T.AccessExpr 
         ({  
             place;
             value = T.AppExpr 
-            ({ place; value=T.VarExpr (Atom.fresh_builtin "getContext")},
-            [])
+            ({ place; value=T.VarExpr (Atom.fresh_builtin "getContext"), auto_place T.TUnknown},
+            []), auto_place T.TUnknown
         },
         { 
             place;
             value = T.AppExpr
-                ({ place; value =T.VarExpr (Atom.fresh_builtin "getSystem")},
-                [])
+                ({ place; value =T.VarExpr (Atom.fresh_builtin "getSystem"), auto_place T.TUnknown},
+                []), auto_place T.TUnknown
         }) 
     | S.LambdaExpr (variables, stmt) -> T.LambdaExpr (variables, fstmt stmt)
     | S.LitExpr lit -> LiteralExpr (fliteral lit)
@@ -866,57 +870,73 @@ and finish_expr place : S._expr -> T._expr = function
     | S.BlockExpr (b, es) -> begin
         match b with
         | List when es = [] -> T.NewExpr(
-            auto_place(T.VarExpr(Atom.fresh_builtin "ArrayList")),
+            auto_place(T.VarExpr(Atom.fresh_builtin "ArrayList"), auto_place T.TUnknown),
             []
         ) 
         | List when es <> []  -> T.AppExpr(
-            auto_place(T.VarExpr(Atom.fresh_builtin "List.of")),
+            auto_place(T.VarExpr(Atom.fresh_builtin "List.of"), auto_place T.TUnknown),
             List.map fexpr es
         )
         | Set when es = [] -> T.NewExpr(
-            auto_place(T.VarExpr(Atom.fresh_builtin "HashSet")),
+            auto_place(T.VarExpr(Atom.fresh_builtin "HashSet"), auto_place T.TUnknown),
             []
         ) 
         | Set -> T.AppExpr(
-            auto_place(T.VarExpr(Atom.fresh_builtin "Set.of")),
+            auto_place(T.VarExpr(Atom.fresh_builtin "Set.of"), auto_place T.TUnknown),
             List.map fexpr es
         )
         | Tuple when es = [] -> T.NewExpr(
-            auto_place(T.VarExpr(Atom.fresh_builtin "Tuple")),
+            auto_place(T.VarExpr(Atom.fresh_builtin "Tuple"), auto_place T.TUnknown),
             []
         ) 
         | Tuple -> T.AppExpr(
-            auto_place(T.VarExpr(Atom.fresh_builtin "Tuple.of")),
+            auto_place(T.VarExpr(Atom.fresh_builtin "Tuple.of"), auto_place T.TUnknown),
             List.map fexpr es
         )
     end
     | S.UnopExpr (AstUtils.UnpackResult, e) -> 
         (*  Encoding
-            e.getOrElseThrow(() -> new RuntimeException("The result is failure, can access the success."))
+            e.getOrElseThrow(t -> new RuntimeException("The result is failure, can access the success."))
         *)
+        let t = Atom.fresh "t" in
+
+        let sign = fctype (auto_place (S.TFunction(
+            snd e.value,
+            ct
+        ))) in
+
         T.AppExpr ( 
-            {place; value=T.AccessExpr (fexpr e, { place; value=T.VarExpr (Atom.fresh_builtin "getOrElseThrow")})},
+            auto_place (T.AccessExpr (
+                fexpr e, 
+                auto_place(T.VarExpr (Atom.fresh_builtin "getOrElseThrow"), auto_place T.TUnknown)
+            ), auto_place T.TUnknown),
             [
-                {place; value = LambdaExpr ([], {place; value=
-                    ReturnStmt {place; value = 
-                        NewExpr (
-                            auto_place (T.VarExpr (Atom.fresh_builtin "RuntimeException")),
-                            [
-                                auto_place (T.LiteralExpr (auto_place (T.StringLit "The result is failure, can access the success.")))
-                            ]
-                        )
-                    } 
-                })}
+                auto_place (T.LambdaExpr (
+                    [t], 
+                    auto_place ( T.ReturnStmt (auto_place( 
+                            T.NewExpr (
+                                auto_place (T.VarExpr (Atom.fresh_builtin "RuntimeException"), auto_place T.TUnknown),
+                                [
+                                    auto_place (T.LiteralExpr (auto_place (T.StringLit "The result is failure, can access the success.")), auto_place T.TUnknown)
+                                ]
+                            ), auto_place T.TUnknown
+                        ))
+                    )
+                ), sign)
             ]
         ) (* TODO should return form the fct with the error or return the result*) 
     | S.UnopExpr (op, e) -> T.UnaryExpr (op, fexpr e) 
     | S.VarExpr x -> T.VarExpr x             
     | S.NewExpr (e, es) -> T.NewExpr (fexpr e, List.map fexpr es)             
     | S.RawExpr str -> T.RawExpr str
+), fctype ct
 and fexpr expr : T.expr = map_place finish_expr expr
 
-and finish_stmt place : S._stmt -> T._stmt = function
-    | S.AssignExpr (e1, e2) -> T.ExpressionStmt ( {place; value=T.AssignExpr(fexpr e1, T.AssignOp, fexpr e2)})
+and finish_stmt place : S._stmt -> T._stmt = 
+let fplace = place@(Error.forge_place "Plg=AkkaJava/finish_stmt" 0 0) in
+let auto_place smth = {place = fplace; value=smth} in
+function
+    | S.AssignExpr (e1, e2) -> T.ExpressionStmt ( auto_place(T.AssignExpr(fexpr e1, T.AssignOp, fexpr e2), auto_place T.TUnknown))
     | S.BlockStmt stmts -> T.BlockStmt (List.map fstmt stmts)
     | S.BreakStmt -> T.BreakStmt
     | S.CommentsStmt c -> T.CommentsStmt c
@@ -971,11 +991,11 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
             { place = ct.place; value =
             T.AssignExpr( 
                 { place = ct.place; value = T.AccessExpr (
-                    { place = ct.place; value =T.ThisExpr}, { place = ct.place; value =T.VarExpr x})
+                    { place = ct.place; value =T.ThisExpr, auto_place T.TUnknown}, { place = ct.place; value =T.VarExpr x, auto_place T.TUnknown}), auto_place T.TUnknown
                 },
                 T.AssignOp,
-                { place = ct.place; value = T.VarExpr x}
-            )
+                { place = ct.place; value = T.VarExpr x, auto_place T.TUnknown}
+            ), auto_place T.TUnknown
             }
         )
         }
@@ -1056,7 +1076,7 @@ and finish_method_v is_guardian is_actor_method place ({ret_type; name; body; ar
         let stmts = match is_actor_method with
         | true -> begin
             let l_event_name : Atom.atom = (Atom.fresh_builtin "e") in
-            let l_event : S.expr = auto_place (S.VarExpr l_event_name) in
+            let l_event : S.expr = auto_place (S.VarExpr l_event_name, auto_place S.TUnknown) in
             let generate_case_for_timer (event_name, handler_name) = 
                 (* 
                     if eventName.isInstance(e){
@@ -1067,26 +1087,26 @@ and finish_method_v is_guardian is_actor_method place ({ret_type; name; body; ar
                     }
                 *)
                 auto_place( S.IfStmt(
-                    Rt.Misc.e_is_instance fplace (auto_place (S.VarExpr (Atom.fresh_builtin event_name))) l_event,
+                    Rt.Misc.e_is_instance fplace (auto_place (S.VarExpr (Atom.fresh_builtin event_name), auto_place S.TUnknown)) l_event,
                     auto_place(S.BlockStmt [
                         auto_place (S.ExpressionStmt( auto_place (S.CallExpr( 
-                            auto_place (S.VarExpr (Atom.fresh_builtin handler_name)),
+                            auto_place (S.VarExpr (Atom.fresh_builtin handler_name), auto_place S.TUnknown),
                             [
                                 auto_place(S.CastExpr(
                                     auto_place (S.TVar (Atom.fresh_builtin "ActorContext")),
                                     Rt.Misc.e_get_context fplace
-                                ));
+                                ), auto_place S.TUnknown);
                                 auto_place(S.CastExpr(
                                     auto_place (S.TVar (Atom.fresh_builtin "ActorRef")),
                                     Rt.Misc.e_get_self fplace (Rt.Misc.e_get_context fplace)
-                                ));
+                                ), auto_place S.TUnknown);
                                 Rt.Misc.e_this_frozen_sessions fplace; 
                                 Rt.Misc.e_this_dead_sessions fplace; 
                                 Rt.Misc.e_this_intermediate_states fplace;
                                 l_event;
                             ]
-                        ))));
-                        auto_place (S.ReturnStmt (auto_place(S.LitExpr (auto_place S.VoidLit))));
+                        ), auto_place S.TUnknown)));
+                        auto_place (S.ReturnStmt (auto_place(S.LitExpr (auto_place S.VoidLit), auto_place S.TUnknown)));
                     ]),
                     None
                 ))
@@ -1095,7 +1115,7 @@ and finish_method_v is_guardian is_actor_method place ({ret_type; name; body; ar
             let set_timers : S.stmt = 
                 auto_place(S.AssignExpr( 
                     Rt.Misc.e_this_timers fplace,
-                    auto_place(S.VarExpr Rt.Misc.a_timers)
+                    auto_place(S.VarExpr Rt.Misc.a_timers, auto_place S.TUnknown)
                 ))
             in 
 
@@ -1108,20 +1128,20 @@ and finish_method_v is_guardian is_actor_method place ({ret_type; name; body; ar
                 else
                     auto_place(S.AssignExpr( 
                         Rt.Misc.e_this_guardian fplace,
-                        auto_place(S.VarExpr Rt.Misc.a_guardian)
+                        auto_place(S.VarExpr Rt.Misc.a_guardian, auto_place S.TUnknown)
                     ))
             in 
 
             (
                 if is_guardian then
                     (auto_place ( S.ExpressionStmt (Rt.Misc.e_super place [
-                        auto_place(S.VarExpr Rt.Misc.a_context);
-                        auto_place(S.VarExpr Rt.Misc.a_timers);
-                        auto_place (S.VarExpr (Atom.fresh_builtin "name"));
-                        auto_place (S.VarExpr (Atom.fresh_builtin "wait"))
+                        auto_place(S.VarExpr Rt.Misc.a_context, auto_place S.TUnknown);
+                        auto_place(S.VarExpr Rt.Misc.a_timers, auto_place S.TUnknown);
+                        auto_place (S.VarExpr (Atom.fresh_builtin "name"), auto_place S.TUnknown);
+                        auto_place (S.VarExpr (Atom.fresh_builtin "wait"), auto_place S.TUnknown)
                     ])))
                 else
-                    (auto_place ( S.ExpressionStmt (Rt.Misc.e_super place [auto_place(S.VarExpr Rt.Misc.a_context)])))
+                    (auto_place ( S.ExpressionStmt (Rt.Misc.e_super place [auto_place(S.VarExpr Rt.Misc.a_context, auto_place S.TUnknown)])))
             )
             :: set_timers
             :: set_guardian
@@ -1291,27 +1311,27 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
                                 auto_place (S.ExpressionStmt (
                                 Rt.Misc.e_debug_of 
                                     place 
-                                    (auto_place (S.VarExpr Rt.Misc.a_context)) 
+                                    (auto_place (S.VarExpr Rt.Misc.a_context, auto_place S.TUnknown)) 
                                     [
-                                        auto_place (S.LitExpr (auto_place (S.StringLit (Atom.to_string name^"::create"))))
+                                        auto_place (S.LitExpr (auto_place (S.StringLit (Atom.to_string name^"::create"))), auto_place S.TUnknown)
                                     ]
                                 ));
                                 auto_place (S.ReturnStmt (auto_place (
                                     S.NewExpr (
-                                        auto_place (S.VarExpr name),
-                                        List.map (function x -> auto_place (S.VarExpr x)) (Rt.Misc.a_context
+                                        auto_place (S.VarExpr name, auto_place S.TUnknown),
+                                        List.map (function x -> auto_place (S.VarExpr x, auto_place S.TUnknown)) (Rt.Misc.a_context
                                         ::Rt.Misc.a_timers
                                         ::Rt.Misc.a_guardian
                                         ::(List.map snd constructor_args))
 
-                                    )
+                                    ), auto_place S.TUnknown
                                 )));
                             ])
-                        ))
+                        ), auto_place S.TUnknown)
                     ]
-            ))))
+            ), auto_place S.TUnknown)))
         ])
-    )) in
+    ), auto_place S.TUnknown) in
 
     let arg_lambda_guardian = auto_place (S.LambdaExpr (
         [Rt.Misc.a_context],
@@ -1326,24 +1346,24 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
                                 auto_place (S.ExpressionStmt (
                                 Rt.Misc.e_debug_of 
                                     place 
-                                    (auto_place (S.VarExpr Rt.Misc.a_context)) 
+                                    (auto_place (S.VarExpr Rt.Misc.a_context, auto_place S.TUnknown)) 
                                     [
-                                        auto_place (S.LitExpr (auto_place (S.StringLit (Atom.to_string name^"::create"))))
+                                        auto_place (S.LitExpr (auto_place (S.StringLit (Atom.to_string name^"::create"))), auto_place S.TUnknown)
                                     ]
                                 ));
                                 auto_place (S.ReturnStmt (auto_place (
                                     S.NewExpr (
-                                        auto_place (S.VarExpr name),
-                                        List.map (function x -> auto_place (S.VarExpr x)) (Rt.Misc.a_context::Rt.Misc.a_timers::(List.map snd constructor_args))
+                                        auto_place (S.VarExpr name, auto_place S.TUnknown),
+                                        List.map (function x -> auto_place (S.VarExpr x, auto_place S.TUnknown)) (Rt.Misc.a_context::Rt.Misc.a_timers::(List.map snd constructor_args))
 
-                                    )
+                                    ), auto_place S.TUnknown
                                 )));
                             ])
-                        ))
+                        ), auto_place S.TUnknown)
                     ]
-            ))))
+            ), auto_place S.TUnknown)))
         ])
-    )) in
+    ), auto_place S.TUnknown) in
     (*let arg_lambda_guardian = auto_place (S.LambdaExpr (
         [Rt.Misc.a_context],
         auto_place (S.BlockStmt [
@@ -1401,12 +1421,12 @@ return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, jo
             body = S.AbstractImpl [
                 auto_place (S.ReturnStmt( 
                     auto_place(S.CallExpr(
-                        auto_place (S.VarExpr Rt.Misc.a_create_method),
+                        auto_place (S.VarExpr Rt.Misc.a_create_method, auto_place S.TUnknown),
                         [
-                            auto_place (S.LitExpr (auto_place(S.VoidLit)));
-                            auto_place (S.LitExpr (auto_place(S.VoidLit)))
+                            auto_place (S.LitExpr (auto_place(S.VoidLit)), auto_place S.TUnknown);
+                            auto_place (S.LitExpr (auto_place(S.VoidLit)), auto_place S.TUnknown)
                         ]
-                    ))
+                    ), auto_place S.TUnknown)
                 ))
             ];
             args = List.filter (function |(_,x)-> (Atom.hint x <> "wait") && (Atom.hint x <> "name")) constructor_args;
