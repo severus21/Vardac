@@ -134,6 +134,8 @@ and ostmt out: stmt -> unit = function stmt ->
 
 and output_decorator out: decorator -> unit = function
     | Override -> pp_print_string out "@Override" 
+    | JsonCreator -> pp_print_string out "@JsonCreator" 
+    | JsonProperty x -> fprintf out "@JsonProperty(\"%a\")" output_var x
 and output_decorators out = function
     | [] -> ()
     | l -> fprintf out "@[<h>%a@] " (pp_list "@ " output_decorator) l
@@ -151,9 +153,9 @@ and output_visibility out: visibility -> unit = function
     | Private -> pp_print_string out "private"
     | Protected -> pp_print_string out "protected"
 
-and output_arg out (jt, var): unit =
-    fprintf out "%a %a" ojtype jt output_var var
-and output_args out: (jtype * variable) list -> unit = pp_list ", " output_arg out  
+and output_arg out (decorators, jt, var): unit =
+    fprintf out "%a %a %a" (pp_list " " output_decorator) decorators  ojtype jt output_var var
+and output_args out: (decorator list * jtype * variable) list -> unit = pp_list ", " output_arg out  
 
 and output_body_v out : _body -> unit = function 
     | ClassOrInterfaceDeclaration cl -> 
@@ -263,6 +265,10 @@ let output_program package_name outpath items : unit =
         JModule (mock_placed(ImportDirective "java.util.UUID"));
         JModule (mock_placed(ImportDirective "java.util.stream.Collectors"));
         JModule (mock_placed(ImportDirective "java.util.function.Function"));
+
+        (* Jackson (serialization) *)
+        JModule (mock_placed(ImportDirective "com.fasterxml.jackson.annotation.JsonProperty"));
+        JModule (mock_placed(ImportDirective "com.fasterxml.jackson.annotation.JsonCreator"));
 
 
         (* Akka imports *)

@@ -1006,11 +1006,11 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
             place; 
             value = T.Body ({place; value= {
                 T.annotations = [T.Visibility T.Public];
-                decorators  = [];
+                decorators  = [T.JsonCreator];
                 v = T.MethodDeclaration {
                     ret_type    = None;
                     name        = name;
-                    parameters  = List.map finish_arg args;
+                    parameters  = List.map (function (decorators, ct, x) -> (T.JsonProperty x::decorators,ct, x)) (List.map finish_arg args);
                     body        = List.map generate_constructor_stmt args
                     ;
                 }
@@ -1049,7 +1049,7 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
 and fevent e : T.str_items = map_place finish_event e
 
 and finish_arg ((ctype,variable):(S.ctype * Atom.atom)) : T.parameter =
-    (fctype ctype, variable)
+    ([], fctype ctype, variable)
 and finish_method_v is_guardian is_actor_method place ({ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
     match body with
     | S.AbstractImpl stmts when is_constructor ->
@@ -1169,9 +1169,9 @@ and finish_method_v is_guardian is_actor_method place ({ret_type; name; body; ar
         let body = T.RawStmt (
             if bbterm.value.template then
                 let jingoo_args = Hashtbl.create (List.length args) in
-                let aux_arg (ct,x)= 
+                let aux_arg (decorators, ct,x)= 
                     let buffer = Buffer.create 64 in
-                    Lg.Output.output_arg (Format.formatter_of_buffer buffer)(ct, x);
+                    Lg.Output.output_arg (Format.formatter_of_buffer buffer)(decorators, ct, x);
                     Hashtbl.add jingoo_args (Atom.hint x) (Jg_types.Tstr (Buffer.contents buffer)) 
                 in
                 List.iter aux_arg (List.map finish_arg args);

@@ -25,6 +25,8 @@ and annotation =
     | Final
 and decorator = 
     | Override
+    | JsonCreator
+    | JsonProperty of Atom.atom
 and 'a annotated = {
     annotations: annotation list;
     decorators: decorator list;
@@ -34,7 +36,7 @@ and 'a annotated = {
 
 type variable =
     Atom.atom
-and parameter = jtype * variable
+and parameter = decorator list * jtype * variable
 and type_parameter = jtype
 and _body =
     | ClassOrInterfaceDeclaration of {
