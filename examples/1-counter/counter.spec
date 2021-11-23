@@ -5,6 +5,16 @@ type error of ;
 event incr of; 
 event value of int;
 
+
+type testa of int;
+type testb of int, bool;
+
+testa t = testa(1);
+testb tt = testb(1,true);
+(* Pas de pattern matching en java *)
+int i = tt._0_;
+bool ii = tt._1_;
+
 protocol p_protocol = !incr?value!incr?value.;
 bridge<A, B, inline p_protocol> b0 = bridge(p_protocol);
 
@@ -24,10 +34,13 @@ component A () {
         ?value. s2 = fire(second(resa), incr());
         tuple<value, .> resb = receive(s2, this._b);  
 
+        value v_a = first(resa); (* Type reconstruction can not handle first(resa) yet *) 
+        value v_b = first(resb);
+
         print("value1:");
-        print(first(resa));
+        print(v_a._0_);
         print("value2:");
-        print(first(resb));
+        print(v_b._0_);
     }
 }
 

@@ -14,6 +14,7 @@ val fresh_context : unit -> context
 
 val typeof_var_expr : context -> expr_variable -> main_type
 val typeof_var_cexpr : context -> component_variable -> main_type
+val defof_tvar : context -> type_variable -> main_type
 val register_expr_type : context -> expr_variable -> main_type -> context
 val register_cexpr_type : context -> component_variable -> main_type -> context
 val register_self : context -> component_variable -> context

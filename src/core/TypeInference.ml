@@ -291,27 +291,44 @@ and _tannot_expr ctx place (e, mt_e) =
                 ImplicitVarExpr x, typeof_var_expr ctx x 
             | AccessExpr (e1, e2) -> begin
                 let e1 = tannot_expr ctx e1 in
-                let e2 = tannot_expr ctx e2 in
+
 
                 let field = match fst e2.value with 
                     | VarExpr f -> f 
                     | _ -> Error.error e2.place "This is not a valid attribute"
+                    (* No means to add a type to e2 *)
                 in
                 
-                let sign = match (snd e1.value).value with
-                    | CompType {value=TStruct sign} -> sign
-                    | CompType {value=CompTUid name} -> begin 
-                        match (typeof_var_cexpr ctx name).value with 
-                        |  CompType {value=TStruct sign} -> sign
-                        | _ -> Error.error e1.place "internal error when fetching structural type of component"
+                let ret_type : main_type = 
+                    (* Accessing inductive type parts - dirty hack *)
+                    if List.mem (Atom.hint field) ["_0_"; "_1_"; "_2_"; "_3_"] then begin
+                        let i = int_of_string (String.sub (Atom.hint field) 1 1)  in
+                        match (snd e1.value).value with
+                        | CType{value=TVar t1} -> begin 
+                            match (defof_tvar ctx t1).value  with
+                            | CType {value=TTuple targs} when List.length targs > i -> List.nth targs i 
+                            | _ -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered inductive type has only %d parts" i)))
+                        end
+                        | _ -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered type is not an inductive type %s" (Atom.to_string field))))
                     end
-                    | _ -> Error.error e1.place "This expr has no attributes" 
-                in
+                    else begin
+                        let sign = match (snd e1.value).value with
+                            | CompType {value=TStruct sign} -> sign
+                            | CompType {value=CompTUid name} -> begin 
+                                match (typeof_var_cexpr ctx name).value with 
+                                |  CompType {value=TStruct sign} -> sign
+                                | _ -> Error.error e1.place "internal error when fetching structural type of component"
+                            end
+                            | _ -> Error.error e1.place "This expr has no attributes" 
+                        in
 
-                let ret_type = 
-                    match Atom.VMap.find_opt field sign with
-                    | None -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered component have no field named %s" (Atom.to_string field))))
-                    | Some mt_field -> mt_field 
+                        let ret_type = 
+                            match Atom.VMap.find_opt field sign with
+                            | None -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered component have no field named %s" (Atom.to_string field))))
+                            | Some mt_field -> mt_field 
+                        in
+                        ret_type
+                    end
                 in
                 
                 AccessExpr(e1, e2), ret_type 

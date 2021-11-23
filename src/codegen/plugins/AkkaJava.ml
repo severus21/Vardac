@@ -1028,6 +1028,36 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
         | Some actor_names -> 
             List.map fctype (List.map (Akka.Misc.t_command_of_actor fplace) actor_names)
     in
+
+    (* generate the _0_, ..., _n_ getters *)
+    let make_getters args = 
+        let fplace = (Error.forge_place "Plg=Akka/make_getter" 0 0) in
+        let auto_fplace smth = {place = fplace; value=smth} in
+        let make_getter i (ct, name) = fterm (auto_fplace {
+            S.annotations = [];
+            decorators = [];
+            v = S.MethodDeclaration (auto_fplace {
+                S.annotations = [S.Visibility S.Public];
+                decorators = [];
+                v = {
+                    S.ret_type = ct;
+                    name = Atom.fresh_builtin (Printf.sprintf "_%d_" i);
+                    body = S.AbstractImpl [
+                        auto_fplace (S.ReturnStmt (
+                            auto_fplace (S.AccessExpr(
+                                auto_fplace (S.This, auto_fplace S.TUnknown),
+                                auto_fplace (S.VarExpr name, auto_fplace S.TUnknown)
+                            ), ct)
+                        ))
+                    ];
+                    args = [];
+                    is_constructor = false; 
+                }
+            })
+        }) in
+        List.mapi make_getter args
+    in
+    let getters = make_getters args in
     
     logger#info "event %s can be received by up to %d" (Atom.to_string name) (List.length implemented_types);
 
@@ -1042,7 +1072,7 @@ and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items =
                 parameters          = []; 
                 extended_types      = [fctype (Rt.Misc.t_lg4dc_event fplace None)];
                 implemented_types   = implemented_types; 
-                body                = constructor::fields
+                body                = constructor::(fields@getters)
             }
         }
     }

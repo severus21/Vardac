@@ -386,6 +386,7 @@ let fplace = place@(Error.forge_place "Plg=Akka/finish_expr" 0 0) in
 let auto_place smth = {place = fplace; value=smth} in
 (match e with
     | S.VarExpr x -> T.VarExpr x
+    | S.AccessExpr (e1, {value=S.VarExpr x,_}) when Atom.is_builtin x -> Encode.encode_builtin_access place (fexpr e1) (Atom.hint x) 
     | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
     | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
     | S.LambdaExpr (x, _, e) -> T.LambdaExpr ([x], auto_place (T.ReturnStmt (fexpr e))) 
@@ -1252,6 +1253,34 @@ and fcexpr ce : T.expr = map_place finish_component_expr ce
 
 (************************************ Program *****************************)
 
+(* generate the _0_, ..., _n_ getters *)
+and make_getters args = 
+    let fplace = (Error.forge_place "Plg=Akka/make_getter" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+    let make_getter i (ct, name) = auto_fplace {
+        T.annotations = [];
+        decorators = [];
+        v = T.MethodDeclaration (auto_fplace {
+            T.annotations = [T.Visibility T.Public];
+            decorators = [];
+            v = {
+                T.ret_type = ct;
+                name = Atom.fresh_builtin (Printf.sprintf "_%d_" i);
+                body = T.AbstractImpl [
+                    auto_fplace (T.ReturnStmt (
+                        auto_fplace (T.AccessExpr(
+                            auto_fplace (T.This, auto_fplace T.TUnknown),
+                            auto_fplace (T.VarExpr name, auto_fplace T.TUnknown)
+                        ), ct)
+                    ))
+                ];
+                args = [];
+                is_constructor = false; 
+            }
+        })
+    } in
+    List.mapi make_getter args
+
 and finish_term place : S._term -> T.term list = 
 let fplace = place@(Error.forge_place "Plg=Akka/finish_term" 0 0) in
 let auto_place smth = {place = fplace; value=smth} in
@@ -1440,7 +1469,7 @@ function
                     place; 
                     value = T.LetStmt (
                         arg_ctype, 
-                        name,
+                        arg_name,
                         None 
                     )
                 }
@@ -1465,6 +1494,9 @@ function
         }}
     }} in
 
+
+    let getters = make_getters args in
+
     [{
         place; 
         value = {
@@ -1475,7 +1507,7 @@ function
                 extended_types = [];
                 implemented_types = [];
                 name;
-                body = fields @ [constructor] 
+                body = fields @ (constructor::getters) 
             }
         }
     }]

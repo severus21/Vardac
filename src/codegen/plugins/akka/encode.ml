@@ -19,6 +19,22 @@ encode_no_arg, one_arg
 encode try encode according to arg number in order to mutualised the error messages
 *)
 
+let encode_builtin_access place e name =
+    assert(Core.Builtin.is_builtin_expr name);
+    let auto_place t = {place; value=t} in 
+    match name with
+    | "_0_" | "_1_" | "_2_" | "_3_" | "_4_" ->
+        let i = int_of_string (String.sub name 1 1) in
+        (* Class provide getter called __i__ (it is easieast than renaming - no global state to manage) *)
+        T.CallExpr(
+            auto_place (T.AccessExpr (
+                e, 
+                auto_place(T.VarExpr (Atom.fresh_builtin name), auto_place T.TUnknown)
+            ), auto_place T.TUnknown),
+            []
+        ) 
+    | _ -> failwith (Printf.sprintf "Unsupported builtin access in Akka:  %s" name) 
+
 let encode_builtin_fct place name (args:T.expr list) =
     assert(Core.Builtin.is_builtin_expr name);
     let auto_place t = {place; value=t} in 

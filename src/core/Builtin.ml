@@ -223,6 +223,13 @@ let t_sessionid () =
         mtype_of_ft TInt
     ))
         
+let builtin_access : (string * string) list = [
+    "_0_", "access part of user inductive type";
+    "_1_", "...";
+    "_3_", "...";
+    "_4_", "...";
+]
+
 (* name, signature string, description, signature () -> .. , neeed a closure to generate fresh types *)
 let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "activationsat", "place -> set<activation_info>", "", t_activationat;
@@ -279,7 +286,7 @@ let builtin_atomic_types = [
 module BuiltinSet = Set.Make(String)                     
 let builtin_htbl = Hashtbl.of_seq (List.to_seq (List.map (function (x, a, b, mt) -> (x, (a,b, mt))) builtin_fcts))
 
-let builtin_expr_env = BuiltinSet.of_list (List.map (function x,_,_,_ -> x) builtin_fcts)    
+let builtin_expr_env = BuiltinSet.of_list ((List.map (function x,_,_,_ -> x) builtin_fcts)@(List.map fst builtin_access))    
 let builtin_type_env = BuiltinSet.of_list  builtin_atomic_types    
 let is_builtin_expr x = try let _ = BuiltinSet.find x builtin_expr_env in true with Not_found -> false                   
 let is_builtin_type x = try let _ = BuiltinSet.find x builtin_type_env in true with Not_found -> false                   

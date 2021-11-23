@@ -45,6 +45,11 @@ let typeof_var_cexpr ctx x : main_type =
         Atom.VMap.find x ctx.cctx
     with Not_found -> failwith (Printf.sprintf "notfound type of cexpr %s" (Atom.to_string x))
 
+let defof_tvar ctx x : main_type = 
+    try 
+        Atom.VMap.find x ctx.tctx
+    with Not_found -> failwith (Printf.sprintf "notfound def of tvar %s" (Atom.to_string x))
+
 
 let register_expr_type ctx x mt = {
     ctx with 
