@@ -246,6 +246,7 @@ and rewrite_expr_term_ selector rewriter place = function
 | Component cdcl -> Component (rewrite_expr_component_dcl selector rewriter cdcl)
 | Function fdcl -> Function (rewrite_expr_function_dcl selector rewriter fdcl)
 | (Typealias _ as t) |(Typedef _ as t) -> t
+| Derive derive -> Derive { derive with eargs = List.map (rewrite_expr_expr selector rewriter) derive.eargs}
 and rewrite_expr_term selector rewriter = map_place (rewrite_expr_term_ selector rewriter) 
 
 let make x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) = 
@@ -255,3 +256,24 @@ let make x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) =
 let replace_expr_component_item x_to_replace replaceby = 
     let selector, rewriter = make x_to_replace replaceby in
     rewrite_expr_component_item selector rewriter
+
+
+let rec rewrite_component_component_item_  selector rewriter place = function 
+    | Term t -> List.map (function x -> Term x) (rewrite_component_term selector rewriter t)
+    | citem -> [citem]
+and rewrite_component_component_item selector rewriter = map_places (rewrite_component_component_item_ selector rewriter) 
+
+and rewrite_component_component_dcl_  selector rewriter place = function 
+| ComponentStructure cdcl -> 
+    if selector cdcl then List.map (function x -> ComponentStructure x) (rewriter place cdcl)
+    else [ 
+        ComponentStructure { cdcl with body = List.flatten (List.map (rewrite_component_component_item selector rewriter) cdcl.body)}
+    ]
+and rewrite_component_component_dcl selector rewriter = map_places (rewrite_component_component_dcl_ selector rewriter) 
+
+and rewrite_component_term_ selector rewriter place = function 
+| Component cdcl -> List.map (function x -> Component x) (rewrite_component_component_dcl selector rewriter cdcl)
+| t -> [ t ]
+and rewrite_component_term selector rewriter = map_places (rewrite_component_term_ selector rewriter) 
+
+and rewrite_component_program (selector : component_structure -> bool) (rewriter : Error.place -> component_structure -> component_structure list) program = List.flatten (List.map (rewrite_component_term selector rewriter) program )

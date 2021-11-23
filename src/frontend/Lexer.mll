@@ -42,6 +42,9 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "type", TYPE;
     "vplacedef", VPLACEDEF;
 
+    (* rewriting *)
+    "derive", DERIVE;
+
     (* binders *)
     "in", IN;
     "implicit", IMPLICIT;

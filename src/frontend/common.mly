@@ -587,6 +587,11 @@ any_term_:
     { Component c }
 | t_dcl = any_type_dcl_
     { t_dcl }
+| AT AT DERIVE name=LID LANGLEBRACKET cargs=right_flexible_list(COMMA, any_component_expr) RANGLEBRACKET LANGLEBRACKET targs=right_flexible_list(COMMA, any_type)  RANGLEBRACKET LPAREN eargs=right_flexible_list(COMMA, any_expr) RPAREN
+{
+    Derive {name; cargs; targs; eargs}
+}
+
 %public %inline any_term:
     t = placed(any_term_)
     { t }

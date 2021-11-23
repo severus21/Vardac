@@ -598,6 +598,11 @@ end
         | EventDef _ -> EventDef (x, args, ())
     })
 end
+| Derive {name; cargs; targs; eargs} ->
+    let _, cargs = List.split (List.map (pe_component_expr env) cargs) in
+    let _, targs = List.split (List.map (pe_mtype env) targs) in
+    let _, eargs = List.split (List.map (pe_expr env) eargs) in
+    env, Derive {name; cargs; targs; eargs}
 and pe_term env: term -> env * term = map2_place (peval_term env)
 
 and pe_terms env terms : env * IR.term list =

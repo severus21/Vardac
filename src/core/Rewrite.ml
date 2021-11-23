@@ -520,6 +520,7 @@ module Make (Args : Params ) : Sig = struct
     | Function fcdcl -> Function fcdcl
     | Typealias _ as t -> t
     | Typedef _ as t -> t
+    | Derive _ as t -> t
     and rterm term = map_place rewrite_term term
 
     and rewrite_program terms = List.map rterm terms

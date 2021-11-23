@@ -101,6 +101,12 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
     and component_item = _component_item placed
 
 
+    and component_structure = {
+        target_name: target_name; 
+        name: component_variable; 
+        args: param list; 
+        body: component_item list}
+
     and _component_dcl = 
         (* 
         component X args = {
@@ -110,11 +116,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
         } =>
         TODO component X = lambda arg1: ... lambda argn: { body } ???
         *)
-        | ComponentStructure of {
-            target_name: target_name; 
-            name: component_variable; 
-            args: param list; 
-            body: component_item list} 
+        | ComponentStructure of component_structure
         | ComponentAssign of {
             name: component_variable; 
             args: param list; 
@@ -163,10 +165,17 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
     | ProtocolDef of type_variable * main_type
     and typedef = _typedef placed
 
+    and derivation = { (* Used to rewrite the ast *)
+        name: type_variable;
+        cargs: component_expr list;
+        targs: main_type list; 
+        eargs: expr list;    
+    } 
+
     and _term =
         | EmptyTerm
         | Comments of comments
-        
+
         (* Dynamic part*)
         | Stmt of stmt
 
@@ -178,6 +187,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
         (*TODO | SignatureDcl of signature_dcl*)   
         | Typealias of type_variable * _typealias_body
         | Typedef of typedef 
+        | Derive of derivation (* Used to rewrite the ast *)
     and term = _term placed
 
     and program = term list

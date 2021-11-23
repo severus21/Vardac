@@ -458,6 +458,7 @@ and gtransform_term_ place = function
 | Typedef {place=p_p; value=ProtocolDef (x, mt)} ->
     Typedef {place=p_p; value=ProtocolDef (x, gtransform_mt mt)} 
 | Typedef _ as t -> t
+| Derive _ -> raise (Error.PlacedDeadbranchError (place, "Derivation should have been removed before starting the code generation"))
 and gtransform_term term = map_place gtransform_term_ term
 
 and gtransform_program terms = 

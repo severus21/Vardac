@@ -283,13 +283,20 @@ let builtin_atomic_types = [
   "uuid";
   ]
 
+
+let builtin_derivations = [
+    "rpc"
+]
+
 module BuiltinSet = Set.Make(String)                     
 let builtin_htbl = Hashtbl.of_seq (List.to_seq (List.map (function (x, a, b, mt) -> (x, (a,b, mt))) builtin_fcts))
 
 let builtin_expr_env = BuiltinSet.of_list ((List.map (function x,_,_,_ -> x) builtin_fcts)@(List.map fst builtin_access))    
 let builtin_type_env = BuiltinSet.of_list  builtin_atomic_types    
+let builtin_derivation_env = BuiltinSet.of_list  builtin_derivations    
 let is_builtin_expr x = try let _ = BuiltinSet.find x builtin_expr_env in true with Not_found -> false                   
 let is_builtin_type x = try let _ = BuiltinSet.find x builtin_type_env in true with Not_found -> false                   
+let is_builtin_derivation x = try let _ = BuiltinSet.find x builtin_derivation_env in true with Not_found -> false                   
 
 let type_of x : IR.main_type = 
     let (_, _, make_mt) = Hashtbl.find builtin_htbl x in

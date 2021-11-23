@@ -224,6 +224,7 @@ end
         value = ProtocolDef (x, mt) 
     }  (* Implict constructor *)
 end
+| S2.Derive {name; cargs; targs; eargs; } -> T.Derive {name; cargs; targs; eargs}
 and uterm parents: S2.term -> T.term = map_place (paired_term parents)
 
 let paired_program targets terms impl_terms =    

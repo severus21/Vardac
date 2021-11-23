@@ -126,6 +126,7 @@ module Make (Args : Params ) : Sig = struct
     | Function fcdcl -> Function fcdcl
     | Typealias _ as t -> t
     | Typedef _ as t -> t
+    | Derive derive -> Derive derive
     and rterm term = map_place rewrite_term term
 
 
@@ -285,6 +286,7 @@ module Make (Args : Params ) : Sig = struct
     | Function fcdcl -> Function fcdcl
     | Typealias _ as t -> t
     | Typedef _ as t -> t
+    | Derive _ as t -> t 
     and rterm2 term : term = map_place rewrite_term2 term
 
     (*Two passes of rewriting since some computation needs to gather information in all scope first

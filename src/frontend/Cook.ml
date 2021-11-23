@@ -305,6 +305,11 @@ and cook_var_component env place x =
     with Not_found ->
         error place "Unbound component variable: %s" x
     )
+and cook_var_derive env place x = 
+    if is_builtin_derivation x then
+        Atom.fresh_builtin x
+    else 
+        error place "Unbound derivation: %s" x
 and cook_var_this env place x = 
     try
         Env.find x env.current.this
@@ -961,6 +966,17 @@ end
         | ClassicalDef _ -> ClassicalDef (y, args, ())
         | EventDef _ -> EventDef (y, args, ())
     })]
+| S.Derive derive ->
+    let cenvs, cargs = List.split (List.map (ccexpr env) derive.cargs) in
+    let tenvs, targs = List.split (List.map (cmtype env) derive.targs) in
+    let eenvs, eargs = List.split (List.map (cexpr env) derive.eargs) in
+
+    env << (cenvs@tenvs@eenvs),[ T.Derive {
+        name = cook_var_derive env place derive.name;
+        cargs;
+        targs;
+        eargs;
+    }]
     
 and cterm env: S.term -> env * T.term list = map2_places (cook_term env)
 

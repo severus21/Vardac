@@ -64,6 +64,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     in
 
     ir2
+    |> Derive.derive_program
     |> Frontend.Main.to_impl targets impl_filename  
     |> Codegen.codegen project_dir build_dir places targets;
 

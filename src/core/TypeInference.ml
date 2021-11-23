@@ -714,6 +714,11 @@ end
 | Typedef tdef -> 
     let ctx, tdef = tannot_typedef ctx tdef in
     ctx, Typedef tdef
+| Derive derive ->
+    let cargs = List.map (tannot_component_expr ctx) derive.cargs in
+    let targs = List.map (tannot_main_type ctx) derive.targs in
+    let eargs = List.map (tannot_expr ctx) derive.eargs in
+    ctx, Derive {name = derive.name; cargs; targs; eargs} 
 and tannot_term ctx t = 
     let ctx, _t = _tannot_term ctx t.place t.value in
     ctx, {

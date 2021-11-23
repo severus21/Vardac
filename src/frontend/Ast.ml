@@ -292,6 +292,12 @@ and _term =
     (*TODO | SignatureDcl of signature_dcl*)   
     | Typealias of variable * main_type option (* name, optional value*) 
     | Typedef of typedef 
+    | Derive of { (* Used to rewrite the ast *)
+        name: variable;
+        cargs: component_expr list;
+        targs: main_type list; 
+        eargs: expr list;    
+    }
 and term = _term placed
 
 and program = term list
