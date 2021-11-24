@@ -5,6 +5,8 @@ open AstUtils
 open Easy_logging
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
+(* Export AST *)
+module Ast = Ast 
 
 let process_target ir (filename:string) =
   filename
@@ -15,12 +17,15 @@ let process_target ir (filename:string) =
   |> function x-> logger#sinfo "Targets has been cooked"; x
   |> dump "Target" Target.show_targets 
 
-let to_ir places filename =
+let to_ast places filename = 
     filename
     |> Parse.read
     |> function ast -> logger#sinfo "Main spec file has been read"; ast 
     |> function ast -> logger#sinfo "AST is built"; ast 
     |> dump "Ast" Ast.show_program
+
+let to_ir places filename =
+    to_ast places filename
     |> Resolve.resolve_program   
     |> function ast -> logger#sinfo "AST is resolved"; ast 
     |> dump "ResolveAst" Ast.show_program  

@@ -7,16 +7,16 @@ open Easy_logging
 let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
 let process_impl filename =
-    Frontend.Main.to_impl filename
+    Frontend.to_impl filename
 
 
 let process_check build_dir places_file filename = 
     let build_dir = Utils.refresh_or_create_build_dir build_dir in
     let project_dir = Fpath.parent (Fpath.v filename) in
 
-    let places = Frontend.Main.process_place places_file in
+    let places = Frontend.process_place places_file in
 
-    let (gamma, ir) = Frontend.Main.to_ir places filename in
+    let (gamma, ir) = Frontend.to_ir places filename in
     ir
     |> Core.PartialEval.peval_program
     |> function x-> logger#sinfo "IR has been partially evaluated";x
@@ -31,10 +31,10 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     let project_dir = Fpath.parent (Fpath.v filename) in
 
 
-    let places = Frontend.Main.process_place places_file in
+    let places = Frontend.process_place places_file in
 
 
-    let (gamma, ir) = Frontend.Main.to_ir places filename in
+    let (gamma, ir) = Frontend.to_ir places filename in
     let ir1 =
         ir
         |> Core.Reduce.reduce_program 
@@ -50,7 +50,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     in
 
     (* extract targets definitions from file *)
-    let targets = Frontend.Main.process_target ir targets_file in
+    let targets = Frontend.process_target ir targets_file in
 
     let module Rewrite = ((Core.Rewrite.Make((struct let gamma = gamma let targets = targets end))):Core.Rewrite.Sig) in
     let module ImplicitElimination = ((Core.ImplicitElimination.Make((struct let gamma = gamma let targets = targets end))):Core.Rewrite.Sig) in
@@ -65,18 +65,18 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
     ir2
     |> Derive.derive_program
-    |> Frontend.Main.to_impl targets impl_filename  
+    |> Frontend.to_impl targets impl_filename  
     |> Codegen.codegen project_dir build_dir places targets;
 
     (* Before rewriting *)
     let module TopologyPrinter = ((Core.Topology.Make((struct let component2target = (Codegen.make_component2target ()) end))):Core.Topology.Sig) in (* Warning make_component2target can not be called before spliting until split.ml was improved*)
     TopologyPrinter.generate_static_logical_topology build_dir ir1;
-    
+    ()
 
-(* -------------------------------------------------------------------------- *)
-(* Sanitize libs *)
+let process_stats places_file targets_file impl_filename filename =
+    let places = Frontend.process_place places_file in
 
-(*let sanitize_libs libs=
-  let res = List.map (function x -> Sys.file_exists x,x) libs in
-  List.iter (function false,x -> Printf.eprintf "Library %s not found." x; exit 1  |true,_ -> ()) res  
- *)
+    let ir = Frontend.to_ast places filename in
+
+    ir
+    |> Statistic.analyze_program

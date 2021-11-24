@@ -48,7 +48,7 @@ let testsfrom (name, spec_file, impl_file, targets_file, places_file) : OUnit2.t
     (* Parsing *)
     ((Printf.sprintf "parsing_%s" name) >:: function _ -> ignore (Frontend.Parse.parse "" (Core.Utils.file_get_contents spec_file)));
     ((Printf.sprintf "parsing_impl_%s" name) >:: function _ -> ignore (Frontend.ParseImpl.read impl_file));
-    ((Printf.sprintf "parsing_places_%s" name) >:: function _ -> ignore (Frontend.Main.process_place places_file));
+    ((Printf.sprintf "parsing_places_%s" name) >:: function _ -> ignore (Frontend.process_place places_file));
     ((Printf.sprintf "parsing_targets_%s" name) >:: function _ -> ignore (Frontend.ParseTarget.parse_targets targets_file));
     (* Check *)
     (*((Printf.sprintf "check_%s" name) >:: function ctx -> ignore (Compspeclib.process_check (Fpath.v (OUnit2.bracket_tmpdir ctx)) places_file spec_file));

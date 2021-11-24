@@ -47,6 +47,11 @@ let options_compile =
     ]
 
 let options_check = common_options
+let options_stats = 
+    common_options @ 
+    [
+        "--impl", Arg.Set_string impl_filename, "Impl file"
+    ]
 
 
 let display_build_info = ref false
@@ -65,6 +70,7 @@ match !action with
 | "compile" -> options := options_compile
 | "check" -> options := options_compile
 | "info"    -> options := options_info 
+| "stats" -> options := options_stats
 | _ ->  raise (Arg.Bad "This action is undefined, allowed actions are [compile, info]")
 
 let usage =
@@ -91,6 +97,12 @@ let () =
     | "compile" -> begin
         try
             List.iter (process_compile !build_dir !places_file !targets_file !impl_filename) filenames
+        with
+        | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
+    end
+    | "stats" -> begin
+        try
+            List.iter (process_stats !places_file !targets_file !impl_filename) filenames
         with
         | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
     end
