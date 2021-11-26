@@ -34,9 +34,17 @@ let derive_program program cname =
     let mt_rpc_protocol = mtype_of_var a_rpc_protocol in
     let a_rpc_bridge = Atom.fresh ((Atom.to_string cname)^"__rpc_bridge") in
    
-    (* TODO list of all components that can call an rpc method *)
-    let callers : Atom.atom list = [] in 
-    (* TODO check non empty*)
+    (* Collect list of all components that can call an rpc method *)
+    let select_caller = function
+        | ActivationAccessExpr (_cname, _, _) -> cname =_cname
+        | _ -> false
+    in
+    let collect_caller parent_opt _ _ = [parent_opt] in 
+    let _, callers, _ = collect_expr_program Variable.Set.empty select_caller collect_caller program in
+    let callers : Atom.atom list = List.map Option.get (List.filter (function x -> x <> None) callers) in 
+    (if callers = [] then 
+        Error.error fplace "There is no RPC call for %s" (Atom.value cname) (* FIXME compute the correct place to improve error reporting *)
+    );
     let caller0::callers = callers in
 
 

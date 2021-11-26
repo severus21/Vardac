@@ -72,12 +72,12 @@ module Make (Args : Params ) : Sig = struct
 
         (* C, scope*)
         let selector = function | Spawn _ as e -> true | _ -> false in
-        let collector env e = 
+        let collector parent_opt env e = 
             match fst e.value with  
             | Spawn {c; args; at} -> [(c, env)] 
             | _ -> []
         in
-        let spawns = collect_expr_component_dcl Atom.Set.empty selector collector {place; value=ComponentStructure cdcl} in (* NB: need to call collect_expr_component_dcl directly in order to include component wide scope *)
+        let spawns = collect_expr_component_dcl (Some cdcl.name) Atom.Set.empty selector collector {place; value=ComponentStructure cdcl} in (* NB: need to call collect_expr_component_dcl directly in order to include component wide scope *)
         let spawns = match spawns with | _, elts, _ -> elts in
 
         (match Hashtbl.find_opt inner_spawns cdcl.name with
