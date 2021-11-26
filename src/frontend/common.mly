@@ -270,7 +270,7 @@ any_expr_:
 | IMPLICIT DOUBLE_COLON x = LID
     { ImplicitVarExpr x}
 | e1 = any_expr DOT e2=any_expr
-    {AccessExpr (e1,e2)}
+    {AccessExpr (e1,e2)} (* FIXME can we do e2=LID *)
 (* Hack because the lexer ouput a.b.c as an ATTR *)
 | lids = ATTR
     {   let rec aux lids = { place = [$loc]; value = 

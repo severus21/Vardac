@@ -8,6 +8,9 @@ open AstUtils
 
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
+let fplace = (Error.forge_place "Frontend.Cook" 0 0) 
+let auto_fplace smth = {place = fplace; value=smth}
+
 (* The source calculus. *)
 module S = Ast 
 (* The target calculus. *)
@@ -25,6 +28,8 @@ let fst3 (x,y,z) = x
 type gamma_t = (IR.expr_variable, IR.main_type) Hashtbl.t
 let gamma = Hashtbl.create 64 
 
+(* Environments map strings to atoms. *)
+module Env = Map.Make(String)
 
 (*
     A{
@@ -49,21 +54,21 @@ let gamma = Hashtbl.create 64
             b -> b7
 *)
 type iota_entry = {
-    name: Atomt.atom; (* A -> A1*)
-    inner: (string, Atom.atom) Hashtbl.t; (*b -> b2*)
-    rec_inner: (string -> iota_entry) Hashtbl.t; (* C -> C3
+    name: Atom.atom AstUtils.placed; (* A -> A1*)
+    inner: Atom.atom AstUtils.placed Env.t; (*b -> b2*)
+    rec_inner: iota_entry AstUtils.placed Env.t; (* C -> C3
                                                         titi -> titi3
                                                 *)
 }
 
-(* iota denotes the structure of the program should be expose for subsequent passes *)
-let iota = Hashtbl.create 64
-
 let fresh_iota_entry name = {
     name;
-    inner = Hashtbl.create 8;
-    rec_inner = Hashtbl.create 8;
+    inner = Env.empty;
+    rec_inner = Env.empty;
 }
+(* iota denotes the structure of the program should be expose for subsequent passes *)
+let iota = ref (fresh_iota_entry (auto_fplace (Atom.fresh_builtin "__default__")))
+
 
 let register_gamma x t = Hashtbl.add gamma x t 
 let register_gamma_builtin x = 
@@ -72,23 +77,21 @@ let register_gamma_builtin x =
 let print_gamma gamma = 
     Format.fprintf Format.std_formatter "Gamma {@[%a]}" (Error.pp_list "\n  -" (fun out (x,t) -> Format.fprintf out " %s -> %s " (Atom.to_string x) (T.show_main_type t))) (List.of_seq (Hashtbl.to_seq gamma))
 
-(* Environments map strings to atoms. *)
-module Env = Map.Make(String)
 
 (*********** Entity level environment - each entity create its own ************)
 type entity_env = {
     components:     IR.component_variable Env.t; 
     exprs:          IR.expr_variable  Env.t; 
     instanciations: bool  Env.t; 
-    this:           IR.component_variable Env.t; 
-    implicits:       IR.component_variable Env.t;
+    this:           iota_entry; 
+    implicits:      IR.component_variable Env.t;
     types:          IR.type_variable  Env.t} [@@deriving fields] 
 
-let fresh_entity_env () = {
+let fresh_entity_env iota = {
     components              = Env.empty;
     exprs                   = Env.empty;
     instanciations          = Env.empty;
-    this                    = Env.empty; (* current state*)
+    this                    = iota;
     implicits               = Env.empty;
     types                   = Env.empty}
 
@@ -104,7 +107,6 @@ let print_entity_env env =
     ) [
         ("components", components);
         ("exprs", exprs); 
-        ("this", this);
         ("implicits", implicits);
         ("types", types) ];
     
@@ -149,8 +151,7 @@ let combine (env1:component_env) (env2: component_env) =
         assert( env1.name = env2.name);
         
         let rec populate (key:string) (value:IR.typedef) env = 
-            let res = Env.find_opt key env in
-            match res with
+            match Env.find_opt key env with
             | Some {AstUtils.place; _} -> Error.error (place@value.place) "labels %s defined multiple times" key
             | None -> Env.add key value env
         in 
@@ -172,55 +173,25 @@ let print_components_env (env:(IR.component_variable Env.t) Atom.VMap.t) =
         Format.fprintf out " %s -> {@[%a@]}" (Atom.to_string x) (Error.pp_list ";" (fun out (x,_) -> Format.fprintf out "%s" x)) (List.of_seq (Env.to_seq _env))    
     )) (List.of_seq (Atom.VMap.to_seq env))
 
-let combine2 (env1:(IR.component_variable Env.t) Atom.VMap.t) (env2: (IR.component_variable Env.t) Atom.VMap.t) = 
-    if env1 = env2 then env1
-    else begin
-        let rec populate key value env = 
-            let res = Atom.VMap.find_opt key env in
-            match res with
-            | Some _env ->
-                let rec _populate key value env = 
-                    let res = Env.find_opt key env in
-                    match res with
-                    | Some _value when _value = value -> env
-                    | Some _ ->  failwith "error combine2"
-                    | None -> Env.add key value env
-                in 
-                Atom.VMap.add key (Env.fold _populate value _env) env
-                
-            | None -> Atom.VMap.add key value env
-        in 
-
-        Atom.VMap.fold populate env1 env2
-    end
-
 type env = {
     current: entity_env;
     component: component_env; (* NB: top-level is considered as a mock component *)
-    components_env: (IR.component_variable Env.t) Atom.VMap.t; (* access the env of the component - need to check binding of method call *)
 }
 
 let print_env env = 
     print_component_env env.component;
-    print_components_env env.components_env;
     print_entity_env env.current
 
 let (<<) (env0:env) (envs:env list) : env = {
     current = env0.current;
-    components_env = List.fold_left combine2 env0.components_env (List.map (fun c -> c.components_env) envs);
     component = List.fold_left combine env0.component (List.map (fun c -> c.component) envs)
 }
-let fresh_env () = {
-    current         = fresh_entity_env ();
-    components_env  = Atom.VMap.empty;
+let fresh_env iota = {
+    current         = fresh_entity_env iota;
     component       = fresh_component_env ();
 }
 
-(* TO be used in shallow scan *)
-let (<<<) (env0:env) (envs:env list) : env = {
-    (fresh_env ()) with
-    components_env = List.fold_left combine2 env0.components_env (List.map (fun c -> c.components_env) envs);
-}
+
 
 (* take an env and refresh the component scope *)
 let refresh_component_env (env:env) name = 
@@ -234,15 +205,26 @@ let bind_component env place name =
     if is_builtin_component name then
         error place "Component Keyword %s is reserved." name;
 
-    let a_name = Atom.fresh name in
-    {env with 
-        current = {
-            env.current with 
-                components=Env.add name a_name env.current.components;
-            instanciations= Env.add name true env.current.instanciations;
-        };
-        component = { (fresh_component_env ()) with  name = a_name}
-    }, a_name
+    try
+        let inner = (Env.find name env.current.this.rec_inner).value in
+        let a_name = inner.name.value in
+        {env with 
+            current = {
+                env.current with 
+                    components=Env.add name a_name env.current.components;
+                instanciations= Env.add name true env.current.instanciations;
+            };
+            component = { (fresh_component_env ()) with  name = a_name}
+        }, a_name 
+    with Not_found -> Error.error place "Unbounded component"
+
+let hydrate_compoent_env_from_iota env entry = List.fold_left 
+    (fun env name -> fst (bind_component env fplace name)) 
+    env 
+    (List.map 
+        (function (k, _) -> k) 
+        (List.of_seq (Env.to_seq entry.rec_inner))
+    ) 
 
 let bind_expr env place x =
     if is_builtin_expr x then
@@ -265,8 +247,9 @@ let register_expr env place ?create_instance:(create_instance=false) atom =
     }
 
 let bind_this env place x =
-  let a = Atom.fresh x in
-  { env with current = {env.current with this=Env.add x a env.current.this}}, a 
+    try
+        env, (Env.find x env.current.this.inner).value
+    with Not_found -> raise (DeadbranchError "bind_this not in iota")
 
 let bind_type env place x =
    if is_builtin_type x then
@@ -297,74 +280,66 @@ let bind_eventdef (env:env) place (label:Atom.atom) : env =
 
 module StringMap = Map.Make(String)
 
+
 (*****************************************************************************)
-
-(* Built a env in order to link mutual binding between component and mutual binding methods 
-    @param (set,env) -> [set] items name of the current component (used to prevent multiple definition with the same name) ; [env] the current naming environment (including parent's one)
+(** Pass 1 : cartography the structure
+        i.e hydrate iota
 *)
-let rec shallow_scan_component_item (current_set, env) ({place; value}: S.component_item) : place StringMap.t * env = 
-    try
-        let current_cmp_env = Atom.VMap.find env.component.name env.components_env in
-        Printf.printf "component %s" (Atom.to_string env.component.name);
 
-        match value with
-        | S.Term t -> shallow_scan_term (current_set, env) t
-        | S.Method m -> begin 
-            let env, x = bind_this env place m.value.name in
+let rec _print_iota out (entry:iota_entry) = 
+    Format.fprintf out "{name = %s;inner = {@;@[<v 3>%a@]@;<0 -3>}; rec_inner = {@;@[<v 3>%a@]@;<0 -3>}}" 
+        (Atom.to_string entry.name.value) 
+        (Error.pp_list "\n" (fun out (x,_) -> Format.fprintf out "%s;" x)) (List.of_seq (Env.to_seq entry.inner))
+        (Error.pp_list "\n" _print_iota) (List.map (function x -> (snd x).value) (List.of_seq (Env.to_seq entry.rec_inner)))
+let print_iota entry = _print_iota Format.std_formatter entry
 
-            match Env.find_opt m.value.name current_cmp_env with
-            (*match StringMap.find_opt m.value.name current_set with*)
-            | None -> 
-                let env = { env with components_env =
-                    Atom.VMap.add env.component.name (Env.add m.value.name x current_cmp_env) env.components_env} in
+let register_component place name = 
+    if is_builtin_component name then
+        error place "Component Keyword %s is reserved." name;
 
-                print_components_env env.components_env;
-                print_string "====================\n\n";
-                StringMap.add m.value.name place current_set, env 
+    Atom.fresh name
+let register_this place x =
+    Atom.fresh x
 
-            (* TODO register the others places of multiple definitions to improve error reporting*)
-            | Some _ -> Error.error place "() multiple definitions of %s" m.value.name
-        end
-        | _ -> current_set, env
-    with Not_found -> raise (Error.PlacedDeadbranchError (place, Printf.sprintf "components env for %s not found" (Atom.to_string env.component.name)))
-and shallow_scan_component_dcl (current_set, env) ({place; value}: S.component_dcl) : place StringMap.t * env = 
+let rec cartography_component_item (entry:iota_entry) ({place; value}: S.component_item) : iota_entry = 
+    (*
+        FIXME WARNING
+        method and state/port should have distinct name because only one env is used for all
+    *)
+    match value with
+    | S.Term t -> cartography_term entry t
+    | S.Method {value={name}} | S.Port {value={name;}} | S.State {value=StateDcl{name;}} | S.State {value=StateAlias{name;}}  -> begin
+        match Env.find_opt name entry.inner with 
+        | None -> { entry with
+            inner = Env.add name {place; value=register_this place name} entry.inner
+        } 
+        | Some p -> Error.error (p.place@place) "multiple definitions %s in the same component" name
+    end
+and cartography_component_dcl ({place; value}: S.component_dcl) : iota_entry = 
 (* We do not explore the body of a component *)
 match value with
-| S.ComponentStructure cdcl -> begin
-    let current_set = StringMap.empty in (* reset set - since only for inner declaration*)
-    Printf.printf ">> In cdcl %s\n" cdcl.name;
-    match StringMap.find_opt cdcl.name current_set with
-    | None -> 
-        let env, x = bind_component env place cdcl.name in
-        let env = { env with 
-            components_env = Atom.VMap.add x Env.empty env.components_env 
-        } in 
-
-        (* 
-            Need to shallow scan all the structure in order to expose public method
-            At this point subcomponents and fields can not been public
-        *)
-        if "__default__" = Atom.hint env.component.name then
-            current_set, env
-        else (
-        Printf.printf "cccomponent %s" (Atom.to_string env.component.name);
-            let current_set, inner_env = List.fold_left (fun (current_set, env) -> shallow_scan_component_item (current_set, env) ) (StringMap.add cdcl.name place current_set,env) cdcl.body in
-            print_components_env env.components_env;
-            print_components_env inner_env.components_env;
-            current_set, env <<< [inner_env] 
-        )
-    | Some p -> Error.error (p@place) "multiple definitions of %s" cdcl.name
-end
-| S.ComponentAssign cdcl -> begin
-    match StringMap.find_opt cdcl.name current_set with
-    | None -> StringMap.add cdcl.name place current_set, fst (bind_component env place cdcl.name)
-    | Some p -> Error.error (p@place) "multiple definitions of %s" cdcl.name
-end
-and shallow_scan_term ((current_set, env): place StringMap.t * env) ({place; value}: S.term) : place StringMap.t * env = 
+| S.ComponentStructure cdcl -> 
+    let inner_entry = fresh_iota_entry ({place; value=register_component place cdcl.name}) in
+    (* Remove contract since they shared the name of their method *)
+    let citems = List.filter (function {value=S.Contract _} -> false | _ -> true) cdcl.body in
+    List.fold_left cartography_component_item inner_entry citems 
+| S.ComponentAssign cdcl -> fresh_iota_entry ({place; value=register_component place cdcl.name})  
+and cartography_term (entry:iota_entry) ({place; value}: S.term) : iota_entry = 
 match value with
-| S.Component c -> shallow_scan_component_dcl (current_set, env) c
-| _ -> current_set, env
+| S.Component c -> begin 
+    let inner_entry = cartography_component_dcl c in
+    match Env.find_opt (Atom.value inner_entry.name.value) entry.rec_inner with
+    | None -> { entry with
+        rec_inner = Env.add (Atom.value inner_entry.name.value) {place; value=inner_entry} entry.rec_inner
+    } 
+    | Some p -> Error.error (p.place@place) "multiple definitions of component %s in the same scope" (Atom.value inner_entry.name.value)
+end
+| _ -> entry
 
+
+
+
+(*****************************************************************************)
 (*
         @return flag; flag = true if it is a component like (instanciation needed)
 *)
@@ -374,8 +349,7 @@ let rec is_instance_var env place x : bool =
     else (
         try
             Env.find x env.current.instanciations
-        with Not_found ->
-           false 
+        with Not_found -> false 
     )
 and is_instance_expr env (e:S.expr) : bool = 
 match e.value with
@@ -425,7 +399,7 @@ and cook_var_derive env place x =
         error place "Unbound derivation: %s" x
 and cook_var_this env place x = 
     try
-        Env.find x env.current.this
+        (Env.find x env.current.this.inner).value
     with Not_found ->
         error place "Unbound this variable: %s" x
 (************************************ Types **********************************)
@@ -511,7 +485,7 @@ and cook_component_type env place: S._component_type -> env * T._component_type 
 | S.CompTUid x -> 
     env, T.CompTUid (cook_var_type env place x)
 and ccomptype env cmt : T.component_type = snd(map2_place (cook_component_type env) cmt)
-and cook_expression = function (e:S.expr) -> snd (cexpr (fresh_env ()) e)
+and cook_expression = function (e:S.expr) -> snd (cexpr (fresh_env !iota) e)
 
 and cook_mtype env place: S._main_type -> env * T._main_type = function
 | S.CType ct -> 
@@ -588,8 +562,8 @@ and cook_expr env place e : env * (T._expr * T.main_type) =
         | S.AccessExpr ({place=_; value=S.This}, _) -> error place "Illformed [this] usage: should be this.<state_name/method_name>"
         (* Method call / or attribute access *)
         | S.AccessExpr (({value=VarExpr a} as e1), ({value=VarExpr x} as e2)) -> begin
-            print_components_env env.components_env;
-            try begin
+            failwith "TODO COOOK"
+            (*try begin
                 let a = cook_var_expr env place a in
                 let env1, e = cexpr env e1 in
                 let mt_e1 = Hashtbl.find gamma a in
@@ -610,6 +584,7 @@ and cook_expr env place e : env * (T._expr * T.main_type) =
                     let env2, e2 = cexpr env e2 in
                     env << [env1; env2], T.AccessExpr (e1, e2)
             end with | Not_found -> error place "Variable %s not in  gamma" a
+            *)
         end
         | S.AccessExpr (e1, e2) -> 
             let env1, e1 = cexpr env e1 in
@@ -842,19 +817,19 @@ and cook_contract env place (contract:S._contract): env * T._contract =
    
     (* Goal: invariant should be added to ensures and to returns *)
     let env1, invariant = match contract.invariant with
-        | None -> fresh_env (), None 
+        | None -> fresh_env !iota, None 
         | Some invariant -> 
             let env1, invariant = cexpr inner_env invariant in
             env1, Some invariant
     in
     let env2, ensures = match contract.ensures with
-        | None -> fresh_env (), None 
+        | None -> fresh_env !iota, None 
         | Some ensures -> 
             let env2, ensures = cexpr inner_env ensures in
             env2, Some ensures
     in
     let env3, returns = match contract.returns with
-        | None -> fresh_env (), None 
+        | None -> fresh_env !iota, None 
         | Some returns -> 
             let env3, returns = cexpr inner_env returns in
             env3, Some returns
@@ -948,9 +923,9 @@ and ccitem env: S.component_item -> env * T.component_item list = map2_places (c
 and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = function
 | S.ComponentStructure cdcl -> 
     (*
-        Hyp: Exactly one component delcaration per component name at a given layer of the architure (checked befor cooking -> cf. shallow_scan).
+        Hyp: Exactly one component delcaration per component name at a given layer of the architure (checked befor cooking -> cf. iota cartography).
         Which means that A { B{ } } B {}, A.B and B will be binded to different unique atom.
-        Stmt: shallow_scan_compoent, used for allowing architecture loop i.e. A use B ref and B use A ref, has already attributed an Atom to the current componen t component. Shallow_component has been run by the parent or at top-level.
+        Stmt: decoupling of cook and cartograhpy => allows architecture loop i.e. A use B ref and B use A ref, has already attributed an Atom to the current componen t component.
     *)
     let name = cook_var_component env place cdcl.name in
     let new_env = 
@@ -961,9 +936,16 @@ and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = 
         component = { (fresh_component_env ()) with  name = name;
         }
     } in
+
+    let this_entry = match Env.find_opt cdcl.name env.current.this.rec_inner with
+    | Some e -> e.value
+    | None -> raise (Error.PlacedDeadbranchError (place, Printf.sprintf "Iota entry not found for %s" cdcl.name))
+    in
+
     let env = {env with 
         current = {env.current with 
-            implicits   = Env.fold (fun k v map -> Env.add k v map) env.current.this env.current.implicits ; (* add binders of parent components in implicit map, iterate over env.currentcomponents and successively add it into env.current.implicits (NB args order differ with List.fold_left) - in order to mask variable if with inner scope if needed *)
+            implicits   = Env.fold (fun k v map -> Env.add k v map) (Env.map (fun v -> v.value) env.current.this.inner) env.current.implicits ; (* add binders of parent components in implicit map, iterate over env.currentcomponents and successively add it into env.current.implicits (NB args order differ with List.fold_left) - in order to mask variable if with inner scope if needed *)
+            this = this_entry 
         };
         component = new_env.component } in
 
@@ -979,8 +961,8 @@ and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = 
     let inner_env, args = List.fold_left_map cparam env cdcl.args in
 
     (* Prepare env for mutual binding between components and methods/states *)
-    assert(cdcl.name <> "__default__" && "__default__" <> Atom.hint env.component.name);
-    let (_, inner_env) = List.fold_left shallow_scan_component_item (StringMap.empty,inner_env) cdcl.body in
+    let inner_env = hydrate_compoent_env_from_iota inner_env this_entry in 
+
     let inner_env, body = List.fold_left_map ccitem inner_env cdcl.body in
     let body = List.flatten body in
 
@@ -1131,8 +1113,12 @@ let cook_program _places terms =
     in
     List.iter (hydrate_places "") _places;
 
-    let toplevel_env = {(fresh_env ()) with component = {(fresh_component_env ()) with name = Atom.fresh_builtin "toplevel"}} in
-    let (_, toplevel_env) = List.fold_left shallow_scan_term (StringMap.empty,toplevel_env) terms in
+    iota := List.fold_left cartography_term !iota terms;
+
+
+    let toplevel_env = {(fresh_env !iota) with component = {(fresh_component_env ()) with name = Atom.fresh_builtin "toplevel"}} in
+    let toplevel_env = hydrate_compoent_env_from_iota toplevel_env !iota in 
+
     let toplevel_env = refresh_component_env toplevel_env (Atom.fresh_builtin "toplevel") in
 
     let toplevel_env,  program = (List.fold_left_map cterm toplevel_env terms) in 

@@ -4,18 +4,8 @@ open IR
 let fplace = (Error.forge_place "Builtin.*" 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
 
-let mtype_of_var x = 
-    auto_fplace(CType(auto_fplace (TPolyVar x)))
-let mtype_of_svar x = 
-    auto_fplace(SType(auto_fplace (STPolyVar x)))
-let mtype_of_cvar x = 
-    auto_fplace(CompType(auto_fplace (TPolyCVar x)))
-let mtype_of_ct ct = 
-    auto_fplace(CType(auto_fplace ct))
-let mtype_of_st st = 
-    auto_fplace(SType(auto_fplace st))
-let mtype_of_ft ft = 
-    mtype_of_ct (TFlatType ft)
+(* load mtype_of_... *)
+include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
 let quantify labels make : main_type =
     let vars = List.map Atom.fresh labels in

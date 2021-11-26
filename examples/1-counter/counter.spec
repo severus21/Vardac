@@ -44,6 +44,15 @@ component A () {
     }
 }
 
+component B () {
+    onstartup void toto(activation_info<Counter> c){
+        print(">Starting B");
+        c.incr();
+        print("> b read value:");
+        print(c.value());
+    }
+}
+
 component Counter () {
     int counter = 0;
     bridge<A, Counter, inline p_protocol> _b;
@@ -51,6 +60,15 @@ component Counter () {
     onstartup void toto (bridge<A, Counter, inline p_protocol> b0){
         print("> Starting Counter");
         this._b = b0;
+    }
+
+
+    void incr(){
+        this.counter = 1 + this.counter;
+    }
+
+    int value(){
+        return this.counter;
     }
 
 
@@ -92,6 +110,7 @@ component MultiJVMOrchestrator (){
             activation_info<Counter> c = spawn Counter(b0) @ p1;
             (* FIXME TODO  Should be @p2*)
             activation_info<A> a2 = spawn A(b0, c) @ p2;
+            activation_info<B> b = spawn B(c);
         }
     }
     onstartup void toto (){

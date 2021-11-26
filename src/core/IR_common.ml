@@ -158,6 +158,7 @@ module type TIRC = sig
         | VarExpr of expr_variable 
         | ImplicitVarExpr of expr_variable
 
+        | ActivationAccessExpr of component_variable * expr * expr_variable (* cname, e, x*)
         | AccessExpr of expr * expr (*e1.e2*)
         | BinopExpr of expr * binop * expr 
         | LambdaExpr of expr_variable * main_type * expr 
@@ -426,6 +427,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | VarExpr of expr_variable 
         | ImplicitVarExpr of expr_variable
 
+        | ActivationAccessExpr of component_variable * expr * expr_variable (* cname, e, x*)
         | AccessExpr of expr * expr (*e1.e2*)
         | BinopExpr of expr * binop * expr 
         | LambdaExpr of expr_variable * main_type * expr 
