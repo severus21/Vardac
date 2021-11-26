@@ -40,7 +40,7 @@ module Make (Args : Params ) : Sig = struct
             (* TODO FIXME Need type annotations at this point *)
             [
                 auto_fplace (LetExpr (
-                    auto_fplace (CType (auto_fplace(TVar (Atom.fresh_builtin "TODDO")))),
+                    auto_fplace (CType (auto_fplace(TVar (Atom.builtin "TODDO")))),
                     tmp, 
                     recv)
                 );
@@ -155,9 +155,9 @@ module Make (Args : Params ) : Sig = struct
             ), auto_fplace EmptyMainType);
         }, auto_fplace EmptyMainType) in
         
-        let tmp_event = Atom.fresh_builtin "e" in
-        let tmp_session = Atom.fresh_builtin "session" in
-        (*let tmp_args = Atom.fresh_builtin "tmp_args" in*)
+        let tmp_event = Atom.builtin "e" in
+        let tmp_session = Atom.builtin "session" in
+        (*let tmp_args = Atom.builtin "tmp_args" in*)
         let intermediate_method = {
             ghost = false;
             ret_type = m.ret_type; (* Will be updated lated if needed *) 
@@ -239,8 +239,8 @@ module Make (Args : Params ) : Sig = struct
         (* let res = receive ()
             build res variable in 2th method
         *)
-        let tmp_event = Atom.fresh_builtin "e" in
-        let tmp_session = Atom.fresh_builtin "session" in
+        let tmp_event = Atom.builtin "e" in
+        let tmp_session = Atom.builtin "session" in
         let load_recv_result : stmt list = match x1_opt with
             | None -> []
             | Some (x1, msg_t, continuation_st) -> begin
@@ -269,7 +269,7 @@ module Make (Args : Params ) : Sig = struct
             let _states, _methods = rewrite_intermediate place m((x2_opt, s2_opt,m2)::ms) in
             _states, m1::_methods
         | _ -> begin
-            let tmp_args = Atom.fresh_builtin "tmp_args" in
+            let tmp_args = Atom.builtin "tmp_args" in
 
             let intermediate_state_name = Atom.fresh ((Atom.hint m.name)^"_intermediate_state") in
             (* use to store args between acc_methd and intermediate_method*)
@@ -286,7 +286,7 @@ module Make (Args : Params ) : Sig = struct
                 body =  Some (auto_fplace (
                     CallExpr (
                         auto_place (
-                            VarExpr (Atom.fresh_builtin "dict"), auto_place EmptyMainType
+                            VarExpr (Atom.builtin "dict"), auto_place EmptyMainType
                         ), 
                         []
                     ),
@@ -299,14 +299,14 @@ module Make (Args : Params ) : Sig = struct
                 body = m1.body @ [
                     (* Store args in state TODO add cleansing when timeout *)
                     auto_fplace (ExpressionStmt (auto_fplace(CallExpr(
-                        auto_fplace(VarExpr (Atom.fresh_builtin "add2dict"), auto_fplace EmptyMainType),
+                        auto_fplace(VarExpr (Atom.builtin "add2dict"), auto_fplace EmptyMainType),
                         [
                             auto_fplace(AccessExpr(
                                 auto_fplace( This, auto_fplace EmptyMainType),
                                 auto_fplace (VarExpr intermediate_state_name, auto_fplace EmptyMainType)
                             ), auto_fplace EmptyMainType);
                             auto_fplace(CallExpr(
-                                auto_fplace(VarExpr (Atom.fresh_builtin "sessionid"), auto_fplace EmptyMainType),
+                                auto_fplace(VarExpr (Atom.builtin "sessionid"), auto_fplace EmptyMainType),
                                 [ match s1_opt with
                                     | Some session -> session (* when we are in the first method of the list*)
                                     | None -> auto_fplace (VarExpr tmp_session, auto_fplace EmptyMainType) (* for all the intermediate (and last) methods *) 
@@ -325,14 +325,14 @@ module Make (Args : Params ) : Sig = struct
                 load_recv_result @
                 [
                     auto_fplace (LetExpr (ctype_intermediate_args, tmp_args, (auto_fplace(CallExpr(
-                        auto_fplace(VarExpr (Atom.fresh_builtin "remove2dict"), auto_fplace EmptyMainType),
+                        auto_fplace(VarExpr (Atom.builtin "remove2dict"), auto_fplace EmptyMainType),
                         [
                             auto_fplace(AccessExpr(
                                 auto_fplace (This, auto_fplace EmptyMainType),
                                 auto_fplace (VarExpr intermediate_state_name, auto_fplace EmptyMainType)
                             ), auto_fplace EmptyMainType);
                             auto_fplace(CallExpr(
-                                auto_fplace(VarExpr (Atom.fresh_builtin "sessionid"), auto_fplace EmptyMainType),
+                                auto_fplace(VarExpr (Atom.builtin "sessionid"), auto_fplace EmptyMainType),
                                 [ auto_fplace (VarExpr tmp_session, auto_fplace EmptyMainType) ]
                             ), auto_fplace EmptyMainType);
                         ]
@@ -341,7 +341,7 @@ module Make (Args : Params ) : Sig = struct
                     List.mapi (fun i {value=(mt, x)} ->
                         auto_fplace (LetExpr (mt, x, 
                             auto_fplace( CallExpr(
-                                auto_fplace (VarExpr (Atom.fresh_builtin "nth"), auto_fplace EmptyMainType),
+                                auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
                                 [ 
                                     auto_fplace (LitExpr (auto_fplace (IntLit i)), auto_fplace EmptyMainType);
                                     auto_fplace (VarExpr tmp_args, auto_fplace EmptyMainType) 
@@ -495,7 +495,7 @@ module Make (Args : Params ) : Sig = struct
         let body = List.flatten body in
 
         (*List<Map<UUID, ?>> this.intermediate_states = new ArrayList(); [this. ....]; registration at each creation*)
-        let a_intermediate_states = Atom.fresh_builtin "intermediate_states" in
+        let a_intermediate_states = Atom.builtin "intermediate_states" in
         let intermediate_states_index = auto_place(State( auto_place(StateDcl { 
             ghost = false;
             type0 = auto_fplace(CType(auto_fplace (TList(

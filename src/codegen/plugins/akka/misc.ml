@@ -6,35 +6,35 @@ let lg4dc_package = "com.lg4dc"
 
 (* Helper name *)
 let a_ASTStype_of = function
-| "" | "Base" -> Atom.fresh_builtin "ASTStype.Base"
-| "MsgT" as s-> Atom.fresh_builtin ("ASTStype."^s)
-| s -> Atom.fresh_builtin ("ASTStype."^s)
+| "" | "Base" -> Atom.builtin "ASTStype.Base"
+| "MsgT" as s-> Atom.builtin ("ASTStype."^s)
+| s -> Atom.builtin ("ASTStype."^s)
 
 let a_SType_of = function
-| "" | "SType" -> Atom.fresh_builtin "SType.SType"
-| "STLabel" as s-> Atom.fresh_builtin ("SType."^s)
-| s -> Atom.fresh_builtin ("SType."^s)
+| "" | "SType" -> Atom.builtin "SType.SType"
+| "STLabel" as s-> Atom.builtin ("SType."^s)
+| s -> Atom.builtin ("SType."^s)
 
         
-(*let a_protocol_inner_bridge = Atom.fresh_builtin "Bridge" *)
+(*let a_protocol_inner_bridge = Atom.builtin "Bridge" *)
 
 (* Helper types *)
 
 let a_cborserializable = 
-    Atom.fresh_builtin "CborSerializable"
+    Atom.builtin "CborSerializable"
 let a_command = 
-    Atom.fresh_builtin "Command"
+    Atom.builtin "Command"
 let a_create_method = 
-    Atom.fresh_builtin "create"
+    Atom.builtin "create"
 let a_context = 
-    Atom.fresh_builtin "context"
+    Atom.builtin "context"
 
 let a_timers = 
-    Atom.fresh_builtin "timers"
+    Atom.builtin "timers"
 
 let a_guardian = 
-    Atom.fresh_builtin "guardian"
-let a_receptionist_adapter = Atom.fresh_builtin "receptionist_adapter"
+    Atom.builtin "guardian"
+let a_receptionist_adapter = Atom.builtin "receptionist_adapter"
 
 let t_UUID place= 
     let auto_place smth = {place; value=smth} in
@@ -60,7 +60,7 @@ let t_SType_of place name tparam1 tparam2 =
 let t_actor_context place actor_name_opt = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam (
-        auto_place (Ast.TVar (Atom.fresh_builtin "ActorContext")),
+        auto_place (Ast.TVar (Atom.builtin "ActorContext")),
         [ 
             match actor_name_opt with
             | None -> auto_place (Ast.TVar a_command)
@@ -70,7 +70,7 @@ let t_actor_context place actor_name_opt =
 let t_actor_timer place is_guardian actor_name_opt = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam (
-        auto_place (Ast.TVar (Atom.fresh_builtin "TimerScheduler")),
+        auto_place (Ast.TVar (Atom.builtin "TimerScheduler")),
         [ 
             if is_guardian then 
                 auto_place(Ast.Atomic "SpawnProtocol.Command")
@@ -90,55 +90,55 @@ let t_actor_guardian place =
 let t_lg4dc_abstract_system place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
-        auto_place (Ast.TVar (Atom.fresh_builtin "AbstractSystem")) 
+        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin "AbstractSystem")) 
     ))
 let t_lg4dc_abstract_component place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
-        auto_place (Ast.TVar (Atom.fresh_builtin "AbstractComponent")) 
+        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin "AbstractComponent")) 
     ))
 let t_lg4dc_protocol place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
-        auto_place (Ast.TVar (Atom.fresh_builtin "Protocol")) 
+        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin "Protocol")) 
     ))
 
 let t_lg4dc_bridge place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
-        auto_place (Ast.TVar (Atom.fresh_builtin "Bridge")) 
+        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin "Bridge")) 
     ))
 let t_akka_member place =
     let auto_place smth = {place; value=smth} in
-    auto_place (Ast.TVar (Atom.fresh_builtin "Member")) 
+    auto_place (Ast.TVar (Atom.builtin "Member")) 
 
 let t_akka_cluster place =
     let auto_place smth = {place; value=smth} in
-    auto_place (Ast.TVar (Atom.fresh_builtin "Cluster")) 
+    auto_place (Ast.TVar (Atom.builtin "Cluster")) 
 
 let t_lg4dc_nometadata place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
-        auto_place (Ast.TVar (Atom.fresh_builtin "NoMetadata")) 
+        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin "NoMetadata")) 
     ))
 
 let t_lg4dc_vplace place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
-        auto_place (Ast.TVar (Atom.fresh_builtin "VPlace")) 
+        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin "VPlace")) 
     ))
 let t_lg4dc_event place metadata_opt =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam(
         auto_place (Ast.TAccess (
-            auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
-            auto_place (Ast.TVar (Atom.fresh_builtin "Event")) 
+            auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+            auto_place (Ast.TVar (Atom.builtin "Event")) 
         )),
         [
             match metadata_opt with 
@@ -149,20 +149,20 @@ let t_lg4dc_event place metadata_opt =
 let t_lg4dc_session place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
-        auto_place (Ast.TVar (Atom.fresh_builtin "Session")) 
+        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin "Session")) 
     ))
 let t_lg4dc_place place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
-        auto_place (Ast.TVar (Atom.fresh_builtin "Place")) 
+        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin "Place")) 
     ))
 let t_lg4dc_vplace place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.fresh_builtin lg4dc_package)),
-        auto_place (Ast.TVar (Atom.fresh_builtin "VPlace")) 
+        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin "VPlace")) 
     ))
 
 let t_command_of_actor place actor_name = 
@@ -174,20 +174,20 @@ let t_command_of_actor place actor_name =
 let t_behavior_of_actor place actor_name = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam (
-        auto_place (Ast.TVar (Atom.fresh_builtin "Behavior")),
+        auto_place (Ast.TVar (Atom.builtin "Behavior")),
         [ t_command_of_actor place actor_name ]
     ))
 let t_behavior_of_spawnprotocol place = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam (
-        auto_place (Ast.TVar (Atom.fresh_builtin "Behavior")),
-        [ t_command_of_actor place (Atom.fresh_builtin "SpawnProtocol") ]
+        auto_place (Ast.TVar (Atom.builtin "Behavior")),
+        [ t_command_of_actor place (Atom.builtin "SpawnProtocol") ]
     ))
 
 let t_receive_of_actor place actor_name = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam (
-        auto_place (Ast.TVar (Atom.fresh_builtin "Receive")),
+        auto_place (Ast.TVar (Atom.builtin "Receive")),
         [ t_command_of_actor place actor_name ]
     ))
 
@@ -198,7 +198,7 @@ let e_id_of_session place session =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
         session,
-        auto_place (Ast.VarExpr (Atom.fresh_builtin "session_id"), t_UUID place)
+        auto_place (Ast.VarExpr (Atom.builtin "session_id"), t_UUID place)
     ))
 let e_headers_of_session place session = 
     let auto_place smth = {place; value=smth} in
@@ -212,12 +212,12 @@ let e_setid_of_session place name =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
         auto_place (Ast.VarExpr name, auto_place Ast.TUnknown),
-        auto_place (Ast.VarExpr (Atom.fresh_builtin "set_id"), auto_place Ast.TUnknown) 
+        auto_place (Ast.VarExpr (Atom.builtin "set_id"), auto_place Ast.TUnknown) 
     ), auto_place Ast.TUnknown)
 let e_get_context place = 
     let auto_place smth = {place; value=smth} in
     auto_place ( Ast.CallExpr (
-        auto_place ( Ast.VarExpr (Atom.fresh_builtin "getContext"), auto_place Ast.TUnknown),
+        auto_place ( Ast.VarExpr (Atom.builtin "getContext"), auto_place Ast.TUnknown),
         []
     ), t_context place)
 let e_get_self place context = 
@@ -225,7 +225,7 @@ let e_get_self place context =
     auto_place ( Ast.AccessExpr (
         context,
         auto_place ( Ast.CallExpr (
-            auto_place ( Ast.VarExpr (Atom.fresh_builtin "getSelf"), auto_place Ast.TUnknown),
+            auto_place ( Ast.VarExpr (Atom.builtin "getSelf"), auto_place Ast.TUnknown),
             []
         ), auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
@@ -254,18 +254,18 @@ let e_this_frozen_sessions place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
         auto_place (Ast.This, auto_place Ast.TUnknown),
-        auto_place (Ast.VarExpr (Atom.fresh_builtin "frozen_sessions"), auto_place Ast.TUnknown)
+        auto_place (Ast.VarExpr (Atom.builtin "frozen_sessions"), auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
 let e_this_dead_sessions place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
         auto_place (Ast.This, auto_place Ast.TUnknown),
-        auto_place (Ast.VarExpr (Atom.fresh_builtin "dead_sessions"), auto_place Ast.TUnknown)
+        auto_place (Ast.VarExpr (Atom.builtin "dead_sessions"), auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
 let e_cast place name e2 =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.CastExpr(
-        auto_place (Ast.TVar (Atom.fresh_builtin name)),
+        auto_place (Ast.TVar (Atom.builtin name)),
         e2
     ), auto_place Ast.TUnknown)
 
@@ -273,49 +273,49 @@ let e_this_intermediate_states place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
         auto_place (Ast.This, auto_place Ast.TUnknown),
-        auto_place (Ast.VarExpr (Atom.fresh_builtin "intermediate_states"), auto_place Ast.TUnknown)
+        auto_place (Ast.VarExpr (Atom.builtin "intermediate_states"), auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
 
 let e_behaviors_same place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.CallExpr ( 
         auto_place (Ast.AccessExpr (
-            auto_place (Ast.VarExpr (Atom.fresh_builtin "Behaviors"), auto_place Ast.TUnknown),
-            auto_place (Ast.VarExpr (Atom.fresh_builtin "same"), auto_place Ast.TUnknown)
+            auto_place (Ast.VarExpr (Atom.builtin "Behaviors"), auto_place Ast.TUnknown),
+            auto_place (Ast.VarExpr (Atom.builtin "same"), auto_place Ast.TUnknown)
         ), auto_place Ast.TUnknown),
         []
     ), auto_place Ast.TUnknown)
 let e_behaviors_with_timers place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
-        auto_place (Ast.VarExpr (Atom.fresh_builtin "Behaviors"), auto_place Ast.TUnknown),
-        auto_place (Ast.VarExpr (Atom.fresh_builtin "withTimers"), auto_place Ast.TUnknown)
+        auto_place (Ast.VarExpr (Atom.builtin "Behaviors"), auto_place Ast.TUnknown),
+        auto_place (Ast.VarExpr (Atom.builtin "withTimers"), auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
 
 
 let e_lg4dc_session place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
-        auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package), auto_place Ast.TUnknown),
-        auto_place (Ast.VarExpr (Atom.fresh_builtin "Session"), auto_place Ast.TUnknown) 
+        auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
+        auto_place (Ast.VarExpr (Atom.builtin "Session"), auto_place Ast.TUnknown) 
     ), auto_place Ast.TUnknown)
 
 let e_lg4dc_spawnat place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
-        auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package), auto_place Ast.TUnknown),
+        auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
         auto_place (Ast.RawExpr "PlaceDiscovery.spawnAt", auto_place Ast.TUnknown) 
     ), auto_place Ast.TUnknown)
 let e_lg4dc_componentsat place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
-        auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package), auto_place Ast.TUnknown),
+        auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
         auto_place (Ast.RawExpr "PlaceDiscovery.componentsAt", auto_place Ast.TUnknown) 
     ), auto_place Ast.TUnknown)
 let e_lg4dc_placeof place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
-        auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package), auto_place Ast.TUnknown),
+        auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
         auto_place (Ast.RawExpr "Place.of_actor_ref", auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
 let e_session_of_protocol place protocol = 
@@ -323,7 +323,7 @@ let e_session_of_protocol place protocol =
     auto_place ( Ast.CallExpr (
         auto_place ( Ast.AccessExpr (
             auto_place (Ast.NewExpr (protocol, []), auto_place Ast.TUnknown),
-            auto_place ( Ast.VarExpr (Atom.fresh_builtin "get_st"), auto_place Ast.TUnknown)
+            auto_place ( Ast.VarExpr (Atom.builtin "get_st"), auto_place Ast.TUnknown)
         ), auto_place Ast.TUnknown),
         []
     ), auto_place Ast.TUnknown)
@@ -332,8 +332,8 @@ let e_setup_behaviors place args =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.CallExpr (
         auto_place (Ast.AccessExpr (
-            auto_place (Ast.VarExpr (Atom.fresh_builtin "Behaviors"), auto_place Ast.TUnknown),
-            auto_place (Ast.VarExpr (Atom.fresh_builtin "setup"), auto_place Ast.TUnknown)
+            auto_place (Ast.VarExpr (Atom.builtin "Behaviors"), auto_place Ast.TUnknown),
+            auto_place (Ast.VarExpr (Atom.builtin "setup"), auto_place Ast.TUnknown)
         ), auto_place Ast.TUnknown),
         args
     ), auto_place Ast.TUnknown)
@@ -342,7 +342,7 @@ let e_logger_of_context place context =
     auto_place (Ast.CallExpr (
         auto_place (Ast.AccessExpr (
             context,
-            auto_place (Ast.VarExpr (Atom.fresh_builtin "getLog"), auto_place Ast.TUnknown)
+            auto_place (Ast.VarExpr (Atom.builtin "getLog"), auto_place Ast.TUnknown)
         ), auto_place Ast.TUnknown),
         []
     ), auto_place Ast.TUnknown)
@@ -351,7 +351,7 @@ let e_debug_of place (context:Ast.expr) (args:Ast.expr list) : Ast.expr =
     auto_place (Ast.CallExpr (
         auto_place (Ast.AccessExpr (
             e_logger_of_context place context,
-            auto_place (Ast.VarExpr (Atom.fresh_builtin "debug"), auto_place Ast.TUnknown)
+            auto_place (Ast.VarExpr (Atom.builtin "debug"), auto_place Ast.TUnknown)
         ), auto_place Ast.TUnknown),
         args
     ), auto_place Ast.TUnknown)
@@ -360,7 +360,7 @@ let e_error_of place (context:Ast.expr) (args:Ast.expr list) : Ast.expr =
     auto_place (Ast.CallExpr (
         auto_place (Ast.AccessExpr (
             e_logger_of_context place context,
-            auto_place (Ast.VarExpr (Atom.fresh_builtin "error"), auto_place Ast.TUnknown)
+            auto_place (Ast.VarExpr (Atom.builtin "error"), auto_place Ast.TUnknown)
         ), auto_place Ast.TUnknown),
         [List.fold_left (fun a b -> auto_place (Ast.BinopExpr (a, AstUtils.Plus, b), auto_place Ast.TUnknown)) (auto_place (Ast.RawExpr "\"\"", auto_place Ast.TUnknown)) args]
     ), auto_place Ast.TUnknown)
@@ -368,7 +368,7 @@ let e_error_of place (context:Ast.expr) (args:Ast.expr list) : Ast.expr =
 let e_super place args = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.CallExpr (
-        auto_place (Ast.VarExpr (Atom.fresh_builtin "super"), auto_place Ast.TUnknown),
+        auto_place (Ast.VarExpr (Atom.builtin "super"), auto_place Ast.TUnknown),
         args
     ), auto_place Ast.TUnknown)
 
@@ -388,9 +388,9 @@ let e_ASTStype_TimerHeader_of place (name:Ast.variable) (value:int) =
             if String.ends_with "lb" (Atom.hint name) then
             *)
             if n>3 && String.sub (Atom.hint name) (n-3) 3 = "_lb" then
-                auto_place (Ast.VarExpr (Atom.fresh_builtin "LB"), auto_place Ast.TUnknown)
+                auto_place (Ast.VarExpr (Atom.builtin "LB"), auto_place Ast.TUnknown)
             else
-                auto_place (Ast.VarExpr (Atom.fresh_builtin "HB"), auto_place Ast.TUnknown)
+                auto_place (Ast.VarExpr (Atom.builtin "HB"), auto_place Ast.TUnknown)
         ), auto_place Ast.TUnknown)
     in
     auto_place (Ast.NewExpr (
@@ -405,7 +405,7 @@ let e_ASTStype_TimerHeader_of place (name:Ast.variable) (value:int) =
 let e_bridge_of_protocol place (protocol_e:Ast.expr) =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.NewExpr (
-        auto_place (Ast.VarExpr (Atom.fresh_builtin "Bridge"), auto_place Ast.TUnknown),
+        auto_place (Ast.VarExpr (Atom.builtin "Bridge"), auto_place Ast.TUnknown),
        [ auto_place (Ast.NewExpr (protocol_e,[]), auto_place Ast.TUnknown)] 
     ), auto_place Ast.TUnknown)
 
@@ -414,7 +414,7 @@ let e_apply_headers place (session:Ast.expr)=
     auto_place (Ast.CallExpr(
         auto_place (Ast.AccessExpr (
             auto_place (Ast.VarExpr (a_ASTStype_of "TimerHeader"), auto_place Ast.TUnknown),
-            auto_place (Ast.VarExpr (Atom.fresh_builtin "apply_headers"), auto_place Ast.TUnknown) 
+            auto_place (Ast.VarExpr (Atom.builtin "apply_headers"), auto_place Ast.TUnknown) 
         ), auto_place Ast.TUnknown),
         [
             e_get_context place;
@@ -431,9 +431,9 @@ let e_is_instance place cl obj =
         auto_place (Ast.AccessExpr (
             auto_place (Ast.AccessExpr (
                 cl,
-                auto_place (Ast.VarExpr (Atom.fresh_builtin "class"), auto_place Ast.TUnknown) 
+                auto_place (Ast.VarExpr (Atom.builtin "class"), auto_place Ast.TUnknown) 
             ), auto_place Ast.TUnknown),
-            auto_place (Ast.VarExpr (Atom.fresh_builtin "isInstance"), auto_place Ast.TUnknown) 
+            auto_place (Ast.VarExpr (Atom.builtin "isInstance"), auto_place Ast.TUnknown) 
         ), auto_place Ast.TUnknown),
         [ obj ]
     ), auto_place Ast.TUnknown)
@@ -441,7 +441,7 @@ let e_lg4dc_places place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.CallExpr(
         auto_place (Ast.AccessExpr (
-            auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package), auto_place Ast.TUnknown),
+            auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
             auto_place (Ast.RawExpr ("Place.places"), auto_place Ast.TUnknown) 
         ), auto_place Ast.TUnknown),
         [
@@ -452,7 +452,7 @@ let e_lg4dc_current_place place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.CallExpr(
         auto_place (Ast.AccessExpr (
-            auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package), auto_place Ast.TUnknown),
+            auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
             auto_place (Ast.RawExpr ("Place.currentPlace"), auto_place Ast.TUnknown) 
         ), auto_place Ast.TUnknown),
         [
@@ -464,7 +464,7 @@ let e_lg4dc_select_places place vp predicate =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.CallExpr(
         auto_place (Ast.AccessExpr (
-            auto_place (Ast.VarExpr (Atom.fresh_builtin lg4dc_package), auto_place Ast.TUnknown),
+            auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
             auto_place (Ast.RawExpr ("Place.places"), auto_place Ast.TUnknown) 
         ), auto_place Ast.TUnknown),
         [

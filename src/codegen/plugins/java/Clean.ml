@@ -71,7 +71,7 @@ let auto_place smth = {place = fplace; value=smth} in
         AppExpr ( 
             auto_place (AccessExpr (
                 cexpr e1, 
-                auto_place (VarExpr (Atom.fresh_builtin "equals"), auto_place TUnknown)
+                auto_place (VarExpr (Atom.builtin "equals"), auto_place TUnknown)
             ), auto_place TUnknown),
             [cexpr e2]
         ) 

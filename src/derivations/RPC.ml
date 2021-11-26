@@ -46,7 +46,7 @@ let derive_program program cname =
         protocol = mt_rpc_protocol
     }) in
     let let_rpc_bridge = auto_fplace (LetExpr (
-        mt_rpc_bridge, a_rpc_bridge, auto_fplace (VarExpr (Atom.fresh_builtin "bridge"), mt_rpc_bridge)
+        mt_rpc_bridge, a_rpc_bridge, auto_fplace (VarExpr (Atom.builtin "bridge"), mt_rpc_bridge)
     )) in
 
     (* Rewrite the component *)
@@ -97,7 +97,7 @@ let derive_program program cname =
                             List.mapi (fun i {value=(mt_arg,_)} -> 
                                 auto_fplace(AccessExpr (
                                     auto_fplace (VarExpr a_event, mt_event), 
-                                    auto_fplace (VarExpr (Atom.fresh_builtin (Printf.sprintf "_%d_" i)), mt_arg) 
+                                    auto_fplace (VarExpr (Atom.builtin (Printf.sprintf "_%d_" i)), mt_arg) 
                                 ), mt_arg)    
                             ) m.value.args
                         ), m.value.ret_type)

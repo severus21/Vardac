@@ -17,7 +17,7 @@ val is_builtin: atom -> bool
 (* Producing fresh atoms. *)
 
 val fresh: string -> atom
-val fresh_builtin: string -> atom
+val builtin: string -> atom
 val copy: atom -> atom
 val copy_upper: atom -> atom
 

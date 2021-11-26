@@ -29,7 +29,7 @@ let encode_builtin_access place e name =
         T.CallExpr(
             auto_place (T.AccessExpr (
                 e, 
-                auto_place(T.VarExpr (Atom.fresh_builtin name), auto_place T.TUnknown)
+                auto_place(T.VarExpr (Atom.builtin name), auto_place T.TUnknown)
             ), auto_place T.TUnknown),
             []
         ) 
@@ -46,7 +46,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         | [dict; k; v] -> T.CallExpr( 
             auto_place (T.AccessExpr (
                 dict, 
-                auto_place(T.VarExpr (Atom.fresh_builtin "put"), auto_place T.TUnknown)
+                auto_place(T.VarExpr (Atom.builtin "put"), auto_place T.TUnknown)
             ), auto_place T.TUnknown),
             [ k; v ]
         ) 
@@ -58,7 +58,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         | [dict; k] -> T.CallExpr( 
             auto_place(T.AccessExpr (
                 dict, 
-                auto_place( T.VarExpr (Atom.fresh_builtin "remove"), auto_place T.TUnknown)
+                auto_place( T.VarExpr (Atom.builtin "remove"), auto_place T.TUnknown)
             ), auto_place T.TUnknown),
             [ k ]
         ) 
@@ -70,7 +70,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         | [dict; k] -> T.CallExpr( 
             auto_place (T.AccessExpr (
                 dict, 
-                auto_place (T.VarExpr (Atom.fresh_builtin "get"), auto_place T.TUnknown)
+                auto_place (T.VarExpr (Atom.builtin "get"), auto_place T.TUnknown)
             ), auto_place T.TUnknown),
             [ k ]
         ) 
@@ -80,7 +80,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         (* empty dict *)
         match args with
         | [] -> T.NewExpr( 
-            auto_place (T.VarExpr (Atom.fresh_builtin "HashMap"), auto_place T.TUnknown
+            auto_place (T.VarExpr (Atom.builtin "HashMap"), auto_place T.TUnknown
             ), 
             []
         ) 
@@ -91,7 +91,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         | [ session; msg ] -> T.CallExpr( 
             auto_place (T.AccessExpr (
                 session, 
-                auto_place (T.VarExpr (Atom.fresh_builtin "fire"), auto_place T.TUnknown)
+                auto_place (T.VarExpr (Atom.builtin "fire"), auto_place T.TUnknown)
             ), auto_place T.TUnknown),
             [ 
                 msg; 
@@ -107,7 +107,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         match args with
         | [ tuple ] ->  T.AccessExpr (
             tuple, 
-            auto_place (T.VarExpr (Atom.fresh_builtin "_1"), auto_place T.TUnknown)
+            auto_place (T.VarExpr (Atom.builtin "_1"), auto_place T.TUnknown)
             )
         | _ -> Error.error place "first must take one argument"
     end
@@ -115,7 +115,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         match args with
         | [ tuple ] ->  T.AccessExpr (
             tuple, 
-            auto_place (T.VarExpr (Atom.fresh_builtin "_2"), auto_place T.TUnknown)
+            auto_place (T.VarExpr (Atom.builtin "_2"), auto_place T.TUnknown)
             )
         | _ -> Error.error place "second must take one argument"
     end
@@ -125,7 +125,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         | [ {value=LitExpr{value=IntLit i},_}; tuple ]->  
             T.AccessExpr (
                 tuple, 
-                auto_place (T.VarExpr (Atom.fresh_builtin (Printf.sprintf "_%d"(i+1))), auto_place T.TUnknown)
+                auto_place (T.VarExpr (Atom.builtin (Printf.sprintf "_%d"(i+1))), auto_place T.TUnknown)
             )
         | _ -> Error.error place "nth must take two argument"
     end
@@ -135,7 +135,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         | [ l; n]-> T.CallExpr(
             auto_place(T.AccessExpr (
                 l, 
-                auto_place (T.VarExpr (Atom.fresh_builtin "get"), auto_place T.TUnknown)
+                auto_place (T.VarExpr (Atom.builtin "get"), auto_place T.TUnknown)
             ), auto_place T.TUnknown),
             [n]
         )
@@ -146,7 +146,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         | [ s ] ->  T.CallExpr(
             auto_place (T.AccessExpr (
                 s, 
-                auto_place (T.VarExpr (Atom.fresh_builtin "get_id"), auto_place T.TUnknown)
+                auto_place (T.VarExpr (Atom.builtin "get_id"), auto_place T.TUnknown)
             ), auto_place T.TUnknown),
             []
         )
@@ -155,7 +155,7 @@ let encode_builtin_fct place name (args:T.expr list) =
     |"string_of_bridge" -> begin
         match args with
         | [ b ] ->  T.CallExpr(
-            auto_place (T.AccessExpr (b, auto_place (T.VarExpr (Atom.fresh_builtin "toString"), auto_place T.TUnknown)), auto_place T.TUnknown),
+            auto_place (T.AccessExpr (b, auto_place (T.VarExpr (Atom.builtin "toString"), auto_place T.TUnknown)), auto_place T.TUnknown),
             []
         )
         | _ -> Error.error place "string_of_bridge must take one argument"
@@ -199,7 +199,7 @@ let encode_builtin_fct place name (args:T.expr list) =
     | "print" -> begin
         match args with
         | [ msg ] -> T.CallExpr (
-                auto_place (T.VarExpr (Atom.fresh_builtin "System.out.println"), auto_place T.TUnknown),
+                auto_place (T.VarExpr (Atom.builtin "System.out.println"), auto_place T.TUnknown),
                 [msg]
             )
         | _ -> Error.error place "print must take one argument" 
@@ -222,10 +222,10 @@ let encode_builtin_fct place name (args:T.expr list) =
         match args with
         | [ bridge; right ] ->  
             T.CallExpr (
-                auto_place (T.AccessExpr (bridge, auto_place (T.VarExpr (Atom.fresh_builtin "initiate_session_with"), auto_place T.TUnknown)), auto_place T.TUnknown),
+                auto_place (T.AccessExpr (bridge, auto_place (T.VarExpr (Atom.builtin "initiate_session_with"), auto_place T.TUnknown)), auto_place T.TUnknown),
                 [
                     auto_place(T.CastExpr(
-                        auto_place (T.TVar (Atom.fresh_builtin "ActorRef")),
+                        auto_place (T.TVar (Atom.builtin "ActorRef")),
                         Misc.e_get_self place (Misc.e_get_context place)
                     ), auto_place T.TUnknown);
                     right;
@@ -250,7 +250,7 @@ let encode_builtin_fct_as_stmt place name (args:T.expr list) =
         logger#warning "using sleep in Akka will block a thread - not only the actor";
         match args with
         | [ duration ] -> 
-            let e = Atom.fresh_builtin "e" in
+            let e = Atom.builtin "e" in
             T.TryStmt(
                 auto_place(T.ExpressionStmt(
                     auto_place(T.CallExpr (
@@ -271,12 +271,12 @@ let encode_builtin_fct_as_stmt place name (args:T.expr list) =
 let encode_list place es = 
     let auto_place smth = {place; value=smth} in
     T.CallExpr(
-        auto_place(T.VarExpr(Atom.fresh_builtin "List.of"), auto_place T.TUnknown),
+        auto_place(T.VarExpr(Atom.builtin "List.of"), auto_place T.TUnknown),
         es
     )
 let encode_tuple place es = 
     let auto_place smth = {place; value=smth} in
     T.CallExpr(
-        auto_place(T.VarExpr(Atom.fresh_builtin "Tuple.of"), auto_place T.TUnknown),
+        auto_place(T.VarExpr(Atom.builtin "Tuple.of"), auto_place T.TUnknown),
         es
     )

@@ -67,7 +67,7 @@ let fresh_iota_entry name = {
     rec_inner = Env.empty;
 }
 (* iota denotes the structure of the program should be expose for subsequent passes *)
-let iota = ref (fresh_iota_entry (auto_fplace (Atom.fresh_builtin "__default__")))
+let iota = ref (fresh_iota_entry (auto_fplace (Atom.builtin "__default__")))
 
 
 let register_gamma x t = Hashtbl.add gamma x t 
@@ -139,7 +139,7 @@ let print_component_env env =
     print_string "}";
     print_newline ()
 let fresh_component_env () = {
-    name                    = Atom.fresh_builtin "__default__";
+    name                    = Atom.builtin "__default__";
     eventdef_from_labels    = Env.empty;
 }
 
@@ -358,7 +358,7 @@ match e.value with
 
 let rec _cook_var_expr (env:entity_env) place x : Atom.atom = 
     if is_builtin_expr x then
-        Atom.fresh_builtin x (* FIXME builtin flag_create_instance should be extracted from a DB *)
+        Atom.builtin x (* FIXME builtin flag_create_instance should be extracted from a DB *)
     else (
         try
             Env.find x env.exprs
@@ -375,7 +375,7 @@ and cook_var_type env place x : Atom.atom =
         cook_var_component env place x (* hack, FIXME add a specific type for container ???*)
     else begin
         if is_builtin_type x then
-            Atom.fresh_builtin x
+            Atom.builtin x
         else (
         try
             Env.find x env.current.types
@@ -385,7 +385,7 @@ and cook_var_type env place x : Atom.atom =
     end
 and cook_var_component env place x = 
     if is_builtin_component x then
-        Atom.fresh_builtin x
+        Atom.builtin x
     else (
     try
         Env.find x env.current.components
@@ -394,7 +394,7 @@ and cook_var_component env place x =
     )
 and cook_var_derive env place x = 
     if is_builtin_derivation x then
-        Atom.fresh_builtin x
+        Atom.builtin x
     else 
         error place "Unbound derivation: %s" x
 and cook_var_this env place x = 
@@ -1116,10 +1116,10 @@ let cook_program _places terms =
     iota := List.fold_left cartography_term !iota terms;
 
 
-    let toplevel_env = {(fresh_env !iota) with component = {(fresh_component_env ()) with name = Atom.fresh_builtin "toplevel"}} in
+    let toplevel_env = {(fresh_env !iota) with component = {(fresh_component_env ()) with name = Atom.builtin "toplevel"}} in
     let toplevel_env = hydrate_compoent_env_from_iota toplevel_env !iota in 
 
-    let toplevel_env = refresh_component_env toplevel_env (Atom.fresh_builtin "toplevel") in
+    let toplevel_env = refresh_component_env toplevel_env (Atom.builtin "toplevel") in
 
     let toplevel_env,  program = (List.fold_left_map cterm toplevel_env terms) in 
     let program = List.flatten program in

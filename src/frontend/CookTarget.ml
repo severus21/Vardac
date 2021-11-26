@@ -62,10 +62,10 @@ let cook_maindef place ast env (mdef:S.maindef) : env * T.maindef=
     env, {
         name = mdef.name;
         bootstrap = 
-            if mdef.bootstrap = "laststage" then Atom.fresh_builtin "laststage"
+            if mdef.bootstrap = "laststage" then Atom.builtin "laststage"
             else find_atom place mdef.bootstrap ast;
         entrypoint = 
-            if mdef.entrypoint = "no_main" then Atom.fresh_builtin "no_main"
+            if mdef.entrypoint = "no_main" then Atom.builtin "no_main"
             else find_atom place mdef.entrypoint ast;
     }
 
