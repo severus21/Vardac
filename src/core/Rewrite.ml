@@ -26,6 +26,8 @@ module Make (Args : Params ) : Sig = struct
         =>
         [ "fresh_name = s.recv(...)"], "f(fresh_name)"
     *)
+    (* TODO can i extract recv using my generic collector.selector ???:w
+     *)
     let rec extract_recvs place (e, mt_e) : stmt list * expr = 
         let fplace = (Error.forge_place "Core.Rewrite.extract_recvs" 0 0) in
         let auto_place smth = {place = place; value=smth} in
@@ -47,6 +49,9 @@ module Make (Args : Params ) : Sig = struct
             ], e
         (* Classical expr *)
         | VarExpr _ -> [], auto_place (e,mt_e)
+        | ActivationAccessExpr (cname, e, mname) ->
+            let stmts, e = extract_recvs e.place e.value in
+            stmts, auto_fplace (ActivationAccessExpr (cname, e, mname), mt_e)
         | AccessExpr (e1, e2) ->
             let stmts1, e1 = extract_recvs e1.place e1.value in
             let stmts2, e2 = extract_recvs e2.place e2.value in

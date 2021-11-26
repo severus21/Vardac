@@ -67,7 +67,16 @@ let fresh_iota_entry name = {
     rec_inner = Env.empty;
 }
 (* iota denotes the structure of the program should be expose for subsequent passes *)
-let iota = ref (fresh_iota_entry (auto_fplace (Atom.builtin "__default__")))
+let iota_entry_toplevel = ref (fresh_iota_entry (auto_fplace (Atom.builtin "__default__")))
+
+(* component atom -> iota_entry*)
+let iota = Hashtbl.create 64
+
+let rec hydrate_iota entry = 
+    Env.iter (fun _ entry -> hydrate_iota entry.value) entry.rec_inner;
+
+    if "__default__" <> Atom.value entry.name.value then
+        Hashtbl.add iota entry.name.value entry
 
 
 let register_gamma x t = Hashtbl.add gamma x t 
@@ -485,7 +494,7 @@ and cook_component_type env place: S._component_type -> env * T._component_type 
 | S.CompTUid x -> 
     env, T.CompTUid (cook_var_type env place x)
 and ccomptype env cmt : T.component_type = snd(map2_place (cook_component_type env) cmt)
-and cook_expression = function (e:S.expr) -> snd (cexpr (fresh_env !iota) e)
+and cook_expression = function (e:S.expr) -> snd (cexpr (fresh_env !iota_entry_toplevel) e)
 
 and cook_mtype env place: S._main_type -> env * T._main_type = function
 | S.CType ct -> 
@@ -562,16 +571,15 @@ and cook_expr env place e : env * (T._expr * T.main_type) =
         | S.AccessExpr ({place=_; value=S.This}, _) -> error place "Illformed [this] usage: should be this.<state_name/method_name>"
         (* Method call / or attribute access *)
         | S.AccessExpr (({value=VarExpr a} as e1), ({value=VarExpr x} as e2)) -> begin
-            failwith "TODO COOOK"
-            (*try begin
+            try begin
                 let a = cook_var_expr env place a in
                 let env1, e = cexpr env e1 in
                 let mt_e1 = Hashtbl.find gamma a in
                 match mt_e1.value with 
                 | T.CType {value=T.TActivationInfo {value=T.CType {value=T.TVar cname }}} -> begin
                     try 
-                        let target_env = Atom.VMap.find cname env.components_env in
-                        let mock_entity_env = { (fresh_entity_env ()) with exprs = target_env } in (* FIXME add implicit *)
+                        let target_env = Hashtbl.find iota cname in (* since Atom are unique*)
+                        let mock_entity_env = { (fresh_entity_env !iota_entry_toplevel) with exprs = Env.map (function v -> v.value ) target_env.inner } in (* FIXME add implicit *)
                         env << [env1], T.ActivationAccessExpr(
                             cname,
                             e, 
@@ -584,7 +592,6 @@ and cook_expr env place e : env * (T._expr * T.main_type) =
                     let env2, e2 = cexpr env e2 in
                     env << [env1; env2], T.AccessExpr (e1, e2)
             end with | Not_found -> error place "Variable %s not in  gamma" a
-            *)
         end
         | S.AccessExpr (e1, e2) -> 
             let env1, e1 = cexpr env e1 in
@@ -817,19 +824,19 @@ and cook_contract env place (contract:S._contract): env * T._contract =
    
     (* Goal: invariant should be added to ensures and to returns *)
     let env1, invariant = match contract.invariant with
-        | None -> fresh_env !iota, None 
+        | None -> fresh_env !iota_entry_toplevel, None 
         | Some invariant -> 
             let env1, invariant = cexpr inner_env invariant in
             env1, Some invariant
     in
     let env2, ensures = match contract.ensures with
-        | None -> fresh_env !iota, None 
+        | None -> fresh_env !iota_entry_toplevel, None 
         | Some ensures -> 
             let env2, ensures = cexpr inner_env ensures in
             env2, Some ensures
     in
     let env3, returns = match contract.returns with
-        | None -> fresh_env !iota, None 
+        | None -> fresh_env !iota_entry_toplevel, None 
         | Some returns -> 
             let env3, returns = cexpr inner_env returns in
             env3, Some returns
@@ -1113,11 +1120,12 @@ let cook_program _places terms =
     in
     List.iter (hydrate_places "") _places;
 
-    iota := List.fold_left cartography_term !iota terms;
+    iota_entry_toplevel := List.fold_left cartography_term !iota_entry_toplevel terms;
+    hydrate_iota !iota_entry_toplevel;
 
 
-    let toplevel_env = {(fresh_env !iota) with component = {(fresh_component_env ()) with name = Atom.builtin "toplevel"}} in
-    let toplevel_env = hydrate_compoent_env_from_iota toplevel_env !iota in 
+    let toplevel_env = {(fresh_env !iota_entry_toplevel) with component = {(fresh_component_env ()) with name = Atom.builtin "toplevel"}} in
+    let toplevel_env = hydrate_compoent_env_from_iota toplevel_env !iota_entry_toplevel in 
 
     let toplevel_env = refresh_component_env toplevel_env (Atom.builtin "toplevel") in
 

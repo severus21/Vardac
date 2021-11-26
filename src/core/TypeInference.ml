@@ -277,6 +277,25 @@ and tannot_vplace ctx (vp:vplace) =
 
 (************************************* Literals ******************************)
 
+
+and mt_of_citem ctx place mt_component mname = 
+    let c_sign = match mt_component.value with
+        | CompType {value=TStruct sign} -> sign
+        | CompType {value=CompTUid name} -> begin 
+            match (typeof_var_cexpr ctx name).value with 
+            |  CompType {value=TStruct sign} -> sign
+            | _ -> Error.error place "internal error when fetching structural type of component"
+        end
+        | _ -> Error.error place "This expr has no attributes" 
+    in
+
+    let ret_type = 
+        match Atom.VMap.find_opt mname c_sign with
+        | None -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered component have no field/method named %s" (Atom.to_string mname))))
+        | Some mt -> mt
+    in
+    ret_type
+
 and _tannot_expr ctx place (e, mt_e) =
     let fplace = (Error.forge_place "TypeInference.typeof_block" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
@@ -289,6 +308,10 @@ and _tannot_expr ctx place (e, mt_e) =
                 VarExpr x, typeof_var_expr ctx x 
             | ImplicitVarExpr x -> 
                 ImplicitVarExpr x, typeof_var_expr ctx x 
+            | ActivationAccessExpr (cname, e, mname) ->
+                let e = tannot_expr ctx e in
+                
+                ActivationAccessExpr (cname, e, mname), mt_of_citem ctx place ( typeof_var_cexpr ctx cname) mname
             | AccessExpr (e1, e2) -> begin
                 let e1 = tannot_expr ctx e1 in
 
@@ -312,22 +335,7 @@ and _tannot_expr ctx place (e, mt_e) =
                         | _ -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered type is not an inductive type %s" (Atom.to_string field))))
                     end
                     else begin
-                        let sign = match (snd e1.value).value with
-                            | CompType {value=TStruct sign} -> sign
-                            | CompType {value=CompTUid name} -> begin 
-                                match (typeof_var_cexpr ctx name).value with 
-                                |  CompType {value=TStruct sign} -> sign
-                                | _ -> Error.error e1.place "internal error when fetching structural type of component"
-                            end
-                            | _ -> Error.error e1.place "This expr has no attributes" 
-                        in
-
-                        let ret_type = 
-                            match Atom.VMap.find_opt field sign with
-                            | None -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered component have no field named %s" (Atom.to_string field))))
-                            | Some mt_field -> mt_field 
-                        in
-                        ret_type
+                        mt_of_citem ctx place (snd e1.value) field
                     end
                 in
                 

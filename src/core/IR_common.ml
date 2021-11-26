@@ -559,7 +559,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             let _, collected_elts1, fvars1 = collect_expr_expr already_binded selector collector e1 in
             let _, collected_elts2, fvars2 = collect_expr_expr already_binded selector collector e2 in
             already_binded, collected_elts1@collected_elts2, fvars1@fvars2
-        | UnopExpr (_, e) | OptionExpr (Some e) | ResultExpr (Some e, None) | ResultExpr (None, Some e)->
+        | ActivationAccessExpr (_, e, _) | UnopExpr (_, e) | OptionExpr (Some e) | ResultExpr (Some e, None) | ResultExpr (None, Some e)->
             let _, collected_elts, fvars = collect_expr_expr already_binded selector collector e in
             already_binded, collected_elts0@collected_elts, fvars
         | CallExpr ({value=(VarExpr _,_) }, es) | NewExpr ({value=(VarExpr _, _)}, es) -> (* no first class function nor constructor inside stmt - so we get ride of all possible constructors *)
@@ -857,6 +857,12 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     let rec _rewrite_expr_expr selector rewriter place = function
     | e when selector e -> rewriter e
     | (VarExpr _ as e) | (ImplicitVarExpr _ as e) -> e
+    | ActivationAccessExpr (cname, e, mname) ->
+        ActivationAccessExpr(
+            cname,
+            rewrite_expr_expr selector rewriter e,
+            mname
+        )
     | AccessExpr (e1, e2) -> AccessExpr (
         rewrite_expr_expr selector rewriter e1,
         rewrite_expr_expr selector rewriter e2
