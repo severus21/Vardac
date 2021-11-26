@@ -18,3 +18,5 @@ impl component PassivePlayer {}
 impl component MultiJVMOrchestrator {}
 
 impl component MultiJVMOrchestrator::Inner{}
+
+impl component Counter {}

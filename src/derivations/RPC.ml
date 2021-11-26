@@ -22,6 +22,7 @@ type method_rpc_entry = {
     expecting_st: session_type;
     port: component_item;
     callback: component_item;
+    local_function: function_dcl
 }
 
 
@@ -56,6 +57,8 @@ let derive_program program cname =
     let let_rpc_bridge = auto_fplace (LetExpr (
         mt_rpc_bridge, a_rpc_bridge, auto_fplace (VarExpr (Atom.builtin "bridge"), mt_rpc_bridge)
     )) in
+
+    let top_level_terms = ref [] in
 
     (* Rewrite the component *)
     let cstruct_selector (cstruct:component_structure) = cname = cstruct.name in
@@ -122,9 +125,7 @@ let derive_program program cname =
                 on_destroy = false;
                 on_startup = false;
             } in
-            let callback_sign = 
-                List.fold_right (fun {value=(mt1,_)} mt2 -> mtype_of_ct (TArrow (mt1, mt2))) m.value.args m.value.ret_type
-            in
+            let callback_sign = mtype_of_fun m.value.args m.value.ret_type in
 
             (* One port per method*)
             let mt_port = mtype_of_ct (TPort (
@@ -142,6 +143,76 @@ let derive_program program cname =
                     ), callback_sign); 
                 }, mt_port))) in
 
+
+            let l_selector = Atom.fresh (prefix^"label") in 
+
+            (* The function used by the caller to do the communication *)
+            let local_function_activation = Atom.fresh "a" in
+            let local_function_bridge = Atom.fresh "b" in
+            let s0 = Atom.fresh "s" in
+            let s1 = Atom.fresh "s" in
+            let s2 = Atom.fresh "s" in
+            let res = Atom.fresh "res" in
+
+            let refreshed_args = (List.map (function {value=(mt, x)} -> auto_fplace (mt, Atom.fresh (Atom.value x))) m.value.args) in
+            let local_function_args = 
+                (auto_fplace (mtype_of_ct (TActivationInfo (mtype_of_cvar cname)), local_function_activation))::
+                (auto_fplace (mt_rpc_bridge, local_function_bridge))::
+                refreshed_args 
+            in
+            let local_function = auto_fplace {
+                name = Atom.fresh (prefix^"localfct");
+                ret_type = m.value.ret_type;
+                args = local_function_args;
+                body = [
+                    (* s0 = initiate_session_with(counter_bridge, this.instance); *)
+                    auto_fplace (LetExpr(mt_rpc_protocol, s0, auto_fplace (CallExpr(
+                        auto_fplace (VarExpr (Atom.builtin "initiate_session_with"), auto_fplace EmptyMainType),
+                        [
+                            auto_fplace (VarExpr local_function_bridge, auto_fplace EmptyMainType); 
+                            auto_fplace (VarExpr local_function_activation, auto_fplace EmptyMainType);
+                        ]
+                    ), auto_fplace EmptyMainType)));
+                    (* s1 = select(s0, counter__incr__label); *)
+                        auto_fplace (LetExpr(mtype_of_st _expecting_st.value, s1, auto_fplace (CallExpr(
+                            auto_fplace (VarExpr (Atom.builtin "select"), auto_fplace EmptyMainType),
+                            [
+                                auto_fplace (VarExpr s0, auto_fplace EmptyMainType); 
+                                auto_fplace (LitExpr (auto_fplace(StringLit (Atom.to_string l_selector))), auto_fplace EmptyMainType)
+                            ]
+                        ), auto_fplace EmptyMainType)));
+                    (* s2 = fire(s1, counter__incr__call(args_as_tuple))?; *)
+                    auto_fplace (LetExpr(mtype_of_st _expecting_st2.value, s2, auto_fplace (CallExpr(
+                        auto_fplace (VarExpr (Atom.builtin "fire"), auto_fplace EmptyMainType),
+                        [
+                            auto_fplace (VarExpr s1, auto_fplace EmptyMainType); 
+                            auto_fplace (CallExpr (
+                                auto_fplace (VarExpr e_call, auto_fplace EmptyMainType),
+                                List.map (function x -> auto_fplace (VarExpr (snd x.value), auto_fplace EmptyMainType)) refreshed_args
+                            ), auto_fplace EmptyMainType)
+                        ]
+
+                    ), auto_fplace EmptyMainType)));
+                    (* return first(receive(s2))._0_; *)
+                    auto_fplace (ReturnStmt (
+                        auto_fplace (AccessExpr (
+                            auto_fplace (CallExpr (
+                                auto_fplace (VarExpr (Atom.builtin "first"), auto_fplace EmptyMainType),
+                                [
+                                    auto_fplace (CallExpr (
+                                        auto_fplace (VarExpr (Atom.builtin "receive"), auto_fplace EmptyMainType),
+                                        [
+                                            auto_fplace (VarExpr s2, auto_fplace EmptyMainType)
+                                        ]
+                                    ), auto_fplace EmptyMainType)
+                                ]
+                            ), auto_fplace EmptyMainType),
+                            auto_fplace (VarExpr (Atom.builtin "_0_"), auto_fplace EmptyMainType)
+                        ), auto_fplace EmptyMainType)
+                    ));
+                ]
+            } in 
+
             let entry = {
                 method_name = m.value.name;
                 e_call;
@@ -150,11 +221,13 @@ let derive_program program cname =
                 e_ret_def = auto_fplace (Typedef (auto_fplace (EventDef (e_ret, [m.value.ret_type], ()))));
 
 
-                l_selector = Atom.fresh (prefix^"label");
+                l_selector;
 
                 expecting_st = _expecting_st; 
                 port = port;
                 callback = auto_fplace (Method callback);
+
+                local_function
             } in
             Hashtbl.add rpc_entries m.value.name entry
 
@@ -182,23 +255,40 @@ let derive_program program cname =
         (*  FIXME where to put things 
             generate bridge top level ??? -> nop because of implicit 
         *)
-        let top_level_terms = 
+        top_level_terms := 
             auto_fplace (Stmt let_rpc_bridge) ::
             map_values (function entry -> entry.e_call_def) @
-            map_values (function entry -> entry.e_ret_def)
-        in 
+            map_values (function entry -> entry.e_ret_def) @ 
+            map_values (function entry -> auto_fplace (Function entry.local_function));
 
         [cstruct]
     in
 
 
-        (* Bridge should be used outside maybe an issue in multi JVM*)
-            (* Protocol definition - should be used outside*)
-        (*let st_rpc = in
-        let rpc_protocol = auto_fplace (Typedef (auto_fplace (ProtocolDef (a_rpc_protocol, st_rpc)))) in*)
+    (* Bridge should be used outside maybe an issue in multi JVM*)
     let program : program = rewrite_component_program cstruct_selector cstruct_rewriter program in
+    let program = !top_level_terms @ program in (* TODO FIXME Bridge should be moved elsewhere*)
+
 
     (* Rewrite the remaining part of the code *)
-    failwith "TODO RPC derive";
+    let select_call_site = function
+        | CallExpr ({value=ActivationAccessExpr (_cname, _, _),_}, args) -> cname =_cname
+        | _ -> false
+    in
+
+    let rewrite_call_site = function
+        | CallExpr ({value=ActivationAccessExpr (_cname, activation, mname),_}, args) when cname =_cname -> 
+            let entry = Hashtbl.find rpc_entries mname in
+            CallExpr(
+                auto_fplace (VarExpr entry.local_function.value.name,  mtype_of_fun entry.local_function.value.args entry.local_function.value.ret_type),
+                [
+                    activation;
+                    auto_fplace (ImplicitVarExpr a_rpc_bridge, mt_rpc_bridge)
+                ] @ args
+            )
+        | e -> e
+    in
+
+    let program = rewrite_expr_program select_call_site rewrite_call_site program in
 
     program

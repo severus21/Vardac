@@ -27,5 +27,9 @@ module Mtype = struct
             auto_fplace(SType(auto_fplace st))
         let mtype_of_ft ft = 
             mtype_of_ct (TFlatType ft)
+
+
+        let mtype_of_fun args ret_type = 
+            List.fold_right (fun {value=(mt1,_)} mt2 -> mtype_of_ct (TArrow (mt1, mt2))) args ret_type
     end
 end

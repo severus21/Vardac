@@ -25,6 +25,18 @@ and collect_derive_term t = map0_place _collect_derive_term t
 let collect_derive_program program = List.flatten (List.map collect_derive_term program)
 
 
+let rec remove_derive_citem = function
+| {place; value=Term t} -> {place; value = Term (remove_derive_term t)}
+| citem -> citem
+and remove_derive_term = function
+| {place=p1; value=Component {place=p2; value=ComponentStructure cdcl}} -> {place=p1; value = Component {place=p2; value=ComponentStructure {
+    cdcl with 
+        body = List.filter (function | {value=Term {value=Derive _}} -> false | _ -> true)  (List.map remove_derive_citem cdcl.body)
+}}}
+| t -> t
+let remove_derive_program program = List.filter (function | {value=Derive _} -> false | _ -> true) (List.map remove_derive_term program)
+
+
 (* Derivation *)
 let apply_derive program {place; value=derive} =
     match Atom.hint derive.name with
@@ -38,6 +50,7 @@ let apply_derive program {place; value=derive} =
     | _ -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "Unknown derivation %s" (Atom.hint derive.name))))
 let derive_program program = 
     let derivations = collect_derive_program program in
+    let program = remove_derive_program program in
     (* TODO derivations sanity checks*)
 
     (* Apply derivation in order *)

@@ -274,6 +274,7 @@ and rewrite_expr_term_ selector rewriter place = function
 | (Typealias _ as t) |(Typedef _ as t) -> t
 | Derive derive -> Derive { derive with eargs = List.map (rewrite_expr_expr selector rewriter) derive.eargs}
 and rewrite_expr_term selector rewriter = map_place (rewrite_expr_term_ selector rewriter) 
+and rewrite_expr_program selector rewriter (program : program) : program = List.map (rewrite_expr_term selector rewriter) program
 
 let make x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) = 
     let selector = function |VarExpr x when x = x_to_replace -> true | _ -> false in
