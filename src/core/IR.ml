@@ -417,6 +417,86 @@ and free_tvars_program already_binded program =
 
 
 
+(*****************************************************************)
+
+let rec rewrite_type_contract_ selector rewriter place _contract =
+    let rewrite_expr = rewrite_type_expr selector rewriter in
+    let rewrite_mtype = rewrite_type_mtype selector rewriter in
+    {_contract with  
+        pre_binders = List.map (function (mt, x, e) -> (
+            rewrite_mtype mt, x, rewrite_expr e)) _contract.pre_binders;
+        ensures = Option.map rewrite_expr _contract.ensures;
+        returns = Option.map rewrite_expr _contract.returns;
+    }
+and rewrite_type_contract selector rewriter = map_place (rewrite_type_contract_ selector rewriter) 
+
+and rewrite_type_port_  selector rewriter place (_port, mt) =
+    let rewrite_expr = rewrite_type_expr selector rewriter in
+    let rewrite_mtype = rewrite_type_mtype selector rewriter in
+    ({ _port with
+        input = rewrite_expr  _port.input; 
+        expecting_st  = rewrite_mtype _port.expecting_st;
+        callback = rewrite_expr _port.callback; 
+    }, mt)
+    
+and rewrite_type_port selector rewriter = map_place (rewrite_type_port_ selector rewriter) 
+
+and rewrite_type_state_  selector rewriter place = function 
+| StateDcl sdcl -> StateDcl {
+    sdcl with 
+        type0 = rewrite_type_mtype selector rewriter sdcl.type0;
+        body = Option.map (rewrite_type_expr selector rewriter) sdcl.body;
+}
+and rewrite_type_state selector rewriter = map_place (rewrite_type_state_ selector rewriter) 
+
+and rewrite_type_function_dcl_  selector rewriter place m =
+    let rewrite_expr = rewrite_type_expr selector rewriter in
+    let rewrite_mtype = rewrite_type_mtype selector rewriter in
+    { m with 
+        ret_type = rewrite_mtype m.ret_type;
+        args = List.map (function {place; value=(mt,x)} -> 
+            {place; value=rewrite_mtype mt, x}
+        ) m.args;
+        body = List.map (rewrite_type_stmt selector rewriter) m.body 
+    }
+and rewrite_type_function_dcl selector rewriter = map_place (rewrite_type_function_dcl_ selector rewriter) 
+
+and rewrite_type_method0_  selector rewriter place (m:_method0) =
+    let rewrite_expr = rewrite_type_expr selector rewriter in
+    let rewrite_mtype = rewrite_type_mtype selector rewriter in
+    { m with 
+        ret_type = rewrite_mtype m.ret_type;
+        args = List.map (function {place; value=(mt,x)} -> 
+            {place; value=rewrite_mtype mt, x}
+        ) m.args;
+        body = List.map (rewrite_type_stmt selector rewriter) m.body;
+        contract_opt = Option.map (rewrite_type_contract selector rewriter) m.contract_opt;
+     }
+and rewrite_type_method0 selector rewriter = map_place (rewrite_type_method0_ selector rewriter) 
+
+and rewrite_type_component_item_  selector rewriter place = function 
+    | Contract c -> Contract (rewrite_type_contract selector rewriter c)
+    | Method m -> Method (rewrite_type_method0 selector rewriter m)
+    | State s -> State (rewrite_type_state selector rewriter s )
+    | Port p  -> Port (rewrite_type_port selector rewriter p)
+    | Term t -> Term (rewrite_type_term selector rewriter t)
+and rewrite_type_component_item selector rewriter = map_place (rewrite_type_component_item_ selector rewriter) 
+
+and rewrite_type_component_dcl_  selector rewriter place = function 
+| ComponentStructure cdcl -> 
+    ComponentStructure { cdcl with body = List.map (rewrite_type_component_item selector rewriter) cdcl.body}
+and rewrite_type_component_dcl selector rewriter = map_place (rewrite_type_component_dcl_ selector rewriter) 
+
+and rewrite_type_term_ selector rewriter place = function 
+| EmptyTerm -> EmptyTerm 
+| Comments c -> Comments c
+| Stmt stmt -> Stmt (rewrite_type_stmt selector rewriter stmt)
+| Component cdcl -> Component (rewrite_type_component_dcl selector rewriter cdcl)
+| Function fdcl -> Function (rewrite_type_function_dcl selector rewriter fdcl)
+| (Typealias _ as t) |(Typedef _ as t) -> t
+| Derive derive -> Derive { derive with eargs = List.map (rewrite_type_expr selector rewriter) derive.eargs}
+and rewrite_type_term selector rewriter = map_place (rewrite_type_term_ selector rewriter) 
+and rewrite_type_program selector rewriter (program : program) : program = List.map (rewrite_type_term selector rewriter) program
 
 
 
@@ -446,6 +526,7 @@ and rewrite_expr_port selector rewriter = map_place (rewrite_expr_port_ selector
 
 and rewrite_expr_state_  selector rewriter place = function 
 | StateDcl sdcl -> StateDcl {
+    (* TODO FIXME rewrite type0*)
     sdcl with body = Option.map (rewrite_expr_expr selector rewriter) sdcl.body;
 }
 and rewrite_expr_state selector rewriter = map_place (rewrite_expr_state_ selector rewriter) 

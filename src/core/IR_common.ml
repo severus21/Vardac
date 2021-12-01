@@ -265,6 +265,9 @@ module type TIRC = sig
     val free_vars_mtype : Variable.Set.t -> main_type -> Variable.Set.t * (main_type*expr_variable) list
     val free_tvars_mtype : Atom.Set.t -> main_type -> Atom.Set.t * type_variable list
     val  timers_of_headers : constraint_header list -> expr_variable list
+    val rewrite_type_mtype : ( _main_type -> bool) -> (_main_type -> _main_type) -> main_type -> main_type
+    val rewrite_type_expr : ( _main_type -> bool) -> (_main_type -> _main_type) -> expr -> expr
+    val rewrite_type_stmt : (_main_type -> bool) -> (_main_type -> _main_type) -> stmt -> stmt
     val rewrite_expr_expr : (_expr -> bool) -> (_expr -> _expr) -> expr -> expr
     val rewrite_expr_stmt : (_expr -> bool) -> (_expr -> _expr) -> stmt -> stmt
     val replace_expr_expr : expr_variable -> (expr_variable option * _expr option) -> expr -> expr
@@ -1060,7 +1063,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
 
 
-
+    (* FIXMe refactor replace by map_place ..*)
     let rec rewrite_expr_place rewrite_expr_value { AstUtils.place ; AstUtils.value} = 
         let _value = rewrite_expr_value place (fst value) in
         {AstUtils.place; AstUtils.value = _value, snd value}
@@ -1168,9 +1171,165 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let selector, rewriter = make x_to_replace replaceby in
         rewrite_expr_stmt selector rewriter
 
+(*****************************************************)
 
+    let rec _rewrite_type_ctype selector rewriter place = 
+        let rewrite_mtype = rewrite_type_mtype selector rewriter in    
+    function
+        | TArrow (mt1, mt2) -> TArrow (rewrite_mtype mt1, mt2) 
+        | TVar x -> TVar x 
+        | TFlatType ft -> TFlatType ft 
+        | TArray mt -> TArray (rewrite_mtype mt) 
+        | TDict (mt1, mt2) -> TDict (rewrite_mtype mt1, rewrite_mtype mt2) 
+        | TList mt -> TList (rewrite_mtype mt) 
+        | TOption mt -> TOption (rewrite_mtype mt) 
+        | TResult (mt1, mt2) -> TResult (rewrite_mtype mt1, rewrite_mtype mt2)
+        | TSet mt -> TSet (rewrite_mtype mt) 
+        | TTuple mts -> TTuple (List.map rewrite_mtype mts) 
+        | TVPlace mt -> TVPlace (rewrite_mtype mt) 
+        | TUnion (mt1, mt2) -> TUnion (rewrite_mtype mt1, rewrite_mtype mt2) 
+        | TBridge tb -> TBridge {
+            in_type = rewrite_mtype tb.in_type;
+            out_type = rewrite_mtype tb.out_type;
+            protocol = rewrite_mtype tb.protocol;
+        }
+        | TPort (mt1, mt2) -> TPort (rewrite_mtype mt1, rewrite_mtype mt2) 
 
+        | TRaw x -> TRaw x
+        | TPolyVar x -> TPolyVar x
+        | TForall (x, mt) -> TForall (x, rewrite_mtype mt) 
+    and rewrite_type_ctype selector rewriter = map_place (_rewrite_type_ctype selector rewriter)
 
+    and _rewrite_type_stype selector rewriter place = 
+        let rewrite_mtype = rewrite_type_mtype selector rewriter in    
+        let rewrite_stype = rewrite_type_stype selector rewriter in    
+        let rewrite_branches branches = 
+            List.map (function ((x, st, ac_opt) : (type_variable * session_type * applied_constraint option))->
+                x,
+                rewrite_stype st,
+                Option.map (rewrite_type_aconstraint selector rewriter) ac_opt
+            ) branches
+        in
+    function
+        | STEnd -> STEnd
+        | STVar x -> STVar x 
+        | STSend (mt, st) -> STSend (rewrite_mtype mt, rewrite_stype st) 
+        | STRecv  (mt, st) -> STRecv (rewrite_mtype mt, rewrite_stype st)
+        | STBranch branches -> STBranch (rewrite_branches branches)            
+        | STSelect branches -> STSelect (rewrite_branches branches)               
+        | STRec (x, st) -> STRec (x, rewrite_stype st) 
+        | STInline x -> STInline x 
+        | STPolyVar x -> STPolyVar x 
+    and rewrite_type_stype selector rewriter = map_place (_rewrite_type_stype selector rewriter)
+
+    and _rewrite_type_cmtype selector rewriter place = function
+    | CompTUid x -> CompTUid x
+    | TStruct sign -> TStruct
+    (Atom.VMap.map (rewrite_type_mtype selector rewriter) sign)
+    | TPolyCVar x -> TPolyCVar x
+    and rewrite_type_cmtype selector rewriter = map_place (_rewrite_type_cmtype selector rewriter)
+
+    and _rewrite_type_mtype (selector : _main_type -> bool) rewriter place = function
+    | mt when selector mt -> rewriter mt
+    | EmptyMainType -> EmptyMainType
+    | CType ct -> CType (rewrite_type_ctype selector rewriter ct)
+    | SType st -> SType (rewrite_type_stype selector rewriter st)
+    | CompType cmt -> CompType (rewrite_type_cmtype selector rewriter cmt)
+    | ConstrainedType (mt, ac) -> ConstrainedType (
+        rewrite_type_mtype selector rewriter mt,
+        rewrite_type_aconstraint selector rewriter ac
+    )
+    and rewrite_type_mtype selector rewriter = map_place (_rewrite_type_mtype selector rewriter)
+
+    and _rewrite_type_expr selector rewriter place (e, mt) = 
+        let rewrite_mtype = rewrite_type_mtype selector rewriter in    
+        let rewrite_expr = rewrite_type_expr selector rewriter in    
+
+        let e = match e with
+            | (VarExpr _ as e) | (ImplicitVarExpr _ as e) | (LitExpr _ as e) | (This as e) -> e
+            | ActivationAccessExpr (x, e, y) -> ActivationAccessExpr (x, e, y)
+            | AccessExpr (e1, e2) -> AccessExpr (rewrite_expr e1, rewrite_expr e2)
+            | BinopExpr (e1, op, e2) -> BinopExpr (rewrite_expr e1, op, rewrite_expr e2)
+            | LambdaExpr (x, mt, e) -> LambdaExpr (x, rewrite_mtype mt, rewrite_expr e)
+            | UnopExpr (op, e) -> UnopExpr (op, rewrite_expr e)
+            | CallExpr (e, es) -> CallExpr (rewrite_expr e, List.map rewrite_expr es)
+            | NewExpr (e, es) -> NewExpr (rewrite_expr e, List.map rewrite_expr es)
+            | PolyApp (e, mts) -> PolyApp (rewrite_expr e, List.map rewrite_mtype mts)
+            | Spawn spawn -> Spawn {
+                c = rewrite_type_cexpr selector rewriter spawn.c;
+                args = spawn.args;
+                at = Option.map rewrite_expr spawn.at
+            } 
+            | BoxCExpr ce -> BoxCExpr (rewrite_type_cexpr selector rewriter ce)
+            | OptionExpr e_opt -> OptionExpr (Option.map rewrite_expr e_opt)
+            | ResultExpr (e1_opt, e2_opt) -> ResultExpr (Option.map rewrite_expr e1_opt, Option.map rewrite_expr e2_opt)
+            | BlockExpr (b, es) -> BlockExpr (b, List.map rewrite_expr es)
+            | Block2Expr (b, ees) -> Block2Expr (b,
+                List.map (function (e1, e2) ->
+                    rewrite_expr e1, rewrite_expr e2    
+                ) ees
+            )
+        in
+        e, rewrite_mtype mt
+    and rewrite_type_expr selector rewriter = map_place (_rewrite_type_expr selector rewriter)
+
+    and _rewrite_type_stmt selector rewriter place = 
+        let rewrite_mtype = rewrite_type_mtype selector rewriter in    
+        let rewrite_expr = rewrite_type_expr selector rewriter in    
+        let rewrite_stmt = rewrite_type_stmt selector rewriter in    
+    function
+    | (BreakStmt as stmt) | (CommentsStmt _ as stmt) | (ContinueStmt as stmt) | (EmptyStmt as stmt) | (ExitStmt _ as stmt) -> stmt
+    | AssignExpr (x, e) -> AssignExpr (x, rewrite_expr e)
+    | AssignThisExpr (x, e) -> AssignThisExpr (x, rewrite_expr e)
+    | LetExpr (mt, x, e) -> LetExpr (rewrite_mtype mt, x , rewrite_expr e)
+    | ForStmt (mt, x, e, stmt) -> ForStmt (
+        rewrite_mtype mt,
+        x, 
+        rewrite_expr e,
+        rewrite_stmt stmt 
+    ) 
+    | IfStmt (e, stmt1, stmt2_opt) -> IfStmt (
+        rewrite_expr e,
+        rewrite_stmt stmt1,
+        Option.map rewrite_stmt stmt2_opt
+    )
+    | MatchStmt (e, branches) -> MatchStmt (e,
+        List.map (function (e,stmt) -> 
+            rewrite_expr e, rewrite_stmt stmt
+        ) branches
+    )
+    | ReturnStmt e -> ReturnStmt (rewrite_expr e)
+    | ExpressionStmt e -> ExpressionStmt (rewrite_expr e)
+    | BlockStmt stmts -> BlockStmt (List.map rewrite_stmt stmts)
+    | GhostStmt stmt -> GhostStmt (rewrite_stmt stmt)
+    and rewrite_type_stmt selector rewriter = map_place (_rewrite_type_stmt selector rewriter)
+
+    and _rewrite_type_cexpr selector rewriter place (ce, mt) = 
+        let rewrite_expr = rewrite_type_expr selector rewriter in    
+        let rewrite_cexpr = rewrite_type_cexpr selector rewriter in    
+
+        let ce = match ce with
+            | (VarCExpr x as ce) -> ce
+            | AppCExpr (ce1, ce2) -> AppCExpr (rewrite_cexpr ce1, rewrite_cexpr ce2)
+            | UnboxCExpr e -> UnboxCExpr (rewrite_expr e)
+            | AnyExpr e -> AnyExpr (rewrite_expr e)
+        in
+        (ce, rewrite_type_mtype selector rewriter mt)
+    and rewrite_type_cexpr selector rewriter = map_place (_rewrite_type_cexpr selector rewriter)
+
+    and _rewrite_type_header selector rewriter place = function
+    | UseMetadata (mt, x) -> UseMetadata (rewrite_type_mtype selector rewriter mt, x)
+    | SetTimer x -> SetTimer x
+    | SetFireTimer (x, i) -> SetFireTimer (x, i)
+    and rewrite_type_header selector rewriter = map_place (_rewrite_type_header selector rewriter)
+
+    and rewrite_type_aconstraint selector rewriter (headers, e_opt)= 
+        (
+            List.map (rewrite_type_header selector rewriter) headers,
+            Option.map (rewrite_type_expr selector rewriter) e_opt
+        )
+
+(*****************************************************)
 
     (* elim place *)
     let rec equal_place inner_equal (x1:'a AstUtils.placed) (x2:'a AstUtils.placed) = inner_equal (x1.value, x2.value)
