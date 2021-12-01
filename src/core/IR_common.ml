@@ -683,15 +683,18 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let _,  collected_elts2, ftvars2 = collect_mtype b.out_type in
         let _,  collected_elts3, ftvars3 = collect_mtype b.protocol in
         already_binded,  collected_elts1@collected_elts2@collected_elts3, ftvars1@ftvars2@ftvars3
+    | TTuple mts -> 
+        let collected_elts, ftvars = collect_type_mtypes parent_opt already_binded selector collector mts in
+        already_binded, collected_elts, ftvars
     | TVar x | TPolyVar x when Atom.Set.find_opt x already_binded <> None  -> already_binded, [], [] 
     | TVar x when Atom.is_builtin x -> already_binded, [], [] 
     | TVar x | TPolyVar x  -> 
-        logger#error "free tvar of %s " (Atom.to_string x);
         already_binded, [], [x]
     | TForall (x, mt) -> 
         let inner_already_binded = Atom.Set.add x already_binded in
         let _,  collected_elts, ftvars = collect_mtype mt in
         already_binded, collected_elts, ftvars
+    | t -> failwith (show__composed_type t)
     and collect_type_ctype parent_opt already_binded selector collector ct =       
         map0_place (collect_type_ctype_ parent_opt already_binded selector collector) ct 
     and free_tvars_ctype already_binded ct = 
@@ -1176,6 +1179,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     let rec _rewrite_type_ctype selector rewriter place = 
         let rewrite_mtype = rewrite_type_mtype selector rewriter in    
     function
+        | TActivationInfo mt -> TActivationInfo (rewrite_mtype mt)
         | TArrow (mt1, mt2) -> TArrow (rewrite_mtype mt1, mt2) 
         | TVar x -> TVar x 
         | TFlatType ft -> TFlatType ft 

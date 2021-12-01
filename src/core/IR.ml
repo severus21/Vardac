@@ -153,8 +153,6 @@ and collect_expr_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector 
             | Port p -> Atom.Set.add (fst p.value).name already_binded
             | Term t -> already_binded
     ) already_binded cdcl.body in
-    logger#info "collect component %s [%d]" (Atom.to_string cdcl.name) (List.length cdcl.body);
-    logger#info "%s\n\n" (Atom.Set.show already_binded);
 
     let _, res = List.fold_left_map (fun already_binded citem -> 
         let env, a,b = collect_expr_component_item parent_opt already_binded selector collector citem in
@@ -338,8 +336,6 @@ and collect_type_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector 
             | Port p -> Atom.Set.add (fst p.value).name already_binded
             | Term t -> already_binded
     ) already_binded cdcl.body in
-    logger#info "collect component %s [%d]" (Atom.to_string cdcl.name) (List.length cdcl.body);
-    logger#info "%s\n\n" (Atom.Set.show already_binded);
 
     let _, res = List.fold_left_map (fun already_binded citem -> 
         let env, a,b = collect_type_component_item parent_opt already_binded selector collector citem in

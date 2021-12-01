@@ -12,6 +12,28 @@ let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
 *)
 
+(***************************************************************)
+let stinline_selector = function
+    | SType {place; value=STInline _ } -> true 
+    | _ -> false 
+let stinline_collector parent_opt env {place; value} = 
+match value with
+| SType {place; value=STInline x } -> 
+    let parent = match parent_opt with | None -> "Toplevel" | Some p -> Atom.to_string p in
+    Error.error place "STInline remains in IR after parial evaluation : %s. Parent = %s" (Atom.to_string x) parent
+| _ -> []
+
+let check_program program : unit= 
+    (* Check: no more STInline *)
+    ignore (collect_type_program Atom.Set.empty stinline_selector stinline_collector program);
+    ()
+
+
+(***************************************************************)
+
+
+
+
 (* Environment *)
 module Env = Atom.VMap 
 let toto = ref 0 
@@ -87,13 +109,22 @@ let rec peval_composed_type env place : _composed_type -> env * _composed_type =
 
 (** Message-passing *)
 | TBridge { in_type; out_type; protocol} ->
+    logger#debug "TBridge detected at : %s" (Error.show place);
     env, TBridge {
         in_type = (snd <-> pe_mtype env) in_type;
         out_type = (snd <-> pe_mtype env) out_type;
         protocol = (snd <-> pe_mtype env) protocol 
     }
 | TVPlace mt -> env, TVPlace ((snd <-> pe_mtype env) mt)
-| ct -> failwith (show__composed_type ct)
+| TForall (x, mt) -> env, TForall (x, snd (pe_mtype env mt))
+(* no inner_env with x for pe_eval mt because x is not binded to any concrete type at this point *)
+| TPolyVar x -> env, TPolyVar x
+| TPort (mt1, mt2) ->
+    env, TPort ( 
+        (snd <-> pe_mtype env) mt1,
+        (snd <-> pe_mtype env) mt2
+    )
+| t -> failwith (show__composed_type t)
 and pe_ctype env: composed_type -> env * composed_type = map2_place (peval_composed_type env)
 
 
@@ -107,13 +138,17 @@ and peval_stype env place : _session_type -> env * _session_type =
     | STInline x -> begin
         try
             let mt = Env.find x env.named_types in
-            (* assert_is_stype mt.value;
-            env, mt.value*)
             match mt with 
-            | Some {value=SType st; _} -> env, st.value 
+            | Some {value=SType st; _} -> 
+                let st = (snd <-> pe_stype env) st in
+                logger#debug "culprit toto";
+                    ignore (collect_type_mtype None Atom.Set.empty stinline_selector stinline_collector {value=SType st; place});
+                logger#debug "tata";
+                
+                env, st.value 
             (* FIXME do we want to have the place of the inline (current behviour) or the place of the typealias ??*)
             | _ -> Error.error place "STInline parameter can not be resolved to a session types."
-        with Not_found -> raise (Error.PlacedDeadbranchError (place, "Unbounded inline variable, this should have been checked by the cook pass."))
+        with Not_found -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "Unbounded inline variable [%s], this should have been checked by the cook pass." (Atom.to_string x))))
     end
     | STBranch entries -> 
         env, STBranch (List.map aux_entry entries) 
@@ -131,7 +166,15 @@ and peval_stype env place : _session_type -> env * _session_type =
         env, STSend (mt', st')
     | STVar x -> 
         env, STVar x
+    | STPolyVar x -> env, STPolyVar x
 and pe_stype env: session_type -> env * session_type = map2_place (peval_stype env)
+
+and peval_cmtype env place = function 
+| CompTUid x -> env, CompTUid x (* can not inlined since rec type are allowed for component *) 
+| TStruct sign -> 
+    env, TStruct (Atom.VMap.map (snd <-> pe_mtype env) sign)
+| TPolyCVar x -> env, TPolyCVar x
+and pe_cmtype env = map2_place (peval_cmtype env)
 
 and is_type_of_component x = Str.string_match (Str.regexp "[A-Z].*") (Atom.hint x) 0
 
@@ -157,11 +200,14 @@ and peval_mtype env place : _main_type -> env * _main_type = function
     in
     env, aux Atom.Set.empty x 
 | CType ct -> env, CType (snd (pe_ctype env ct))
-| SType st -> env, SType (snd(pe_stype env st)) 
+| SType st -> 
+    let st = SType (snd(pe_stype env st)) in 
+    env, st
 | ConstrainedType (mt, cst) -> env, ConstrainedType (
     snd(pe_mtype env mt), 
     snd (peval_applied_constraint env cst)) 
-| elmt -> env, elmt (*TODO*)
+| CompType cmt -> env, CompType (snd (pe_cmtype env cmt))
+| EmptyMainType -> env, EmptyMainType
 and pe_mtype env: main_type -> env * main_type = map2_place (peval_mtype env)
 
 (******************************** Constraints ********************************)
@@ -353,7 +399,7 @@ and peval_expr env place (e, mt) :  env * (_expr * main_type) =
         end
         | x -> env, x 
     in
-    env, (e, mt)
+    env, (e, snd (pe_mtype env mt))
 and pe_expr env: expr -> env * expr = map2_place (peval_expr env)
 
 and peval_stmt env place : _stmt -> env * _stmt = 
@@ -417,7 +463,8 @@ end
         | (LitExpr {value=Bridge bridge; _}, _) -> 
             let protocol = match t_b.protocol.value with
             | SType st -> st
-            | _ -> Error.error t_b.protocol.place "Third argument of Bridge<_,_,_> must be (partially-evaluated> to a session type"
+            | _ -> 
+                Error.error t_b.protocol.place "Third argument of Bridge<_,_,_> must be (partially-evaluated> to a session type"
             in
 
             env, LetExpr (
@@ -488,12 +535,14 @@ and peval_method env place m =
     | c_opt -> c_opt 
     in
 
-    env, {m with
+    let m = {m with
             ret_type = snd(pe_mtype env m.ret_type);
             args = List.map (function param -> snd(pe_param env param)) m.args;
             body = List.map (snd <-> pe_stmt env) m.body;
             contract_opt = contract_opt
-    } 
+    } in
+
+    env, m
 and pe_method env: method0 -> env * method0 = map2_place (peval_method env)
 
 and peval_port env place (port, mt_port) = 
@@ -510,7 +559,7 @@ and peval_port env place (port, mt_port) =
         input =  snd(pe_expr env port.input);
         expecting_st;
         callback = snd(pe_expr env port.callback)
-    }, mt_port)
+    }, snd (pe_mtype env mt_port))
 and pe_port env: port -> env * port = map2_place (peval_port env)
 
 and peval_state env place = function 
@@ -526,7 +575,9 @@ and peval_component_item env place : _component_item -> env * _component_item = 
 | Include cexpr -> env, Include (snd(pe_component_expr env cexpr))
 | Method m -> env, Method (snd(pe_method env m))
 | Port p -> env, Port (snd(pe_port env p))
-| State s -> env, State (snd(pe_state env s))
+| State s -> 
+    let s = snd(pe_state env s)in
+    env, State (snd(pe_state env s))
 | Term t -> env, Term (snd(pe_term env t))
 
 and pe_component_item env: component_item -> env * component_item = map2_place (peval_component_item env)
@@ -550,7 +601,7 @@ and peval_component_expr env place (ce, mt_ce) = (* TODO peval for this*)
         | AppCExpr (cexpr1, cexpr2) -> env, AppCExpr (snd (pe_component_expr env cexpr1), snd (pe_component_expr env cexpr2)) 
         | UnboxCExpr e -> env, UnboxCExpr (snd(pe_expr env e)) 
         | AnyExpr e -> env, AnyExpr (snd(pe_expr env e)) 
-    in env, (ce, mt_ce)
+    in env, (ce, snd (pe_mtype env mt_ce))
 and pe_component_expr env: component_expr -> env * component_expr = map2_place (peval_component_expr env)
 
 (************************************ Program *****************************)
@@ -609,7 +660,9 @@ and pe_terms env terms : env * IR.term list =
     let env, program = List.fold_left_map pe_term env terms in
     env, List.filter (function |{AstUtils.value=EmptyTerm; _} -> false | _-> true) program
 
-and peval_program (terms: IR.program) : IR.program = 
+
+let peval_program (terms: IR.program) : IR.program = 
     let env, program = pe_terms (fresh_env ()) terms in
+    check_program program;
     program
 
