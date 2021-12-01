@@ -322,19 +322,16 @@ and collect_type_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector 
     assert(cdcl.args = []);
     (* FIXME TODO do i need to propagate field/method name binding ???*)
 
-    (* Shallow scan because fields and methods could be recursive *)
+    (* Shallow scan because because component type def could be recursive *)
     let already_binded = List.fold_left (
         fun already_binded citem -> 
             match citem.value with
             | Contract _ -> already_binded
-            | Method m -> Atom.Set.add m.value.name already_binded
-            | State s -> 
-                Atom.Set.add(match s.value with 
-                | StateDcl s -> s.name
-                | StateAlias s -> s.name
-            ) already_binded
-            | Port p -> Atom.Set.add (fst p.value).name already_binded
-            | Term t -> already_binded
+            | Method m -> already_binded
+            | State s -> already_binded
+            | Port p -> already_binded
+            | Term {value=Component {value=ComponentStructure {name}}} -> Atom.Set.add name already_binded
+            | Term _ -> already_binded
     ) already_binded cdcl.body in
 
     let _, res = List.fold_left_map (fun already_binded citem -> 
@@ -353,14 +350,19 @@ and free_tvars_component_dcl already_binded cdcl =
 
 and collect_type_typedef_ parent_opt (already_binded:Atom.Set.t) selector collector place = function 
 (* already binded left unchanged since it is type binder *)
-| ClassicalDef  (x, targs, body) -> already_binded, [], []
-| EventDef (x, targs, body) -> already_binded, [], []
-| ProtocolDef (x, mt) -> collect_type_mtype parent_opt already_binded selector collector mt
+| ClassicalDef  (x, targs, body) -> Atom.Set.add x already_binded, [], []
+| EventDef (x, targs, body) -> Atom.Set.add x already_binded, [], []
+| ProtocolDef (x, mt) -> 
+    let _, collected_elts, ftvars = collect_type_mtype parent_opt already_binded selector collector mt in
+    Atom.Set.add x already_binded, collected_elts, ftvars
 and collect_type_typedef parent_opt (already_binded:Atom.Set.t) selector collector tdef= 
     map0_place (collect_type_typedef_ parent_opt already_binded selector collector) tdef
 
 and collect_type_derivation parent_opt (already_binded:Atom.Set.t) selector collector place derive =
-    let _, tmp1 = [], [] in (*List.fold_left_map (collect_type_cexpr parent_opt already_binded selector collector) derive.cargs  in*)
+    let _, tmp1 = List.fold_left_map (fun already_binded ce ->          
+        let env, a, b = collect_type_cexpr parent_opt already_binded selector collector ce in
+        env, (a,b)
+    ) already_binded derive.cargs  in
     let _, tmp2 = List.fold_left_map (fun already_binded truc -> 
         let env, a,b = collect_type_mtype parent_opt already_binded selector collector truc in
         env, (a,b)    
@@ -387,6 +389,14 @@ and collect_type_term parent_opt (already_binded:Atom.Set.t) selector collector 
     map0_place (collect_type_term_ parent_opt already_binded selector collector) t
 
 and collect_type_program already_binded selector collector program = 
+    (* Shallow scan because because component type def could be recursive *)
+    let already_binded = List.fold_left (
+        fun already_binded term -> 
+            match term.value with
+            | Component {value=ComponentStructure {name}} -> Atom.Set.add name already_binded
+            | _ -> already_binded
+    ) already_binded program in
+
     let _, res = List.fold_left_map (fun already_binded term -> 
         let env, a,b = collect_type_term None already_binded selector collector term in
         env, (a,b)    

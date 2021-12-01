@@ -2,7 +2,7 @@ vplacedef vpa of "placeA";
 vplacedef vpb of "placeB";
 
 type error of ;
-event incr of; 
+event eincr of; 
 event value of int;
 
 
@@ -15,7 +15,7 @@ testb tt = testb(1,true);
 int i = tt._0_;
 bool ii = tt._1_;
 
-protocol p_protocol = !incr?value!incr?value.;
+protocol p_protocol = !eincr?value!eincr?value.;
 bridge<A, Counter, inline p_protocol> b0 = bridge(p_protocol);
 
 component A () {
@@ -27,11 +27,11 @@ component A () {
         print("> Starting A");
         session<p_protocol> s0 = initiate_session_with(this._b, b); 
 
-        ?value!incr?value. s1 = fire(s0, incr()); 
-        tuple<value, !incr?value.> resa = receive(s1, this._b);  
+        ?value!eincr?value. s1 = fire(s0, eincr()); 
+        tuple<value, !eincr?value.> resa = receive(s1, this._b);  
 
 
-        ?value. s2 = fire(second(resa), incr());
+        ?value. s2 = fire(second(resa), eincr());
         tuple<value, .> resb = receive(s2, this._b);  
 
         value v_a = first(resa); (* Type reconstruction can not handle first(resa) yet *) 
@@ -72,17 +72,17 @@ component Counter () {
     }
 
 
-    port truc on this._b :: bridge<A, Counter, inline p_protocol> expecting ?incr!value?incr!value. = this.handle_incr1;
-    port truc2 on this._b :: bridge<A, Counter, inline p_protocol>  expecting ?incr!value. = this.handle_incr2;
+    port truc on this._b :: bridge<A, Counter, inline p_protocol> expecting ?eincr!value?eincr!value. = this.handle_incr1;
+    port truc2 on this._b :: bridge<A, Counter, inline p_protocol>  expecting ?eincr!value. = this.handle_incr2;
 
 
-    result<void, error> handle_incr1 (incr msg, !value?incr!value. s1) {
+    result<void, error> handle_incr1 (eincr msg, !value?eincr!value. s1) {
         this.counter = this.counter + 1;
         fire(s1, value(this.counter)); 
 
         return Ok(());
     }
-    result<void, error> handle_incr2 (incr msg, ?incr!value. s1) {
+    result<void, error> handle_incr2 (eincr msg, ?eincr!value. s1) {
         this.counter = this.counter + 1;
         fire(s1, value(this.counter)); 
         return Ok(());
@@ -101,7 +101,6 @@ component MultiJVMOrchestrator (){
 
         onstartup void toto () {
             bridge<A, Counter, inline p_protocol> b0 = bridge(p_protocol);
-
             print("Start active player"); 
             list<place> ps1 = select_places(vpb, x  : place -> true);
             list<place> ps2 = select_places(vpa, x  : place -> true);

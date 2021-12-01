@@ -523,6 +523,7 @@ let auto_place smth = {place = fplace; value=smth} in
     | S.ResultExpr (_,_) -> raise (Core.Error.PlacedDeadbranchError (place, "finish_expr : a result expr can not be Ok and Err at the same time."))
     | S.BlockExpr (b, es) -> T.BlockExpr(b, List.map fexpr es)
     | S.Block2Expr (b, xs) -> failwith "block not yet supported"
+    | e -> failwith (S.show__expr e)
 ), fmtype mt
 and fexpr e : T.expr = map_place finish_expr e
 

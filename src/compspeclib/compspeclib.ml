@@ -58,13 +58,31 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         |> ImplicitElimination.rewrite_program
         |> function x-> logger#sinfo "Implicit have been removed and turned to explicit";x
         |> Core.AstUtils.dump "explicit IR" IR.show_program
-        |> Rewrite.rewrite_program
+    in
+
+    let ir3 = ir2
+        |> Core.PartialEval.peval_program
+        |> Derive.derive_program
+        |> function x-> logger#sinfo "Derives has been applied to IR";x
+        |> Core.AstUtils.dump "derived IR" IR.show_program
+
+        (* TODO FIXME 
+            0. Annots derived expression with types (and not just EmptyMainType)
+            1. Check that derivation to not introduced bugs that can be detected by type-checking
+        |> Core.TypeInference.tannot_program
+        |> Core.TypeChecking.tcheck_program 
+        *)
+
+        (* Clean derived code *)
+        |> Core.PartialEval.peval_program
+        |> ImplicitElimination.rewrite_program
+        
+        |> Rewrite.rewrite_program (* Transform receive to async + ports *) 
         |> function x-> logger#sinfo "IR has been rewritten";x
         |> Core.AstUtils.dump "rewritten IR" IR.show_program
     in
 
-    ir2
-    |> Derive.derive_program
+    ir3
     |> Frontend.to_impl targets impl_filename  
     |> Codegen.codegen project_dir build_dir places targets;
 

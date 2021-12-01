@@ -16,10 +16,17 @@ module Mtype = struct
         let auto_fplace smth = {place = fplace; value=smth}
 
         let mtype_of_var x = 
+            auto_fplace(CType(auto_fplace (TVar x)))
+        let mtype_poly_of_var x = 
             auto_fplace(CType(auto_fplace (TPolyVar x)))
+
         let mtype_of_svar x = 
+            auto_fplace(SType(auto_fplace (STInline x)))
+        let mtype_poly_of_svar x = 
             auto_fplace(SType(auto_fplace (STPolyVar x)))
         let mtype_of_cvar x = 
+            auto_fplace(CompType(auto_fplace (CompTUid x)))
+        let mtype_poly_of_cvar x = 
             auto_fplace(CompType(auto_fplace (TPolyCVar x)))
         let mtype_of_ct ct = 
             auto_fplace(CType(auto_fplace ct))

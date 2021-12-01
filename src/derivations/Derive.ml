@@ -49,6 +49,21 @@ let apply_derive program {place; value=derive} =
     end
     | _ -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "Unknown derivation %s" (Atom.hint derive.name))))
 let derive_program program = 
+
+    (* *****************
+     TODO move the assert into unittest using each example program to check that there is not free vars no free tvars*)
+    let fvars0 = Atom.Set.of_seq (List.to_seq (List.map snd (snd (free_vars_program Atom.Set.empty program)))) in
+    let ftvars0 = Atom.Set.of_seq (List.to_seq (snd (free_tvars_program Atom.Set.empty program))) in
+    let ffvars0 = Atom.Set.union fvars0 ftvars0 in
+
+
+    logger#debug "fvars %s" (Atom.Set.show fvars0);
+    logger#debug "ftvars %s" (Atom.Set.show ftvars0);
+
+        assert(ffvars0 = Atom.Set.empty);
+
+    (*************)
+
     let derivations = collect_derive_program program in
     let program = remove_derive_program program in
     (* TODO derivations sanity checks*)

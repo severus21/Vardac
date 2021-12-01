@@ -157,8 +157,8 @@ module Make (Args : Params ) : Sig = struct
                         is not used since env is only used to get ride of variables
                     *)
                     let env = Env.of_seq (Seq.map (function x -> (auto_fplace EmptyMainType, x)) (Atom.Set.to_seq env)) in
-                    Format.fprintf Format.std_formatter "Round for %s [spawn %s]\n" (Atom.to_string k) (Atom.to_string c);
-                    print_env env;
+                    (*Format.fprintf Format.std_formatter "Round for %s [spawn %s]\n" (Atom.to_string k) (Atom.to_string c);
+                    print_env env;*)
                     let discovered_implicits = Env.diff implicit_args env in
                     let new_implicits = try Env.diff discovered_implicits (Hashtbl.find implicits k) with Not_found -> (logger#error "%s not found in implicits" (Atom.to_string k); raise Not_found)in
                     if new_implicits <> Env.empty then( 

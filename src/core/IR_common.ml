@@ -256,6 +256,7 @@ module type TIRC = sig
     val dual : session_type -> session_type
     val collect_type_mtype : Atom.atom option -> Atom.Set.t -> (_main_type -> bool) -> (Atom.atom option -> Atom.Set.t -> main_type -> 'a list) -> main_type -> Atom.Set.t * 'a list * type_variable list
     val collect_type_stmt : Atom.atom option -> Atom.Set.t -> (_main_type -> bool) -> (Atom.atom option -> Atom.Set.t -> main_type -> 'a list) -> stmt -> Atom.Set.t * 'a list * type_variable list
+    val collect_type_cexpr : Atom.atom option -> Atom.Set.t -> (_main_type -> bool) -> (Atom.atom option -> Atom.Set.t -> main_type -> 'a list) -> component_expr -> Atom.Set.t * 'a list * type_variable list
     val collect_type_expr : Atom.atom option -> Atom.Set.t -> (_main_type -> bool) -> (Atom.atom option -> Atom.Set.t -> main_type -> 'a list) -> expr -> Atom.Set.t * 'a list *type_variable list
     val collect_expr_expr : Atom.atom option -> Variable.Set.t -> (_expr -> bool) -> (Atom.atom option -> Variable.Set.t -> expr -> 'a list) -> expr -> Variable.Set.t * 'a list * (main_type*expr_variable) list
     val collect_expr_stmt : Atom.atom option -> Variable.Set.t -> (_expr -> bool) -> (Atom.atom option -> Variable.Set.t -> expr -> 'a list) -> stmt -> Variable.Set.t * 'a list * (main_type*expr_variable) list
@@ -553,9 +554,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             already_binded, collected_elts0@collected_elts1, fvars1
         | (VarExpr x) | (ImplicitVarExpr x) when Variable.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, [] 
         | (VarExpr x) | (ImplicitVarExpr x) when Variable.is_builtin x -> already_binded, collected_elts0, [] 
-        | (VarExpr x) | (ImplicitVarExpr x)-> 
-            logger#error "free var of %s " (Variable.to_string x);
-            already_binded, collected_elts0, [mt, x]
+        | (VarExpr x) | (ImplicitVarExpr x)-> already_binded, collected_elts0, [mt, x]
         | BoxCExpr _ | LitExpr _ | OptionExpr None | ResultExpr (None, None) |This -> already_binded, collected_elts0, []
         | AccessExpr (e1, {value=VarExpr _, _}) -> (* TODO AccessExpr : expr * Atom.t *)
             let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e1 in
@@ -692,9 +691,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         already_binded, [], [x]
     | TForall (x, mt) -> 
         let inner_already_binded = Atom.Set.add x already_binded in
-        let _,  collected_elts, ftvars = collect_mtype mt in
+        let _,  collected_elts, ftvars = collect_type_mtype parent_opt inner_already_binded selector collector mt in
+        assert ( false = List.mem x ftvars);
         already_binded, collected_elts, ftvars
-    | t -> failwith (show__composed_type t)
     and collect_type_ctype parent_opt already_binded selector collector ct =       
         map0_place (collect_type_ctype_ parent_opt already_binded selector collector) ct 
     and free_tvars_ctype already_binded ct = 
