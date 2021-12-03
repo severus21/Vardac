@@ -276,7 +276,7 @@ module type TIRC = sig
     val rewrite_expr_stmt : (_expr -> bool) -> (_expr -> _expr) -> stmt -> stmt
     val replace_expr_expr : expr_variable -> (expr_variable option * _expr option) -> expr -> expr
     val replace_expr_stmt : expr_variable -> (expr_variable option * _expr option) -> stmt -> stmt
-    val rewrite_stmt_stmt : (_stmt -> bool) -> (_stmt -> _stmt) -> stmt -> stmt
+    val rewrite_stmt_stmt : (_stmt -> bool) -> (Error.place -> _stmt -> _stmt list) -> stmt -> stmt list
     val replace_type_main_type : type_variable ->(type_variable option * _main_type option) -> main_type -> main_type
     val replace_stype_session_type : type_variable ->(type_variable option * _session_type option) -> session_type -> session_type
     val equal_ctype : composed_type -> composed_type -> bool
@@ -1338,35 +1338,37 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         )
 
     let rec _rewrite_stmt_stmt selector rewriter place = 
+        let auto_place smth = {place = place; value=smth} in
         let rewrite_stmt_stmt = rewrite_stmt_stmt selector rewriter in
+
         function 
-        | stmt when selector stmt -> rewriter stmt
-        | EmptyStmt -> EmptyStmt
-        | AssignExpr (x, e) -> AssignExpr (x, e) 
-        | AssignThisExpr (x, e) -> AssignThisExpr (x, e)
-        | LetExpr (mt, x, e) -> LetExpr (mt, x,  e)
-        | CommentsStmt c -> CommentsStmt c
-        | BreakStmt -> BreakStmt
-        | ContinueStmt -> ContinueStmt
-        | ExitStmt i -> ExitStmt i
+        | stmt when selector stmt -> rewriter place stmt
+        | EmptyStmt -> [EmptyStmt]
+        | AssignExpr (x, e) -> [AssignExpr (x, e)]
+        | AssignThisExpr (x, e) -> [AssignThisExpr (x, e)]
+        | LetExpr (mt, x, e) -> [LetExpr (mt, x,  e)]
+        | CommentsStmt c -> [CommentsStmt c]
+        | BreakStmt -> [BreakStmt]
+        | ContinueStmt -> [ContinueStmt]
+        | ExitStmt i -> [ExitStmt i]
         | ForStmt (mt, x, e, stmt) ->
-            ForStmt(mt, x, e, rewrite_stmt_stmt stmt)
+            [ForStmt(mt, x, e, auto_place (BlockStmt (rewrite_stmt_stmt stmt)))]
         | IfStmt (e, stmt1, stmt2_opt) ->
-            IfStmt (
+            [IfStmt (
                 e,
-                rewrite_stmt_stmt stmt1,
-                Option.map (rewrite_stmt_stmt) stmt2_opt
-            )
+                auto_place (BlockStmt (rewrite_stmt_stmt stmt1)),
+                Option.map (function stmt -> auto_place (BlockStmt (rewrite_stmt_stmt stmt))) stmt2_opt
+            )]
         | MatchStmt (e, branches) ->
-            MatchStmt (
+            [MatchStmt (
                  e,
-                List.map (function (e, stmt) -> e, rewrite_stmt_stmt stmt) branches
-            )
-        | ReturnStmt e -> ReturnStmt e 
-        | ExpressionStmt e -> ExpressionStmt e 
-        | BlockStmt stmts -> BlockStmt (List.map rewrite_stmt_stmt stmts) 
-        | GhostStmt stmt -> GhostStmt (rewrite_stmt_stmt stmt)
-    and rewrite_stmt_stmt selector rewriter = map_place (_rewrite_stmt_stmt selector rewriter)
+                List.map (function (e, stmt) -> e, (auto_place (BlockStmt (rewrite_stmt_stmt stmt)))) branches
+            )]
+        | ReturnStmt e -> [ReturnStmt e]
+        | ExpressionStmt e -> [ExpressionStmt e]
+        | BlockStmt stmts -> [BlockStmt (List.flatten (List.map rewrite_stmt_stmt stmts))] 
+        | GhostStmt stmt -> List.map (function stmt -> GhostStmt stmt) (rewrite_stmt_stmt stmt)
+    and rewrite_stmt_stmt selector (rewriter:Error.place -> _stmt -> _stmt list) = map_places (_rewrite_stmt_stmt selector rewriter)
 
 (*****************************************************)
 

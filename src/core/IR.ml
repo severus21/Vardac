@@ -657,7 +657,7 @@ can only be applied in expression that are inside a statement
 let rec rewrite_exprstmts_expr_ selector rewriter place (e, mt_e) : stmt list * (_expr * main_type) = 
     let rewrite_exprstmts_expr = rewrite_exprstmts_expr selector rewriter in
     match e with  
-    | _ when selector e -> rewriter e
+    | _ when selector e -> rewriter mt_e e
     | VarExpr _ -> [], (e,mt_e)
     | ActivationAccessExpr (cname, e, mname) ->
         let stmts, e = rewrite_exprstmts_expr e in
@@ -741,6 +741,7 @@ and rewrite_exprstmts_stmt_ selector rewriter place : _stmt -> stmt list =
 
     let rewrite_exprstmts_expr = rewrite_exprstmts_expr selector rewriter in
     let rewrite_exprstmts_stmt = rewrite_exprstmts_stmt selector rewriter in
+
     function
     (* Classical expr *)
     | EmptyStmt -> [ auto_place EmptyStmt]
@@ -800,10 +801,7 @@ and rewrite_exprstmts_stmt_ selector rewriter place : _stmt -> stmt list =
         [
             auto_place (BlockStmt (List.flatten (List.map (function stmt -> rewrite_exprstmts_stmt stmt) stmts)))
         ]
-    | GhostStmt stmt ->
-        [ 
-            auto_place (GhostStmt (auto_fplace(BlockStmt (rewrite_exprstmts_stmt stmt))))
-        ]
+    | GhostStmt stmt -> List.map (function stmt -> auto_place (GhostStmt stmt)) (rewrite_exprstmts_stmt stmt)
 
 and rewrite_exprstmts_stmt selector rewriter = map0_place (rewrite_exprstmts_stmt_ selector rewriter)
 

@@ -48,108 +48,6 @@ module Make (Args : Params ) : Sig = struct
     include Args
 
 
-    (* 
-        extract_recv "f(s.recv(...))"
-        =>
-        [ "fresh_name = s.recv(...)"], "f(fresh_name)"
-    *)
-    (* TODO can i extract recv using my generic collector.selector ???:w
-     *)
-    let rec extract_recvs place (e, mt_e) : stmt list * expr = 
-        let fplace = (Error.forge_place "Core.Rewrite.extract_recvs" 0 0) in
-        let auto_place smth = {place = place; value=smth} in
-        let auto_fplace smth = {place = fplace; value=smth} in
-
-        match e with  
-        | (CallExpr ({value=(VarExpr x, _)}, [s; bridge])as e) when Atom.is_builtin x && Atom.hint x = "receive" ->
-            logger#warning ">>>> extract_recvs -> detect receive %s"(Error.show place);
-            let tmp = Atom.fresh "tmp_receive" in
-            let recv = auto_place (e, mt_e) in 
-            let e = auto_fplace (VarExpr tmp, auto_place EmptyMainType) in
-            (* TODO FIXME Need type annotations at this point *)
-            [
-                auto_fplace (LetExpr (
-                    auto_fplace (CType (auto_fplace(TVar (Atom.builtin "TODDO")))),
-                    tmp, 
-                    recv)
-                );
-            ], e
-        (* Classical expr *)
-        | VarExpr _ -> [], auto_place (e,mt_e)
-        | ActivationAccessExpr (cname, e, mname) ->
-            let stmts, e = extract_recvs e.place e.value in
-            stmts, auto_fplace (ActivationAccessExpr (cname, e, mname), mt_e)
-        | AccessExpr (e1, e2) ->
-            logger#debug "access %s" (show__expr (fst e1.value));
-            let stmts1, e1 = extract_recvs e1.place e1.value in
-            let stmts2, e2 = extract_recvs e2.place e2.value in
-            stmts1@stmts2, auto_fplace (AccessExpr (e1, e2), mt_e)
-        | BinopExpr (e1, op, e2) ->
-            let stmts1, e1 = extract_recvs e1.place e1.value in
-            let stmts2, e2 = extract_recvs e2.place e2.value in
-            stmts1@stmts2, auto_fplace (BinopExpr (e1, op, e2), mt_e)
-        | (CallExpr (e1, es) as e) | (NewExpr (e1, es) as e)->
-            (*logger#debug "call %s" (show__expr (fst e1.value));*)
-            let stmts1, e1 = extract_recvs e1.place e1.value in
-            let stmtses = List.map (function e -> extract_recvs e.place e.value) es in
-            let stmts_n = List.map fst stmtses in
-            let es_n = List.map snd stmtses in
-
-            stmts1 @ (List.flatten stmts_n),
-            auto_fplace ((match e with
-                | CallExpr _ -> CallExpr (e1, es_n)
-                | NewExpr _ -> NewExpr (e1, es_n)
-            ), mt_e)
-        | (BridgeCall _ as e ) | (LambdaExpr _ as e) | (LitExpr _ as e) | (This as e) -> (* Interaction primtives are forbidden in LambdaExpr *)
-            [], auto_place (e, mt_e)
-        | UnopExpr (op, e) -> 
-            let stmts, e = extract_recvs e.place e.value in
-            stmts, auto_fplace (UnopExpr(op, e), mt_e)
-        | Spawn sp -> begin
-            let opt = Option.map (function e -> extract_recvs e.place e.value) sp.at in
-            let stmtses = List.map (function e -> extract_recvs e.place e.value) sp.args in
-            let stmts_n = List.flatten (List.map fst stmtses) in
-            let es_n = List.map snd stmtses in
-            
-            match opt with
-            | None -> stmts_n, auto_fplace (Spawn {
-                sp with args = es_n
-            }, mt_e)
-            | Some (stmts, e) -> stmts_n@stmts, auto_fplace (Spawn {
-                sp with 
-                    args = es_n;
-                    at = Some e;
-            }, mt_e)
-        end
-        | OptionExpr None as e -> [], auto_place (e, mt_e)
-        | OptionExpr Some e->
-            let stmts, e = extract_recvs e.place e.value in
-            stmts, auto_fplace (OptionExpr(Some e), mt_e)
-        | ResultExpr (None, None) as e -> [], auto_place (e, mt_e)
-        | ResultExpr (Some e, None) ->
-            let stmts, e = extract_recvs e.place e.value in
-            stmts, auto_fplace (ResultExpr(Some e, None), mt_e)
-        | ResultExpr (None, Some e) ->
-            let stmts, e = extract_recvs e.place e.value in
-            stmts, auto_fplace (ResultExpr(None, Some e), mt_e)
-        | ResultExpr (Some e1, Some e2) ->
-            let stmts1, e1 = extract_recvs e1.place e1.value in
-            let stmts2, e2 = extract_recvs e2.place e2.value in
-            stmts1@stmts2, auto_fplace (ResultExpr(Some e1, Some e2), mt_e)
-        | BlockExpr (b, es) ->
-            let stmtses = List.map (function e -> extract_recvs e.place e.value) es in
-            let stmts_n = List.flatten (List.map fst stmtses) in
-            let es_n = List.map snd stmtses in
-            stmts_n, auto_fplace (BlockExpr (b, es_n), mt_e)
-        | Block2Expr (b, ees) ->
-            let stmtses = List.map (function (e1, e2) -> 
-                extract_recvs e1.place e1.value, 
-                extract_recvs e2.place e2.value 
-            ) ees in
-            let stmts_n = List.flatten (List.map (function (a,b) -> fst a @ fst b) stmtses) in
-            let ees_n = List.map  (function (a,b) -> snd a, snd b) stmtses in
-            stmts_n, auto_fplace (Block2Expr (b, ees_n), mt_e)
-
     (*
         return (new_ports, ((variable hosting the result of the receive, msgt, continuation), session of the receive, method) list)
     *)
@@ -394,88 +292,46 @@ module Make (Args : Params ) : Sig = struct
     end
 
     (* rcev -> toplevel let or toplevel expression statement (return etc ...)*)
-    let rec to_X_form place : _stmt -> stmt list =
+    let rec to_X_form place stmt : stmt list =
         let fplace = (Error.forge_place "Core.Rewrite.to_X_form" 0 0) in
         let auto_place smth = {place = place; value=smth} in
         let auto_fplace smth = {place = fplace; value=smth} in
-        function
+
+        (* 
+            extract_recv "f(s.recv(...))"
+            =>
+            [ "fresh_name = s.recv(...)"], "f(fresh_name)"
+        *)
+        let recv_selector = function
+        | (CallExpr ({value=(VarExpr x, _)}, [s; bridge])as e) when Atom.is_builtin x && Atom.hint x = "receive" -> true
+        | _ -> false
+        in
+        let recv_rewriter mt_e = function
+        | (CallExpr ({value=(VarExpr x, _)}, [s; bridge]) as e) when Atom.is_builtin x && Atom.hint x = "receive" ->
+            logger#warning ">>>> extract_recvs -> detect receive %s"(Error.show place);
+            let tmp = Atom.fresh "tmp_receive" in
+            let recv = auto_place (e, mt_e) in 
+            [
+                auto_fplace (LetExpr (
+                    mt_e,
+                    tmp, 
+                    recv)
+                );
+            ], (VarExpr tmp, mt_e )
+        in
+
+        let stmt_selector = function
         | LetExpr (_, _, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e}) as stmt  when Atom.is_builtin x && Atom.hint x = "receive" ->
             logger#warning ">>>> to_X_form -> detect receive";
-            [ auto_place stmt ]
+            false
+        | _ -> true
+        in
+        
+        let stmt_rewriter place = function
+        | stmt -> List.map (function stmt -> stmt.value) (rewrite_exprstmts_stmt recv_selector recv_rewriter {place; value=stmt})
+        in
 
-        (* Classical expr *)
-        | EmptyStmt -> [auto_place EmptyStmt]
-        | AssignExpr (x, e) ->
-            let estmts, e = extract_recvs e.place e.value in
-            estmts @ [ auto_fplace (AssignExpr (x,e)) ]
-        | AssignThisExpr (x, e) ->
-            let estmts, e = extract_recvs e.place e.value in
-            estmts @ [ auto_fplace(AssignThisExpr (x,e)) ]
-        | BreakStmt -> [auto_place BreakStmt]
-        | ContinueStmt -> [auto_place ContinueStmt]
-        | CommentsStmt c -> [auto_place (CommentsStmt c)]
-        | ExitStmt i -> [auto_place (ExitStmt i)]
-        | ExpressionStmt e -> 
-            let estmts, e = extract_recvs e.place e.value in
-            estmts @ [ auto_fplace (ExpressionStmt e)]
-        | ForStmt (mt, x, e, stmt) ->
-            let estmts, e = extract_recvs e.place e.value in
-            estmts @ [
-                auto_fplace (ForStmt(
-                    mt,
-                    x, 
-                    e, 
-                    match to_X_form stmt.place stmt.value with
-                    | [stmt] -> stmt
-                    | stmts -> auto_fplace (BlockStmt stmts)
-                ))
-            ]
-        | IfStmt (e, stmt1, stmt2_opt) ->
-            let estmts, e = extract_recvs e.place e.value in
-            estmts @ [auto_fplace (IfStmt (
-                e,
-                (match to_X_form stmt1.place stmt1.value with
-                | [stmt1] -> stmt1
-                | stmts1 -> auto_fplace (BlockStmt stmts1))
-                ,
-                Option.map (function stmt2 ->
-                    match to_X_form stmt2.place stmt2.value with
-                    | [stmt2] -> stmt2
-                    | stmts2 -> auto_fplace (BlockStmt stmts2)
-                ) stmt2_opt
-            ))]    
-        | LetExpr (mt, x, e) ->
-            let estmts, e = extract_recvs e.place e.value in
-            estmts @ [auto_fplace (LetExpr (mt, x, e))]
-        | MatchStmt (e, branches) ->
-            let estmts, e = extract_recvs e.place e.value in
-            (* interaction primitives are disallowed in pattern *)
-            estmts @ [ auto_fplace (MatchStmt (
-                e,
-                List.map (function (pattern, stmt) ->
-                    (
-                        pattern,
-                        match to_X_form stmt.place stmt.value with
-                        | [stmt] -> stmt
-                        | stmts -> auto_fplace (BlockStmt stmts)
-                        )        
-                ) branches
-            ))] 
-        | ReturnStmt e -> 
-            logger#debug "return at %s" (Error.show place);
-            logger#info "%s" (show_expr e);
-            let estmts, e = extract_recvs e.place e.value in
-            estmts @ [auto_fplace (ReturnStmt e) ]
-        | BlockStmt stmts ->
-            [auto_fplace(
-                BlockStmt (List.flatten (List.map (function stmt -> to_X_form stmt.place stmt.value) stmts))
-            )]
-        | GhostStmt stmt -> (* since interaction primitives are forbidden in ghost *)
-            [ auto_fplace (
-                match to_X_form stmt.place stmt.value with
-                | [stmt] -> GhostStmt stmt
-                | stmts -> GhostStmt (auto_fplace(BlockStmt stmts))
-            ) ]
+        rewrite_stmt_stmt stmt_selector stmt_rewriter {place; value=stmt}
 
     let rec rewrite_method0 place (m:_method0) : port list * state list * method0 list = 
         let fplace = (Error.forge_place "Core.Rewrite.rewrite_method0" 0 0) in
