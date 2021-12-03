@@ -12,6 +12,33 @@ module type Sig = sig
     val rewrite_program: IR.program -> IR.program
 end
 
+let receive_selector = function 
+    | (CallExpr ({value=(VarExpr x, _)}, [s; bridge])as e) when Atom.is_builtin x && Atom.hint x = "receive" -> true
+    | _ -> false
+let receive_collector msg parent_opt env e = 
+    let parent = match parent_opt with | None -> "Toplevel" | Some p -> Atom.to_string p in
+    Error.error e.place "%s. Parent = %s" msg parent
+
+
+let check_precondition_program program = 
+    (* Check: no receive in function_declaration
+            since we can not create async port to handle it (not in a component)
+    *)
+    let fdcls = List.filter (function |{value=Function _} -> true |_ -> false) program in
+    let fdcls = List.map (function |{value=Function fdcl} -> fdcl.value) fdcls in
+    List.iter (function (fdcl:_function_dcl) -> 
+        List.iter 
+            (function stmt -> ignore (collect_expr_stmt (Some fdcl.name) Atom.Set.empty receive_selector (receive_collector "receive can not be defined into function (only inside component methods)") stmt))
+            fdcl.body
+        ) fdcls;
+
+    program
+let check_postcondition_program program = 
+    (* Check: no more receive *)
+    ignore (collect_expr_program Atom.Set.empty receive_selector (receive_collector "receive() remains in IR after Rewriting") program);
+    
+    program
+
 module Make (Args : Params ) : Sig = struct
     (*
         Architecture remains unchanged - rewriting architecture is done in an other module (to be written)
@@ -35,7 +62,7 @@ module Make (Args : Params ) : Sig = struct
 
         match e with  
         | (CallExpr ({value=(VarExpr x, _)}, [s; bridge])as e) when Atom.is_builtin x && Atom.hint x = "receive" ->
-            logger#warning ">>>> extract_recvs -> detect receive";
+            logger#warning ">>>> extract_recvs -> detect receive %s"(Error.show place);
             let tmp = Atom.fresh "tmp_receive" in
             let recv = auto_place (e, mt_e) in 
             let e = auto_fplace (VarExpr tmp, auto_place EmptyMainType) in
@@ -53,6 +80,7 @@ module Make (Args : Params ) : Sig = struct
             let stmts, e = extract_recvs e.place e.value in
             stmts, auto_fplace (ActivationAccessExpr (cname, e, mname), mt_e)
         | AccessExpr (e1, e2) ->
+            logger#debug "access %s" (show__expr (fst e1.value));
             let stmts1, e1 = extract_recvs e1.place e1.value in
             let stmts2, e2 = extract_recvs e2.place e2.value in
             stmts1@stmts2, auto_fplace (AccessExpr (e1, e2), mt_e)
@@ -61,6 +89,7 @@ module Make (Args : Params ) : Sig = struct
             let stmts2, e2 = extract_recvs e2.place e2.value in
             stmts1@stmts2, auto_fplace (BinopExpr (e1, op, e2), mt_e)
         | (CallExpr (e1, es) as e) | (NewExpr (e1, es) as e)->
+            (*logger#debug "call %s" (show__expr (fst e1.value));*)
             let stmts1, e1 = extract_recvs e1.place e1.value in
             let stmtses = List.map (function e -> extract_recvs e.place e.value) es in
             let stmts_n = List.map fst stmtses in
@@ -71,7 +100,7 @@ module Make (Args : Params ) : Sig = struct
                 | CallExpr _ -> CallExpr (e1, es_n)
                 | NewExpr _ -> NewExpr (e1, es_n)
             ), mt_e)
-        | (LambdaExpr _ as e) | (LitExpr _ as e) | (This as e) -> (* Interaction primtives are forbidden in LambdaExpr *)
+        | (BridgeCall _ as e ) | (LambdaExpr _ as e) | (LitExpr _ as e) | (This as e) -> (* Interaction primtives are forbidden in LambdaExpr *)
             [], auto_place (e, mt_e)
         | UnopExpr (op, e) -> 
             let stmts, e = extract_recvs e.place e.value in
@@ -433,6 +462,8 @@ module Make (Args : Params ) : Sig = struct
                 ) branches
             ))] 
         | ReturnStmt e -> 
+            logger#debug "return at %s" (Error.show place);
+            logger#info "%s" (show_expr e);
             let estmts, e = extract_recvs e.place e.value in
             estmts @ [auto_fplace (ReturnStmt e) ]
         | BlockStmt stmts ->
@@ -522,11 +553,17 @@ module Make (Args : Params ) : Sig = struct
     | Comments c -> Comments c
     | Stmt stmt -> Stmt stmt
     | Component cdcl -> Component (rcdcl cdcl)
-    | Function fcdcl -> Function fcdcl
+    | Function fcdcl -> 
+        (* PB PB PB BP*)
+        Function fcdcl
     | Typealias _ as t -> t
     | Typedef _ as t -> t
     | Derive _ as t -> t
     and rterm term = map_place rewrite_term term
 
-    and rewrite_program terms = List.map rterm terms
+    and rewrite_program program = 
+        program
+        |> check_precondition_program 
+        |> List.map rterm
+        |> check_postcondition_program
 end

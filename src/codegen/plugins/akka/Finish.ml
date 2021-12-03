@@ -336,7 +336,6 @@ and fvstype st : T.expr = map_place finishv_stype st
 and finish_component_type place : S._component_type -> T._ctype = function
 | S.CompTUid x -> T.TVar x 
 | S.TStruct x -> T.TUnknown (* Structural types can not be encoded in Java*) 
-| c -> failwith (S.show__component_type c)
 and fcctype ct : T.ctype = map_place finish_component_type ct
 
 and finish_mtype place : S._main_type -> T.ctype = 
@@ -376,7 +375,7 @@ and finish_literal place : S._literal -> T._literal = function
     | S.ActivationInfo _ -> failwith "Activation info is not yet supported"
 
     | S.Place _ -> failwith "Place is not yet supported"
-    | S.Bridge _ -> raise (Error.DeadbranchError "Bridge should have been process by the finish_expr (returns an expr)")
+    | S.StaticBridge _ -> raise (Error.DeadbranchError "Bridge should have been process by the finish_expr (returns an expr)")
 and fliteral lit : T.literal = map_place finish_literal lit
 
 (************************************ Expr & Stmt *****************************)
@@ -390,9 +389,10 @@ let auto_place smth = {place = fplace; value=smth} in
     | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
     | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
     | S.LambdaExpr (x, _, e) -> T.LambdaExpr ([x], auto_place (T.ReturnStmt (fexpr e))) 
-    | S.LitExpr {value=S.Bridge b; place=lit_place} -> 
-       fst (e_bridge_of_protocol lit_place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown))).value 
-
+    | S.BridgeCall b -> 
+       fst (e_bridge_of_protocol place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown))).value 
+    | S.LitExpr {value=S.StaticBridge b; place=lit_place} -> 
+       fst (e_static_bridge_of_protocol place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown)) b.id).value
     | S.LitExpr {value=S.VPlace vp} -> begin 
         T.CallExpr (
             auto_place(T.VarExpr (Atom.builtin "VPlaces.get"), auto_place T.TUnknown),

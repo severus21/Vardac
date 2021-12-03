@@ -54,8 +54,8 @@ let derive_program program cname =
         out_type = mtype_of_cvar cname; 
         protocol = mt_rpc_protocol
     }) in
-    let let_rpc_bridge = auto_fplace (LetExpr (
-        mt_rpc_bridge, a_rpc_bridge, auto_fplace (LitExpr (auto_fplace (Bridge{
+    let let_rpc_bridge = auto_fplace (LetExpr ( (* Create a static bridge to be able to autocross target boundaries *)
+        mt_rpc_bridge, a_rpc_bridge, auto_fplace (LitExpr (auto_fplace (StaticBridge{
             id = Atom.fresh (Atom.value a_rpc_bridge);
             protocol_name = a_rpc_protocol;
         })), mt_rpc_bridge)
@@ -203,7 +203,8 @@ let derive_program program cname =
                                     auto_fplace (CallExpr (
                                         auto_fplace (VarExpr (Atom.builtin "receive"), auto_fplace EmptyMainType),
                                         [
-                                            auto_fplace (VarExpr s2, auto_fplace EmptyMainType)
+                                            auto_fplace (VarExpr s2, auto_fplace EmptyMainType);
+                                            auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge)
                                         ]
                                     ), auto_fplace EmptyMainType)
                                 ]
@@ -275,9 +276,9 @@ let derive_program program cname =
                     mtype_of_st full_expecting_st.value
                 ))));
                 auto_fplace (Stmt let_rpc_bridge)
-            ] @
-            map_values (function entry -> auto_fplace (Function entry.local_function))
-            ;
+            ]
+            (* N.B: Local function is not defined as a fct but inlined where need since we can not have receive inside a toplevel fct (Rewrite - at least for Akka: receive => port + async) *)
+        ;
 
 
         (* STInlined generated during the derivation should be erased and replace by the full definition
@@ -338,6 +339,9 @@ let derive_program program cname =
             let _ftvars = Atom.Set.of_seq (List.to_seq (snd (free_tvars_program Atom.Set.empty current_terms))) in
             (* Because component are type rec per scope *)
             let _ftvars = Atom.Set.diff _ftvars toplevel_components in
+            logger#debug "%s" (show_program new_terms);
+            logger#debug ">><< %s " (Atom.Set.show _ftvars);
+            logger#debug ">><< %s " (Atom.Set.show ftvars0);
 
             if Atom.Set.subset _fvars  fvars0  && Atom.Set.subset _ftvars ftvars0 then(
                 logger#debug "RPC insert depth %d" !insert_depth;
@@ -364,16 +368,39 @@ let derive_program program cname =
     let rewrite_call_site = function
         | CallExpr ({value=ActivationAccessExpr (_cname, activation, mname),_}, args) when cname =_cname -> 
             let entry = Hashtbl.find rpc_entries mname in
-            CallExpr(
+
+            let inline_fdcl fdcl (args: expr list) : stmt list * (_expr * main_type)= 
+                let replace_stmt stmts (fdcl_param1, arg1) : stmt list = List.map (replace_expr_stmt (snd fdcl_param1.value) (None, Some (fst arg1.value))) stmts in
+                let stmts = List.fold_left replace_stmt fdcl.value.body (List.combine fdcl.value.args args) in
+
+                (* Each return is rewritten to an assign of [inline_ret] *)
+                let a_ret = Atom.fresh "inline_ret" in
+                let stmts = (auto_fplace (LetExpr(
+                    fdcl.value.ret_type, 
+                    a_ret, 
+                    (auto_fplace ((LitExpr (auto_fplace VoidLit)), mtype_of_ft TVoid)) (* Works in Java since null can be of any type - FIXME maybe we will need to use an option type initialized to None *)
+                )))::stmts in
+                let stmts = List.map (rewrite_stmt_stmt 
+                    (function |ReturnStmt _ -> true | _ -> false) 
+                    ( function | ReturnStmt e -> AssignExpr (a_ret, e))) stmts
+                in
+                
+                stmts, (VarExpr a_ret, fdcl.value.ret_type)
+            in
+            inline_fdcl entry.local_function ([
+                activation;
+                auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge) (* we can not use implicit variable here since we want to be able to cross binary boundaries, therefore we use static bridge (TODO see if any kind of plg can support it ?? )*)
+            ] @ args)
+            (*CallExpr(
                 auto_fplace (VarExpr entry.local_function.value.name,  mtype_of_fun entry.local_function.value.args entry.local_function.value.ret_type),
                 [
                     activation;
-                    auto_fplace (ImplicitVarExpr a_rpc_bridge, mt_rpc_bridge)
+                    auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge) (* we can not use implicit variable here since we want to be able to cross binary boundaries, therefore we use static bridge (TODO see if any kind of plg can support it ?? )*)
                 ] @ args
-            )
-        | e -> e
+            )*)
     in
 
-    let program = rewrite_expr_program select_call_site rewrite_call_site program in
+    (*let program = rewrite_expr_program select_call_site rewrite_call_site program in*)
+    let program = rewrite_exprstmts_program select_call_site rewrite_call_site program in
 
     program

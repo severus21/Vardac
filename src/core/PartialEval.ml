@@ -108,13 +108,18 @@ let rec peval_composed_type env place : _composed_type -> env * _composed_type =
     env, TTuple mts
 
 (** Message-passing *)
-| TBridge { in_type; out_type; protocol} ->
+| TBridge { in_type; out_type; protocol} -> begin
     logger#debug "TBridge detected at : %s" (Error.show place);
-    env, TBridge {
-        in_type = (snd <-> pe_mtype env) in_type;
-        out_type = (snd <-> pe_mtype env) out_type;
-        protocol = (snd <-> pe_mtype env) protocol 
-    }
+    let protocol = (snd <-> pe_mtype env) protocol in
+    match protocol.value with 
+    | SType st -> 
+        env, TBridge {
+            in_type = (snd <-> pe_mtype env) in_type;
+            out_type = (snd <-> pe_mtype env) out_type;
+            protocol = protocol  
+        }
+    | _ -> Error.error place "Third argument of Bridge<_,_,_> must be (partially-evaluated> to a session type\n%s" (show_main_type protocol)
+end
 | TVPlace mt -> env, TVPlace ((snd <-> pe_mtype env) mt)
 | TForall (x, mt) -> env, TForall (x, snd (pe_mtype env mt))
 (* no inner_env with x for pe_eval mt because x is not binded to any concrete type at this point *)
@@ -124,7 +129,6 @@ let rec peval_composed_type env place : _composed_type -> env * _composed_type =
         (snd <-> pe_mtype env) mt1,
         (snd <-> pe_mtype env) mt2
     )
-| t -> failwith (show__composed_type t)
 and pe_ctype env: composed_type -> env * composed_type = map2_place (peval_composed_type env)
 
 
@@ -327,12 +331,8 @@ and peval_binop env place (e1: expr) (op: binop) (e2: expr) (mt_binop:main_type)
 and peval_call env place (fct: expr) (args: expr list) (mt_ret:main_type): env * (_expr * main_type) =
 match fct.value, args with
 | (VarExpr name, _), [{value=(VarExpr protocol_name, _);}] when Atom.hint(name) = "bridge" ->
-    env, (LitExpr {
-        place;    
-        value = Bridge {
-            id  = Atom.fresh "bridge";
-            protocol_name
-        } 
+    env, (BridgeCall {
+        protocol_name
     }, mt_ret)
 | (VarExpr name, _), _ when Atom.hint(name) = "bridge" ->
     Error.error place "bridge should have exactly one argument - the protocol"
@@ -457,32 +457,14 @@ end
     let _, let_mt = pe_mtype env let_mt in
     let _, let_e = pe_expr env let_e in
 
-    match let_mt.value with
-    | CType {value= TBridge t_b; _} -> begin
-        match let_e.value with
-        | (LitExpr {value=Bridge bridge; _}, _) -> 
-            let protocol = match t_b.protocol.value with
-            | SType st -> st
-            | _ -> 
-                Error.error t_b.protocol.place "Third argument of Bridge<_,_,_> must be (partially-evaluated> to a session type"
-            in
-
-            env, LetExpr (
-                let_mt,
-                let_x, 
-                let_e 
-            )
-        | _ -> Error.error place "The right-handside of a Bridge<_,_,_> must be partially evaluated to a bridge literal" 
-    end
-    | _-> 
-        if is_terminal_expr let_e.value then (
-            logger#debug "Is terminal %s" (Atom.to_string let_x);
-            let new_env = bind_terminal_expr env let_x let_e in
-            new_env, LetExpr (let_mt, let_x, let_e) (* TODO removing a let needs us to know if their is an assigned somewhere *)
-        ) else(
-            logger#debug "Is not terminal %s" (Atom.to_string let_x);
-            env, LetExpr( let_mt, let_x, let_e)
-        )
+    if is_terminal_expr let_e.value then (
+        logger#debug "Is terminal %s" (Atom.to_string let_x);
+        let new_env = bind_terminal_expr env let_x let_e in
+        new_env, LetExpr (let_mt, let_x, let_e) (* TODO removing a let needs us to know if their is an assigned somewhere *)
+    ) else(
+        logger#debug "Is not terminal %s" (Atom.to_string let_x);
+        env, LetExpr( let_mt, let_x, let_e)
+    )
 end
 | MatchStmt (e, entries) -> (* TODO *) 
     env, MatchStmt (

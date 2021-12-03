@@ -29,7 +29,7 @@ match l with
     (* forall x, vplace<x> - x must be unified during typecheking *)
     let x = Atom.fresh "x" in
     ctypeof (TForall(x, ctypeof (TVPlace (ctypeof (TVar x)))))
-| Bridge b -> failwith "How to infer type of Bridge" 
+| StaticBridge b -> failwith "How to infer type of Bridge" 
 
 let typeof_unop op mt_e = 
     let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
@@ -387,6 +387,7 @@ and _tannot_expr ctx place (e, mt_e) =
                 args = List.map (tannot_expr ctx) spawn.args;
                 at = Option.map (tannot_expr ctx) spawn.at;
             }, ctypeof(TActivationInfo(snd c.value))
+            | BridgeCall b -> failwith "How to infer type of Bridge" 
             | BoxCExpr ce -> failwith "BoxCExpr Typeinference"
             | OptionExpr e_opt ->  
                 let e_opt = Option.map (tannot_expr ctx) e_opt in

@@ -30,7 +30,6 @@ let codegen project_dir (build_dir:Fpath.t) places targets program =
             target, Factory.load_plugin codegen.runtime_plg codegen.language_plg
     in
     let plugs = Hashtbl.of_seq (List.to_seq (List.map build_plug targets) ) in
-    logger#warning "%s" (Target.show_targets targets);
     logger#info "Plugins loaded: %d" (Hashtbl.length plugs);
 
     program

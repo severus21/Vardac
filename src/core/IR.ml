@@ -348,13 +348,22 @@ and free_tvars_component_dcl already_binded cdcl =
     let already_binded, _, ftvars = collect_type_component_dcl None  already_binded (function e -> false) (fun parent_opt env e -> []) cdcl in
     already_binded, Utils.deduplicate Fun.id ftvars 
 
-and collect_type_typedef_ parent_opt (already_binded:Atom.Set.t) selector collector place = function 
-(* already binded left unchanged since it is type binder *)
-| ClassicalDef  (x, targs, body) -> Atom.Set.add x already_binded, [], []
-| EventDef (x, targs, body) -> Atom.Set.add x already_binded, [], []
-| ProtocolDef (x, mt) -> 
-    let _, collected_elts, ftvars = collect_type_mtype parent_opt already_binded selector collector mt in
-    Atom.Set.add x already_binded, collected_elts, ftvars
+and collect_type_typedef_ parent_opt (already_binded:Atom.Set.t) selector collector place = 
+    let collect_mtypes mtypes = 
+        List.fold_left (fun (acc0, acc1) mtype -> 
+            let _, collected_elts, ftvars = collect_type_mtype parent_opt already_binded selector collector mtype in
+            collected_elts@acc0, ftvars@acc1
+        ) ([], []) mtypes 
+    in
+
+    function 
+    (* already binded left unchanged since it is type binder *)
+    | ClassicalDef  (x, targs, body) | EventDef (x, targs, body) ->
+        let collected_elts, ftvars = collect_mtypes targs in
+        Atom.Set.add x already_binded, collected_elts, ftvars 
+    | ProtocolDef (x, mt) -> 
+        let _, collected_elts, ftvars = collect_type_mtype parent_opt already_binded selector collector mt in
+        Atom.Set.add x already_binded, collected_elts, ftvars
 and collect_type_typedef parent_opt (already_binded:Atom.Set.t) selector collector tdef= 
     map0_place (collect_type_typedef_ parent_opt already_binded selector collector) tdef
 
@@ -639,3 +648,197 @@ and rewrite_scopeterm_program (selector : term -> bool) (rewriter : term list ->
         rewriter program
     )else
         List.flatten (List.map (rewrite_scopeterm_term selector rewriter) program )
+
+
+(*
+expr -> stmts before * new_expr
+can only be applied in expression that are inside a statement
+*)
+let rec rewrite_exprstmts_expr_ selector rewriter place (e, mt_e) : stmt list * (_expr * main_type) = 
+    let rewrite_exprstmts_expr = rewrite_exprstmts_expr selector rewriter in
+    match e with  
+    | _ when selector e -> rewriter e
+    | VarExpr _ -> [], (e,mt_e)
+    | ActivationAccessExpr (cname, e, mname) ->
+        let stmts, e = rewrite_exprstmts_expr e in
+        stmts, (ActivationAccessExpr (cname, e, mname), mt_e)
+    | AccessExpr (e1, e2) ->
+        let stmts1, e1 = rewrite_exprstmts_expr e1 in
+        let stmts2, e2 = rewrite_exprstmts_expr e2 in
+        stmts1@stmts2, (AccessExpr (e1, e2), mt_e)
+    | BinopExpr (e1, op, e2) ->
+        let stmts1, e1 = rewrite_exprstmts_expr e1 in
+        let stmts2, e2 = rewrite_exprstmts_expr e2 in
+        stmts1@stmts2, (BinopExpr (e1, op, e2), mt_e)
+    | (CallExpr (e1, es) as e) | (NewExpr (e1, es) as e)->
+        let stmts1, e1 = rewrite_exprstmts_expr e1 in
+        let stmtses = List.map (function e -> rewrite_exprstmts_expr e) es in
+        let stmts_n = List.map fst stmtses in
+        let es_n = List.map snd stmtses in
+
+        stmts1 @ (List.flatten stmts_n),
+        ((match e with
+            | CallExpr _ -> CallExpr (e1, es_n)
+            | NewExpr _ -> NewExpr (e1, es_n)
+        ), mt_e)
+    | (BridgeCall _ as e ) | (LambdaExpr _ as e) | (LitExpr _ as e) | (This as e) -> (* Interaction primtives are forbidden in LambdaExpr 
+    TODO check as a precondition
+    *)
+        [], (e, mt_e)
+    | UnopExpr (op, e) -> 
+        let stmts, e = rewrite_exprstmts_expr e in
+        stmts, (UnopExpr(op, e), mt_e)
+    | Spawn sp -> begin
+        let opt = Option.map (function e -> rewrite_exprstmts_expr e) sp.at in
+        let stmtses = List.map (function e -> rewrite_exprstmts_expr e) sp.args in
+        let stmts_n = List.flatten (List.map fst stmtses) in
+        let es_n = List.map snd stmtses in
+        
+        match opt with
+        | None -> stmts_n, (Spawn {
+            sp with args = es_n
+        }, mt_e)
+        | Some (stmts, e) -> stmts_n@stmts, (Spawn {
+            sp with 
+                args = es_n;
+                at = Some e;
+        }, mt_e)
+    end
+    | OptionExpr None as e -> [], (e, mt_e)
+    | OptionExpr Some e->
+        let stmts, e = rewrite_exprstmts_expr e in
+        stmts, (OptionExpr(Some e), mt_e)
+    | ResultExpr (None, None) as e -> [], (e, mt_e)
+    | ResultExpr (Some e, None) ->
+        let stmts, e = rewrite_exprstmts_expr e in
+        stmts, (ResultExpr(Some e, None), mt_e)
+    | ResultExpr (None, Some e) ->
+        let stmts, e = rewrite_exprstmts_expr e in
+        stmts, (ResultExpr(None, Some e), mt_e)
+    | ResultExpr (Some e1, Some e2) ->
+        let stmts1, e1 = rewrite_exprstmts_expr e1 in
+        let stmts2, e2 = rewrite_exprstmts_expr e2 in
+        stmts1@stmts2, (ResultExpr(Some e1, Some e2), mt_e)
+    | BlockExpr (b, es) ->
+        let stmtses = List.map (function e -> rewrite_exprstmts_expr e) es in
+        let stmts_n = List.flatten (List.map fst stmtses) in
+        let es_n = List.map snd stmtses in
+        stmts_n, (BlockExpr (b, es_n), mt_e)
+    | Block2Expr (b, ees) ->
+        let stmtses = List.map (function (e1, e2) -> 
+            rewrite_exprstmts_expr e1, 
+            rewrite_exprstmts_expr e2 
+        ) ees in
+        let stmts_n = List.flatten (List.map (function (a,b) -> fst a @ fst b) stmtses) in
+        let ees_n = List.map  (function (a,b) -> snd a, snd b) stmtses in
+        stmts_n, (Block2Expr (b, ees_n), mt_e)
+and rewrite_exprstmts_expr (selector:_expr -> bool) rewriter : expr -> stmt list * expr = map2_place (rewrite_exprstmts_expr_ selector rewriter)
+
+and rewrite_exprstmts_stmt_ selector rewriter place : _stmt -> stmt list =
+    let fplace = (Error.forge_place "Core.rewrite_exprstmts_stmt" 0 0) in
+    let auto_place smth = {place = place; value=smth} in
+    let auto_fplace smth = {place = fplace; value=smth} in
+
+    let rewrite_exprstmts_expr = rewrite_exprstmts_expr selector rewriter in
+    let rewrite_exprstmts_stmt = rewrite_exprstmts_stmt selector rewriter in
+    function
+    (* Classical expr *)
+    | EmptyStmt -> [ auto_place EmptyStmt]
+    | AssignExpr (x, e) ->
+        let estmts, e = rewrite_exprstmts_expr e in
+        estmts @ [ auto_place (AssignExpr (x,e)) ]
+    | AssignThisExpr (x, e) ->
+        let estmts, e = rewrite_exprstmts_expr e in
+        estmts @ [ auto_place (AssignThisExpr (x,e)) ]
+    | BreakStmt -> [auto_place BreakStmt]
+    | ContinueStmt -> [auto_place ContinueStmt]
+    | CommentsStmt c -> [auto_place (CommentsStmt c)]
+    | ExitStmt i -> [auto_place (ExitStmt i)]
+    | ExpressionStmt e -> 
+        let estmts, e = rewrite_exprstmts_expr e in
+        estmts @ [ auto_place (ExpressionStmt e)]
+    | ForStmt (mt, x, e, stmt) ->
+        let estmts, e = rewrite_exprstmts_expr e in
+        estmts @ [
+            auto_place (ForStmt(
+                mt,
+                x, 
+                e, 
+                auto_fplace (BlockStmt (rewrite_exprstmts_stmt stmt))
+            ))
+        ]
+    | IfStmt (e, stmt1, stmt2_opt) ->
+        let estmts, e = rewrite_exprstmts_expr e in
+        estmts @ [auto_place (IfStmt (
+            e,
+            (auto_fplace (BlockStmt (rewrite_exprstmts_stmt stmt1))),
+            Option.map (function stmt2 ->
+                auto_fplace (BlockStmt (rewrite_exprstmts_stmt stmt2))
+            ) stmt2_opt
+        ))]    
+    | LetExpr (mt, x, e) ->
+        let estmts, e = rewrite_exprstmts_expr e in
+        estmts @ [auto_place (LetExpr (mt, x, e))]
+    | MatchStmt (e, branches) ->
+        let estmts, e = rewrite_exprstmts_expr e in
+        (* interaction primitives are disallowed in pattern *)
+        estmts @ [ auto_place (MatchStmt (
+            e,
+            List.map (function (pattern, stmt) ->
+                (
+                    pattern,
+                    match rewrite_exprstmts_stmt stmt with
+                    | [stmt] -> stmt
+                    | stmts -> auto_fplace (BlockStmt stmts)
+                    )        
+            ) branches
+        ))] 
+    | ReturnStmt e -> 
+        let estmts, e = rewrite_exprstmts_expr e in
+        estmts @ [auto_place (ReturnStmt e) ]
+    | BlockStmt stmts ->
+        [
+            auto_place (BlockStmt (List.flatten (List.map (function stmt -> rewrite_exprstmts_stmt stmt) stmts)))
+        ]
+    | GhostStmt stmt ->
+        [ 
+            auto_place (GhostStmt (auto_fplace(BlockStmt (rewrite_exprstmts_stmt stmt))))
+        ]
+
+and rewrite_exprstmts_stmt selector rewriter = map0_place (rewrite_exprstmts_stmt_ selector rewriter)
+
+and rewrite_exprstmts_component_item_ selector rewriter place citem = 
+match citem with
+| Method m ->[Method { m with
+value = {
+    m.value with body = List.flatten (List.map (rewrite_exprstmts_stmt selector rewriter) m.value.body)
+}
+}]
+| Term t -> List.map (function t -> Term t) (rewrite_exprstmts_term selector rewriter t)
+(* citem without statement *)
+| Contract _ | Include _ | Port _ | State _ -> [citem]
+and rewrite_exprstmts_component_item selector rewriter = map_places (rewrite_exprstmts_component_item_ selector rewriter) 
+
+and rewrite_exprstmts_component_dcl_ selector rewriter place = function
+| ComponentStructure cdcl -> ComponentStructure {
+    cdcl with 
+        body = List.flatten (List.map (rewrite_exprstmts_component_item selector rewriter) cdcl.body)
+}
+and rewrite_exprstmts_component_dcl selector rewriter = map_place (rewrite_exprstmts_component_dcl_ selector rewriter) 
+
+and rewrite_exprstmts_term_ selector rewriter place t =  
+match t with
+| Component cdcl -> [Component (rewrite_exprstmts_component_dcl selector rewriter cdcl)]
+| Function fdcl -> [Function { fdcl with
+    value = {
+        fdcl.value with body = List.flatten (List.map (rewrite_exprstmts_stmt selector rewriter) fdcl.value.body)
+    }
+}]
+| Stmt stmt -> List.map (function stmt -> Stmt stmt) (rewrite_exprstmts_stmt selector rewriter stmt)
+
+(* Term without statement*)
+| EmptyTerm | Comments _ | Typealias _ | Typedef _ | Derive _ -> [t]
+and rewrite_exprstmts_term selector rewriter = map_places (rewrite_exprstmts_term_ selector rewriter) 
+
+and rewrite_exprstmts_program selector rewriter program =
+    List.flatten (List.map (rewrite_exprstmts_term selector rewriter) program)

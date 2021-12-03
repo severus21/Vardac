@@ -139,10 +139,10 @@ module type TIRC = sig
         | VPlace of vplace 
 
         (** Message-passing *)
-        | Bridge of {
-            id: component_variable; 
+        | StaticBridge of { (* Create during partial eval *)
+            id: component_variable;
             protocol_name: component_variable;
-        }
+        } (* Resolve statically a "bridge ()" *)
     and literal = _literal placed
 
     (************************************* Operations ******************************)
@@ -172,6 +172,9 @@ module type TIRC = sig
         | PolyApp of expr * main_type list
 
         (** Control flow *)
+        | BridgeCall of { (* denotes a "bridge()" *)
+            protocol_name: component_variable;
+        }
 
         (* Reflexifity *)
         | This (* current activation *)
@@ -273,6 +276,7 @@ module type TIRC = sig
     val rewrite_expr_stmt : (_expr -> bool) -> (_expr -> _expr) -> stmt -> stmt
     val replace_expr_expr : expr_variable -> (expr_variable option * _expr option) -> expr -> expr
     val replace_expr_stmt : expr_variable -> (expr_variable option * _expr option) -> stmt -> stmt
+    val rewrite_stmt_stmt : (_stmt -> bool) -> (_stmt -> _stmt) -> stmt -> stmt
     val replace_type_main_type : type_variable ->(type_variable option * _main_type option) -> main_type -> main_type
     val replace_stype_session_type : type_variable ->(type_variable option * _session_type option) -> session_type -> session_type
     val equal_ctype : composed_type -> composed_type -> bool
@@ -416,10 +420,10 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | VPlace of vplace 
 
         (** Message-passing *)
-        | Bridge of {
-            id: component_variable; 
+        | StaticBridge of { (* Create during partial eval *)
+            id: component_variable;
             protocol_name: component_variable;
-        }
+        } (* Resolve statically a "bridge ()" *)
     and literal = _literal placed
 
     (************************************* Operations ******************************)
@@ -448,6 +452,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | PolyApp of expr * main_type list
 
         (** Control flow *)
+        | BridgeCall of { (* denotes a "bridge()" *)
+            protocol_name: component_variable;
+        }
 
         (* Reflexifity *)
         | This (* current activation *)
@@ -555,7 +562,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | (VarExpr x) | (ImplicitVarExpr x) when Variable.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, [] 
         | (VarExpr x) | (ImplicitVarExpr x) when Variable.is_builtin x -> already_binded, collected_elts0, [] 
         | (VarExpr x) | (ImplicitVarExpr x)-> already_binded, collected_elts0, [mt, x]
-        | BoxCExpr _ | LitExpr _ | OptionExpr None | ResultExpr (None, None) |This -> already_binded, collected_elts0, []
+        | BridgeCall _ | BoxCExpr _ | LitExpr _ | OptionExpr None | ResultExpr (None, None) |This -> already_binded, collected_elts0, []
         | AccessExpr (e1, {value=VarExpr _, _}) -> (* TODO AccessExpr : expr * Atom.t *)
             let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e1 in
             already_binded, collected_elts1, fvars1
@@ -822,7 +829,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
         let _, collected_elts1, ftvars1 = collect_mtype mt in
         let collected_elts2, ftvars2 = match e with
-        | VarExpr _ | ImplicitVarExpr _ | LitExpr _ | This -> [], []
+        | BridgeCall _ | VarExpr _ | ImplicitVarExpr _ | LitExpr _ | This -> [], []
         | ActivationAccessExpr (_, e, _) | UnopExpr (_, e) -> 
             let _, collected_elts, ftvars = collect_expr e in
             collected_elts, ftvars
@@ -1072,7 +1079,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     let rec _rewrite_expr_expr selector rewriter place = function
     | e when selector e -> rewriter e
-    | (VarExpr _ as e) | (ImplicitVarExpr _ as e) -> e
+    | (BridgeCall _ as e) | (LitExpr _ as e) | (This as e) | (VarExpr _ as e) | (ImplicitVarExpr _ as e) -> e
     | ActivationAccessExpr (cname, e, mname) ->
         ActivationAccessExpr(
             cname,
@@ -1093,7 +1100,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         mt, (* WARNIN TODO FIXME replace in type predicates *)
         rewrite_expr_expr selector rewriter e
     )
-    | LitExpr _ as e -> e
     | UnopExpr (op, e) -> UnopExpr (op, rewrite_expr_expr selector rewriter e)
     | CallExpr (e, es) -> CallExpr(
         rewrite_expr_expr selector rewriter e,
@@ -1103,7 +1109,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         rewrite_expr_expr selector rewriter e,
         List.map (rewrite_expr_expr selector rewriter) es
     )
-    | This -> This 
     | Spawn sp -> Spawn { sp with 
         args = List.map (rewrite_expr_expr selector rewriter) sp.args;
         at = Option.map (rewrite_expr_expr selector rewriter) sp.at
@@ -1332,6 +1337,37 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             Option.map (rewrite_type_expr selector rewriter) e_opt
         )
 
+    let rec _rewrite_stmt_stmt selector rewriter place = 
+        let rewrite_stmt_stmt = rewrite_stmt_stmt selector rewriter in
+        function 
+        | stmt when selector stmt -> rewriter stmt
+        | EmptyStmt -> EmptyStmt
+        | AssignExpr (x, e) -> AssignExpr (x, e) 
+        | AssignThisExpr (x, e) -> AssignThisExpr (x, e)
+        | LetExpr (mt, x, e) -> LetExpr (mt, x,  e)
+        | CommentsStmt c -> CommentsStmt c
+        | BreakStmt -> BreakStmt
+        | ContinueStmt -> ContinueStmt
+        | ExitStmt i -> ExitStmt i
+        | ForStmt (mt, x, e, stmt) ->
+            ForStmt(mt, x, e, rewrite_stmt_stmt stmt)
+        | IfStmt (e, stmt1, stmt2_opt) ->
+            IfStmt (
+                e,
+                rewrite_stmt_stmt stmt1,
+                Option.map (rewrite_stmt_stmt) stmt2_opt
+            )
+        | MatchStmt (e, branches) ->
+            MatchStmt (
+                 e,
+                List.map (function (e, stmt) -> e, rewrite_stmt_stmt stmt) branches
+            )
+        | ReturnStmt e -> ReturnStmt e 
+        | ExpressionStmt e -> ExpressionStmt e 
+        | BlockStmt stmts -> BlockStmt (List.map rewrite_stmt_stmt stmts) 
+        | GhostStmt stmt -> GhostStmt (rewrite_stmt_stmt stmt)
+    and rewrite_stmt_stmt selector rewriter = map_place (_rewrite_stmt_stmt selector rewriter)
+
 (*****************************************************)
 
     (* elim place *)
@@ -1501,4 +1537,5 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         st.value
     | st -> st
     and unfold_st_star st = {place = st.place; value = _unfold_st_star st.value}
+
 end

@@ -237,6 +237,7 @@ and _tcheck_stmt ret_type_opt place : _stmt -> unit = function
 | LetExpr (mt, x, e) as ee -> 
     tcheck_main_type mt; 
     tcheck_expr e; 
+
     (* type of e must a subtype of mt or mt must be an instance of the general type of e *)
     if Bool.not (is_subtype (snd e.value) mt || is_instance mt (snd e.value)) then
         Error.error place "Type error: type mismatch (no equality, no subtyping relation) - let"

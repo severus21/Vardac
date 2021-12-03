@@ -95,10 +95,7 @@ and rename_guard guard = {
         let e, mt = guard.value in 
         (rename_guard_ guard.place e, mt)
 }
-
-let rec separate_lb_hb_timers_ place = function
-| (STSend ({place=p_mt; value=ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) | (STRecv ({place=p_mt; value=ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) ->
-begin
+let rec aux_separate_lb_hb_timers_ac ((guard_headers, guard_opt):applied_constraint)= 
     logger#info "separate_lb_hb_timers_";
     let timers = timers_of_headers guard_headers in 
     List.map (function name ->
@@ -114,15 +111,31 @@ begin
 
     let guard_headers = rename_headers guard_headers in
     let guard_opt =  Option.map rename_guard guard_opt in
+    guard_headers, guard_opt
 
-    match st0 with 
-    |STSend _ -> STSend ({place=p_mt; value=ConstrainedType (mt, (guard_headers, guard_opt))}, separate_lb_hb_timers st)
-    |STRecv _ -> STRecv ({place=p_mt; value=ConstrainedType (mt, (guard_headers, guard_opt))}, separate_lb_hb_timers st)
-end
+and aux_separate_lb_hb_timers_branch (label, st, ac_opt) =
+    match ac_opt with
+    | Some ac ->
+        let guard_headers, guard_opt = aux_separate_lb_hb_timers_ac ac in
+        (label, separate_lb_hb_timers st, Some (guard_headers, guard_opt))
+    | _ -> (label, separate_lb_hb_timers st, ac_opt) 
+
+and separate_lb_hb_timers_ place = function
+| STSend ({place=p_mt; value=ConstrainedType(mt, ac)}, st) -> 
+    let guard_headers, guard_opt = aux_separate_lb_hb_timers_ac ac in
+    STSend ({place=p_mt; value=ConstrainedType (mt, (guard_headers, guard_opt))}, separate_lb_hb_timers st)
+| STRecv ({place=p_mt; value=ConstrainedType(mt, ac)}, st) ->
+    let guard_headers, guard_opt = aux_separate_lb_hb_timers_ac ac in
+    STRecv ({place=p_mt; value=ConstrainedType (mt, (guard_headers, guard_opt))}, separate_lb_hb_timers st)
+| STBranch branches -> STBranch (List.map aux_separate_lb_hb_timers_branch branches)
+| STSelect branches -> STSelect (List.map aux_separate_lb_hb_timers_branch branches) 
 (* TODO other *)
 
 (* Just propagate *)
 | STEnd -> STEnd 
+| STVar x -> STVar x
+| STPolyVar x -> STPolyVar x
+| STRec (x, st) -> STRec (x, separate_lb_hb_timers st)
 | STRecv (mt, st) -> STRecv (mt, separate_lb_hb_timers st)
 | STSend (mt, st) -> STSend (mt, separate_lb_hb_timers st)
 and separate_lb_hb_timers st = {
@@ -297,16 +310,13 @@ let filter_headers env place (guard_headers : constraint_header list) : constrai
 
 (* After this transformation a time is used for exactly one condition before behing reset 
     "!int{timer x|}!int{reset x | x<5}!{|x<5}"
-    + replace all SetTimer with SetFireTimer x, int (int tigger dealy)
+    + replace all SetTimer with SetFireTimer x, int (int trigger delay)
 *)
-let rec reset_timers_ env place = 
-let fplace = (Error.forge_place "Akka.GuardTransform.reset_timers" 0 0) in
-let auto_place smth = {place = place; value=smth} in
-let auto_fplace smth = {place = fplace; value=smth} in
+let rec aux_reset_times_ac env place st0 (guard_headers, guard_opt) = 
+    let fplace = (Error.forge_place "Akka.GuardTransform.reset_timers" 0 0) in
+    let auto_place smth = {place = place; value=smth} in
+    let auto_fplace smth = {place = fplace; value=smth} in
 
-function 
-| (STSend ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) | (STRecv ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) ->
-begin
     logger#warning "reset <>";
     (* Reset timers according to the programmer *)
     let timers = timers_of_headers guard_headers in 
@@ -348,13 +358,13 @@ begin
             Env.add name new_entry env, name::updated_registered_timers
     ) (new_env0,[]) registered_timers in
 
-        logger#error "updated_registered %s" (List.fold_left (fun acc x -> acc ^ " " ^(Atom.to_string x)) "" updated_registered_timers); 
-        print_env new_env1;
+    logger#error "updated_registered %s" (List.fold_left (fun acc x -> acc ^ " " ^(Atom.to_string x)) "" updated_registered_timers); 
+    print_env new_env1;
 
     match guard_opt with
     | None -> 
         let guard_headers = filter_headers new_env1 place guard_headers in
-        STSend ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, reset_timers new_env1 st)
+        new_env1, (guard_headers, guard_opt)
     | Some guard -> begin
         (* Update base_value according to base *)
         let new_env2 = List.fold_left ( (* can be optimized*)
@@ -392,14 +402,55 @@ begin
         let guard_headers = (List.map (function name -> auto_fplace (SetTimer name)) timers_to_add) @ guard_headers in
         
         let guard_headers = filter_headers new_env2 place guard_headers in
-
-        match st0 with 
-        | STRecv _ -> STRecv ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, reset_timers new_env2 st)
-        | STSend _ -> STSend ({place = place_st; value=ConstrainedType (mt, (guard_headers, guard_opt))}, reset_timers new_env2 st)
+        new_env2, (guard_headers, guard_opt)
     end
-end
+and aux_reset_times_branch env (label, st, ac_opt) = 
+(*  Env are branch specific - i.e. env of one branch can not depend of an other branch
+        i.e. timer are not preserved under recursion 
+
+    TODO Future work support the following
+    Case 1: already supported  
+    µx. {
+        l1 {timer x1}: !ping {timer y1} !ping{} - x;
+        l2 {timer x2}: ?pong {timer z1} ?pong{} .;
+    }
+
+    timers y1 (resp z1) are only defined in one round of branch l1 (resp l2)
+        i.e.    - branche1: STvar x => disable y1 
+                - branch2: . => disable z1
+        and y1 and z1 call are indexed on linear static time from the begining so we can use integer for SetFireTime
+
+    Case 2: TODO
+    µx. {
+        l1 {timer x1}: !ping {timer y1} !ping{} - x;
+        l2 {timer x2, timer_get_or_create x1}: ?pong {timer z1} ?pong{x1>50} .;
+    }
+    timers x1 (resp x2) should be maintained during recursive call
+        e.g. let us take a run composed of two rounds: l1 then l2
+        in round l2, x1 should be persisted from one round to an other 
+    *)
+match ac_opt with
+| Some ac ->
+    let new_env, new_ac = aux_reset_times_ac env st.place st.value ac in
+    (label, reset_timers new_env st, Some new_ac)
+| None -> (label, reset_timers env st, ac_opt)
+
+and reset_timers_ env place st0 = 
+match st0 with
+| STSend ({place = place_st; value=ConstrainedType (mt, ac)}, st) ->
+    let new_env, new_ac = aux_reset_times_ac env place st0 ac in
+    STSend ({place = place_st; value=ConstrainedType (mt, new_ac)}, reset_timers new_env st)
+| STRecv ({place = place_st; value=ConstrainedType (mt, ac)}, st) ->
+    let new_env, new_ac = aux_reset_times_ac env place st0 ac in
+    STRecv ({place = place_st; value=ConstrainedType (mt, new_ac)}, reset_timers new_env st)
+| STBranch branches -> STBranch (List.map (aux_reset_times_branch env) branches)
+| STSelect branches -> STSelect (List.map (aux_reset_times_branch env) branches)
+
 (* Just propagate*)
 | STEnd -> STEnd 
+| STVar x -> STVar x (* TODO FIXME should disable timers *)
+| STPolyVar x -> STPolyVar x
+| STRec (x, st) -> STRec (x, reset_timers env st)
 | STRecv (mt, st) -> STRecv (mt, reset_timers env st)
 | STSend (mt, st) -> STSend (mt, reset_timers env st)
 and reset_timers env st = {
@@ -414,10 +465,10 @@ and reset_timers_of st = reset_timers Env.empty st
 let rec gtransform_mt_ place = function 
 | ConstrainedType ({value=SType _}, ac) -> failwith "semantics ????? " 
 | SType st -> begin 
-    logger#info ">>> Before \n %s" (show_session_type st);
+    (*logger#info ">>> Before \n %s" (show_session_type st);*)
     let st = separate_lb_hb_timers st in
     let st = reset_timers_of st in
-    logger#info ">>> After \n %s" (show_session_type st);
+    (*logger#info ">>> After \n %s" (show_session_type st);*)
     SType st
 end
 

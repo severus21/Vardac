@@ -36,7 +36,7 @@ let fresh_tbridge () =
         mtype_of_ct (TBridge {
             in_type  = mtype_of_ft TWildcard;
             out_type = mtype_of_ft TWildcard;
-            protocol = mtype_of_ft TWildcard
+            protocol = mtype_of_st STEnd
         })
     ))
 
@@ -354,6 +354,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "select_places", "label -> (place -> bool) -> place", "", t_select;
     "sessionid", "'st -> int", "Return the id of the session", t_sessionid;
     "sleep", "int -> unit", "sleep", t_sleep;
+    "select", "st -> label -> st", "select", t_select;
     (*
 
 
