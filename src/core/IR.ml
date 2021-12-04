@@ -658,7 +658,7 @@ let rec rewrite_exprstmts_expr_ selector rewriter place (e, mt_e) : stmt list * 
     let rewrite_exprstmts_expr = rewrite_exprstmts_expr selector rewriter in
     match e with  
     | _ when selector e -> rewriter mt_e e
-    | VarExpr _ -> [], (e,mt_e)
+    | EmptyExpr | VarExpr _ -> [], (e,mt_e)
     | ActivationAccessExpr (cname, e, mname) ->
         let stmts, e = rewrite_exprstmts_expr e in
         stmts, (ActivationAccessExpr (cname, e, mname), mt_e)
@@ -844,3 +844,44 @@ and rewrite_exprstmts_term exclude_stmt selector rewriter = map_places (rewrite_
 
 and rewrite_exprstmts_program exclude_stmt selector rewriter program =
     List.flatten (List.map (rewrite_exprstmts_term exclude_stmt selector rewriter) program)
+
+(**********************************************************************)
+
+
+
+let rec rewrite_stmt_component_item_ recurse selector rewriter place citem = 
+match citem with
+| Method m ->[Method { m with
+value = {
+    m.value with body = List.flatten (List.map (rewrite_stmt_stmt recurse selector rewriter) m.value.body)
+}
+}]
+| Term t -> List.map (function t -> Term t) (rewrite_stmt_term recurse selector rewriter t)
+(* citem without statement *)
+| Contract _ | Include _ | Port _ | State _ -> [citem]
+and rewrite_stmt_component_item recurse selector rewriter = map_places (rewrite_stmt_component_item_ recurse selector rewriter) 
+
+
+and rewrite_stmt_component_dcl_ recurse selector rewriter place = function
+| ComponentStructure cdcl -> ComponentStructure {
+    cdcl with 
+        body = List.flatten (List.map (rewrite_stmt_component_item recurse selector rewriter) cdcl.body)
+}
+and rewrite_stmt_component_dcl recurse selector rewriter = map_place (rewrite_stmt_component_dcl_ recurse selector rewriter) 
+
+and rewrite_stmt_term_ recurse selector rewriter place t =  
+match t with
+| Component cdcl -> [Component (rewrite_stmt_component_dcl recurse selector rewriter cdcl)]
+| Function fdcl -> [Function { fdcl with
+    value = {
+        fdcl.value with body = List.flatten (List.map (rewrite_stmt_stmt recurse selector rewriter) fdcl.value.body)
+    }
+}]
+| Stmt stmt -> List.map (function stmt -> Stmt stmt) (rewrite_stmt_stmt  recurse selector rewriter stmt)
+
+(* Term without statement*)
+| EmptyTerm | Comments _ | Typealias _ | Typedef _ | Derive _ -> [t]
+and rewrite_stmt_term recurse selector rewriter = map_places (rewrite_stmt_term_ recurse selector rewriter) 
+
+and rewrite_stmt_program recurse selector rewriter program =
+    List.flatten (List.map (rewrite_stmt_term recurse selector rewriter) program)

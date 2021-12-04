@@ -355,7 +355,7 @@ module Make (Args : Params ) : Sig = struct
             true 
         | _ -> false 
         in
-        List.map (rewrite_stmt_stmt blblbl (fun place stmt -> [stmt])) stmts;
+        List.map (rewrite_stmt_stmt false blblbl (fun place stmt -> [stmt])) stmts;
         (* End debug *)
 
 

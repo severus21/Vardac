@@ -381,14 +381,14 @@ let derive_program program cname =
                 let stmts = (auto_fplace (LetExpr(
                     fdcl.value.ret_type, 
                     a_ret, 
-                    (auto_fplace ((LitExpr (auto_fplace VoidLit)), mtype_of_ft TVoid)) (* Works in Java since null can be of any type - FIXME maybe we will need to use an option type initialized to None *)
+                    (auto_fplace ((LitExpr (auto_fplace VoidLit)), fdcl.value.ret_type)) (* Works in Java since null can be of any type - FIXME maybe we will need to use an option type initialized to None *)
                 )))::stmts in
-                let stmts = List.flatten (List.map (rewrite_stmt_stmt 
+                let stmts = List.flatten (List.map (rewrite_stmt_stmt false 
                     (function |ReturnStmt _ -> true | _ -> false) 
                     ( fun place -> function | ReturnStmt e -> [AssignExpr (a_ret, e)] )) stmts)
                 in
                 
-                stmts, (VarExpr a_ret, fdcl.value.ret_type)
+                stmts, (EmptyExpr, fdcl.value.ret_type)
             in
             inline_fdcl entry.local_function ([
                 activation;
