@@ -206,7 +206,13 @@ let derive_program program cname =
                                             auto_fplace (VarExpr s2, auto_fplace EmptyMainType);
                                             auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge)
                                         ]
-                                    ), auto_fplace EmptyMainType)
+                                    ), 
+                                        (* receive needs a real and correct type for Rewrite.ml - needs to be hardcoded since we do not have a working type inference system*)
+                                        mtype_of_ct (TTuple [
+                                            mtype_of_var e_ret;
+                                            mtype_of_st STEnd 
+                                        ])
+                                    )
                                 ]
                             ), auto_fplace EmptyMainType),
                             auto_fplace (VarExpr (Atom.builtin "_0_"), auto_fplace EmptyMainType)
@@ -391,6 +397,6 @@ let derive_program program cname =
     in
 
     (*let program = rewrite_expr_program select_call_site rewrite_call_site program in*)
-    let program = rewrite_exprstmts_program select_call_site rewrite_call_site program in
+    let program = rewrite_exprstmts_program (function _ -> false) select_call_site rewrite_call_site program in
 
     program

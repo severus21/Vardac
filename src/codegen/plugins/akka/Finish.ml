@@ -311,9 +311,10 @@ function
     end
     | (S.STBranch xs as st0) | (S.STSelect xs as st0) ->
         let constructor = auto_place ((match st0 with 
-        | S.STSend _ -> T.VarExpr (a_ASTStype_of "Branch")
-        | STRecv _ -> T.VarExpr (a_ASTStype_of "Select")
-        ), auto_place T.TUnknown) in
+        | S.STBranch _ -> T.VarExpr (a_ASTStype_of "Branch")
+        | STSelect _ -> T.VarExpr (a_ASTStype_of "Select")
+        ), auto_place T.TUnknown
+        ) in
 
         T.NewExpr (
             constructor,
