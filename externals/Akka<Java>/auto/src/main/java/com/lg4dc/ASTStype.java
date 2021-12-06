@@ -46,13 +46,7 @@ public final class ASTStype {
             }   
 
             MsgT b = (MsgT) obj;
-            if (this.value.equals(b.value))
-            return true;
-            else{
-                System.out.println("MsgT Equals failed at "+obj.toString());
-                return false;
-            }
-            //return this.value.equals(b.value);
+            return this.value.equals(b.value);
         }
         public String toString(){
             return "MsgT<"+this.value+">";
