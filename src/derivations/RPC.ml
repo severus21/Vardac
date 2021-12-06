@@ -388,12 +388,25 @@ let derive_program program cname =
                     ( fun place -> function | ReturnStmt e -> [AssignExpr (a_ret, e)] )) stmts)
                 in
                 
-                stmts, (EmptyExpr, fdcl.value.ret_type)
+                stmts, (VarExpr a_ret, fdcl.value.ret_type)
             in
             inline_fdcl entry.local_function ([
                 activation;
                 auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge) (* we can not use implicit variable here since we want to be able to cross binary boundaries, therefore we use static bridge (TODO see if any kind of plg can support it ?? )*)
             ] @ args)
+
+
+            (* 
+            At this point two cases:
+                a) call(args); => ....; ret; Error - since ret as (except if void) a non void type
+                b) e[call(args)] => ....; e[ret/call(args)] Ok
+
+                b) should be left unchange and a) should be rewritten to call(args); => ....; (remove the Expression VarExpr ret)
+
+                Two options do it manually here or rely on the clean pass to remove ExpressionStmt VarExpr since no side effect + no value.
+                At this point we implement it inside the clean pass - NB. this implies that we keep garbage inside IR until running cleansing
+                TODO FIXME why not running cleansing after this pass (perf ?)
+            *)
     in
 
     (*let program = rewrite_expr_program select_call_site rewrite_call_site program in*)
