@@ -32,7 +32,7 @@ let fresh_tbridge () =
         ))
     )*)
     mtype_of_ct (TArrow(
-        mtype_poly_of_var p,
+        mtype_of_ft TWildcard,
         mtype_of_ct (TBridge {
             in_type  = mtype_of_ft TWildcard;
             out_type = mtype_of_ft TWildcard;

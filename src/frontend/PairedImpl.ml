@@ -114,7 +114,15 @@ and paired_method0 parents place : S2._method0 -> T._method0 = function
         mark_method key;
         let bb_impl = Hashtbl.find method_impls key in
         { ghost; ret_type; name; args; body= T.BBImpl bb_impl.value.body; contract_opt; on_destroy; on_startup }
-    with Not_found -> Error.error place "Method \"%s\" has no implementation (neither abstract nor blackbox)" (Atom.hint name) 
+    with Not_found -> begin
+        (* Methods that accept an empty body *)
+        match ret_type with
+        | {value=S2.CType{value=S2.TFlatType AstUtils.TVoid;}} ->
+            { ghost; ret_type; name; args; body= T.AbstractImpl []; contract_opt; on_destroy; on_startup } 
+        | _ when on_destroy || on_startup -> 
+            { ghost; ret_type; name; args; body= T.AbstractImpl []; contract_opt; on_destroy; on_startup } 
+        | _ -> Error.error place "Method \"%s\" has no implementation (neither abstract nor blackbox)" (Atom.hint name) 
+    end
 end
 |{ ghost; ret_type; name; args; body= body; contract_opt; on_destroy; on_startup} -> begin 
     try 

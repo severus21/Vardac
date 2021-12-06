@@ -17,7 +17,6 @@ bool ii = tt._1_;
 
 protocol p_protocol = !eincr?value!eincr?value.;
 bridge<A, Counter, inline p_protocol> b0 = bridge(p_protocol);
-
 component A () {
     bridge<A, Counter, inline p_protocol> _b;
 

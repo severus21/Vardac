@@ -10,6 +10,25 @@ module type Params = sig
     val gamma : (IR.expr_variable, IR.main_type) Hashtbl.t
 end
 
+type _intermediate_entry1 = ((expr_variable * main_type * main_type) option)
+and intermediate_entry1 = ((expr_variable * main_type * main_type) option * expr option * _method0)
+and intermediate_entries1 = intermediate_entry1 list
+[@@deriving show { with_path = false }]
+
+let print_entry1 (s1_opt, _, _) = show__intermediate_entry1 (s1_opt) 
+
+type intermediate_entry2 = ((expr_variable * main_type * main_type) option * expr option * _method0 * (main_type * expr_variable) list )
+and intermediate_entries2 = intermediate_entry2 list
+[@@deriving show { with_path = false }]
+
+let print_entries2 entries= 
+    let print_entry2 out ((i, (x1_opt,_,_m,fvars)):int*intermediate_entry2) = 
+        Format.fprintf out " - Entry %d [%s] <%a> - %a\n" i (Atom.to_string _m.name) (fun out -> function |None -> () | Some (x1, _, _) -> Format.fprintf out "%s" (Atom.to_string x1)) x1_opt (Error.pp_list ";" (fun out (_,x) -> Format.fprintf out "%s" (Atom.to_string x))) fvars 
+    in
+    Format.fprintf Format.std_formatter "Entries : \n%a\n\n" (Error.pp_list "\n" print_entry2) (List.mapi (fun i e -> (i,e)) entries)
+
+
+
 module type Sig = sig
     val rewrite_program: IR.program -> IR.program
 end
@@ -118,20 +137,24 @@ module Make (Args : Params ) : Sig = struct
         | stmt::stmts -> split_body m (stmt::acc_stmts) acc_method stmts
 
 
-    (* Add header and footer for each method (i.e. how to propagate arguments) + update args *)
-    let rec rewrite_intermediate place (m:_method0) : ((expr_variable * main_type * main_type) option * expr option * _method0) list -> state list * _method0 list = 
-        let fplace = (Error.forge_place "Core.Rewrite.rewrite_intermediate" 0 0) in
-        let auto_place smth = {place = place; value=smth} in
-        let auto_fplace smth = {place = fplace; value=smth} in
-    function
-    | [] -> [], []
-    | [ (_, _, m) ] -> [], [ m ]
-    | (x1_opt, s1_opt, m1)::(x2_opt, s2_opt, m2)::ms -> begin
-        logger#debug "rewrite_intermediate between %s and %s" (Atom.to_string m1.name) (Atom.to_string m2.name);
-        let already_binded = Atom.Set.of_seq (List.to_seq (List.map (function {value=(_,x)} -> x) m.args)) in
-        Atom.Set.iter (function x -> logger#error "already binded2 %s" (Atom.to_string x)) already_binded;
+    (*  Add free vars of each layer
+
+        Example method body:
+            1) .... 
+                receive
+            2) .... free_var a b 
+                receive
+            3) ....  free_vars x, y, z
+
+            2) full_free_vars = a,b,x,y,z since 2) -> 3) must transmit x, y, z
+
+            therefore we start applying "rewrite_intermediate" from the bottom (3) to the top (1) and we propagate from
+            (n) to (n-1) the free_vars of (n)
+    *)
+    let rec annotate_intermediate (m:_method0) previous_intermediate_args ((x1_opt, s1_opt, m1) : intermediate_entry1)  : (main_type * expr_variable) list * intermediate_entry2 =
         let already_binded = Atom.Set.empty in
-        let _, intermediate_args = List.fold_left_map free_vars_stmt already_binded m2.body in
+        let already_binded, intermediate_args = List.fold_left_map free_vars_stmt already_binded m1.body in
+        logger#debug "already binded in annotate_intermediate %s : %s " (Atom.to_string m1.name) (Atom.Set.show already_binded);
         let intermediate_args : (main_type * expr_variable) list =  (List.flatten intermediate_args) in
 
         (* Correct unspecified type - dirty fix easiest than correct all EmptyMainType (should de done some day) *)
@@ -145,7 +168,6 @@ module Make (Args : Params ) : Sig = struct
             end
             | arg -> arg
         ) intermediate_args in
-            
 
         
         (* Safety check *)
@@ -155,19 +177,48 @@ module Make (Args : Params ) : Sig = struct
         let intermediate_args = List.filter (function (_, x) -> 
             logger#debug "> 0 - intermediate_arg %s" (Atom.to_string x);
             (Str.string_match (Str.regexp "^[A-Z].*") (Atom.hint x) 0) = false) intermediate_args in
-        
+
         (* Case "let res = receive(..)"
             res = Tuple.of(e, session); res must not be loaded from an intermediate state
         *)
-        let intermediate_args = match x1_opt with 
-            | Some (x1, _, _) -> List.filter (function (_, x) -> 
-                logger#debug "> 1 - intermediate_arg %s" (Atom.to_string x);
-                logger#debug "> 1 - res var %s" (Atom.to_string x1);
-                x <> x1
-            ) intermediate_args
-            | _ -> intermediate_args
+        let remove_recvbinder vars = match x1_opt with 
+        | Some (x1, _, _) -> List.filter (function (_, x) -> 
+            logger#debug "> 1 - intermediate_arg %s" (Atom.to_string x);
+            logger#debug "> 1 - res var %s" (Atom.to_string x1);
+            x <> x1
+            ) vars
+            | _ -> vars
         in
-        let intermediate_args = List.map auto_fplace intermediate_args in
+        let intermediate_args = remove_recvbinder intermediate_args in
+        let previous_intermediate_args = remove_recvbinder previous_intermediate_args in
+
+        (* Union previous_intermediate_args and current - preivous is here to propagate the needs of free vars *)
+        let union_htbl = Hashtbl.of_seq (List.to_seq (List.map (function (mt, x) -> x, mt) intermediate_args)) in
+        Hashtbl.replace_seq union_htbl (List.to_seq (List.map (function (mt, x) -> x, mt) previous_intermediate_args));
+        let intermediate_args = List.of_seq (Seq.map (function (x, mt) -> (mt, x)) (Hashtbl.to_seq union_htbl)) in
+        
+        (* Remove args that are binded inside m1 body *)
+        let bubble_intermediate_args = List.filter (function (_, x) -> 
+            Atom.Set.find_opt x already_binded = None
+        ) intermediate_args in
+        bubble_intermediate_args, (x1_opt, s1_opt, m1, intermediate_args) 
+        
+
+
+
+    (* Add header and footer for each method (i.e. how to propagate arguments) + update args *)
+    let rec rewrite_intermediate place (m:_method0) : intermediate_entry2 list -> state list * _method0 list = 
+        let fplace = (Error.forge_place "Core.Rewrite.rewrite_intermediate" 0 0) in
+        let auto_place smth = {place = place; value=smth} in
+        let auto_fplace smth = {place = fplace; value=smth} in
+    function
+    | [] -> [], []
+    | [ (_, _, m, _) ] -> [], [ m ]
+    | (x1_opt, s1_opt, m1, intermediate_args1)::(x2_opt, s2_opt, m2, intermediate_args2)::ms -> begin
+        logger#debug "rewrite_intermediate between %s and %s" (Atom.to_string m1.name) (Atom.to_string m2.name);
+        let intermediate_args = List.map auto_fplace intermediate_args1 in
+
+
 
         let ctype_intermediate_args = auto_fplace (CType (auto_fplace (TTuple (List.map (function arg -> fst arg.value) intermediate_args)))) in
         let tuple_intermediate_args = auto_fplace (BlockExpr (
@@ -205,7 +256,7 @@ module Make (Args : Params ) : Sig = struct
             let m2 = { m2 with 
                 (* Load args from state TODO add cleansing when timeout *)
                 body = load_recv_result @ m2.body} in
-            let _states, _methods = rewrite_intermediate place m((x2_opt, s2_opt,m2)::ms) in
+            let _states, _methods = rewrite_intermediate place m ((x2_opt, s2_opt,m2, intermediate_args2)::ms) in
             _states, m1::_methods
         | _ -> begin
             let tmp_args = Atom.builtin "tmp_args" in
@@ -293,7 +344,7 @@ module Make (Args : Params ) : Sig = struct
             } in
 
 
-            let _states, _methods = rewrite_intermediate place m((x2_opt, s2_opt, m2)::ms) in
+            let _states, _methods = rewrite_intermediate place m ((x2_opt, s2_opt, m2, intermediate_args2)::ms) in
             intermediate_state::_states, m1::_methods
         end
     end
@@ -375,6 +426,10 @@ module Make (Args : Params ) : Sig = struct
 
         let intermediate_ports, intermediate_methods = split_body m [] {m with body = []} stmts in
         logger#debug "nbr intermediate_methods %d" (List.length intermediate_methods);
+        let _, intermediate_methods = List.fold_left_map (annotate_intermediate m) [] (List.rev intermediate_methods) in
+        let intermediate_methods = List.rev intermediate_methods in
+        print_entries2 intermediate_methods;
+
         let intermediate_states, intermediate_methods = rewrite_intermediate place m intermediate_methods in
         let intermediate_methods = List.map auto_place intermediate_methods in
 

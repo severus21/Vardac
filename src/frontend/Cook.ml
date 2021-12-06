@@ -691,8 +691,8 @@ and cook_stmt env place: S._stmt -> env * T._stmt = function
     if is_instance_expr env e then error place "constructor can not be aliased";
 
     let env1, mt = cmtype env mt in
+    let env2, e = cexpr env e in
     let new_env, y = bind_expr env place x in
-    let env2, e = cexpr new_env e in
 
     register_gamma y mt;
 
