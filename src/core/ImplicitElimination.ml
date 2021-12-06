@@ -293,6 +293,7 @@ module Make (Args : Params ) : Sig = struct
         - implict 2 explict needs to find all spawn in all scope
     *)
     and rewrite_program terms = 
+        spawn_rewritings := []; (* TODO handle the state using a Make module *)
         let terms = List.map rterm terms in
         let apply_rewriting term (select, rewriter) = rewrite_expr_term select rewriter term in 
         let apply_all_rewriting term = List.fold_left apply_rewriting term !spawn_rewritings in
