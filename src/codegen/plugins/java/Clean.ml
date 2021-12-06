@@ -22,24 +22,6 @@ let deduplicate_annotations annots =
 let deduplicate_decorators dcs = 
 SDecorator.elements (SDecorator.of_list dcs)
 
-let clean_return_type stmts ret_type = 
-    match ret_type.value with
-    | TAtomic "Void" ->
-        let rec search_return flag stmt = 
-            match stmt.value with
-            | BlockStmt stmts -> List.fold_left search_return flag stmts
-            | IfStmt (_, stmt1, stmt2_opt) ->
-                (search_return flag stmt1) ||
-                (match Option.map (search_return flag) stmt2_opt with | Some f -> f | None -> flag)
-            | ReturnStmt _ -> true
-            | _ -> flag
-        in
-
-        let flag = List.fold_left search_return false stmts in
-        if flag then ret_type else {ret_type with value = TAtomic "void"}
-    | _ -> ret_type
-
-
 let rec clean_expr place (e, jtype): _expr * jtype = 
 let fplace = place@(Error.forge_place "Plg=Akka/clean_expr" 0 0) in
 let auto_place smth = {place = fplace; value=smth} in
@@ -118,16 +100,46 @@ and clean_stmt place : _stmt -> _stmt = function
 )
 and cstmt e = map_place clean_stmt e 
 
-and clean_body_v place : _body -> _body = function 
+and clean_body_v place : _body -> _body = 
+    let fplace = place@(Error.forge_place "Plg=Akka/clean_body_v" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+function 
 | ClassOrInterfaceDeclaration cid ->
     ClassOrInterfaceDeclaration { cid with 
         body = List.map citem cid.body
     }
-| MethodDeclaration m0 ->
-    MethodDeclaration { m0 with
-        ret_type = Option.map (clean_return_type m0.body) m0.ret_type;
-        body = List.map cstmt m0.body;
-    }
+| MethodDeclaration m0 -> begin
+    let rec search_return flag stmt = 
+        flag || match stmt.value with
+        | BreakStmt | CommentsStmt _ | ContinueStmt | ExpressionStmt _ | EmptyStmt _ |NamedExpr _ | RawStmt _ -> false 
+        | BlockStmt stmts -> List.fold_left search_return flag stmts
+        | IfStmt (_, stmt1, stmt2_opt) ->
+            (search_return flag stmt1) ||
+            (match Option.map (search_return flag) stmt2_opt with | Some f -> f | None -> flag)
+        | ReturnStmt _ -> true
+        | ForStmt (_,_,_,stmt) -> search_return flag stmt 
+        | TryStmt (stmt, branches) ->
+            search_return flag stmt || (
+                List.fold_left (fun flag (_,_,stmt) -> flag || search_return flag stmt) flag branches
+            )
+    in
+
+    let body = match m0.ret_type with
+        | Some {value=TAtomic "Void"} ->
+            if (List.fold_left search_return false m0.body) then
+                m0.body
+            else ( 
+                (* Add a return since Void needs a return *)
+                m0.body @ [
+                    auto_fplace (ReturnStmt (auto_fplace(RawExpr "null", auto_fplace (TAtomic "null"))))
+                ]
+            )
+        | _ -> m0.body
+    in
+    let body = List.map cstmt body in
+
+    MethodDeclaration { m0 with body; }
+end
 | FieldDeclaration fdcl -> 
     FieldDeclaration { fdcl with
         body = Option.map cexpr fdcl.body;

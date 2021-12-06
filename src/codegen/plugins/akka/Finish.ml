@@ -323,7 +323,13 @@ function
                     AstUtils.List,
                     List.map (function (label, st, _) -> auto_place (T.BlockExpr (
                         AstUtils.Tuple, 
-                        [ auto_place (T.VarExpr label, auto_place T.TUnknown); fvstype st ]
+                        [ 
+                            e_ASTStype_MsgT_of place (
+                                auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string label))), auto_place T.TUnknown) 
+                            );
+                            auto_place (Encode.encode_list place [], auto_place T.TUnknown);  
+                            fvstype st 
+                        ]
                     ), auto_place T.TUnknown)) xs
                 ), auto_place T.TUnknown)
             ]

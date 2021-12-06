@@ -1,11 +1,14 @@
 package com.lg4dc;
 
 import java.util.Set;
+import java.util.List;
 import java.util.UUID;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.TimerScheduler;
+
+import io.vavr.*;
 
 import com.bmartin.*;
 import com.lg4dc.timers.*;
@@ -59,5 +62,38 @@ public class Session implements CborSerializable {
 
         this.st = this.st.continuations.get(0)._3;
         return this;
+    }
+
+    public Session select(
+        String label,  
+        ActorContext context, 
+        TimerScheduler contextTimers, 
+        Set<UUID> frozen_sessions, 
+        Set<UUID> dead_sessions
+    ){
+        assert(this.st.continuations.size() > 0);
+        if(! Handlers.is_session_alive( context, this.left, frozen_sessions, dead_sessions, this.session_id, this.right)){
+            context.getLog().warn( String.format("Can not select from [%s] to [%s] : session %s is dead", this.left.toString(), this.right.toString(), this.session_id));
+            return this; //TODO return Err() and Ok(This)
+        }
+
+        this.right.tell(new LabelEvent(label));
+        context.getLog().debug(String.format("Select %s from %s to %s", label, context.getSelf().path().toString(), this.right.path().toString()));
+
+        ASTStype.TimerHeader.apply_headers(context, contextTimers, frozen_sessions, dead_sessions, this);
+
+
+        //TODO list to map ?? (perf)
+        //search continuation
+        ASTStype.MsgT msgT = new ASTStype.MsgT(label);
+        for(Tuple3<ASTStype.MsgT, List<ASTStype.TimerHeader>, ASTStype.Base> branch : this.st.continuations){
+            if(branch._1.equals(msgT)){
+                this.st = branch._3;
+                return this;
+            }
+        }
+
+        context.getLog().error( String.format("Can not select [%s] from [%s] to [%s] : label is unknown in ST", label, this.left.toString(), this.right.toString(), this.session_id));
+        assert(false);
     }
 }

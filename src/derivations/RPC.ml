@@ -67,7 +67,11 @@ let derive_program program cname =
     let cstruct_selector (cstruct:component_structure) = cname = cstruct.name in
     let cstruct_rewriter place (cstruct:component_structure) =
         (* TODO add annotations to restrict method concerned by rpc *)
-        let rpc_methods = List.flatten (List.map (function |{value=Method m} -> [m] |_ -> []) cstruct.body) in
+        let rpc_methods = List.flatten (List.map (
+            function 
+            |{value=Method m} when false = (m.value.on_startup || m.value.on_destroy) -> [m] 
+            |_ -> []
+        ) cstruct.body) in
         
         let process_method (m:method0) =
             (* Events generation -> should be used outside *)
@@ -117,8 +121,14 @@ let derive_program program cname =
                     (* fire(s, ret(tmp)) *)
                     auto_fplace(ExpressionStmt(
                         auto_fplace(CallExpr(
-                            auto_fplace (VarExpr e_ret, mt_ret),
-                            [ auto_fplace (VarExpr a_tmp, m.value.ret_type) ]
+                            auto_fplace (VarExpr (Atom.builtin "fire"), auto_fplace EmptyMainType),
+                            [
+                                auto_fplace (VarExpr a_session, auto_fplace EmptyMainType);
+                                auto_fplace (NewExpr(
+                                    auto_fplace (VarExpr e_ret, mt_ret),
+                                    [ auto_fplace (VarExpr a_tmp, m.value.ret_type) ]
+                                ), auto_fplace EmptyMainType)
+                            ]
                         ), mtype_of_st STEnd)
                     ))
                 ];
@@ -187,7 +197,7 @@ let derive_program program cname =
                         auto_fplace (VarExpr (Atom.builtin "fire"), auto_fplace EmptyMainType),
                         [
                             auto_fplace (VarExpr s1, auto_fplace EmptyMainType); 
-                            auto_fplace (CallExpr (
+                            auto_fplace (NewExpr (
                                 auto_fplace (VarExpr e_call, auto_fplace EmptyMainType),
                                 List.map (function x -> auto_fplace (VarExpr (snd x.value), auto_fplace EmptyMainType)) refreshed_args
                             ), auto_fplace EmptyMainType)
