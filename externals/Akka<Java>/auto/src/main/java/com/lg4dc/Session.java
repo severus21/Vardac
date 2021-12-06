@@ -95,5 +95,6 @@ public class Session implements CborSerializable {
 
         context.getLog().error( String.format("Can not select [%s] from [%s] to [%s] : label is unknown in ST", label, this.left.toString(), this.right.toString(), this.session_id));
         assert(false);
+        return this;
     }
 }

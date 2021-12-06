@@ -130,12 +130,26 @@ module Make (Args : Params ) : Sig = struct
         logger#debug "rewrite_intermediate between %s and %s" (Atom.to_string m1.name) (Atom.to_string m2.name);
         let already_binded = Atom.Set.of_seq (List.to_seq (List.map (function {value=(_,x)} -> x) m.args)) in
         Atom.Set.iter (function x -> logger#error "already binded2 %s" (Atom.to_string x)) already_binded;
-        (*let already_binded = Atom.Set.empty in*)
+        let already_binded = Atom.Set.empty in
         let _, intermediate_args = List.fold_left_map free_vars_stmt already_binded m2.body in
         let intermediate_args : (main_type * expr_variable) list =  (List.flatten intermediate_args) in
+
+        (* Correct unspecified type - dirty fix easiest than correct all EmptyMainType (should de done some day) *)
+        let mainargs = Hashtbl.of_seq (List.to_seq (List.map (function {value=(mt, x)} -> x, (mt, x)) m.args)) in
+        let intermediate_args =  List.map (
+            function
+            | ({value=EmptyMainType}, x) as arg -> begin 
+                match (Hashtbl.find_opt mainargs x) with
+                | None -> arg
+                | Some arg -> arg
+            end
+            | arg -> arg
+        ) intermediate_args in
+            
+
         
         (* Safety check *)
-        List.iter (function |({value=EmptyMainType}, _) -> assert(false) | _ -> ()) intermediate_args;
+        List.iter (function |({value=EmptyMainType}, x) -> logger#error "%s" (Atom.to_string x);assert(false) | _ -> ()) intermediate_args;
 
         (* Remove components *)
         let intermediate_args = List.filter (function (_, x) -> 
@@ -158,7 +172,7 @@ module Make (Args : Params ) : Sig = struct
         let ctype_intermediate_args = auto_fplace (CType (auto_fplace (TTuple (List.map (function arg -> fst arg.value) intermediate_args)))) in
         let tuple_intermediate_args = auto_fplace (BlockExpr (
             Tuple, 
-            List.map (function arg -> auto_fplace ((VarExpr (snd arg.value), auto_fplace EmptyMainType))) intermediate_args
+            List.map (function arg -> auto_fplace ((VarExpr (snd arg.value), fst arg.value))) intermediate_args
         ), ctype_intermediate_args) in
 
         (* let res = receive ()
