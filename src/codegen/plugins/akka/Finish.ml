@@ -518,7 +518,14 @@ let auto_place smth = {place = fplace; value=smth} in
         )
     | S.BoxCExpr _ -> failwith "finish_expr BoxCexpr is not yet supported"
     
-    | S.OptionExpr e_opt -> failwith "option not yet supported" 
+    | S.OptionExpr None -> T.CallExpr (
+        auto_place (T.VarExpr (Atom.builtin "Option.of"), auto_place T.TUnknown),
+        [auto_place (T.LitExpr (auto_place T.VoidLit), auto_place T.TUnknown)]
+    )  
+    | S.OptionExpr (Some e) -> T.CallExpr (
+        auto_place (T.VarExpr (Atom.builtin "Option.of"), auto_place T.TUnknown),
+        [fexpr e]
+    )  
     | S.ResultExpr (None, Some err) ->  T.CallExpr (
         auto_place (T.VarExpr (Atom.builtin "Either.left"), auto_place T.TUnknown),
         [fexpr err]
