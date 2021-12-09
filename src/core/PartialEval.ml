@@ -477,6 +477,10 @@ end
 | ReturnStmt e -> 
     let new_env, new_e = pe_expr env e in
     new_env, (ReturnStmt new_e)
+| WithContextStmt (cname, e, stmt) ->
+    let _, e = pe_expr env e in
+    let new_env, stmt = pe_stmt env stmt in 
+    new_env, (WithContextStmt (cname, e, stmt))
 and pe_stmt env : stmt -> env * stmt = map2_place (peval_stmt env)
 
 

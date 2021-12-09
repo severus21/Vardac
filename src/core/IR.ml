@@ -109,6 +109,7 @@ and collect_expr_function_dcl parent_opt (already_binded:Atom.Set.t) selector co
 and collect_expr_method0_ parent_opt (already_binded:Atom.Set.t) selector collector place (m:_method0) =
     let _, collected_elts1, fvars1 = collect_expr_function_dcl_ parent_opt already_binded selector collector place {
         name        = m.name;
+        targs       = [];
         ret_type    = m.ret_type;
         args        = m.args;
         body        = m.body;
@@ -269,29 +270,35 @@ and collect_type_state_ parent_opt (already_binded:Atom.Set.t) selector collecto
 and collect_type_state parent_opt (already_binded:Atom.Set.t) selector collector s = 
     map0_place (collect_type_state_ parent_opt already_binded selector collector) s 
 
-and collect_type_function_dcl_ parent_opt (already_binded:Atom.Set.t) selector collector place m =
-    let _, collected_elts1, fvars1 = collect_type_mtype parent_opt already_binded selector collector m.ret_type in
-    let _, collected_elts2, fvars2 = List.fold_left (fun (set, collected_elts0, fvars0) {value=mt, x} -> 
-        let _, collected_elts, fvars = collect_type_mtype parent_opt set selector collector mt in
-        set, collected_elts0@collected_elts, fvars0@fvars
-    ) (already_binded, [], []) m.args in
+and collect_type_function_dcl_ parent_opt (already_binded:Atom.Set.t) selector collector place (m:_function_dcl) =
+    (* A function can not bind type new type - except internally if there this is a generic function *)
+    let already_binded_generic_tvars = Atom.Set.of_seq (List.to_seq m.targs) in
+    let inner_already_binded = Atom.Set.union already_binded already_binded_generic_tvars in
 
-    let already_binded = Atom.Set.add m.name already_binded in (*rec support*)
-    let already_binded = List.fold_left (fun set {value=_,x} -> Atom.Set.add x set) already_binded m.args in
-    let _, res = List.fold_left_map (fun already_binded stmt ->         
-        let env, a,b  = collect_type_stmt parent_opt already_binded selector collector stmt in
+    let _, collected_elts1, ftvars1 = collect_type_mtype parent_opt inner_already_binded selector collector m.ret_type in
+    let _, collected_elts2, ftvars2 = List.fold_left (fun (set, collected_elts0, ftvars0) {value=mt, x} -> 
+        let _, collected_elts, ftvars = collect_type_mtype parent_opt set selector collector mt in
+        set, collected_elts0@collected_elts, ftvars0@ftvars
+    ) (inner_already_binded, [], []) m.args in
+
+    let _, res = List.fold_left_map (fun set stmt ->         
+        let env, a,b  = collect_type_stmt parent_opt set selector collector stmt in
         env, (a,b)
-    ) already_binded m.body  in
+    ) inner_already_binded m.body  in
     let collected_elts3 = List.flatten (List.map fst res) in
-    let fvars3 = List.flatten (List.map snd res) in
+    let ftvars3 = List.flatten (List.map snd res) in
 
-    already_binded, collected_elts1@collected_elts2@collected_elts3, fvars1@fvars2@fvars3
+    if List.exists (function x -> Atom.value x = "Interceptor") (ftvars1@ftvars2@ftvars3) then
+        logger#error "%s" (Atom.to_string m.name);
+
+    already_binded, collected_elts1@collected_elts2@collected_elts3, ftvars1@ftvars2@ftvars3
 and collect_type_function_dcl parent_opt (already_binded:Atom.Set.t) selector collector fdcl = 
     map0_place (collect_type_function_dcl_ parent_opt already_binded selector collector) fdcl
 
 and collect_type_method0_ parent_opt (already_binded:Atom.Set.t) selector collector place (m:_method0) =
     let _, collected_elts1, fvars1 = collect_type_function_dcl_ parent_opt already_binded selector collector place {
         name        = m.name;
+        targs       = [];
         ret_type    = m.ret_type;
         args        = m.args;
         body        = m.body;
@@ -805,6 +812,17 @@ and rewrite_exprstmts_stmt_ exclude_stmt selector rewriter place : _stmt -> stmt
             auto_place (BlockStmt (List.flatten (List.map (function stmt -> rewrite_exprstmts_stmt stmt) stmts)))
         ]
     | GhostStmt stmt -> List.map (function stmt -> auto_place (GhostStmt stmt)) (rewrite_exprstmts_stmt stmt)
+    | WithContextStmt(cname, e, stmt) ->
+        let estmts, e = rewrite_exprstmts_expr e in
+        estmts @ [ 
+            auto_place (WithContextStmt (
+                cname, 
+                e, 
+                match rewrite_exprstmts_stmt stmt with
+                | [stmt] -> stmt
+                | stmts -> auto_fplace (BlockStmt stmts) 
+            ))
+        ]
 
 and rewrite_exprstmts_stmt exclude_stmt selector rewriter = map0_place (rewrite_exprstmts_stmt_ exclude_stmt selector rewriter)
 

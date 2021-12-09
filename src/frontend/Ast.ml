@@ -164,12 +164,15 @@ and _stmt =
     | ExpressionStmt of expr
     | BlockStmt of stmt list
 
+    | WithContextStmt of variable * expr * stmt
+
     | GhostStmt of stmt
 and stmt = _stmt placed
 
 
 and _function_dcl = {
     name: variable;
+    targs: variable list; (* generic type parameters *)
     ret_type: main_type;
     args: param list;
     abstract_impl: stmt list;
@@ -246,7 +249,12 @@ and _component_item =
 and component_item = _component_item placed
 
 and _component_dcl = 
-    | ComponentStructure of {name: variable; args: param list; body: component_item list} 
+    | ComponentStructure of {
+        name: variable; 
+        annotations: annotation list;
+        args: param list; 
+        body: component_item list
+    } 
     | ComponentAssign of {name: variable; args: param list; value: component_expr}
 
 and component_dcl = _component_dcl placed
@@ -263,6 +271,10 @@ and component_expr = _component_expr placed
 (********************** Signatures *********************)
 
 (************************************ Program *****************************)
+
+and _annotation = 
+    | Capturable of {interceptors: variable list; excluded_ports: variable list}
+and annotation = _annotation placed
 
 (** Preprocessor terms *)
 and _pp_term = 
@@ -283,6 +295,7 @@ and _term =
     
     (* Dynamic part*)
     | Stmt of stmt
+    | Annotation of annotation
 
     (** Structure part*)
     | Component of component_dcl

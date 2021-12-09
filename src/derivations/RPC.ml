@@ -172,6 +172,7 @@ let derive_program program cname =
                 refreshed_args 
             in
             let local_function = auto_fplace {
+                targs = [];
                 name = Atom.fresh (prefix^"localfct");
                 ret_type = m.value.ret_type;
                 args = local_function_args;

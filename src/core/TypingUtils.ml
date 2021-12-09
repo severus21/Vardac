@@ -77,6 +77,7 @@ let fct_sign argmts ret_type =
 
     List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) argmts ret_type 
 
+
 let register_def_type ctx = 
     let fplace = (Error.forge_place "TypeUtils.register_def_type" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in

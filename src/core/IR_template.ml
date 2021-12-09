@@ -100,9 +100,9 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
         | Include of component_expr
     and component_item = _component_item placed
 
-
     and component_structure = {
         target_name: target_name; 
+        annotations: component_annotation list;
         name: component_variable; 
         args: param list; 
         body: component_item list}
@@ -153,6 +153,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
     (************************************ Program *****************************)
     and _function_dcl = {
         name: expr_variable;
+        targs: expr_variable list; (* generic type parameters *)
         ret_type: main_type;
         args: param list;
         body: _custom_function_body;

@@ -11,6 +11,10 @@ open IR
 
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
+let fplace = (Error.forge_place "TypeInference" 0 0)
+include AstUtils2.Mtype.Make(struct let fplace = fplace end)
+
+
 let typeof_literal l = 
     let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
@@ -489,6 +493,10 @@ and _tannot_stmt ctx place : _stmt -> context * _stmt = function
 | BlockStmt stmts -> 
     let ctx, stmts = List.fold_left_map tannot_stmt ctx stmts in
     ctx, BlockStmt stmts
+| WithContextStmt (cname, e, stmt) -> 
+    (* From the outside WithContextStmt is transparent in term of ctx *)
+    let ctx, stmt = tannot_stmt ctx stmt in
+    ctx, WithContextStmt (cname, tannot_expr ctx e, stmt)
 and tannot_stmt ctx stmt =  
     let ctx, _stmt = _tannot_stmt ctx stmt.place stmt.value in
     ctx, {place = stmt.place; value = _stmt }
@@ -621,6 +629,7 @@ function
 
     outer_ctx, ComponentStructure {
     target_name = cdcl.target_name;
+    annotations = cdcl.annotations;
     name = cdcl.name;
     args = List.map (tannot_param ctx) cdcl.args;
     body =  body (* TODO first pass allow mutual recursive function ?? - only from header *)
@@ -656,14 +665,27 @@ and _tannot_function_dcl ctx place (fdcl:_function_dcl) : context * _function_dc
     let fplace = (Error.forge_place "TypeInference._tannot_function_dcl" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
 
+    let ctx_with_targs = List.fold_left (fun ctx targ -> 
+        if Str.string_match (Str.regexp "[A-Z].*") (Atom.hint targ) 0 then(
+            register_cexpr_type ctx targ (auto_fplace(CompType(auto_fplace(TPolyCVar targ))))
+        )else
+            failwith "TODO how to specify the write number of constructor"
+    ) ctx fdcl.targs in
+
     let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) (List.map (function (arg: param) -> fst arg.value) fdcl.args) fdcl.ret_type in 
+    (* Adding forall targs on top of regular signature *)
+    let fct_sign = List.fold_left (fun sign tvar -> 
+        mtype_of_ct (TForall (tvar, sign))     
+    ) fct_sign fdcl.targs in
+
     let outer_ctx = register_expr_type ctx fdcl.name fct_sign in
-    let inner_ctx = List.fold_left (fun ctx {value=(mt, x)} -> register_expr_type ctx x mt) ctx fdcl.args in
+    let inner_ctx = List.fold_left (fun ctx {value=(mt, x)} -> register_expr_type ctx x mt) ctx_with_targs fdcl.args in
     
     outer_ctx, {
         name = fdcl.name;
-        ret_type = tannot_main_type ctx fdcl.ret_type;
-        args = List.map (tannot_param ctx) fdcl.args;
+        targs = fdcl.targs; (* TODO annote with type constraints ??*)
+        ret_type = tannot_main_type ctx_with_targs fdcl.ret_type;
+        args = List.map (tannot_param ctx_with_targs) fdcl.args;
         body = snd (List.fold_left_map tannot_stmt inner_ctx fdcl.body);
     } 
 and tannot_function_dcl ctx fdcl = 

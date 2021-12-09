@@ -219,6 +219,9 @@ module type TIRC = sig
         | BlockStmt of stmt list
 
         | GhostStmt of stmt
+
+        | WithContextStmt of component_variable * expr * stmt
+
     and stmt = _stmt placed
 
     and _param = main_type * expr_variable
@@ -232,6 +235,9 @@ module type TIRC = sig
         callback: expr
     }
     and port = (_port * main_type) placed
+
+    and component_annotation = 
+        | Capturable of {interceptors: component_variable list; excluded_ports: component_variable list}
 
     (******************************** Contracts **********************************)
     and _contract = { (* TODO GADT *)
@@ -500,6 +506,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | BlockStmt of stmt list
 
         | GhostStmt of stmt
+
+        | WithContextStmt of component_variable * expr * stmt
     and stmt = _stmt placed
 
     and _param = main_type * expr_variable
@@ -513,6 +521,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         callback: expr
     }
     and port = (_port * main_type) placed
+
+    and component_annotation = 
+        | Capturable of {interceptors: component_variable list; excluded_ports: component_variable list}
 
     (******************************** Contracts **********************************)
     and _contract = { (* TODO GADT *)
@@ -667,6 +678,10 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | ReturnStmt e ->
         let _, collected_elts, fvars = collect_expr_expr parent_opt already_binded selector collector e in
         already_binded, collected_elts, fvars
+    | WithContextStmt (cname, e, stmt) -> 
+        let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e in
+        let already_binded, collected_elts2, fvars2 = collect_expr_stmt parent_opt already_binded selector collector stmt in
+        already_binded, collected_elts1@collected_elts2, fvars1@fvars2
 
     and collect_expr_stmt parent_opt (already_binded:Variable.Set.t) selector collector stmt =       
         map0_place (collect_expr_stmt_ parent_opt already_binded selector collector) stmt
@@ -923,8 +938,10 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             let collected_elts, ftvars = collect_stmts stmts in
             already_binded, collected_elts, ftvars
         | GhostStmt stmt -> collect_stmt stmt
-
-
+        | WithContextStmt (_, e, stmt) ->
+            let _, collected_elts1, ftvars1 = collect_expr e in
+            let _, collected_elts2, ftvars2 = collect_stmt stmt in
+            already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
 
     and collect_type_stmt (parent_opt:Atom.atom option) already_binded selector collector stmt =       
         map0_place (collect_type_stmt_ parent_opt already_binded selector collector) stmt 
@@ -1167,6 +1184,11 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | ExpressionStmt e -> ExpressionStmt (rewrite_expr_expr selector rewriter e) 
         | BlockStmt stmts -> BlockStmt (List.map (rewrite_expr_stmt selector rewriter) stmts) 
         | GhostStmt stmt -> GhostStmt (rewrite_expr_stmt selector rewriter stmt)
+        | WithContextStmt (cname, e, stmt) -> WithContextStmt(
+            cname,
+            rewrite_expr_expr selector rewriter e,
+            rewrite_expr_stmt selector rewriter stmt
+        )
     and rewrite_expr_stmt selector rewriter = map_place (_rewrite_expr_stmt selector rewriter)
                     
     (* Warning do not replace ImplictVar !!! *)
@@ -1344,6 +1366,13 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let auto_place smth = {place = place; value=smth} in
         let rewrite_stmt_stmt = rewrite_stmt_stmt recurse selector rewriter in
 
+        (* TODO use it in all rewrite_XX_stmt that generates list of stmt *)
+        let stmts2stmt : stmt list -> stmt = function 
+            | [] -> auto_place EmptyStmt
+            | [stmt] -> stmt
+            | stmts -> auto_place (BlockStmt stmts) 
+        in
+
         function 
         | stmt when recurse && selector stmt-> List.flatten (List.map (_rewrite_stmt_stmt recurse selector rewriter place) (rewriter place stmt)) (* recursive - try to rewrite until no more reductions *)
         | stmt when selector stmt-> rewriter place stmt
@@ -1372,6 +1401,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | ExpressionStmt e -> [ExpressionStmt e]
         | BlockStmt stmts -> [BlockStmt (List.flatten (List.map rewrite_stmt_stmt stmts))] 
         | GhostStmt stmt -> List.map (function stmt -> GhostStmt stmt) (rewrite_stmt_stmt stmt)
+        | WithContextStmt (cname, e, stmt) -> [
+            WithContextStmt(cname, e, stmts2stmt (rewrite_stmt_stmt stmt))
+        ]
     and rewrite_stmt_stmt recurse selector (rewriter:Error.place -> _stmt -> _stmt list) = map_places (_rewrite_stmt_stmt recurse selector rewriter)
 
 (*****************************************************)

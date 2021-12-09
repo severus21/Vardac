@@ -378,15 +378,17 @@ any_stmt_:
     { BlockStmt stmts}
 | GHOST BANG LCURLYBRACKET s = any_stmt RCURLYBRACKET 
     { GhostStmt s}
+| WITH LANGLEBRACKET x=UID RANGLEBRACKET e = any_expr LCURLYBRACKET stmt = any_stmt RCURLYBRACKET
+    { WithContextStmt (x, e, stmt) }
 
 %public %inline any_stmt:
   t = placed(any_stmt_)
     { t }
 
-any_function_:
-(* Abstract method *)
+any_classical_function_:
 | ret_type=any_type name=LID LPAREN args=right_flexible_list(COMMA, any_param) RPAREN SEMICOLON
     { {
+        targs = [];
         ret_type=ret_type;
         name=name;
         args=args;
@@ -394,11 +396,26 @@ any_function_:
     } }
 | ret_type=any_type name=LID LPAREN args=right_flexible_list(COMMA, any_param) RPAREN LCURLYBRACKET stmts=flexible_sequence(any_stmt) RCURLYBRACKET 
     { {
+        targs = [];
         ret_type=ret_type;
         name=name;
         args=args;
         abstract_impl= stmts
     } }
+any_id_:
+| x = LID 
+    { x }
+| x = UID 
+    { x }
+any_function_:
+(* Abstract method *)
+| LANGLEBRACKET targs=right_flexible_list(COMMA, any_id_) RANGLEBRACKET fct = any_classical_function_ 
+{
+    {fct with targs} 
+}
+| fct = any_classical_function_
+    { fct }
+
 %public %inline any_function:
   t = placed(any_function_)
     { t }
@@ -540,7 +557,7 @@ any_component_dcl_:
     component_stmtn;
 }*)
 | COMPONENT name=UID LPAREN params=right_flexible_list(COMMA, any_param) RPAREN LCURLYBRACKET body=flexible_sequence(any_component_item) RCURLYBRACKET  
-    { ComponentStructure {name=name; args=params; body=body} }
+    { ComponentStructure {name=name; annotations=[]; args=params; body=body} }
 (* component X = Y*)
 | COMPONENT name=UID EQ value=any_component_expr SEMICOLON
     { ComponentAssign {name=name; args=[]; value=value} }
@@ -565,6 +582,13 @@ any_component_expr_:
 (********************** Signatures *********************)
 
 (************************************ Program *****************************)
+any_annotation_:
+(* TODO syntax should be generalized *)
+|AT x=LID LPAREN LBRACKET interceptors=right_flexible_list(COMMA, UID) RBRACKET COMMA LBRACKET excluded_ports=right_flexible_list(COMMA, LID) RBRACKET RPAREN
+    { Capturable {interceptors; excluded_ports} }
+%inline any_annotation:
+    t = placed(any_annotation_)
+    { t }
 
 (** Preprocessor terms *)
 any_pp_term_:
@@ -577,8 +601,10 @@ any_pp_term_:
     { t }
 
 any_term_:
+| a=any_annotation
+    { Annotation a }
 | c=any_comments
-    { Comments c}
+    { Comments c }
 | ppt=any_pp_term
     { PPTerm ppt }
 | stmt=any_stmt

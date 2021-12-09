@@ -29,6 +29,8 @@ let to_ir places filename =
     |> Resolve.resolve_program   
     |> function ast -> logger#sinfo "AST is resolved"; ast 
     |> dump "ResolveAst" Ast.show_program  
+    |> PairedAnnotation.apair_program 
+    |> dump "PairedAnnotationAst" Ast.show_program  
     |> Cook.cook_program places
     |> function (gamma, ast) -> logger#sinfo "AST is cooked, IR has been generated"; (gamma, ast) 
     |> function (gamma, ast) -> dump ~print:(Config.debug_cook ()) "IR" IR.show_program ast; (gamma, ast)

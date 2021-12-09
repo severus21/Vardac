@@ -742,6 +742,15 @@ end
 | S.GhostStmt stmt -> 
     let env1, stmt = cstmt env stmt in
     env << [env1], T.GhostStmt stmt
+| S.WithContextStmt (cname, e, stmt) ->
+    let cname = cook_var_component env place cname in
+    let env1, e = cexpr env e in 
+    let env2, stmt = cstmt env stmt in 
+    (* 
+        stmt is in the binding scope as the outside of WithContextStmt
+        transformation will come later on
+    *)
+    env2, T.WithContextStmt (cname, e, stmt)
 and cstmt env : S.stmt -> env * T.stmt = map2_place (cook_stmt env)
 
 and cook_function env place : S._function_dcl -> env * T._function_dcl = 
@@ -751,7 +760,15 @@ let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
 function
 | f -> 
     let new_env, name = bind_expr env place f.name in
-    let inner_env, args = List.fold_left_map cparam env f.args in
+    let env_with_targs, targs = List.fold_left_map (fun env targ -> 
+        let ntarg = register_component place targ in 
+        {env with 
+            current = {env.current with 
+                components  = Env.add targ ntarg env.current.components;
+            };
+        }, ntarg
+    ) env f.targs in
+    let inner_env, args = List.fold_left_map cparam env_with_targs f.args in
 
 
     (* FIXME duplicated in cook_method*)
@@ -761,13 +778,14 @@ function
         | stmt::stmts -> stmt::(remove_empty_stmt stmts)
     in
 
-    let env1, ret_type = cmtype env f.ret_type in
+    let env1, ret_type = cmtype env_with_targs f.ret_type in
     let env2, body = List.fold_left_map cstmt inner_env (remove_empty_stmt f.abstract_impl) in
 
     let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (T.CType (auto_fplace(T.TArrow (t1, t2))))) (List.map (function (arg: T.param) -> fst arg.value) args) ret_type in 
     register_gamma name fct_sign;
 
     new_env << [inner_env; env1; env2], {
+            targs;
             ret_type = ret_type;
             name;
             args;
@@ -977,7 +995,15 @@ and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = 
     let collect_labelevents = citems_of_eventdef_from_labels inner_env in 
     let body = collect_labelevents @ body in
 
-    new_env, T.ComponentStructure {target_name = (); name; args; body} 
+    (* TODO put it in a cook_annotation fct *)
+    let annotations = List.map (function 
+        | {value=S.Capturable {interceptors; excluded_ports}} -> T.Capturable {
+            interceptors = List.map (cook_var_component env place) interceptors;
+            excluded_ports = List.map (cook_var_this env place ) excluded_ports
+        }
+    ) cdcl.annotations in
+
+    new_env, T.ComponentStructure {target_name = (); annotations; name; args; body} 
 | S.ComponentAssign cdcl -> 
     let new_env, name = bind_component env place cdcl.name in
     let env = {env with component = new_env.component } in
@@ -1019,6 +1045,7 @@ let fplace = (Error.forge_place "Coook.cook_term" 0 0) in
     let auto_place smth = {AstUtils.place = place; value=smth} in
     let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
 function
+(* Classical term *)
 | S.Comments c -> env, [T.Comments c]
 | S.PPTerm _ -> raise (PlacedDeadbranchError (place, "No preprocessing term should remains when cooking the AST."))
 

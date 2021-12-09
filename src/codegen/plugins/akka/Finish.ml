@@ -343,6 +343,7 @@ and fvstype st : T.expr = map_place finishv_stype st
 and finish_component_type place : S._component_type -> T._ctype = function
 | S.CompTUid x -> T.TVar x 
 | S.TStruct x -> T.TUnknown (* Structural types can not be encoded in Java*) 
+| S.TPolyCVar x -> Error.error place "TPolyCVar should have been reduce before reaching Akka ???"
 and fcctype ct : T.ctype = map_place finish_component_type ct
 
 and finish_mtype place : S._main_type -> T.ctype = 

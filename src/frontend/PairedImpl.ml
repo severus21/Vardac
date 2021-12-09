@@ -144,33 +144,33 @@ and paired_component_item parents place : S2._component_item -> T._component_ite
 and ucitem parents: S2.component_item -> T.component_item  = map_place (paired_component_item parents)
 
 and paired_component_dcl parents place : S2._component_dcl -> T._component_dcl = function
-| S2.ComponentStructure {name; args; body} -> begin 
+| S2.ComponentStructure {name; annotations; args; body} -> begin 
     try 
         let key = List.rev ((Atom.hint name)::parents) in 
         let target_name = Hashtbl.find component2target key in
         let body = List.map (ucitem ((Atom.hint name)::parents)) body in
-        T.ComponentStructure {target_name; name; args; body}
+        T.ComponentStructure {target_name; annotations; name; args; body}
     with | Not_found -> raise (Error.PlacedDeadbranchError (place, "A target should have been assign to each component"))
 end
 | S2.ComponentAssign {name; args; value} -> T.ComponentAssign {name; args; value} 
 and ccdcl parents: S2.component_dcl -> T.component_dcl = map_place (paired_component_dcl parents)
 
 and paired_function_dcl parents place : S2._function_dcl -> T._function_dcl = function
-| {ret_type; name; args; body=[] } -> begin
+| {ret_type; targs; name; args; body=[] } -> begin
     try 
         let key = List.rev ((Atom.hint name)::parents) in 
         mark_function key;
         let bb_impl = Hashtbl.find function_impls key in
-        { ret_type; name; args; body= T.BBImpl bb_impl.value.body }
+        { ret_type; targs; name; args; body= T.BBImpl bb_impl.value.body }
     with Not_found -> Error.error place "Function \"%s\" has no implementation (neither abstract nor blackbox)" (Atom.hint name) 
 end
-| { ret_type; name; args; body= body } -> begin 
+| { ret_type; name; targs; args; body= body } -> begin 
     try 
         let key = List.rev ((Atom.hint name)::parents) in 
         mark_function key;
         let bb_impl = Hashtbl.find function_impls key in
         Error.error (place@bb_impl.place) "Function has two implementations : one abstract and one blackbox"
-    with | Not_found -> { ret_type; name; args; body= T.AbstractImpl body }
+    with | Not_found -> { ret_type; targs; name; args; body= T.AbstractImpl body }
 end
 and ufunction_dcl parents: S2.function_dcl -> T.function_dcl = map_place (paired_function_dcl parents)
 
