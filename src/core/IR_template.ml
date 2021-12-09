@@ -67,6 +67,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
 
 
     and _method0 = {
+        annotations: method_annotation list;
         ghost: bool; 
         ret_type: main_type; 
         name: component_variable; 

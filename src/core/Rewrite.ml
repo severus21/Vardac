@@ -113,6 +113,7 @@ module Make (Args : Params ) : Sig = struct
             let tmp_session = Atom.builtin "session" in
             (*let tmp_args = Atom.builtin "tmp_args" in*)
             let intermediate_method = {
+                annotations = m.annotations;
                 ghost = false;
                 ret_type = m.ret_type; (* Will be updated lated if needed *) 
                 name = intermediate_method_name;

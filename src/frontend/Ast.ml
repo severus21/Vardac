@@ -209,6 +209,7 @@ and _contract = { (* TODO GADT *)
 and contract = _contract placed
 
 and _method0 = {
+        annotations: annotation list;
         ghost: bool; 
         ret_type: main_type; 
         name: variable; 
@@ -274,6 +275,7 @@ and component_expr = _component_expr placed
 
 and _annotation = 
     | Capturable of {interceptors: variable list; excluded_ports: variable list}
+    | Intercept
 and annotation = _annotation placed
 
 (** Preprocessor terms *)

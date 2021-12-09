@@ -902,6 +902,10 @@ let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
     register_gamma name fct_sign;
 
     env << [inner_env; env1; env2], {
+        annotations = List.map (function
+            | {value=S.Intercept} -> T.Intercept
+            | a -> Error.error a.place "%s is not a component annotation!" (S.show_annotation a)
+        ) m.annotations; 
         ghost = m.ghost;
         ret_type = ret_type;
         name;
@@ -995,12 +999,12 @@ and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = 
     let collect_labelevents = citems_of_eventdef_from_labels inner_env in 
     let body = collect_labelevents @ body in
 
-    (* TODO put it in a cook_annotation fct *)
     let annotations = List.map (function 
         | {value=S.Capturable {interceptors; excluded_ports}} -> T.Capturable {
             interceptors = List.map (cook_var_component env place) interceptors;
             excluded_ports = List.map (cook_var_this env place ) excluded_ports
         }
+        | a -> Error.error a.place "%s is not a component annotation!" (S.show_annotation a)
     ) cdcl.annotations in
 
     new_env, T.ComponentStructure {target_name = (); annotations; name; args; body} 

@@ -475,6 +475,7 @@ core_method:
 (* Abstract method *)
 | ret_type=any_type name=LID LPAREN args=right_flexible_list(COMMA, any_param) RPAREN SEMICOLON
     { {
+        annotations = [];
         ghost=false;
         ret_type=ret_type;
         name=name;
@@ -485,6 +486,7 @@ core_method:
     } }
 | ret_type=any_type name=LID LPAREN args=right_flexible_list(COMMA, any_param) RPAREN LCURLYBRACKET stmts=flexible_sequence(any_stmt) RCURLYBRACKET 
     { {
+        annotations = [];
         ghost=false;
         ret_type=ret_type;
         name=name;
@@ -584,6 +586,12 @@ any_component_expr_:
 (************************************ Program *****************************)
 any_annotation_:
 (* TODO syntax should be generalized *)
+|AT x=LID 
+    { 
+        match x with 
+        | "intercept" -> Intercept 
+        | _ -> Core.Error.error [$loc] "Unknown annotation with no args: %s" x 
+    }
 |AT x=LID LPAREN LBRACKET interceptors=right_flexible_list(COMMA, UID) RBRACKET COMMA LBRACKET excluded_ports=right_flexible_list(COMMA, LID) RBRACKET RPAREN
     { Capturable {interceptors; excluded_ports} }
 %inline any_annotation:

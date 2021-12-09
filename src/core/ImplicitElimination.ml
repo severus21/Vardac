@@ -254,6 +254,7 @@ module Make (Args : Params ) : Sig = struct
         | citem::citems ->  citem::(update_constructor citems) in
         let make_constructor () = 
             auto_fplace(Method (auto_fplace {
+                annotations = [];
                 ghost = false;
                 ret_type = auto_fplace (CType (auto_fplace (TFlatType TVoid)));
                 name = Atom.fresh "implicit2explicit_constructor";

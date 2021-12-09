@@ -96,6 +96,7 @@ let derive_program program cname =
             let a_tmp = Atom.fresh "tmp" in
             let mt_event = mt_call  in
             let callback  = auto_fplace { 
+                annotations = [];
                 ghost = false;
                 ret_type = mtype_of_ft TVoid;
                 name =  Atom.fresh (prefix^"callback");

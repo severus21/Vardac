@@ -20,7 +20,13 @@ and apair_citems (acc_annotations : annotation list) : component_item list -> co
         value=Component {place=p_struct;
             value= ComponentStructure {comp with annotations = List.rev (a::acc_annotations)}}
     }} :: (apair_citems [] ts)
-| {place; value=Term {value=Annotation a}} :: _ :: ts -> Error.error place "Annotations are only supported for components"
+| {value=Term{value=Annotation a}} :: {place; value=Method m} :: ts ->
+    {place; value = Method {
+        m with value = {m.value with 
+            annotations = List.rev (a::acc_annotations)
+        }
+    }} :: (apair_citems [] ts)
+| {place; value=Term {value=Annotation a}} :: _ :: ts -> Error.error place "Annotations are only supported for components or methods"
 | t::ts -> t::(apair_citems [] ts)
 
 and apair_component_dcl place : _component_dcl -> _component_dcl = function  

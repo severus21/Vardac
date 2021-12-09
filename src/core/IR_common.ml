@@ -236,6 +236,10 @@ module type TIRC = sig
     }
     and port = (_port * main_type) placed
 
+
+    and method_annotation = 
+        | Intercept
+
     and component_annotation = 
         | Capturable of {interceptors: component_variable list; excluded_ports: component_variable list}
 
@@ -522,6 +526,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     }
     and port = (_port * main_type) placed
 
+    and method_annotation = 
+        | Intercept
     and component_annotation = 
         | Capturable of {interceptors: component_variable list; excluded_ports: component_variable list}
 
