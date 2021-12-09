@@ -57,6 +57,10 @@ make distclean # Same as clean, but also removes library checking files.
 ```bash
 make run -- compile --places examples/0-ping-pong/places.yml --targets examples/0-ping-pong/targets.yml --filename examples/0-ping-pong/pingpong.spec --impl examples/0-ping-pong/pingpong.impl --provenance 0
 ```
+* message-passing with interception 
+```bash
+make run -- compile --places examples/2-ping-pong-intercept/places.yml --targets examples/2-ping-pong-intercept/targets.yml --filename examples/2-ping-pong-intercept/pingpong.spec --impl examples/2-ping-pong-intercept/pingpong.impl --provenance 0
+```
 * counter
 ```bash
 make run -- compile --places examples/1-counter/places.yml --targets examples/1-counter/targets.yml --filename examples/1-counter/counter.spec --impl examples/1-counter/counter.impl --provenance 0
