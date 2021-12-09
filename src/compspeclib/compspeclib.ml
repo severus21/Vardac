@@ -81,6 +81,11 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         |> function x-> logger#sinfo "IR has been rewritten";x
         |> Core.AstUtils.dump "rewritten IR" IR.show_program
 
+        (* Every pass that change ports and components should be performed before runngin the Intercept transformation *)
+        |> Intercept.rewrite_program
+        |> function x-> logger#sinfo "Interception in IR compiled away";x
+        |> Core.AstUtils.dump "interception-less IR" IR.show_program
+
         |> Core.Clean.clean_program
         |> function x-> logger#sinfo "IR has been cleaned";x
         |> Core.AstUtils.dump "cleaned IR" IR.show_program
