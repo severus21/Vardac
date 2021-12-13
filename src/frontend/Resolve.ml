@@ -92,7 +92,7 @@ and resolve_component_dcl place : S._component_dcl -> T._component_dcl = functio
 | S.ComponentAssign cassign -> T.ComponentAssign {cassign with value =  rcexpr cassign.value}
 
 and resolve_component_expr place : S._component_expr -> T._component_expr = function 
-| S.AppCExpr (ce1,ce2) -> T.AppCExpr (rcexpr ce1, rcexpr ce2)
+| S.AppCExpr (ce1, ces) -> T.AppCExpr (rcexpr ce1, List.map rcexpr ces)
 | S.UnboxCExpr e -> T.UnboxCExpr (rexpr e)
 | S.AnyExpr e -> T.AnyExpr (rexpr e)
 | x -> x

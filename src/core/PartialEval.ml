@@ -477,10 +477,10 @@ end
 | ReturnStmt e -> 
     let new_env, new_e = pe_expr env e in
     new_env, (ReturnStmt new_e)
-| WithContextStmt (cname, e, stmt) ->
+| WithContextStmt (anonymous_mod, cname, e, stmt) ->
     let _, e = pe_expr env e in
     let new_env, stmt = pe_stmt env stmt in 
-    new_env, (WithContextStmt (cname, e, stmt))
+    new_env, (WithContextStmt (anonymous_mod, cname, e, stmt))
 and pe_stmt env : stmt -> env * stmt = map2_place (peval_stmt env)
 
 
@@ -584,7 +584,9 @@ and pe_component_dcl env: component_dcl -> env * component_dcl = map2_place (pev
 and peval_component_expr env place (ce, mt_ce) = (* TODO peval for this*)
     let env, ce = match ce with
         | VarCExpr x -> env, VarCExpr x
-        | AppCExpr (cexpr1, cexpr2) -> env, AppCExpr (snd (pe_component_expr env cexpr1), snd (pe_component_expr env cexpr2)) 
+        | AppCExpr (cexpr1, args) -> 
+            let _, args = List.split (List.map (function arg -> pe_component_expr env arg) args) in
+            env, AppCExpr (snd (pe_component_expr env cexpr1), args) 
         | UnboxCExpr e -> env, UnboxCExpr (snd(pe_expr env e)) 
         | AnyExpr e -> env, AnyExpr (snd(pe_expr env e)) 
     in env, (ce, snd (pe_mtype env mt_ce))

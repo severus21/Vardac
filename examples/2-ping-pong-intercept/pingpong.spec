@@ -14,11 +14,16 @@ component CounterInterceptor () {
         print(">CounterInterceptor");
     }
 
+    void incr(){
+        this.nbr_msg = this.nbr_msg + 1;
+    }
+
     (* TODO need polymorphism
         option<'a>intercept(activation_info<'b> from, activation_info<'c> ,....')
     *)
+    @intercept
     option<ping> intercept(activation_info<A> from, activation_info<B> to, ?pong. continuation, ping msg){
-        this.nbr_msg = this.nbr_msg + 1;
+        this.incr();
         return Some(msg);
     }
 }
@@ -84,11 +89,10 @@ component MultiJVMOrchestrator (){
             list<place> ps2 = select_places(vpa, x  : place -> true);
             place p1 = listget(ps1, 0);
             place p2 = listget(ps2, 0);
-            make_ctx();
-            (*with<CounterInterceptor> make_ctx() {
+            with<CounterInterceptor> make_ctx() {
                 activation_info<B> b = spawn B(b0) @ p1;
-            }*)
-            (*activation_info<A> c = spawn A(b0, b);*)
+            }
+            activation_info<A> c = spawn A(b0, b);
         }
     }
 

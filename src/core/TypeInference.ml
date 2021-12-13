@@ -493,10 +493,10 @@ and _tannot_stmt ctx place : _stmt -> context * _stmt = function
 | BlockStmt stmts -> 
     let ctx, stmts = List.fold_left_map tannot_stmt ctx stmts in
     ctx, BlockStmt stmts
-| WithContextStmt (cname, e, stmt) -> 
+| WithContextStmt (anonymous_mod, cname, e, stmt) -> 
     (* From the outside WithContextStmt is transparent in term of ctx *)
     let ctx, stmt = tannot_stmt ctx stmt in
-    ctx, WithContextStmt (cname, tannot_expr ctx e, stmt)
+    ctx, WithContextStmt (anonymous_mod, cname, tannot_expr ctx e, stmt)
 and tannot_stmt ctx stmt =  
     let ctx, _stmt = _tannot_stmt ctx stmt.place stmt.value in
     ctx, {place = stmt.place; value = _stmt }

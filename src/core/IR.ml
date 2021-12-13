@@ -812,10 +812,11 @@ and rewrite_exprstmts_stmt_ exclude_stmt selector rewriter place : _stmt -> stmt
             auto_place (BlockStmt (List.flatten (List.map (function stmt -> rewrite_exprstmts_stmt stmt) stmts)))
         ]
     | GhostStmt stmt -> List.map (function stmt -> auto_place (GhostStmt stmt)) (rewrite_exprstmts_stmt stmt)
-    | WithContextStmt(cname, e, stmt) ->
+    | WithContextStmt(anonymous_mod, cname, e, stmt) ->
         let estmts, e = rewrite_exprstmts_expr e in
         estmts @ [ 
             auto_place (WithContextStmt (
+                anonymous_mod,
                 cname, 
                 e, 
                 match rewrite_exprstmts_stmt stmt with

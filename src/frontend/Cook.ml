@@ -742,7 +742,7 @@ end
 | S.GhostStmt stmt -> 
     let env1, stmt = cstmt env stmt in
     env << [env1], T.GhostStmt stmt
-| S.WithContextStmt (cname, e, stmt) ->
+| S.WithContextStmt (anonymous_mod, cname, e, stmt) ->
     let cname = cook_var_component env place cname in
     let env1, e = cexpr env e in 
     let env2, stmt = cstmt env stmt in 
@@ -750,7 +750,7 @@ end
         stmt is in the binding scope as the outside of WithContextStmt
         transformation will come later on
     *)
-    env2, T.WithContextStmt (cname, e, stmt)
+    env2, T.WithContextStmt (anonymous_mod, cname, e, stmt)
 and cstmt env : S.stmt -> env * T.stmt = map2_place (cook_stmt env)
 
 and cook_function env place : S._function_dcl -> env * T._function_dcl = 
@@ -1028,10 +1028,11 @@ and cook_component_expr env place ce : env * (T._component_expr * T.main_type)=
         | S.VarCExpr x ->
             let y = cook_var_component env place x in
             env, T.VarCExpr y
-        | S.AppCExpr (ce1,ce2) -> env, T.AppCExpr (
-            snd (ccexpr env ce1),
-            snd (ccexpr env ce2)
-        )
+        | S.AppCExpr (ce1, args) -> 
+            let env1, ce1 = ccexpr env ce1 in
+            let envs, args = List.split (List.map (ccexpr env) args) in
+            
+            env << (env1::envs), T.AppCExpr (ce1, args)
         | S.UnboxCExpr e -> 
             let cenv1, e = cexpr env e in
             env << [cenv1], T.UnboxCExpr e

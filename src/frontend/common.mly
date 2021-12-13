@@ -379,7 +379,9 @@ any_stmt_:
 | GHOST BANG LCURLYBRACKET s = any_stmt RCURLYBRACKET 
     { GhostStmt s}
 | WITH LANGLEBRACKET x=UID RANGLEBRACKET e = any_expr LCURLYBRACKET stmt = any_stmt RCURLYBRACKET
-    { WithContextStmt (x, e, stmt) }
+    { WithContextStmt (false, x, e, stmt) }
+| WITHANON LANGLEBRACKET x=UID RANGLEBRACKET e = any_expr LCURLYBRACKET stmt = any_stmt RCURLYBRACKET
+    { WithContextStmt (true, x, e, stmt) }
 
 %public %inline any_stmt:
   t = placed(any_stmt_)
@@ -574,8 +576,8 @@ any_component_expr_:
     { VarCExpr x }
 (* FIXME Conflict | e = any_expr
     { AnyExpr e} (*needed to pass non component as args to component*) *)
-| x_a = any_component_expr LPAREN x_b = any_component_expr RPAREN (*access*)
-    { AppCExpr (x_a,x_b) }
+| ce = any_component_expr LPAREN arg = any_component_expr COMMA args = right_flexible_list(COMMA, any_component_expr) RPAREN (* otherwise parsing is broken *) 
+    { AppCExpr (ce, args) }
 (* TODO unbox expr*)
 %inline any_component_expr:
   t = placed(any_component_expr_)

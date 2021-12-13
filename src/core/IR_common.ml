@@ -160,6 +160,8 @@ module type TIRC = sig
         | VarExpr of expr_variable 
         | ImplicitVarExpr of expr_variable
 
+        | InterceptedActivationInfo of expr * expr  (* Interceptor activation * intercepted activation *)
+
         | ActivationAccessExpr of component_variable * expr * expr_variable (* cname, e, x*)
         | AccessExpr of expr * expr (*e1.e2*)
         | BinopExpr of expr * binop * expr 
@@ -220,7 +222,7 @@ module type TIRC = sig
 
         | GhostStmt of stmt
 
-        | WithContextStmt of component_variable * expr * stmt
+        | WithContextStmt of bool * component_variable * expr * stmt
 
     and stmt = _stmt placed
 
@@ -257,7 +259,7 @@ module type TIRC = sig
     and _component_expr = 
         | VarCExpr of component_variable  
         (* functor or X(1) *)
-        | AppCExpr of component_expr * component_expr 
+        | AppCExpr of component_expr * component_expr list 
         | UnboxCExpr of expr
         | AnyExpr of expr
     and component_expr = (_component_expr * main_type) placed
@@ -275,6 +277,7 @@ module type TIRC = sig
     val collect_type_expr : Atom.atom option -> Atom.Set.t -> (_main_type -> bool) -> (Atom.atom option -> Atom.Set.t -> main_type -> 'a list) -> expr -> Atom.Set.t * 'a list *type_variable list
     val collect_expr_expr : Atom.atom option -> Variable.Set.t -> (_expr -> bool) -> (Atom.atom option -> Variable.Set.t -> expr -> 'a list) -> expr -> Variable.Set.t * 'a list * (main_type*expr_variable) list
     val collect_expr_stmt : Atom.atom option -> Variable.Set.t -> (_expr -> bool) -> (Atom.atom option -> Variable.Set.t -> expr -> 'a list) -> stmt -> Variable.Set.t * 'a list * (main_type*expr_variable) list
+    val collect_stmt_stmt : Atom.atom option -> (_stmt -> bool) -> (Atom.atom option -> Error.place -> _stmt -> 'a list) -> stmt -> 'a list
     val collect_expr_mtype : Atom.atom option -> Variable.Set.t -> (_expr -> bool) -> (Atom.atom option -> Variable.Set.t -> expr -> 'a list) -> main_type -> Variable.Set.t * 'a list *(main_type*expr_variable) list
     val free_vars_expr : Variable.Set.t -> expr -> Variable.Set.t * (main_type*expr_variable) list
     val free_vars_stmt : Variable.Set.t -> stmt -> Variable.Set.t * (main_type*expr_variable) list
@@ -451,6 +454,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | VarExpr of expr_variable 
         | ImplicitVarExpr of expr_variable
 
+        | InterceptedActivationInfo of expr * expr  (* Interceptor activation * intercepted activation *)
+
         | ActivationAccessExpr of component_variable * expr * expr_variable (* cname, e, x*)
         | AccessExpr of expr * expr (*e1.e2*)
         | BinopExpr of expr * binop * expr 
@@ -511,7 +516,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
         | GhostStmt of stmt
 
-        | WithContextStmt of component_variable * expr * stmt
+        | WithContextStmt of bool * component_variable * expr * stmt
     and stmt = _stmt placed
 
     and _param = main_type * expr_variable
@@ -545,7 +550,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     and _component_expr = 
         | VarCExpr of component_variable  
         (* functor or X(1) *)
-        | AppCExpr of component_expr * component_expr 
+        | AppCExpr of component_expr * component_expr list 
         | UnboxCExpr of expr
         | AnyExpr of expr
     and component_expr = (_component_expr * main_type) placed
@@ -684,7 +689,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | ReturnStmt e ->
         let _, collected_elts, fvars = collect_expr_expr parent_opt already_binded selector collector e in
         already_binded, collected_elts, fvars
-    | WithContextStmt (cname, e, stmt) -> 
+    | WithContextStmt (anonymous_mod, cname, e, stmt) -> 
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e in
         let already_binded, collected_elts2, fvars2 = collect_expr_stmt parent_opt already_binded selector collector stmt in
         already_binded, collected_elts1@collected_elts2, fvars1@fvars2
@@ -695,6 +700,31 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     and free_vars_stmt already_binded stmt = 
         let already_binded, _, fvars = collect_expr_stmt None  already_binded (function e -> false) (fun parent_opt env e -> []) stmt in
         already_binded, Utils.deduplicate snd fvars 
+
+
+    let rec collect_stmt_stmt_ parent_opt selector collector place = 
+        let collect_stmt = collect_stmt_stmt parent_opt  selector collector in
+    function 
+    | stmt when selector stmt -> collector parent_opt place stmt
+
+    (* Propagation *)
+    | EmptyStmt | AssignExpr _ | AssignThisExpr  _ | BreakStmt | CommentsStmt _ | ContinueStmt | ExpressionStmt _ | ExitStmt _ | LetExpr _ | ReturnStmt _-> []
+    | BlockStmt stmts ->
+        List.flatten (List.map collect_stmt stmts) 
+    | ForStmt (_, _, _, stmt) | GhostStmt stmt | WithContextStmt (_, _, _, stmt) ->
+        collect_stmt stmt
+    | IfStmt (_, stmt1, stmt2_opt) -> begin 
+        let collected_elts1 = collect_stmt stmt1 in
+
+        match Option.map collect_stmt stmt2_opt with
+        | None -> collected_elts1 
+        | Some collected_elts2 -> collected_elts1@collected_elts2
+    end
+    | MatchStmt (_, branches) ->
+        List.flatten (List.map collect_stmt (List.map snd branches))
+    and collect_stmt_stmt parent_opt selector collector stmt =       
+        map0_place (collect_stmt_stmt_ parent_opt selector collector) stmt
+
 
 
     (*retrun free  type variable *)
@@ -944,7 +974,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             let collected_elts, ftvars = collect_stmts stmts in
             already_binded, collected_elts, ftvars
         | GhostStmt stmt -> collect_stmt stmt
-        | WithContextStmt (_, e, stmt) ->
+        | WithContextStmt (_, _, e, stmt) ->
             let _, collected_elts1, ftvars1 = collect_expr e in
             let _, collected_elts2, ftvars2 = collect_stmt stmt in
             already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
@@ -1190,7 +1220,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | ExpressionStmt e -> ExpressionStmt (rewrite_expr_expr selector rewriter e) 
         | BlockStmt stmts -> BlockStmt (List.map (rewrite_expr_stmt selector rewriter) stmts) 
         | GhostStmt stmt -> GhostStmt (rewrite_expr_stmt selector rewriter stmt)
-        | WithContextStmt (cname, e, stmt) -> WithContextStmt(
+        | WithContextStmt (anonymous_mod, cname, e, stmt) -> WithContextStmt(
+            anonymous_mod,
             cname,
             rewrite_expr_expr selector rewriter e,
             rewrite_expr_stmt selector rewriter stmt
@@ -1349,7 +1380,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
         let ce = match ce with
             | (VarCExpr x as ce) -> ce
-            | AppCExpr (ce1, ce2) -> AppCExpr (rewrite_cexpr ce1, rewrite_cexpr ce2)
+            | AppCExpr (ce1, ces) -> AppCExpr (rewrite_cexpr ce1, List.map rewrite_cexpr ces)
             | UnboxCExpr e -> UnboxCExpr (rewrite_expr e)
             | AnyExpr e -> AnyExpr (rewrite_expr e)
         in
@@ -1407,8 +1438,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | ExpressionStmt e -> [ExpressionStmt e]
         | BlockStmt stmts -> [BlockStmt (List.flatten (List.map rewrite_stmt_stmt stmts))] 
         | GhostStmt stmt -> List.map (function stmt -> GhostStmt stmt) (rewrite_stmt_stmt stmt)
-        | WithContextStmt (cname, e, stmt) -> [
-            WithContextStmt(cname, e, stmts2stmt (rewrite_stmt_stmt stmt))
+        | WithContextStmt (anonymous_mod, cname, e, stmt) -> [
+            WithContextStmt(anonymous_mod, cname, e, stmts2stmt (rewrite_stmt_stmt stmt))
         ]
     and rewrite_stmt_stmt recurse selector (rewriter:Error.place -> _stmt -> _stmt list) = map_places (_rewrite_stmt_stmt recurse selector rewriter)
 
@@ -1564,9 +1595,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     and _equal_cexpr = function
     | VarCExpr x1, VarCExpr x2 -> x1 = x2
-    | AppCExpr (ce1a, ce1b), AppCExpr (ce2a, ce2b) ->
+    | AppCExpr (ce1a, cesa), AppCExpr (ce2a, cesb) ->
         equal_cexpr ce1a ce2a &&
-        equal_cexpr ce1b  ce2b
+        List.equal equal_cexpr cesa  cesb
     | UnboxCExpr e1, UnboxCExpr e2 -> equal_expr e1 e2
     | AnyExpr e1, AnyExpr e2 -> equal_expr e1 e2
     and equal_cexpr ce1 ce2 = 

@@ -164,7 +164,7 @@ and _stmt =
     | ExpressionStmt of expr
     | BlockStmt of stmt list
 
-    | WithContextStmt of variable * expr * stmt
+    | WithContextStmt of bool * variable * expr * stmt
 
     | GhostStmt of stmt
 and stmt = _stmt placed
@@ -264,7 +264,7 @@ and component_dcl = _component_dcl placed
 and _component_expr = 
     | VarCExpr of variable  
     (* functor or X(1) *)
-    | AppCExpr of component_expr * component_expr 
+    | AppCExpr of component_expr * component_expr list 
     | UnboxCExpr of expr
     | AnyExpr of expr
 and component_expr = _component_expr placed
