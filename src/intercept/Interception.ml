@@ -112,3 +112,6 @@ let make_interceptor place = function
         (Component (auto_fplace (ComponentStructure structure)))
     | _ -> Error.error place "Functor [MakeInterceptor] expect two arguments : the Interceptor component and a list of Component type that should be intercepted" 
 end
+
+let apply_intercept_program program =
+    failwith "TODO apply_intercept_program"

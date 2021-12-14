@@ -321,6 +321,81 @@ and collect_cexpr_term parent_opt selector collector t =
 
 and collect_cexpr_program  selector collector program = 
     List.flatten (List.map (collect_cexpr_term None  selector collector) program)
+
+(******************************************************************)
+let rec collect_stmt_contract_ parent_opt selector collector place _contract = []
+and collect_stmt_contract parent_opt selector collector c = 
+    map0_place (collect_stmt_contract_ parent_opt  selector collector) c 
+
+and collect_stmt_port_ parent_opt selector collector place (_port, _) = []
+and collect_stmt_port parent_opt selector collector p = 
+    map0_place (collect_stmt_port_ parent_opt  selector collector) p
+
+and collect_stmt_state_ parent_opt selector collector place s = [] 
+and collect_stmt_state parent_opt selector collector s = 
+    map0_place (collect_stmt_state_ parent_opt  selector collector) s 
+
+and collect_stmt_function_dcl_ parent_opt selector collector place m =
+    List.flatten (List.map (collect_stmt_stmt parent_opt  selector collector) m.body)
+
+and collect_stmt_function_dcl parent_opt selector collector fdcl = 
+    map0_place (collect_stmt_function_dcl_ parent_opt  selector collector) fdcl
+
+and collect_stmt_method0_ parent_opt selector collector place (m:_method0) =
+    let collected_elts1 = collect_stmt_function_dcl_ parent_opt  selector collector place {
+        name        = m.name;
+        targs       = [];
+        ret_type    = m.ret_type;
+        args        = m.args;
+        body        = m.body;
+    } in 
+    let collected_elts4 = match m.contract_opt with
+        | Some c -> collect_stmt_contract parent_opt  selector collector c
+        | None -> []
+    in
+    collected_elts1@collected_elts4
+and collect_stmt_method0 parent_opt selector collector m = 
+    map0_place (collect_stmt_method0_ parent_opt  selector collector) m 
+and collect_stmt_component_item_ parent_opt selector collector place = function 
+    | Contract c -> collect_stmt_contract parent_opt  selector collector c
+    | Method m -> collect_stmt_method0 parent_opt  selector collector m
+    | State s -> collect_stmt_state parent_opt  selector collector s 
+    | Port p  -> collect_stmt_port parent_opt  selector collector p
+    | Term t -> collect_stmt_term  parent_opt  selector collector t    
+and collect_stmt_component_item parent_opt selector collector citem =              
+    map0_place (collect_stmt_component_item_ parent_opt  selector collector) citem
+
+and collect_stmt_component_dcl_ parent_opt selector collector place = function 
+| ComponentStructure cdcl ->
+    let parent_opt = Some cdcl.name in
+    assert(cdcl.args = []);
+
+    List.flatten (List.map (collect_stmt_component_item parent_opt  selector collector) cdcl.body)
+and collect_stmt_component_dcl parent_opt selector collector cdcl = 
+    map0_place (collect_stmt_component_dcl_ parent_opt  selector collector ) cdcl
+and collect_stmt_typedef_ parent_opt selector collector place = function 
+(* already binded left unchanged since it is type binder *)
+| ClassicalDef  (x, targs, body) -> []
+| EventDef (x, targs, body) -> []
+| ProtocolDef (x, mt) -> []
+and collect_stmt_typedef parent_opt selector collector tdef= 
+    map0_place (collect_stmt_typedef_ parent_opt  selector collector) tdef
+
+and collect_stmt_derivation parent_opt selector collector place derive = []
+
+and collect_stmt_term_ parent_opt selector collector place = function 
+    | EmptyTerm | Comments _ -> []
+    | Stmt stmt -> collect_stmt_stmt parent_opt  selector collector stmt
+    | Component cdcl -> collect_stmt_component_dcl parent_opt  selector collector cdcl
+    | Function fdcl -> collect_stmt_function_dcl parent_opt  selector collector fdcl
+    | Typealias _ -> [] (* type binder but not an stmt binder so  is left unchanged*)
+    | Typedef typedef -> collect_stmt_typedef parent_opt  selector collector typedef
+    | Derive derive ->  collect_stmt_derivation parent_opt  selector collector place derive 
+and collect_stmt_term parent_opt selector collector t = 
+    map0_place (collect_stmt_term_ parent_opt  selector collector) t
+
+and collect_stmt_program  selector collector program = 
+    List.flatten (List.map (collect_stmt_term None  selector collector) program)
 (******************************************************************)
 
 
