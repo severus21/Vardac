@@ -224,6 +224,104 @@ and free_vars_program already_binded program =
 
 
 (******************************************************************)
+let rec collect_cexpr_contract_ parent_opt selector collector place _contract = 
+    let collected_elts2 = 
+    match _contract.ensures with
+    | None -> []
+    | Some ensures -> collect_cexpr_expr parent_opt  selector collector ensures 
+    in
+
+    let collected_elts3 = 
+    match _contract.returns with
+    | None -> []
+    | Some returns -> collect_cexpr_expr parent_opt  selector collector returns 
+    in
+
+    collected_elts2@collected_elts3
+
+and collect_cexpr_contract parent_opt selector collector c = 
+    map0_place (collect_cexpr_contract_ parent_opt  selector collector) c 
+and collect_cexpr_port_ parent_opt selector collector place (_port, _) =
+    let collected_elts1 = collect_cexpr_expr parent_opt   selector collector _port.input in
+    let collected_elts3 = collect_cexpr_expr parent_opt   selector collector _port.callback in
+    collected_elts1@collected_elts3
+and collect_cexpr_port parent_opt selector collector p = 
+    map0_place (collect_cexpr_port_ parent_opt  selector collector) p
+
+and collect_cexpr_state_ parent_opt selector collector place = function 
+| StateDcl sdcl -> begin
+    match sdcl.body with
+    | Some e -> collect_cexpr_expr parent_opt  selector collector e
+    | None _ -> []
+end
+and collect_cexpr_state parent_opt selector collector s = 
+    map0_place (collect_cexpr_state_ parent_opt  selector collector) s 
+
+and collect_cexpr_function_dcl_ parent_opt selector collector place m =
+    List.flatten (List.map (collect_cexpr_stmt parent_opt  selector collector) m.body)
+
+and collect_cexpr_function_dcl parent_opt selector collector fdcl = 
+    map0_place (collect_cexpr_function_dcl_ parent_opt  selector collector) fdcl
+
+and collect_cexpr_method0_ parent_opt selector collector place (m:_method0) =
+    let collected_elts1 = collect_cexpr_function_dcl_ parent_opt  selector collector place {
+        name        = m.name;
+        targs       = [];
+        ret_type    = m.ret_type;
+        args        = m.args;
+        body        = m.body;
+    } in 
+    let collected_elts4 = match m.contract_opt with
+        | Some c -> collect_cexpr_contract parent_opt  selector collector c
+        | None -> []
+    in
+    collected_elts1@collected_elts4
+and collect_cexpr_method0 parent_opt selector collector m = 
+    map0_place (collect_cexpr_method0_ parent_opt  selector collector) m 
+and collect_cexpr_component_item_ parent_opt selector collector place = function 
+    | Contract c -> collect_cexpr_contract parent_opt  selector collector c
+    | Method m -> collect_cexpr_method0 parent_opt  selector collector m
+    | State s -> collect_cexpr_state parent_opt  selector collector s 
+    | Port p  -> collect_cexpr_port parent_opt  selector collector p
+    | Term t -> collect_cexpr_term  parent_opt  selector collector t    
+and collect_cexpr_component_item parent_opt selector collector citem =              
+    map0_place (collect_cexpr_component_item_ parent_opt  selector collector) citem
+
+and collect_cexpr_component_dcl_ parent_opt selector collector place = function 
+| ComponentStructure cdcl ->
+    let parent_opt = Some cdcl.name in
+    assert(cdcl.args = []);
+
+    List.flatten (List.map (collect_cexpr_component_item parent_opt  selector collector) cdcl.body)
+and collect_cexpr_component_dcl parent_opt selector collector cdcl = 
+    map0_place (collect_cexpr_component_dcl_ parent_opt  selector collector ) cdcl
+and collect_cexpr_typedef_ parent_opt selector collector place = function 
+(* already binded left unchanged since it is type binder *)
+| ClassicalDef  (x, targs, body) -> []
+| EventDef (x, targs, body) -> []
+| ProtocolDef (x, mt) -> []
+and collect_cexpr_typedef parent_opt selector collector tdef= 
+    map0_place (collect_cexpr_typedef_ parent_opt  selector collector) tdef
+
+and collect_cexpr_derivation parent_opt selector collector place derive =
+    let tmp1 = List.flatten (List.map (collect_cexpr_cexpr parent_opt  selector collector) derive.cargs) in
+    let tmp3 = List.flatten (List.map (collect_cexpr_expr parent_opt  selector collector)  derive.eargs) in
+    tmp1@tmp3
+
+and collect_cexpr_term_ parent_opt selector collector place = function 
+    | EmptyTerm | Comments _ -> []
+    | Stmt stmt -> collect_cexpr_stmt parent_opt  selector collector stmt
+    | Component cdcl -> collect_cexpr_component_dcl parent_opt  selector collector cdcl
+    | Function fdcl -> collect_cexpr_function_dcl parent_opt  selector collector fdcl
+    | Typealias _ -> [] (* type binder but not an cexpr binder so  is left unchanged*)
+    | Typedef typedef -> collect_cexpr_typedef parent_opt  selector collector typedef
+    | Derive derive ->  collect_cexpr_derivation parent_opt  selector collector place derive 
+and collect_cexpr_term parent_opt selector collector t = 
+    map0_place (collect_cexpr_term_ parent_opt  selector collector) t
+
+and collect_cexpr_program  selector collector program = 
+    List.flatten (List.map (collect_cexpr_term None  selector collector) program)
+(******************************************************************)
 
 
 let rec collect_type_contract_ parent_opt (already_binded:Atom.Set.t) selector collector place _contract = 

@@ -279,6 +279,9 @@ module type TIRC = sig
     val collect_expr_stmt : Atom.atom option -> Variable.Set.t -> (_expr -> bool) -> (Atom.atom option -> Variable.Set.t -> expr -> 'a list) -> stmt -> Variable.Set.t * 'a list * (main_type*expr_variable) list
     val collect_stmt_stmt : Atom.atom option -> (_stmt -> bool) -> (Atom.atom option -> Error.place -> _stmt -> 'a list) -> stmt -> 'a list
     val collect_expr_mtype : Atom.atom option -> Variable.Set.t -> (_expr -> bool) -> (Atom.atom option -> Variable.Set.t -> expr -> 'a list) -> main_type -> Variable.Set.t * 'a list *(main_type*expr_variable) list
+    val collect_cexpr_cexpr : Atom.atom option -> (_component_expr -> bool) -> (Atom.atom option -> Error.place -> _component_expr -> 'a list) -> component_expr -> 'a list
+    val collect_cexpr_stmt : Atom.atom option -> (_component_expr -> bool) -> (Atom.atom option -> Error.place -> _component_expr -> 'a list) -> stmt -> 'a list
+    val collect_cexpr_expr : Atom.atom option -> (_component_expr -> bool) -> (Atom.atom option -> Error.place -> _component_expr -> 'a list) -> expr -> 'a list
     val free_vars_expr : Variable.Set.t -> expr -> Variable.Set.t * (main_type*expr_variable) list
     val free_vars_stmt : Variable.Set.t -> stmt -> Variable.Set.t * (main_type*expr_variable) list
     val free_vars_mtype : Variable.Set.t -> main_type -> Variable.Set.t * (main_type*expr_variable) list
@@ -620,7 +623,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
                 collected_elts@acc0, fvars@acc1) (collected_elts0, []) es
             in
             already_binded, collected_elts, fvars
-    and collect_expr_expr parent_opt (already_binded:Variable.Set.t) selector collector expr = 
+    and collect_expr_expr (parent_opt:Atom.atom option) (already_binded:Variable.Set.t) (selector:_expr->bool) (collector:Atom.atom option -> Variable.Set.t -> expr -> 'a list) (expr:expr) = 
         map0_place (collect_expr_expr_ parent_opt already_binded selector collector) expr
     and free_vars_expr already_binded e = 
         let already_binded, _, fvars = collect_expr_expr None  already_binded (function e -> false) (fun parent_opt env e -> []) e in
@@ -701,6 +704,48 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let already_binded, _, fvars = collect_expr_stmt None  already_binded (function e -> false) (fun parent_opt env e -> []) stmt in
         already_binded, Utils.deduplicate snd fvars 
 
+    let rec collect_cexpr_cexpr_ (parent_opt:Atom.atom option) selector (collector) place = 
+        let collect_cexpr = collect_cexpr_cexpr parent_opt  selector collector in
+    function 
+    | cexpr, _ when selector cexpr -> collector parent_opt place cexpr
+
+    (* Propagation *)
+    | VarCExpr _, _ -> []
+    | AppCExpr (ce1, args), _ -> (collect_cexpr ce1) @ (List.flatten (List.map collect_cexpr args))
+    | UnboxCExpr e, _ | AnyExpr e, _ -> collect_cexpr_expr parent_opt selector collector e
+
+    and collect_cexpr_cexpr parent_opt selector collector cexpr =       
+        map0_place (collect_cexpr_cexpr_ parent_opt selector collector) cexpr
+
+    and collect_cexpr_expr_ (parent_opt:Atom.atom option) selector (collector) place e = 
+        let selector_e = function
+            | Spawn _  | BoxCExpr _ -> true
+            | _ -> false
+        in
+        let collector_e _ _ = function
+            | {value=Spawn {c}, _}  | {value=BoxCExpr c, _} -> [c]
+        in
+        let _, ces, _ = collect_expr_expr parent_opt Variable.Set.empty selector_e collector_e {place; value=e} in
+
+        List.flatten (List.map (collect_cexpr_cexpr parent_opt selector collector) ces)
+
+
+    and collect_cexpr_expr parent_opt selector collector e =       
+        map0_place (collect_cexpr_expr_ parent_opt selector collector) e
+
+    and collect_cexpr_stmt_ parent_opt selector collector place stmt = 
+        let selector_e = function
+            | Spawn _  | BoxCExpr _ -> true
+            | _ -> false
+        in
+        let collector_e _ _ = function
+            | {value=Spawn {c}, _}  | {value=BoxCExpr c, _} -> [c]
+        in
+        let _, collected_elts, _ = collect_expr_stmt parent_opt Variable.Set.empty selector_e collector_e {place; value=stmt} in
+
+        List.flatten (List.map (collect_cexpr_cexpr parent_opt selector collector) collected_elts)
+    and collect_cexpr_stmt parent_opt selector collector stmt =       
+        map0_place (collect_cexpr_stmt_ parent_opt selector collector) stmt
 
     let rec collect_stmt_stmt_ parent_opt selector collector place = 
         let collect_stmt = collect_stmt_stmt parent_opt  selector collector in
@@ -724,7 +769,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         List.flatten (List.map collect_stmt (List.map snd branches))
     and collect_stmt_stmt parent_opt selector collector stmt =       
         map0_place (collect_stmt_stmt_ parent_opt selector collector) stmt
-
 
 
     (*retrun free  type variable *)
