@@ -403,6 +403,19 @@ and peval_expr env place (e, mt) :  env * (_expr * main_type) =
 and pe_expr env: expr -> env * expr = map2_place (peval_expr env)
 
 and peval_stmt env place : _stmt -> env * _stmt = 
+    let clean_stmts stmts =
+        (* Cleansing: removing empty stmt *)
+        let stmts = List.filter (function | {AstUtils.value=EmptyStmt;_} -> false | _-> true) stmts in
+
+        (* Stop at exit *)
+        let _, stmts, _ = List.fold_left (fun (seen_exit, acc_before, acc_after) -> 
+                if seen_exit then function stmt -> (seen_exit, acc_before, stmt::acc_after)
+                else function   | {AstUtils.value=ExitStmt i;_} as stmt -> (true, acc_before, stmt::acc_after)
+                                | stmt -> (seen_exit, stmt::acc_before, acc_after) 
+            ) (false, [],[]) stmts in
+        let stmts = List.rev stmts in
+        stmts
+    in
 function 
 | EmptyStmt -> env, EmptyStmt
 | AssignExpr (x, e) -> 
@@ -415,18 +428,8 @@ function
 | AssignThisExpr (x, e) -> env, AssignExpr (x,  snd(pe_expr env e ))
 | BlockStmt stmts -> begin 
     let inner_env, stmts = List.fold_left_map (fun env stmt -> pe_stmt env stmt) env stmts in
-incr toto;
+    let stmts = clean_stmts stmts in
 
-    (* Cleansing: removing empty stmt *)
-    let stmts = List.filter (function | {AstUtils.value=EmptyStmt;_} -> false | _-> true) stmts in
-
-    (* Stop at exit *)
-    let _, stmts, _ = List.fold_left (fun (seen_exit, acc_before, acc_after) -> 
-            if seen_exit then function stmt -> (seen_exit, acc_before, stmt::acc_after)
-            else function   | {AstUtils.value=ExitStmt i;_} as stmt -> (true, acc_before, stmt::acc_after)
-                            | stmt -> (seen_exit, stmt::acc_before, acc_after) 
-        ) (false, [],[]) stmts in
-    let stmts = List.rev stmts in
     match stmts with
     | [] -> env, EmptyStmt
     | [stmt] -> env, stmt.value
@@ -477,10 +480,13 @@ end
 | ReturnStmt e -> 
     let new_env, new_e = pe_expr env e in
     new_env, (ReturnStmt new_e)
-| WithContextStmt (anonymous_mod, cname, e, stmt) ->
+| WithContextStmt (anonymous_mod, cname, e, stmts) ->
     let _, e = pe_expr env e in
-    let new_env, stmt = pe_stmt env stmt in 
-    new_env, (WithContextStmt (anonymous_mod, cname, e, stmt))
+
+    let new_env, stmts = List.fold_left_map (fun env stmt -> pe_stmt env stmt) env stmts in
+    let stmts = clean_stmts stmts in
+
+    new_env, (WithContextStmt (anonymous_mod, cname, e, stmts))
 and pe_stmt env : stmt -> env * stmt = map2_place (peval_stmt env)
 
 

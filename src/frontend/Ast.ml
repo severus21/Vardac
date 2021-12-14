@@ -164,7 +164,7 @@ and _stmt =
     | ExpressionStmt of expr
     | BlockStmt of stmt list
 
-    | WithContextStmt of bool * variable * expr * stmt
+    | WithContextStmt of bool * variable * expr * stmt list
 
     | GhostStmt of stmt
 and stmt = _stmt placed

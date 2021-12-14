@@ -9,6 +9,10 @@ let fplace = (Error.forge_place "Intercept.ContextElimination" 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
+(* 
+    type key = (base_interceptor_type, intercepted component types)
+*)
+let interceptor_types : ((Atom.atom * Atom.Set.t), component_dcl) Hashtbl.t = Hashtbl.create 16 
 
 (*
     returns 
@@ -16,14 +20,35 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
         - list of activations spawned inside the context and use in the outerscope
 
 
-        Warning: heuristic only capture the 
-            let x = spawn ...; 
+    Overapproximation to detect all activation created in the scope 
+        how: based on the presence of a activaiton in the left hand side type of a let
+        failure: when the let is not [let ... = spawn]
+        overapproximation: because activation already created outside the scope but aliased inside are detected
+        unsupported cases (but detected -> trigger an error): let t = tuple(1, spawn ...)
 
-        TODO improve static analysis - control flow based ? + list of activations is not statically decidable due to condition and fct call
+    TODO improve static analysis - control flow based ? + list of activations is not statically decidable due to condition and fct call
 *)
-let analyze_withcontext place cname e stmt = 
+let analyze_withcontext place cname stmt = 
     let spawn_selector = function
         | LetExpr (_, _, {value=Spawn _, _}) -> true
+        | LetExpr (mt, x, _) -> begin
+            (* Overapproximation + failure *)
+            let tactivation_selector = function
+                | CType {value=TActivationInfo _} -> true
+                | _ -> false
+            in
+            let tactivation_collector _ _ = function
+                | {value=CType {value=TActivationInfo mt_comp}} -> [mt_comp]
+            in
+            let _,collected_mtypes,_ = collect_type_mtype None Atom.Set.empty tactivation_selector tactivation_collector mt in 
+
+            (* TODO use [collected_mtypes] to replace "spawn of TODO" in the followings *)
+            if collected_mtypes = [] then false
+            else Error.error place "binder [%s] captucollected_mtypes, and exposes, an uncaptured spawn of TODO - this can be an overapproximation, a spawn hidden in an other function or a unhandled cases (like a spawn hidden in a complex expcollected_mtypession)" (Atom.to_string x)
+            
+        end
+        | ForStmt (_, _, _, _) | IfStmt(_,_,_) | MatchStmt (_,_) | BlockStmt _ | WithContextStmt (_,_,_,_)  -> true (* because binders inside inner stmts can not escape *)
+        (* FIXME BlockStmt in cleansing ?? change semantics ??? *)
         | _ -> false
     in
     let spawn_collector parent_opt place = function
@@ -32,68 +57,132 @@ let analyze_withcontext place cname e stmt =
             | VarCExpr c -> [(c, x)]
             | _ -> Error.error place "spawn first arg should have been reduce into a cexpr value (i.e. component name)"
         end
+        | _ -> []
     in 
-    let spawned_component_types, spawned_activations = List.split (collect_stmt_stmt None spawn_selector spawn_collector stmt) in
 
-    Atom.Set.of_seq (List.to_seq spawned_component_types), Atom.Set.of_seq (List.to_seq spawned_activations)
+    let spawned_activations = collect_stmt_stmt None spawn_selector spawn_collector stmt in
+
+    Atom.Set.of_seq (List.to_seq (List.map fst spawned_activations)), spawned_activations
 
 (* 
     with<Interceptor> ctx() { stmt } 
 
     component InterceptorXX = MakeInterceptor(Interceptor, spawned_componenet_types)
     rewrite spawn by AnonymousInterceptedSpawn or InterceptedSpawn
+
+
+    generates one unique interceptor component type per context
 *)
-let ctxelim_stmt_ place = function
-    | WithContextStmt (anonymous_mod, cname, e, stmt) -> 
+(* TODO
+    check that nested ctxs are correctly handled => maybe rewrite is not applied recursively
+    with ...{
+        with ... {
 
+        }
+    }
+*)
+let key_of_ctx place cname stmts = 
+    let spawned_component_types_sets, _ = List.split (List.map (analyze_withcontext place cname) stmts) in
+    let spawned_component_types_set = 
+        match spawned_component_types_sets with
+        | [] -> Atom.Set.empty
+        | acc::stmts -> List.fold_left (fun acc set -> Atom.Set.union acc set) acc stmts
+    in
+    let spawned_component_types = List.of_seq (Atom.Set.to_seq spawned_component_types_set) in
 
-        let spawned_component_types_set, spawned_activations_set = analyze_withcontext place cname e stmt in
-        let spawned_component_types = List.of_seq (Atom.Set.to_seq spawned_component_types_set) in
-        
+    (* Deduplicate interceptor component type *)
+    let key = (cname, spawned_component_types_set) in
+    key
 
+let ctxelim_prepare_stmt parent_opt place = function
+    | WithContextStmt (anonymous_mod, cname, e, stmts) -> 
+        let key = key_of_ctx place cname stmts in
+        let spawned_component_types = List.of_seq (Atom.Set.to_seq (snd key)) in
 
-        (* Step 1 - 
-            component InterceptorXX = MakeInterceptor(Interceptor, spawned_componenet_types)
-        *)
-        let interceptor_name = Atom.fresh (Atom.value cname) in
-        let interceptor_dcl = auto_fplace (ComponentAssign {
-            name = interceptor_name;
-            args = []; (* TODO Remove args *)
-            value = auto_fplace (
-                AppCExpr (
-                    auto_fplace (VarCExpr (Atom.builtin "MakeInterceptor"), auto_fplace EmptyMainType), 
-                    [
-                        auto_fplace (AnyExpr 
-                            (auto_fplace (BlockExpr(
-                                AstUtils.List,
-                                List.map (function x -> 
-                                    auto_fplace (BoxCExpr (auto_fplace (VarCExpr x, auto_fplace EmptyMainType)), auto_fplace EmptyMainType)
-                                ) spawned_component_types
+        (* Deduplicate interceptor component type *)
+        match Hashtbl.find_opt interceptor_types key with
+        | Some _ -> [] 
+        | None -> begin
+            (* Step 1 - 
+                component InterceptorXX = MakeInterceptor(Interceptor, spawned_componenet_types)
+            *)
+            let interceptor_name = Atom.fresh (Atom.value cname) in
+            let interceptor_dcl = auto_fplace (ComponentAssign {
+                name = interceptor_name;
+                args = []; (* TODO Remove args *)
+                value = auto_fplace (
+                    AppCExpr (
+                        auto_fplace (VarCExpr (Atom.builtin "MakeInterceptor"), auto_fplace EmptyMainType), 
+                        [
+                            auto_fplace (AnyExpr 
+                                (auto_fplace (BlockExpr(
+                                    AstUtils.List,
+                                    List.map (function x -> 
+                                        auto_fplace (BoxCExpr (auto_fplace (VarCExpr x, auto_fplace EmptyMainType)), auto_fplace EmptyMainType)
+                                    ) spawned_component_types
+                                ), auto_fplace EmptyMainType)
                             ), auto_fplace EmptyMainType)
-                        ), auto_fplace EmptyMainType)
-                    ]
-                ), auto_fplace EmptyMainType
-            );
-        }) in
-        (*
-            Step 2 - 
-            with ... {
-                a = spawn ...()
+                        ]
+                    ), auto_fplace EmptyMainType
+                );
+            }) in
 
-            }
-            continuation_stmt
-            => [VarExpr a] in [continuation_stmt] by
-                InterceptedActivationInfo(i, a) if identity of [a] should be exposed NB. literal as type TActivationInfo(I)
-                VarExpr i otherwise
-                
+            Hashtbl.add interceptor_types key interceptor_dcl;
+            []
+        end
 
+(*
+    with ... {
+        let a = spawn ...()
+        ...
+    }
+    => 
+    let a' = spawn ... ()
+    ...
+    let a = [InterceptedActivationInfo(i, a')] if identity of [a'] should be exposed else [VarExpr i]
+
+*)
+let ctxelim_rewrite_stmt place = function 
+    | WithContextStmt (anonymous_mod, cname, e, stmts) -> 
+        (* NB. key_of_ctx is called twice one in prepare and one in rewrite.
+            perf: merge rewrite and preapre
+            readability: keep them split in two functions
         *)
+        let interceptor_assign = Hashtbl.find interceptor_types (key_of_ctx place cname stmts) in 
+        let interceptor_name = match interceptor_assign.value with
+        | ComponentAssign cassign -> cassign.name
+        in
+
+
         let i = Atom.fresh "interceptor" in
         let mt_interceptor = mtype_of_ct (TActivationInfo (mtype_of_cvar interceptor_name)) in
 
-        let continuation_rewriter =  function
-            | VarExpr intercepted_name, _ when Atom.Set.mem intercepted_name spawned_activations_set -> begin
-                let mt_intercepted = mtype_of_ct (TActivationInfo (mtype_of_cvar intercepted_name)) in
+        let spawned_activations = List.flatten (List.map snd (List.map (analyze_withcontext place cname) stmts)) in
+
+        (* Step perf. store things in hashtbl *)
+        let htbl = Hashtbl.create 16 in
+        List.iter (function (intercepted_name, a) ->
+            let a' = Atom.fresh (Atom.value a) in
+            Hashtbl.add htbl a (a', intercepted_name) 
+        );
+
+        (* Step a. let a = spawn => let a' = spawn *)
+        let stmts = List.map 
+            (rewrite_stmt_stmt false 
+                (function | LetExpr (_,x,_) -> Hashtbl.find_opt htbl x <> None | _ -> false) 
+                (function place -> function | LetExpr (mt, x, e) ->
+                    let a', _ = Hashtbl.find htbl x in
+                    [ LetExpr(mt, a', e) ]
+                )
+            )
+            stmts
+        in
+        let stmts = List.flatten stmts in
+
+        (* Step b. add at the end  [let a = [InterceptedActivationInfo(i, a')] if identity of [a'] should be exposed else [VarExpr i]]*)
+        let post_binders = Hashtbl.fold (fun  a (a', intercepted_name) acc ->
+            let mt_intercepted = mtype_of_ct (TActivationInfo (mtype_of_cvar intercepted_name)) in
+            let external_binder = auto_fplace(
                 if anonymous_mod then (
                     VarExpr i, mtype_of_ct (TActivationInfo (mtype_of_cvar interceptor_name))
                 )else(
@@ -102,12 +191,40 @@ let ctxelim_stmt_ place = function
                         auto_fplace (VarExpr intercepted_name, mt_intercepted)
                     ), if anonymous_mod then mt_interceptor else mt_intercepted
                 )
-            end
-        in
+            ) in
+            (auto_fplace (LetExpr( 
+                (* Preserved type for the outside world *)
+                mtype_of_ct (TActivationInfo (mtype_of_cvar intercepted_name)), 
+                a, (* Preserve name for the outside world *) 
+                external_binder
+            ))) :: acc
+        ) htbl [] in
 
-        interceptor_dcl, continuation_rewriter 
-    | stmt -> failwith "TODO propagation"
+        let stmts = stmts @ (List.rev post_binders) in
+        List.map (function stmt -> stmt.value) stmts
+let scope_selector = function 
+    | {value=Stmt {value=WithContextStmt _}} -> true
+    | _ -> false
+let scope_rewriter terms = 
+    (* At least one of the term in terms is a WithContextStmt *)
+
+    (* Step 0 - hydrate the hastbl 
+        NB. step0 and 1 could be merged but are split for readability
+    *)
+    let _ = collect_stmt_program (function | WithContextStmt _ -> true | _ -> false) ctxelim_prepare_stmt terms in
+
+    (* Step 1 - apply the rewrite *)
+    let terms = rewrite_stmt_program true (function | WithContextStmt _ -> true | _ -> false) ctxelim_rewrite_stmt terms in
+
+    (* Step 2 - insert the interceptor component type inside the scope i.e. terms *)
+    let terms = IR_utils.insert_in_terms 
+        (List.map (function c -> auto_fplace (Component c)) (List.of_seq (Hashtbl.to_seq_values interceptor_types)))
+        terms
+    in
 
 
-let ctxelim_program program = failwith "TODO ctxelim_program" 
+    terms
+
+let ctxelim_program program = 
+    rewrite_scopeterm_program scope_selector scope_rewriter program
     

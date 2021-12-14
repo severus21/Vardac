@@ -378,10 +378,10 @@ any_stmt_:
     { BlockStmt stmts}
 | GHOST BANG LCURLYBRACKET s = any_stmt RCURLYBRACKET 
     { GhostStmt s}
-| WITH LANGLEBRACKET x=UID RANGLEBRACKET e = any_expr LCURLYBRACKET stmt = any_stmt RCURLYBRACKET
-    { WithContextStmt (false, x, e, stmt) }
-| WITHANON LANGLEBRACKET x=UID RANGLEBRACKET e = any_expr LCURLYBRACKET stmt = any_stmt RCURLYBRACKET
-    { WithContextStmt (true, x, e, stmt) }
+| WITH LANGLEBRACKET x=UID RANGLEBRACKET e = any_expr LCURLYBRACKET stmts = flexible_sequence(any_stmt) RCURLYBRACKET
+    { WithContextStmt (false, x, e, stmts) }
+| WITHANON LANGLEBRACKET x=UID RANGLEBRACKET e = any_expr LCURLYBRACKET stmts = flexible_sequence(any_stmt) RCURLYBRACKET
+    { WithContextStmt (true, x, e, stmts) }
 
 %public %inline any_stmt:
   t = placed(any_stmt_)

@@ -222,7 +222,7 @@ module type TIRC = sig
 
         | GhostStmt of stmt
 
-        | WithContextStmt of bool * component_variable * expr * stmt
+        | WithContextStmt of bool * component_variable * expr * stmt list
 
     and stmt = _stmt placed
 
@@ -519,7 +519,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
         | GhostStmt of stmt
 
-        | WithContextStmt of bool * component_variable * expr * stmt
+        | WithContextStmt of bool * component_variable * expr * stmt list
     and stmt = _stmt placed
 
     and _param = main_type * expr_variable
@@ -642,17 +642,21 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let already_binded, _, fvars = collect_expr_mtype None  already_binded (function e -> false) (fun parent_opt env e -> []) mt in
         already_binded, Utils.deduplicate snd fvars 
 
-    and collect_expr_stmt_ parent_opt (already_binded:Variable.Set.t) selector collector place = function 
+    and collect_expr_stmt_ parent_opt (already_binded:Variable.Set.t) selector collector place = 
+        let collect_stmts already_binded stmts = 
+            List.fold_left_map (fun already_binded stmt -> 
+                let already_binded, collected_elts, fvars = collect_expr_stmt parent_opt already_binded selector collector stmt in
+                already_binded, (collected_elts, fvars)
+            ) already_binded stmts
+        in
+    function 
     | EmptyStmt -> already_binded, [], []
     | AssignExpr (x, e) ->
         collect_expr_expr parent_opt already_binded selector collector e
     | AssignThisExpr (x, e) ->
         collect_expr_expr parent_opt already_binded selector collector e
     | BlockStmt stmts ->
-        let _, res = List.fold_left_map (fun already_binded  stmt -> 
-            let already_binded, collected_elts, fvars = collect_expr_stmt parent_opt already_binded selector collector stmt in
-            already_binded, (collected_elts, fvars)
-        ) already_binded stmts in 
+        let _, res = collect_stmts already_binded stmts in 
         let collected_elts = List.map fst res in
         let fvars = List.map snd res in
         already_binded, List.flatten collected_elts, List.flatten fvars
@@ -692,10 +696,12 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | ReturnStmt e ->
         let _, collected_elts, fvars = collect_expr_expr parent_opt already_binded selector collector e in
         already_binded, collected_elts, fvars
-    | WithContextStmt (anonymous_mod, cname, e, stmt) -> 
+    | WithContextStmt (anonymous_mod, cname, e, stmts) -> 
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e in
-        let already_binded, collected_elts2, fvars2 = collect_expr_stmt parent_opt already_binded selector collector stmt in
-        already_binded, collected_elts1@collected_elts2, fvars1@fvars2
+        let already_binded, res = collect_stmts already_binded stmts in
+        let collected_elts2, fvars2 = List.split res in
+
+        already_binded, collected_elts1@(List.flatten collected_elts2), fvars1@(List.flatten fvars2)
 
     and collect_expr_stmt parent_opt (already_binded:Variable.Set.t) selector collector stmt =       
         map0_place (collect_expr_stmt_ parent_opt already_binded selector collector) stmt
@@ -754,9 +760,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     (* Propagation *)
     | EmptyStmt | AssignExpr _ | AssignThisExpr  _ | BreakStmt | CommentsStmt _ | ContinueStmt | ExpressionStmt _ | ExitStmt _ | LetExpr _ | ReturnStmt _-> []
-    | BlockStmt stmts ->
+    | BlockStmt stmts | WithContextStmt (_, _, _, stmts) ->
         List.flatten (List.map collect_stmt stmts) 
-    | ForStmt (_, _, _, stmt) | GhostStmt stmt | WithContextStmt (_, _, _, stmt) ->
+    | ForStmt (_, _, _, stmt) | GhostStmt stmt  ->
         collect_stmt stmt
     | IfStmt (_, stmt1, stmt2_opt) -> begin 
         let collected_elts1 = collect_stmt stmt1 in
@@ -1018,9 +1024,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             let collected_elts, ftvars = collect_stmts stmts in
             already_binded, collected_elts, ftvars
         | GhostStmt stmt -> collect_stmt stmt
-        | WithContextStmt (_, _, e, stmt) ->
+        | WithContextStmt (_, _, e, stmts) ->
             let _, collected_elts1, ftvars1 = collect_expr e in
-            let _, collected_elts2, ftvars2 = collect_stmt stmt in
+            let collected_elts2, ftvars2 = collect_stmts stmts in
             already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
 
     and collect_type_stmt (parent_opt:Atom.atom option) already_binded selector collector stmt =       
@@ -1264,11 +1270,11 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | ExpressionStmt e -> ExpressionStmt (rewrite_expr_expr selector rewriter e) 
         | BlockStmt stmts -> BlockStmt (List.map (rewrite_expr_stmt selector rewriter) stmts) 
         | GhostStmt stmt -> GhostStmt (rewrite_expr_stmt selector rewriter stmt)
-        | WithContextStmt (anonymous_mod, cname, e, stmt) -> WithContextStmt(
+        | WithContextStmt (anonymous_mod, cname, e, stmts) -> WithContextStmt(
             anonymous_mod,
             cname,
             rewrite_expr_expr selector rewriter e,
-            rewrite_expr_stmt selector rewriter stmt
+           List.map (rewrite_expr_stmt selector rewriter) stmts
         )
     and rewrite_expr_stmt selector rewriter = map_place (_rewrite_expr_stmt selector rewriter)
                     
@@ -1482,8 +1488,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | ExpressionStmt e -> [ExpressionStmt e]
         | BlockStmt stmts -> [BlockStmt (List.flatten (List.map rewrite_stmt_stmt stmts))] 
         | GhostStmt stmt -> List.map (function stmt -> GhostStmt stmt) (rewrite_stmt_stmt stmt)
-        | WithContextStmt (anonymous_mod, cname, e, stmt) -> [
-            WithContextStmt(anonymous_mod, cname, e, stmts2stmt (rewrite_stmt_stmt stmt))
+        | WithContextStmt (anonymous_mod, cname, e, stmts) -> [
+            WithContextStmt(anonymous_mod, cname, e, List.flatten (List.map rewrite_stmt_stmt stmts))
         ]
     and rewrite_stmt_stmt recurse selector (rewriter:Error.place -> _stmt -> _stmt list) = map_places (_rewrite_stmt_stmt recurse selector rewriter)
 

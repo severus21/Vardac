@@ -742,15 +742,15 @@ end
 | S.GhostStmt stmt -> 
     let env1, stmt = cstmt env stmt in
     env << [env1], T.GhostStmt stmt
-| S.WithContextStmt (anonymous_mod, cname, e, stmt) ->
+| S.WithContextStmt (anonymous_mod, cname, e, stmts) ->
     let cname = cook_var_component env place cname in
     let env1, e = cexpr env e in 
-    let env2, stmt = cstmt env stmt in 
+    let env2, stmts = List.fold_left_map cstmt env stmts in
     (* 
-        stmt is in the binding scope as the outside of WithContextStmt
+        stmts is in the binding scope as the outside of WithContextStmt
         transformation will come later on
     *)
-    env2, T.WithContextStmt (anonymous_mod, cname, e, stmt)
+    env2, T.WithContextStmt (anonymous_mod, cname, e, stmts)
 and cstmt env : S.stmt -> env * T.stmt = map2_place (cook_stmt env)
 
 and cook_function env place : S._function_dcl -> env * T._function_dcl = 
