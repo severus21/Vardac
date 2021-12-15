@@ -189,14 +189,55 @@ let make_citem_for_intercepted_component program base_interceptor intercepted_cn
         }, mt_p)))    
     ) intercepted_input_ports) in
     
-    (* TODO rewrite bridges types *)
     
 
 
     (* Output ports and bridges *)
+    failwith "TODO intercept output of intercepted";
     (* FIXME TODO Receive case ??? -> should have been rewritten or smth else *)
 
     (interception_states, interception_ports, interception_callbacks)
+(*
+    replace 
+    bridge< ... | A, ..., ...> -> bridge<....| A | Interceptor, ..., ...> 
+    bridge< ..., ... | A, ..., ...> -> bridge<..., ....| A | Interceptor, ...> 
+
+    REFACTOR
+    For performance, one can do one update pass for all tuple (intercepted_name, interceptor_name)
+    For readability and code reuse, we do one pass per (intercepted_name, interceptor_name)
+*)
+let update_bridges_types program (intercepted_name, interceptor_name) = 
+    let aux_selector = function 
+        | CompType {value=CompTUid intercepted_name} -> true
+        | _ -> false
+    in
+    let in_selector = function
+    | CType {value=TBridge tbridge} -> 
+        let _, collected_elts, _ = collect_type_mtype None Atom.Set.empty aux_selector (fun _ _ _ -> []) tbridge.in_type in
+        collected_elts <> []
+    | _ -> false
+    in
+    let in_rewriter = function 
+        | CType {value=TBridge tbridge; place} ->  CType {place; value=TBridge {tbridge with 
+            in_type = mtype_of_ct (TUnion (tbridge.in_type, mtype_of_ct (TActivationInfo interceptor_name)))
+        }}
+    in
+    let out_selector = function
+    | CType {value=TBridge tbridge} -> 
+        let _, collected_elts, _ = collect_type_mtype None Atom.Set.empty aux_selector (fun _ _ _ -> []) tbridge.out_type in
+        collected_elts <> []
+    | _ -> false
+    in
+    let out_rewriter = function 
+        | CType {place; value=TBridge tbridge} ->  CType {place; value=TBridge {tbridge with 
+            out_type = mtype_of_ct (TUnion (tbridge.out_type, mtype_of_ct (TActivationInfo interceptor_name)))
+        }}
+    in 
+
+    program 
+    |> rewrite_type_program in_selector in_rewriter  
+    |> rewrite_type_program out_selector out_rewriter
+
 
 let makeinterceptor_selector = function 
 | Component {value=ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} when Atom.hint functorname = "MakeInterceptor" && Atom.is_builtin functorname -> true 
@@ -277,6 +318,10 @@ end
 let apply_intercept_program program =
     (* Step 0. resolve MakeInterceptor *)
     let program = rewrite_term_program makeinterceptor_selector (makeinterceptor_rewriter program) program in 
+
+
+    (* TODO rewrite bridges types *)
+    List.fold_left update_bridges_types program (failwith "TODO rewrite bridgeis");
 
     (* Step 1. InterceptedActivationInfo *)
     failwith "TODO apply_intercept_program"
