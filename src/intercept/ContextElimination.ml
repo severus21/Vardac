@@ -14,6 +14,12 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 *)
 let interceptor_types : ((Atom.atom * Atom.Set.t), component_dcl) Hashtbl.t = Hashtbl.create 16 
 
+(* key -> parent name list *)
+let interceptors_parent : ((Atom.atom * Atom.Set.t), Atom.atom option list) Hashtbl.t = Hashtbl.create 16
+
+let show_key (cname, cnames) = 
+    Printf.sprintf "Key<%s><%s>" (Atom.show cname) (Atom.Set.show cnames) 
+
 (*
     returns 
         - list of components type spawned inside the context
@@ -99,10 +105,16 @@ let ctxelim_prepare_stmt parent_opt place = function
         let key = key_of_ctx place cname stmts in
         let spawned_component_types = List.of_seq (Atom.Set.to_seq (snd key)) in
 
+        logger#debug "ctxelim_prepare: %s" (show_key key);
+
         (* Deduplicate interceptor component type *)
         match Hashtbl.find_opt interceptor_types key with
-        | Some _ -> [] 
+        | Some _ -> 
+            Hashtbl.add interceptors_parent key (parent_opt::(Hashtbl.find interceptors_parent key));
+            [] 
         | None -> begin
+            Hashtbl.add interceptors_parent key [parent_opt];
+
             (* Step 1 - 
                 component InterceptorXX = MakeInterceptor(Interceptor, spawned_componenet_types)
             *)
@@ -148,7 +160,10 @@ let ctxelim_rewrite_stmt place = function
             perf: merge rewrite and preapre
             readability: keep them split in two functions
         *)
-        let interceptor_assign = Hashtbl.find interceptor_types (key_of_ctx place cname stmts) in 
+        let key = key_of_ctx place cname stmts in
+        logger#debug "ctxelim_rewrite: %s" (show_key key);
+
+        let interceptor_assign = Hashtbl.find interceptor_types key in 
         let interceptor_name = match interceptor_assign.value with
         | ComponentAssign cassign -> cassign.name
         in
@@ -202,19 +217,54 @@ let ctxelim_rewrite_stmt place = function
 
         let stmts = stmts @ (List.rev post_binders) in
         List.map (function stmt -> stmt.value) stmts
-let scope_selector = function 
-    | {value=Stmt {value=WithContextStmt _}} -> true
-    | _ -> false
+
+
+let insert_interceptor_dcl key interceptor_dcl (program:program) =
+    let parents = Hashtbl.find interceptors_parent key in
+    let flag_toplevel_parent = List.mem None parents in
+
+    let common_ancestor_name = if flag_toplevel_parent then (
+        (* Just need to add it in the toplevel scope *)
+        None
+    )
+    else (
+        let parents = List.map Option.get (List.filter (function x -> x <> None) parents) in
+        (* Dedup *)
+        let parents_set = Atom.Set.of_seq (List.to_seq parents) in
+
+        (* Search for lowest common ancestor *)
+        IR_utils.find_lca_program parents_set program
+    ) in
+ 
+    let insert_in_ancestor (program: program) : Atom.atom option -> program = function
+        | None -> IR_utils.insert_in_terms [auto_fplace (Component interceptor_dcl)] program 
+        | Some ca_name ->
+            let ancestor_selector = function 
+                | Component {value=ComponentStructure cdcl} -> cdcl.name =ca_name 
+                | _ -> false
+            in
+            let ancestor_rewriter place = function
+                | Component {place; value=ComponentStructure cdcl} ->
+                    let terms_body = List.map (function | {value=Term t} -> t) (List.filter (function |{value=Term _} -> true | _ -> false) cdcl.body) in
+                    let remaining_body = List.filter (function |{value=Term _} -> false | _ -> true) cdcl.body in
+
+                    let terms_body = IR_utils.insert_in_terms [auto_fplace (Component interceptor_dcl)] terms_body in 
+                    let terms_body = List.map (function t -> {place=t.place; value=Term t}) terms_body in
+
+
+                    [ 
+                        Component {place; value = ComponentStructure {cdcl with
+                            body = terms_body @ remaining_body 
+                        }} 
+                    ]
+            in
+
+            rewrite_term_program ancestor_selector ancestor_rewriter program
+    in 
+    insert_in_ancestor program common_ancestor_name 
+
 let scope_rewriter terms = 
     (* At least one of the term in terms is a WithContextStmt *)
-
-    (* Step 0 - hydrate the hastbl 
-        NB. step0 and 1 could be merged but are split for readability
-    *)
-    let _ = collect_stmt_program (function | WithContextStmt _ -> true | _ -> false) ctxelim_prepare_stmt terms in
-
-    (* Step 1 - apply the rewrite *)
-    let terms = rewrite_stmt_program true (function | WithContextStmt _ -> true | _ -> false) ctxelim_rewrite_stmt terms in
 
     (* Step 2 - insert the interceptor component type inside the scope i.e. terms *)
     let terms = IR_utils.insert_in_terms 
@@ -226,5 +276,14 @@ let scope_rewriter terms =
     terms
 
 let ctxelim_program program = 
-    rewrite_scopeterm_program scope_selector scope_rewriter program
+    (* Step 0 - hydrate the hastbl 
+        NB. step0 and 1 could be merged but are split for readability
+    *)
+    let _ = collect_stmt_program (function | WithContextStmt _ -> true | _ -> false) ctxelim_prepare_stmt program in
+
+    (* Step 1 - apply the rewrite *)
+    let program = rewrite_stmt_program true (function | WithContextStmt _ -> true | _ -> false) ctxelim_rewrite_stmt program in
+
+    let program = Hashtbl.fold insert_interceptor_dcl interceptor_types program in
+    program
     

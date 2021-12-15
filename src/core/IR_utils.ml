@@ -40,3 +40,37 @@ let insert_in_terms new_terms terms =
 
     (* New terms do not depend of binders in terms *)
     insert_new_terms [] terms
+
+(*********************************************************************)
+
+(* lowest common ancestor *)
+let rec aux_find_lca names current_name (subcomponents : component_dcl list) : bool * Atom.atom option  = 
+    assert (Atom.Set.cardinal names > 1);
+    let tmp = List.map (find_lca_cdcl names) subcomponents in
+    let tmp_true = List.filter (function (f,_) -> f) tmp in
+    if List.length tmp_true > 1 then 
+        true, current_name
+    else (
+        (* Target contains all names + LCA *)
+        let [_, Some target_name] = tmp_true in 
+        let [target] = List.filter (function | {value=ComponentStructure scdcl} -> scdcl.name = target_name) subcomponents in
+
+        find_lca_cdcl names target
+    )
+
+and find_lca_cdcl_ names place : _component_dcl ->  bool * Atom.atom option = function
+| ComponentStructure cdcl when Atom.Set.mem cdcl.name names -> true, None
+| ComponentStructure cdcl -> 
+    let subcomponents = List.filter (function | {value=Term{value=Component _}} -> true | _ -> false) cdcl.body in
+    let subcomponents = List.map (function | {value=Term{value=Component cdcl}} -> cdcl) subcomponents in
+
+    aux_find_lca names (Some cdcl.name) subcomponents
+and find_lca_cdcl names : component_dcl ->  bool * Atom.atom option = map0_place (find_lca_cdcl_ names)
+
+and find_lca_program names program =  
+    if Atom.Set.cardinal names > 1 then (
+        let subcomponents = List.filter (function | {value=Component _} -> true | _ -> false) program in
+        let subcomponents = List.map (function | {value=Component cdcl} -> cdcl) subcomponents in
+
+        snd (aux_find_lca names None subcomponents)
+    )else Some (Atom.Set.min_elt names)

@@ -371,6 +371,7 @@ and collect_stmt_component_dcl_ parent_opt selector collector place = function
     assert(cdcl.args = []);
 
     List.flatten (List.map (collect_stmt_component_item parent_opt  selector collector) cdcl.body)
+| ComponentAssign _ -> []
 and collect_stmt_component_dcl parent_opt selector collector cdcl = 
     map0_place (collect_stmt_component_dcl_ parent_opt  selector collector ) cdcl
 and collect_stmt_typedef_ parent_opt selector collector place = function 
