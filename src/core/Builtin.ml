@@ -355,6 +355,8 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "sessionid", "'st -> int", "Return the id of the session", t_sessionid;
     "sleep", "int -> unit", "sleep", t_sleep;
     "select", "st -> label -> st", "select", t_select;
+    "option_get", "option<'a> -> 'a", "", t_select; (*TODO*)
+    "session_from", "session -> activation<>", "get the initiater of the session", t_select; (*TODO*)
     (*
 
 
