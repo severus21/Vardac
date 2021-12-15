@@ -9,8 +9,10 @@ let fplace = (Error.forge_place "Intercept" 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
-let make_citem_for_intercepted_component intercepted_cname = 
-    let intercepted_struct : component_structure = failwith "TODO get intercepted_struct" in
+let make_citem_for_intercepted_component program intercepted_cname = 
+    let [intercepted_struct] : component_structure list = 
+        collect_term_program (function | Component {value=ComponentStructure {name}} -> name = intercepted_cname | _ -> false) (function place -> function | Component {value=ComponentStructure cstruct} -> [cstruct]) program 
+    in
 
 
     let interception_states = [] in 
@@ -43,19 +45,25 @@ let make_citem_for_intercepted_component intercepted_cname =
 
     (interception_states, interception_ports, interception_callbacks)
 
+let makeinterceptor_selector = function 
+| Component {value=ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} when Atom.hint functorname = "MakeInterceptor" && Atom.is_builtin functorname -> true 
+| _ -> false
 
-let make_interceptor place = function
-| ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}} when Atom.hint functorname = "MakeInterceptor" && Atom.is_builtin functorname-> begin
+let makeinterceptor_rewriter program place = function
+| Component {value=ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} -> begin
     (* Ad-hoc functor since we do not have meta programming capabilities *)
     match args with
-    | [{value=VarCExpr interceptor_name,_;}; {value=UnboxCExpr {value=BlockExpr (List, component_types), _}, _}] 
+    | [{value=VarCExpr interceptor_name,_;}; {value=AnyExpr {value=BlockExpr (List, component_types), _}, _}] 
     when List.fold_left (function flag -> function | {value=BoxCExpr {value=VarCExpr _,_}, _} -> true | _ -> false) true component_types ->
         let spawned_component_types = List.map (function
             |{value=BoxCExpr {value=VarCExpr cname, _}, _} -> cname
         ) component_types in
 
-        let base_interceptor : component_structure = failwith "TODO extract base interceptor (i.e. user defined or not)" in
-        (* base_interceptor must be component not a functor *)
+        let [base_interceptor] : component_structure list = 
+            collect_term_program (function | Component {value=ComponentStructure {name}} -> name = interceptor_name | _ -> false) (function place -> function | Component {value=ComponentStructure cstruct} -> [cstruct]) program 
+        in
+            
+        (* base_interceptor must be a component not a functor *)
         assert(base_interceptor.args = []);
 
         let base_onstartup = Option.map (function {value=Method m} -> m) (List.find_opt (function | {value=Method m} -> m.value.on_startup | _ -> false) base_interceptor.body) in 
@@ -89,7 +97,7 @@ let make_interceptor place = function
             on_destroy = false;
         })) in (* TODO we need to add logic here ?? *)
 
-        let tmp = List.map make_citem_for_intercepted_component spawned_component_types in
+        let tmp = List.map (make_citem_for_intercepted_component program) spawned_component_types in
         let interception_states = List.flatten (List.map (function (x,_,_) -> x) tmp) in 
         let interception_ports = List.flatten (List.map (function (_,y,_) -> y) tmp) in 
         let interception_callbacks = List.flatten (List.map (function (_,_,z) -> z) tmp) in 
@@ -109,9 +117,15 @@ let make_interceptor place = function
         }
         in
 
-        (Component (auto_fplace (ComponentStructure structure)))
+        [ Component (auto_fplace (ComponentStructure structure)) ]
     | _ -> Error.error place "Functor [MakeInterceptor] expect two arguments : the Interceptor component and a list of Component type that should be intercepted" 
 end
 
 let apply_intercept_program program =
+    (* Step 0. resolve MakeInterceptor *)
+    let program = rewrite_term_program makeinterceptor_selector (makeinterceptor_rewriter program) program in 
+
+    (* Step 1. InterceptedActivationInfo *)
     failwith "TODO apply_intercept_program"
+
+    program

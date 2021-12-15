@@ -126,6 +126,7 @@ let ctxelim_prepare_stmt parent_opt place = function
                     AppCExpr (
                         auto_fplace (VarCExpr (Atom.builtin "MakeInterceptor"), auto_fplace EmptyMainType), 
                         [
+                            auto_fplace (VarCExpr cname, auto_fplace EmptyMainType);
                             auto_fplace (AnyExpr 
                                 (auto_fplace (BlockExpr(
                                     AstUtils.List,

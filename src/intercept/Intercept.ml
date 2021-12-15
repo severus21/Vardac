@@ -45,7 +45,7 @@ let rewrite_program program =
     |> function x-> logger#sinfo "interception ctx has been eliminated from IR";x
     |> dump "interception-ctx-eliminated IR" show_program
     |> intermediatecondition
-    |> Interception.apply_intercept_program 
+    |> InterceptionElimination.apply_intercept_program 
     |> function x-> logger#sinfo "interception logic has been eliminated from IR";x
     |> dump "interception-eliminated IR" show_program
     |> postcondition

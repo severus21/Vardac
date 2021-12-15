@@ -42,6 +42,8 @@ include IR_common
 module IR = IR_template.Make(IRC)(Params) 
 include IR
 
+
+(* TODO REFACTOR move all the followings in IR_utils.ml *)
 let rec collect_expr_contract_ parent_opt (already_binded:Atom.Set.t) selector collector place _contract = 
     let inner_already_binded = List.fold_left (fun already_binded (mt, x, e) ->
         Variable.Set.add x already_binded
@@ -770,7 +772,26 @@ let replace_expr_component_item x_to_replace replaceby =
     let selector, rewriter = make x_to_replace replaceby in
     rewrite_expr_component_item selector rewriter
 
+(******************************************)
 
+let rec collect_term_component_item_  selector collector place = function 
+| Term t -> collect_term_term selector collector t
+| citem -> []
+and collect_term_component_item selector collector = map0_place (collect_term_component_item_ selector collector) 
+
+and collect_term_component_dcl_  selector collector place = function 
+| ComponentStructure cdcl -> List.flatten (List.map (collect_term_component_item selector collector) cdcl.body)
+| x -> [] 
+and collect_term_component_dcl selector collector = map0_place (collect_term_component_dcl_ selector collector) 
+
+and collect_term_term_ selector collector place = function 
+| t when selector t -> collector place t
+| Component cdcl -> collect_term_component_dcl selector collector cdcl
+| t -> [] 
+and collect_term_term selector collector = map0_place (collect_term_term_ selector collector) 
+
+and collect_term_program (selector : _term -> bool) (collector : Error.place -> _term -> 'a list) program = List.flatten (List.map (collect_term_term selector collector) program )
+(******************************************)
 let rec rewrite_term_component_item_  selector rewriter place = function 
 | Term t -> List.map (function x -> Term x) (rewrite_term_term selector rewriter t)
 | citem -> [citem]
