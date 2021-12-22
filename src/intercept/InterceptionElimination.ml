@@ -63,6 +63,7 @@ let generate_callback (base_interceptor : component_structure) port_name (expect
             | _ -> Error.error m.place "Invalid intercept method, expected aruments should have the following form [from, to, session_in, session_out, msg]"
         in
         flag1 && flag2
+        | _ -> false
     in
 
         
@@ -176,7 +177,7 @@ let make_citem_for_intercepted_component program base_interceptor intercepted_cn
     let interception_callbacks, interception_ports = List.split (List.map (function |{place; value=Port {value=p,mt_p; place=p_port}} -> 
         let port_name = Atom.fresh ("interceptor_pinput_"^(Atom.to_string intercepted_cname)^"_"^(Atom.to_string p.name)) in
         let t_bridge:tbridge = match mt_p.value with 
-            | CType {value=TPort (_,{value=CType {value=TBridge t_bridge}})} -> t_bridge 
+            | CType {value=TPort ({value=CType {value=TBridge t_bridge}},_)} -> t_bridge 
             | _ -> raise (Error.PlacedDeadbranchError (mt_p.place, "Can not extract bridge type"))
         in
         let callback = generate_callback base_interceptor port_name ((match p.expecting_st.value with | SType st -> st | _ -> raise (Error.PlacedDeadbranchError (p.expecting_st.place, "port expecting_st must be a session type"))), t_bridge) in
