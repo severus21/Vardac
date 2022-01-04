@@ -16,21 +16,6 @@ let logger = Logging.make_logger ("_1_ compspec") Debug [];;
         No more EmptyExpr (otherwise they are not in ExpressionStmt => error)
 *)
 
-let precondition program = program
-
-let postcondition program = 
-    let selector = function
-        | EmptyExpr -> true 
-        | _ -> false
-    in
-
-    let collector parent_opt env = function
-        | {place; value=EmptyExpr, _} ->  raise (Error.PlacedDeadbranchError (place, "EmptyExpr reamins in IR after cleansing, i.e. it is used otherwise than inside ExpressionStmt EmptyExpr"))
-    in
-
-    collect_expr_program Atom.Set.empty selector collector program;
-
-    program
 
 let clean_program program = 
     let stmt_selector = function
@@ -48,4 +33,24 @@ let clean_program program =
 
     rewrite_stmt_program true stmt_selector stmt_rewriter program    
 
+(*****************************************************)
+let displayed_pass_shortdescription = "IR has been cleaned"
+let displayed_ast_name = "cleaned IR"
+let show_ast = true
+
+let precondition program = program
+
+let postcondition program = 
+    let selector = function
+        | EmptyExpr -> true 
+        | _ -> false
+    in
+
+    let collector parent_opt env = function
+        | {place; value=EmptyExpr, _} ->  raise (Error.PlacedDeadbranchError (place, "EmptyExpr reamins in IR after cleansing, i.e. it is used otherwise than inside ExpressionStmt EmptyExpr"))
+    in
+
+    collect_expr_program Atom.Set.empty selector collector program;
+
+    program
 let apply_program = clean_program

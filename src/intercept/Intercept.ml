@@ -6,6 +6,21 @@ open Easy_logging
 
 let logger = Logging.make_logger ("_1_ compspec.Intercept") Debug [];;
 
+
+module ContextElimination = Core.CompilationPass.Make(ContextElimination)
+module InterceptionElimination = Core.CompilationPass.Make(InterceptionElimination)
+
+let rewrite_program program = 
+    program
+    |> ContextElimination.apply
+    |> InterceptionElimination.apply
+    
+(*********************************************************)
+
+let displayed_pass_shortdescription = "Interception in IR compiled away"
+let displayed_ast_name = "interception-less IR"
+let show_ast = true
+
 let interception_selector = function 
     | InterceptedActivationInfo _ -> true
     | _ -> false
@@ -25,17 +40,4 @@ let postcondition program =
     
     program
 
-
-module ContextElimination = Core.CompilationPass.Make(ContextElimination)
-module InterceptionElimination = Core.CompilationPass.Make(InterceptionElimination)
-
-let rewrite_program program = 
-    program
-    |> ContextElimination.apply
-    |> function x-> logger#sinfo "interception ctx has been eliminated from IR";x
-    |> dump "interception-ctx-eliminated IR" show_program
-    |> InterceptionElimination.apply
-    |> function x-> logger#sinfo "interception logic has been eliminated from IR";x
-    |> dump "interception-eliminated IR" show_program
-    
 let apply_program = rewrite_program

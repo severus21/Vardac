@@ -394,6 +394,9 @@ module Make(Args:Args) : Sig = struct
         program
 
     (**********************************************************)
+    let displayed_pass_shortdescription = Printf.sprintf "RPC derivation have been applied IR for %s" (Atom.to_string cname)
+    let displayed_ast_name = "IR RPC-derived"
+    let show_ast = false 
     let precondition program = program
     let postcondition program = program
     let apply_program = derive_program

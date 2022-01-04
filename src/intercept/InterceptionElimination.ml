@@ -331,6 +331,9 @@ let apply_intercept_program program =
 
 (*********************************************************)
 
+let displayed_pass_shortdescription = "interception logic has been eliminated from IR"
+let displayed_ast_name = "interception-eliminated IR"
+let show_ast = true
 let precondition program = program
 let postcondition program = program
 let apply_program = apply_intercept_program

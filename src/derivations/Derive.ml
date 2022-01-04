@@ -76,6 +76,10 @@ let derive_program program =
     
 
 (**********************************************************)
+
+let displayed_pass_shortdescription = "Derives has been applied to IR"
+let displayed_ast_name = "derived IR"
+let show_ast = true
 let precondition program = program
 let postcondition program = program
 let apply_program = derive_program

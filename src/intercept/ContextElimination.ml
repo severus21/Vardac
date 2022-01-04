@@ -291,6 +291,11 @@ let ctxelim_program program =
     
 (*********************************************************)
 
+let displayed_pass_shortdescription = "interception ctx has been eliminated from IR"
+let displayed_ast_name = "interception-ctx-eliminated IR"
+let show_ast = true
+
+
 let precondition program = program
 
 let withcontext_selector = function

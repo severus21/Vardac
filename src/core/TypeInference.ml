@@ -767,6 +767,9 @@ and tannot_program program =
 
 
 (**********************************************************)
+let displayed_pass_shortdescription = "IR has been annotated with types (type reconstruction only)"
+let displayed_ast_name = "annotated IR (with types)"
+let show_ast = true
 let precondition program = program
 let postcondition program = program
 let apply_program = tannot_program

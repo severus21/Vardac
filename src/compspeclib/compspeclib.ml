@@ -27,8 +27,6 @@ let process_check build_dir places_file filename =
     let (gamma, ir) = Frontend.to_ir places filename in
     ir
     |> PartialEval.apply
-    |> function x-> logger#sinfo "IR has been partially evaluated";x
-    |> Core.AstUtils.dump "pevaled IR" IR.show_program
     |> Check.check_program project_dir build_dir
     (* TODO incoporate type checking as check*)
 
@@ -46,15 +44,9 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     let ir1 =
         ir
         |> Reduce.apply
-        |> function x-> logger#sinfo "IR has been reduced"; x
         |> TypeInference.apply
-        |> function x-> logger#sinfo "IR has been annotated with types (type reconstruction only)"; x
-        (*|> TypeChecking.apply
-        |> function x-> logger#sinfo "IR has been typed checked successfully"; x*)
-        |> Core.AstUtils.dump "annotated IR (with types)" IR.show_program
+        (*|> TypeChecking.apply*)
         |> PartialEval.apply
-        |> function x-> logger#sinfo "IR has been partially evaluated"; x
-        |> Core.AstUtils.dump "pevaled IR" IR.show_program
     in
 
     (* extract targets definitions from file *)
@@ -68,15 +60,11 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
     let ir2 = ir1 
         |> ImplicitElimination.apply
-        |> function x-> logger#sinfo "Implicit have been removed and turned to explicit";x
-        |> Core.AstUtils.dump "explicit IR" IR.show_program
     in
 
     let ir3 = ir2
-        |> Core.PartialEval.peval_program
+        |> PartialEval.apply
         |> Derive.apply
-        |> function x-> logger#sinfo "Derives has been applied to IR";x
-        |> Core.AstUtils.dump "derived IR" IR.show_program
 
         (* TODO FIXME 
             0. Annots derived expression with types (and not just EmptyMainType)
@@ -90,17 +78,10 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         |> ImplicitElimination.apply
         
         |> RecvElimination.apply (* Transform receive to async + ports *) 
-        |> function x-> logger#sinfo "IR has been rewritten";x
-        |> Core.AstUtils.dump "rewritten IR" IR.show_program
 
         (* Every pass that change ports and components should be performed before runngin the Intercept transformation *)
         |> Intercept.apply
-        |> function x-> logger#sinfo "Interception in IR compiled away";x
-        |> Core.AstUtils.dump "interception-less IR" IR.show_program
-
         |> Clean.apply
-        |> function x-> logger#sinfo "IR has been cleaned";x
-        |> Core.AstUtils.dump "cleaned IR" IR.show_program
     in
 
     ir3

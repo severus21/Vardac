@@ -23,9 +23,6 @@ module Make (Args : Params ) : Sig = struct
     TODO TODOC somewhere *)
 
 
-    let precondition program = program 
-    let postcondition program = program 
-
 
     module Env = Set.Make( struct
       type t = main_type * Atom.atom
@@ -305,6 +302,15 @@ module Make (Args : Params ) : Sig = struct
         let apply_all_rewriting term = List.fold_left apply_rewriting term !spawn_rewritings in
         let terms = List.map apply_all_rewriting terms in
         List.map rterm2 terms
+
+    (*****************************************************)
+    let displayed_pass_shortdescription = "Implicit have been removed and turned to explicit"
+    let displayed_ast_name = "explicit IR"
+
+    let show_ast = true
+
+    let precondition program = program 
+    let postcondition program = program 
 
     let apply_program = rewrite_program
 

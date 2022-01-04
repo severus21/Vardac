@@ -42,34 +42,6 @@ module Make (Args : Params ) : Sig = struct
     *)
     include Args
 
-    (****************** Pre/post conditions *******************)
-    let receive_selector = function 
-        | (CallExpr ({value=(VarExpr x, _)}, [s; bridge])as e) when Atom.is_builtin x && Atom.hint x = "receive" -> true
-        | _ -> false
-    let receive_collector msg parent_opt env e = 
-        let parent = match parent_opt with | None -> "Toplevel" | Some p -> Atom.to_string p in
-        Error.error e.place "%s. Parent = %s" msg parent
-
-
-    let precondition program = 
-        (* Check: no receive in function_declaration
-                since we can not create async port to handle it (not in a component)
-        *)
-        let fdcls = List.filter (function |{value=Function _} -> true |_ -> false) program in
-        let fdcls = List.map (function |{value=Function fdcl} -> fdcl.value) fdcls in
-        List.iter (function (fdcl:_function_dcl) -> 
-            List.iter 
-                (function stmt -> ignore (collect_expr_stmt (Some fdcl.name) Atom.Set.empty receive_selector (receive_collector "receive can not be defined into function (only inside component methods)") stmt))
-                fdcl.body
-            ) fdcls;
-
-        program
-    let postcondition program = 
-        (* Check: no more receive *)
-        ignore (collect_expr_program Atom.Set.empty receive_selector (receive_collector "receive() remains in IR after Rewriting") program);
-        
-        program
-
 
     (*******************************************************)
 
@@ -511,5 +483,39 @@ module Make (Args : Params ) : Sig = struct
 
     and rewrite_program program = 
         List.map rterm program
+    
+    (*****************************************************)
+
+    let displayed_pass_shortdescription = "recv has been eliminated from IR"
+    let displayed_ast_name = "IR recvelim"
+    let show_ast = true
+
+    let receive_selector = function 
+        | (CallExpr ({value=(VarExpr x, _)}, [s; bridge])as e) when Atom.is_builtin x && Atom.hint x = "receive" -> true
+        | _ -> false
+    let receive_collector msg parent_opt env e = 
+        let parent = match parent_opt with | None -> "Toplevel" | Some p -> Atom.to_string p in
+        Error.error e.place "%s. Parent = %s" msg parent
+
+
+    let precondition program = 
+        (* Check: no receive in function_declaration
+                since we can not create async port to handle it (not in a component)
+        *)
+        let fdcls = List.filter (function |{value=Function _} -> true |_ -> false) program in
+        let fdcls = List.map (function |{value=Function fdcl} -> fdcl.value) fdcls in
+        List.iter (function (fdcl:_function_dcl) -> 
+            List.iter 
+                (function stmt -> ignore (collect_expr_stmt (Some fdcl.name) Atom.Set.empty receive_selector (receive_collector "receive can not be defined into function (only inside component methods)") stmt))
+                fdcl.body
+            ) fdcls;
+
+        program
+    let postcondition program = 
+        (* Check: no more receive *)
+        ignore (collect_expr_program Atom.Set.empty receive_selector (receive_collector "receive() remains in IR after Rewriting") program);
+        
+        program
+
     let apply_program = rewrite_program
 end

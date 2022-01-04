@@ -12,8 +12,6 @@ let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
 *)
 
-let precondition program = program
-let postcondition program = program
 
 (***************************************************************)
 let stinline_selector = function
@@ -667,5 +665,12 @@ let peval_program (terms: IR.program) : IR.program =
     check_program program;
     program
 
+(**********************************************************)
+let displayed_pass_shortdescription = "IR has been partially evaluated"
+let displayed_ast_name = "pevaled IR"
+
+let show_ast = true
+let precondition program = program
+let postcondition program = program
 let apply_program = peval_program
 
