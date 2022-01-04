@@ -24,16 +24,17 @@ let to_ast places filename =
     |> function ast -> logger#sinfo "AST is built"; ast 
     |> dump "Ast" Ast.show_program
 
-let to_ir places filename =
+module Resolve = AstCompilationPass.Make(Resolve)
+
+let to_ir places filename : Cook.gamma_t * Core.IR.program =
+    let module Cookk = Cook.Make(struct let _places = places end) in 
+    let module Cook = Ast2IRCompilationPass.Make(Cookk) in
+
     to_ast places filename
-    |> Resolve.resolve_program   
-    |> function ast -> logger#sinfo "AST is resolved"; ast 
-    |> dump "ResolveAst" Ast.show_program  
+    |> Resolve.apply  
     |> PairedAnnotation.apair_program 
     |> dump "PairedAnnotationAst" Ast.show_program  
-    |> Cook.cook_program places
-    |> function (gamma, ast) -> logger#sinfo "AST is cooked, IR has been generated"; (gamma, ast) 
-    |> function (gamma, ast) -> dump ~print:(Config.debug_cook ()) "IR" IR.show_program ast; (gamma, ast)
+    |> function program -> let ir = Cook.apply program in Cookk.gamma, ir
 
 let process_place (filename:string) =
     filename

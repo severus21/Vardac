@@ -1,28 +1,36 @@
 (*
     describes an IR -> IR transformation
 *)
-open IR
 
-module type Pass = sig  
-    val displayed_ast_name : string
-    val displayed_pass_shortdescription : string
-    val show_ast : bool
+open Easy_logging
+let logger = Logging.make_logger "_1_" Debug [];;
 
-    val precondition : program -> program
-    val apply_program : program -> program
-    val postcondition : program -> program
+module type Arg = sig 
+    type program
+    val show_program : program -> string 
 end
+module Make(S:Arg)(T:Arg) = struct 
+    module type Pass = sig  
+        val displayed_ast_name : string
+        val displayed_pass_shortdescription : string
+        val show_ast : bool
 
-module Make (Pass: Pass) : sig
-    val apply : program -> program
-end = struct
-    include Pass
+        val precondition : S.program -> S.program
+        val apply_program : S.program -> T.program
+        val postcondition : T.program -> T.program
+    end
 
-    let apply program = 
-        program
-        |> precondition
-        |> apply_program
-        |> function x-> logger#sinfo displayed_pass_shortdescription;x
-        |> (if show_ast && Config.debug () then AstUtils.dump displayed_ast_name show_program else Fun.id)
-        |> postcondition
+    module Make (Pass: Pass) : sig
+        val apply : S.program -> T.program
+    end = struct
+        include Pass
+
+        let apply program = 
+            program
+            |> precondition
+            |> apply_program
+            |> function x-> logger#sinfo displayed_pass_shortdescription;x
+            |> (if show_ast && Config.debug () then AstUtils.dump displayed_ast_name T.show_program else Fun.id)
+            |> postcondition
+    end
 end

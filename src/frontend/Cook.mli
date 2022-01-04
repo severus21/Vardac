@@ -28,5 +28,10 @@ open Core
 type gamma_t = (IR.expr_variable, IR.main_type) Hashtbl.t
 val print_gamma : gamma_t -> unit
 
-val cook_expression: Ast.expr -> IR.expr
-val cook_program: IR.vplaces -> Ast.program -> gamma_t * IR.program
+module Make : functor (Arg : sig val _places : Core.IR.vplace list end) -> sig 
+   val gamma : gamma_t
+   val cook_expression: Ast.expr -> IR.expr
+   val cook_program: Ast.program -> IR.program
+
+   include Ast2IRCompilationPass.Pass
+end

@@ -21,11 +21,13 @@ let bind env x =
   let a = Atom.fresh x in
   Env.add x a env, a
 
+module Cook = Cook.Make(struct let _places=[] end)
+
 let rec cook_vplace env (vp:S.vplace) = 
     let env, children = List.fold_left_map cook_vplace env vp.children in 
     let env, name = bind env vp.name in
     env, {  T.name; 
-                        nbr_instances=Cook.cook_expression vp.nbr_instances;
+                        nbr_instances = Cook.cook_expression vp.nbr_instances;
                         features=vp.features;
                         children }
                 

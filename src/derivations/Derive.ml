@@ -44,7 +44,7 @@ let apply_derive program {place; value=derive} =
         match derive.cargs, derive.targs, derive.eargs with 
         | [{value=VarCExpr cname,_}],[],[] ->
             let module RPC = (RPC.Make(struct let cname = cname end):RPC.Sig) in
-            let module RPC = Core.CompilationPass.Make(RPC) in
+            let module RPC = Core.IRCompilationPass.Make(RPC) in
 
             RPC.apply program
         | _ -> Error.error place "Wrong arguments"

@@ -4,4 +4,4 @@
 *)
 
 val reduce_program: IR.program -> IR.program
-include CompilationPass.Pass
+include IRCompilationPass.Pass

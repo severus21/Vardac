@@ -31,7 +31,7 @@ module type Args = sig
 end
 
 module type Sig = sig
-    include CompilationPass.Pass
+    include IRCompilationPass.Pass
 end
 
 module Make(Args:Args) : Sig = struct

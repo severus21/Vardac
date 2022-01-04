@@ -10,13 +10,13 @@ let process_impl filename =
     Frontend.to_impl filename
 
 (* Static passes *)
-module Clean = CompilationPass.Make(Core.Clean)
-module Derive = CompilationPass.Make(Derive)
-module Intercept = CompilationPass.Make(Intercept)
-module PartialEval = CompilationPass.Make(Core.PartialEval)
-module Reduce = CompilationPass.Make(Core.Reduce)
-module TypeChecking = CompilationPass.Make(Core.TypeChecking)
-module TypeInference = CompilationPass.Make(Core.TypeInference)
+module Clean = IRCompilationPass.Make(Core.Clean)
+module Derive = IRCompilationPass.Make(Derive)
+module Intercept = IRCompilationPass.Make(Intercept)
+module PartialEval = IRCompilationPass.Make(Core.PartialEval)
+module Reduce = IRCompilationPass.Make(Core.Reduce)
+module TypeChecking = IRCompilationPass.Make(Core.TypeChecking)
+module TypeInference = IRCompilationPass.Make(Core.TypeInference)
 
 let process_check build_dir places_file filename = 
     let build_dir = Utils.refresh_or_create_build_dir build_dir in
@@ -53,10 +53,10 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     let targets = Frontend.process_target ir targets_file in
 
     let module RecvElimination = ((Core.RecvElimination.Make((struct let gamma = gamma let targets = targets end))):Core.RecvElimination.Sig) in
-    let module RecvElimination = Core.CompilationPass.Make(RecvElimination) in
+    let module RecvElimination = Core.IRCompilationPass.Make(RecvElimination) in
 
     let module ImplicitElimination = ((Core.ImplicitElimination.Make((struct let gamma = gamma let targets = targets end))):Core.ImplicitElimination.Sig) in
-    let module ImplicitElimination = Core.CompilationPass.Make(ImplicitElimination) in
+    let module ImplicitElimination = Core.IRCompilationPass.Make(ImplicitElimination) in
 
     let ir2 = ir1 
         |> ImplicitElimination.apply

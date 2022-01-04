@@ -117,3 +117,13 @@ match value with
 
 and resolve_program (prog: S.program) : T.program =
     List.flatten (List.map resolve_term prog)
+
+
+(**********************************************************)
+
+let displayed_pass_shortdescription = "AST is resolved"
+let displayed_ast_name = "ResolvedAst"
+let show_ast = true
+let precondition program = program
+let postcondition program = program
+let apply_program = resolve_program

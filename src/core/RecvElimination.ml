@@ -30,7 +30,7 @@ let print_entries2 entries=
 
 
 module type Sig = sig
-    include CompilationPass.Pass
+    include IRCompilationPass.Pass
 end
 let troloc = ref 0 (* TODO remove *)
 

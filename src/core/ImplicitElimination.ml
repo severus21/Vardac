@@ -10,7 +10,7 @@ module type Params = sig
 end
 
 module type Sig = sig
-    include CompilationPass.Pass
+    include IRCompilationPass.Pass
 end
 
 module Make (Args : Params ) : Sig = struct

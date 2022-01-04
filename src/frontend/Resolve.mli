@@ -4,3 +4,4 @@
 *)
 
 val resolve_program: Ast.program -> Ast.program
+include AstCompilationPass.Pass
