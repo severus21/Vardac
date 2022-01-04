@@ -30,35 +30,9 @@ let print_entries2 entries=
 
 
 module type Sig = sig
-    val rewrite_program: IR.program -> IR.program
+    include CompilationPass.Pass
 end
-let troloc = ref 0
-let receive_selector = function 
-    | (CallExpr ({value=(VarExpr x, _)}, [s; bridge])as e) when Atom.is_builtin x && Atom.hint x = "receive" -> true
-    | _ -> false
-let receive_collector msg parent_opt env e = 
-    let parent = match parent_opt with | None -> "Toplevel" | Some p -> Atom.to_string p in
-    Error.error e.place "%s. Parent = %s" msg parent
-
-
-let check_precondition_program program = 
-    (* Check: no receive in function_declaration
-            since we can not create async port to handle it (not in a component)
-    *)
-    let fdcls = List.filter (function |{value=Function _} -> true |_ -> false) program in
-    let fdcls = List.map (function |{value=Function fdcl} -> fdcl.value) fdcls in
-    List.iter (function (fdcl:_function_dcl) -> 
-        List.iter 
-            (function stmt -> ignore (collect_expr_stmt (Some fdcl.name) Atom.Set.empty receive_selector (receive_collector "receive can not be defined into function (only inside component methods)") stmt))
-            fdcl.body
-        ) fdcls;
-
-    program
-let check_postcondition_program program = 
-    (* Check: no more receive *)
-    ignore (collect_expr_program Atom.Set.empty receive_selector (receive_collector "receive() remains in IR after Rewriting") program);
-    
-    program
+let troloc = ref 0 (* TODO remove *)
 
 module Make (Args : Params ) : Sig = struct
     (*
@@ -68,6 +42,36 @@ module Make (Args : Params ) : Sig = struct
     *)
     include Args
 
+    (****************** Pre/post conditions *******************)
+    let receive_selector = function 
+        | (CallExpr ({value=(VarExpr x, _)}, [s; bridge])as e) when Atom.is_builtin x && Atom.hint x = "receive" -> true
+        | _ -> false
+    let receive_collector msg parent_opt env e = 
+        let parent = match parent_opt with | None -> "Toplevel" | Some p -> Atom.to_string p in
+        Error.error e.place "%s. Parent = %s" msg parent
+
+
+    let precondition program = 
+        (* Check: no receive in function_declaration
+                since we can not create async port to handle it (not in a component)
+        *)
+        let fdcls = List.filter (function |{value=Function _} -> true |_ -> false) program in
+        let fdcls = List.map (function |{value=Function fdcl} -> fdcl.value) fdcls in
+        List.iter (function (fdcl:_function_dcl) -> 
+            List.iter 
+                (function stmt -> ignore (collect_expr_stmt (Some fdcl.name) Atom.Set.empty receive_selector (receive_collector "receive can not be defined into function (only inside component methods)") stmt))
+                fdcl.body
+            ) fdcls;
+
+        program
+    let postcondition program = 
+        (* Check: no more receive *)
+        ignore (collect_expr_program Atom.Set.empty receive_selector (receive_collector "receive() remains in IR after Rewriting") program);
+        
+        program
+
+
+    (*******************************************************)
 
     (*
         return (new_ports, ((variable hosting the result of the receive, msgt, continuation), session of the receive, method) list)
@@ -506,8 +510,6 @@ module Make (Args : Params ) : Sig = struct
     and rterm term = map_place rewrite_term term
 
     and rewrite_program program = 
-        program
-        |> check_precondition_program 
-        |> List.map rterm
-        |> check_postcondition_program
+        List.map rterm program
+    let apply_program = rewrite_program
 end

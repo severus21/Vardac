@@ -1,3 +1,4 @@
+open Utils
 open Core
 open AstUtils
 open IR
@@ -288,3 +289,16 @@ let ctxelim_program program =
     let program = Hashtbl.fold insert_interceptor_dcl interceptor_types program in
     program
     
+(*********************************************************)
+
+let precondition program = program
+
+let withcontext_selector = function
+    | WithContextStmt _ -> true
+    | _ -> false
+let postcondition program = 
+    (* Check: no WithContextStmt *)
+    ignore (collect_stmt_program withcontext_selector (failure_collector_ce "WithContextStmt remains in IR") program);
+
+    program
+let apply_program = ctxelim_program

@@ -764,3 +764,9 @@ and tannot_program program =
     (* Scan header for recursive definition of function, method and state *)
     let toplevel_ctx = List.fold_left top_shallow_scan_term (fresh_context ()) program in
     snd (List.fold_left_map tannot_term toplevel_ctx program) 
+
+
+(**********************************************************)
+let precondition program = program
+let postcondition program = program
+let apply_program = tannot_program

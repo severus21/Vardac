@@ -12,6 +12,9 @@ let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
 *)
 
+let precondition program = program
+let postcondition program = program
+
 (***************************************************************)
 let stinline_selector = function
     | SType {place; value=STInline _ } -> true 
@@ -663,4 +666,6 @@ let peval_program (terms: IR.program) : IR.program =
     let env, program = pe_terms (fresh_env ()) terms in
     check_program program;
     program
+
+let apply_program = peval_program
 

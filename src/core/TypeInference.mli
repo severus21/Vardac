@@ -5,3 +5,5 @@ open TypingUtils
 val tannot_expr : context -> expr -> expr
 val tannot_program : program -> program
 (* TODO same for CEXPR *)
+
+include CompilationPass.Pass

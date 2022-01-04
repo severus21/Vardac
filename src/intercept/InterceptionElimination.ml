@@ -328,3 +328,9 @@ let apply_intercept_program program =
     failwith "TODO apply_intercept_program"
 
     program
+
+(*********************************************************)
+
+let precondition program = program
+let postcondition program = program
+let apply_program = apply_intercept_program

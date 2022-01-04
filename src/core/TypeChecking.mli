@@ -6,3 +6,4 @@ open TypingUtils
     Raise error otherwise
 *)
 val tcheck_program : program -> program 
+include CompilationPass.Pass

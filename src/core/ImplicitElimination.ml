@@ -10,7 +10,7 @@ module type Params = sig
 end
 
 module type Sig = sig
-    val rewrite_program: IR.program -> IR.program
+    include CompilationPass.Pass
 end
 
 module Make (Args : Params ) : Sig = struct
@@ -21,6 +21,11 @@ module Make (Args : Params ) : Sig = struct
     include Args 
     (* We need targets since guardian can not have any implicit variables - since there is no shared memory between guardians and instance of guardians 
     TODO TODOC somewhere *)
+
+
+    let precondition program = program 
+    let postcondition program = program 
+
 
     module Env = Set.Make( struct
       type t = main_type * Atom.atom
@@ -300,6 +305,8 @@ module Make (Args : Params ) : Sig = struct
         let apply_all_rewriting term = List.fold_left apply_rewriting term !spawn_rewritings in
         let terms = List.map apply_all_rewriting terms in
         List.map rterm2 terms
+
+    let apply_program = rewrite_program
 
 end
 

@@ -414,3 +414,9 @@ and tcheck_term t = map0_place _tcheck_term t
 and tcheck_program program = 
     List.iter tcheck_term program;
     program
+
+(**********************************************************)
+
+let precondition program = program
+let postcondition program = program
+let apply_program = tcheck_program

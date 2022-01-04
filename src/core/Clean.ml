@@ -16,6 +16,8 @@ let logger = Logging.make_logger ("_1_ compspec") Debug [];;
         No more EmptyExpr (otherwise they are not in ExpressionStmt => error)
 *)
 
+let precondition program = program
+
 let postcondition program = 
     let selector = function
         | EmptyExpr -> true 
@@ -44,6 +46,6 @@ let clean_program program =
         | BlockStmt [stmt] -> [stmt.value]
     in
 
-    program    
-    |> rewrite_stmt_program true stmt_selector stmt_rewriter
-    (*|> postcondition*)
+    rewrite_stmt_program true stmt_selector stmt_rewriter program    
+
+let apply_program = clean_program

@@ -5,6 +5,8 @@ open AstUtils
 
 let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
+let precondition program = program
+let postcondition program = program
 
 let rec reduce_component_item place : _component_item -> _component_item = function 
 | Contract c -> raise (Error.PlacedDeadbranchError (place, "contract should be paired with method before partial_evaluation, therefore no contract should remains as a component_item"))
@@ -56,4 +58,6 @@ and r_term t : term = map_place (reduce_term) t
 
 and reduce_program (terms: IR.program) : IR.program = 
     List.map r_term terms
+
+let apply_program = reduce_program
 

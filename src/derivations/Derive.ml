@@ -43,7 +43,10 @@ let apply_derive program {place; value=derive} =
     | "rpc" -> begin
         match derive.cargs, derive.targs, derive.eargs with 
         | [{value=VarCExpr cname,_}],[],[] ->
-            RPC.derive_program program cname
+            let module RPC = (RPC.Make(struct let cname = cname end):RPC.Sig) in
+            let module RPC = Core.CompilationPass.Make(RPC) in
+
+            RPC.apply program
         | _ -> Error.error place "Wrong arguments"
 
     end
@@ -71,3 +74,8 @@ let derive_program program =
     (* Apply derivation in order *)
     List.fold_left apply_derive program derivations
     
+
+(**********************************************************)
+let precondition program = program
+let postcondition program = program
+let apply_program = derive_program
