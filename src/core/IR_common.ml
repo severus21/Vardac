@@ -73,6 +73,8 @@ module type TIRC = sig
 
         (* Polymorphsim*)
         | STPolyVar of type_variable
+
+        | STDual of session_type 
     and session_type = _session_type placed
 
     and _component_type =
@@ -374,6 +376,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | STInline of type_variable (* syntaxic suggar in order to inline an existing session type definition*)
         (* Polymorphsim*)
         | STPolyVar of type_variable
+
+        | STDual of session_type 
     and session_type = _session_type placed
 
     and _component_type =
@@ -573,6 +577,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | STSelect choices -> STBranch (List.map (function (x, st, c) -> (x, dual st, c)) choices)
     | STRec (x, st) -> STRec (x, dual st)
     | STInline x -> STInline x
+    | STDual st -> (dual st).value
     and dual st : session_type = 
     { st with value = _dual st.place st.value }
 

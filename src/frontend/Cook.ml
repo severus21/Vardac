@@ -488,6 +488,13 @@ end
 | S.STInline x ->  
     let y = cook_var_type env place x in  
     env, T.STInline y
+| S.STDual {value=S.SType st} ->
+    let env1, st  = cstype env st in
+    env << [env1], T.STDual st
+| S.STDual {value=S.CType {place=p2; value=TVar x}} ->
+    (* Transform to stinline in order to take advantage of partialeval*)
+    let y = cook_var_type env p2 x in  
+    env, T.STDual {place=p2; value=T.STInline y}
 and cstype env st: env * T.session_type = map2_place (cook_session_type env) st
 
 and cook_component_type env place: S._component_type -> env * T._component_type = function

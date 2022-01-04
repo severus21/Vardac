@@ -113,6 +113,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     (* Preprocessor *)
     "use", USE;
     "inline", INLINE;
+    "dual", DUAL;
 
     (* State kind*)
     (* global keyword is already defined *)

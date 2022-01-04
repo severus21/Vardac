@@ -125,6 +125,12 @@ any_session_type_:
     {st}
 |INLINE x=LID | INLINE x=UID 
     { STInline x}
+|DUAL t = any_type
+{
+    match t with
+    | {value=SType _} | {value=CType {value=TVar _}} -> STDual t 
+    | _ -> Core.Error.error [$loc] "dual except exactly one type parameter (a session type)"
+}
 
 %public %inline any_session_type:
   t = placed(any_session_type_)

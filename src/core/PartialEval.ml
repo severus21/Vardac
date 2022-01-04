@@ -154,6 +154,10 @@ and peval_stype env place : _session_type -> env * _session_type =
             | _ -> Error.error place "STInline parameter can not be resolved to a session types."
         with Not_found -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "Unbounded inline variable [%s], this should have been checked by the cook pass." (Atom.to_string x))))
     end
+    | STDual st ->
+        (* Dual elimination *)
+        let _, st' = pe_stype env st in
+        env, (dual st').value
     | STBranch entries -> 
         env, STBranch (List.map aux_entry entries) 
     | STRec (x, st) -> 

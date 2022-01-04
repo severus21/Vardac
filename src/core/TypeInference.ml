@@ -169,6 +169,9 @@ let rec _tannot_session_type (ctx:context) place : _session_type -> context * _s
     let ctx, st = tannot_full_session_type ctx st in
     ctx, STRec (x, st)
 | STInline x -> ctx, STInline x 
+| STDual st -> 
+    let ctx , st = tannot_full_session_type ctx st in
+    ctx, STDual st
 and tannot_full_session_type ctx st : context * session_type = 
     let ctx, _st = _tannot_session_type ctx st.place st.value in
     ctx, {place = st.place; value = _st}

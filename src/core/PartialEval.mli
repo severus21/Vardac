@@ -3,8 +3,11 @@
         - all const component expr
 
     - transforms
-      - 'bridge()' -> bridge literal
+        - 'bridge()' -> bridge literal
     - inline all session types (i.e get ride of session types aliasing + resolve STInline)
+
+    - session type
+        - dual elimination
 *)
 
 val peval_program: IR.program -> IR.program

@@ -45,6 +45,9 @@ and _session_type =
     | STSelect of (variable * session_type *  applied_constraint option) list               
     | STRec of variable * session_type (* X * type*) 
     | STInline of variable (* syntaxic suggar in order to inline an existing session type definition*)
+
+    | STDual of main_type (* a session_type or a TVar*)
+
 and session_type = _session_type placed
 
 and _component_type =
@@ -330,6 +333,8 @@ and timers_of_st_ = function
     (timers_of_headers guard_headers) @ (timers_of_st st)
 (* Just propagate *)
 | STEnd -> []
-| STInline _ -> [] 
+| STInline _ | STDual {value=CType{value=TVar _}} -> [] 
 | STRecv (_, st) | STSend (_, st) -> timers_of_st st
+| STDual {value=SType st} -> timers_of_st st
+
 and timers_of_st st = timers_of_st_ st.value

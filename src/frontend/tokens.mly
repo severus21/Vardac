@@ -29,7 +29,7 @@
 %token FUNCTION
 %token EOF
 %token GHOST 
-%token USE INLINE
+%token USE INLINE DUAL
 %token<Ast._comments> COMMENTS 
 %token ERR NONE OK SOME
 
