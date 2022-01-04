@@ -52,8 +52,8 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     (* extract targets definitions from file *)
     let targets = Frontend.process_target ir targets_file in
 
-    let module Rewrite = ((Core.Rewrite.Make((struct let gamma = gamma let targets = targets end))):Core.Rewrite.Sig) in
-    let module ImplicitElimination = ((Core.ImplicitElimination.Make((struct let gamma = gamma let targets = targets end))):Core.Rewrite.Sig) in
+    let module RecvElimination = ((Core.RecvElimination.Make((struct let gamma = gamma let targets = targets end))):Core.RecvElimination.Sig) in
+    let module ImplicitElimination = ((Core.ImplicitElimination.Make((struct let gamma = gamma let targets = targets end))):Core.ImplicitElimination.Sig) in
     let ir2 = ir1 
         |> ImplicitElimination.rewrite_program
         |> function x-> logger#sinfo "Implicit have been removed and turned to explicit";x
@@ -77,7 +77,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         |> Core.PartialEval.peval_program
         |> ImplicitElimination.rewrite_program
         
-        |> Rewrite.rewrite_program (* Transform receive to async + ports *) 
+        |> RecvElimination.rewrite_program (* Transform receive to async + ports *) 
         |> function x-> logger#sinfo "IR has been rewritten";x
         |> Core.AstUtils.dump "rewritten IR" IR.show_program
 
