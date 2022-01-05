@@ -7,3 +7,6 @@
         t(z) such that t:Arrow  -> t.apply(z)
 *)
 val clean_program : Ast.program -> Ast.program 
+module Make : functor (Arg : sig val filename : string end) -> sig 
+    include AstCompilationPass.Pass
+end

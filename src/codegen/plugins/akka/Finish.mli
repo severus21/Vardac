@@ -12,4 +12,9 @@ type collected_state = {
 val empty_cstate : unit -> collected_state
 val print_cstate : collected_state -> unit
 
-val finish_program: IRI.program -> collected_state * Ast.program
+(* functor to hide inner state *)
+module Make : functor() -> sig
+    val cstate: collected_state ref
+    val finish_program: IRI.program -> Ast.program
+    include IRI2AstCompilationPass.Pass
+end

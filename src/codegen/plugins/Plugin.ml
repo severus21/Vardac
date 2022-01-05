@@ -19,7 +19,10 @@ module type Rt_plg = sig
 
     module Finish: sig 
         type collected_state
-        val finish_program : S.program -> Finish.collected_state * Ast.program
+        module Make : functor () -> sig
+            val cstate : Finish.collected_state ref
+            val finish_program : S.program -> Ast.program
+        end
     end
 end
 module type Lg_plg = sig
@@ -48,19 +51,28 @@ module type Cg_plg = sig
     with a Plug.Make(target)(places)
     
     *)
+    module MakeRt2Lg : functor (Arg : sig
+        val target:Core.Target.target 
+        val cstate:Rt.Finish.collected_state
+    end) -> sig 
+        val cstate : Rt.Finish.collected_state ref
+        val finish_program : Rt.Ast.program -> ((string * Fpath.t) * Lg.Ast.program) list 
+    end
+
+    type plgstate
+    val plgstate: plgstate ref
     
-    val finish_program : Core.Target.target -> Rt.Finish.collected_state * Rt.Ast.program -> (string * Fpath.t * Lg.Ast.program) list 
-    val finish_ir_program : Core.Target.target -> S.program -> (string * Fpath.t * Lg.Ast.program) list 
+    val finish_ir_program : Core.Target.target -> S.program -> ((string * Fpath.t) * Lg.Ast.program) list 
     val output_program : Core.Target.target -> Fpath.t -> S.program -> unit
 
     val custom_template_rules : Core.Target.target -> (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) list
     val custom_external_rules : unit -> (Fpath.t * Fpath.t) list
-    val jingoo_env : Core.Target.target -> Core.IR.vplace list -> (string * Jingoo.Jg_types.tvalue) list
+    val jingoo_env : Core.Target.target -> plgstate -> Core.IR.vplace list -> (string * Jingoo.Jg_types.tvalue) list
 end
 
 module type Plug = sig
     include Cg_plg
-    
+
     val init_build_dir : Core.Target.target -> Fpath.t -> Fpath.t -> unit
     val resolve_templates : Core.IR.vplace list -> Core.Target.target -> Fpath.t -> Fpath.t -> unit
 end
@@ -183,7 +195,7 @@ let filter_custom root path =
         ) in
         let destfile = Fpath.append build_dir  destfile in
 
-        (template, jingoo_env target places, destfile)
+        (template, jingoo_env target !plgstate places, destfile)
 
     let preprocess_custom_template root build_dir (template, env, destfile) : (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) =
         let template = Fpath.append (custom_templates_dir root) template in

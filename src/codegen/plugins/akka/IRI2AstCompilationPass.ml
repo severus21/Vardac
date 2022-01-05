@@ -1,0 +1,1 @@
+include Core.CompilationPass.Make(Core.IRI)(Ast)

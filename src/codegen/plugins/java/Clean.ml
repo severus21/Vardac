@@ -158,3 +158,13 @@ and clean_item place = function
 and citem item =  map_place clean_item item 
 
 let clean_program program = List.map citem program 
+
+(*****************************************************)
+module Make(Arg: sig val filename:string end) = struct
+    let displayed_pass_shortdescription = Printf.sprintf "Cleaned Lg AST for file %s" Arg.filename
+    let displayed_ast_name = "IR recvelim"
+    let show_ast = true
+    let precondition program = program
+    let postcondition program = program
+    let apply_program = clean_program
+end
