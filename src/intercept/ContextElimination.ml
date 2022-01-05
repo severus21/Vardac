@@ -278,7 +278,7 @@ let scope_rewriter terms =
     terms
 
 let ctxelim_program program = 
-    (* Step 0 - hydrate the hastbl 
+    (* Step 0 - hydrate the hashtbl 
         NB. step0 and 1 could be merged but are split for readability
     *)
     let _ = collect_stmt_program (function | WithContextStmt _ -> true | _ -> false) ctxelim_prepare_stmt program in
