@@ -53,6 +53,7 @@ module type TIRC = sig
         (** Message-passing *)
         | TBridge of tbridge
         | TPort of main_type * main_type (* session_type * bridge type *)
+        | TOutport of main_type (* bridge type *)
 
         | TRaw of Impl_common.blackbox_term (*TODO move it to IRI by doing so composed type should not be any more in common *)
 
@@ -240,6 +241,12 @@ module type TIRC = sig
     }
     and port = (_port * main_type) placed
 
+    and _outport = {
+        name: component_variable;
+        input: expr
+    }
+    and outport = (_outport * main_type) placed
+
 
     and method_annotation = 
         | Intercept
@@ -357,6 +364,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         (** Message-passing *)
         | TBridge of tbridge
         | TPort of main_type * main_type (* session_type * bridge type *)
+        | TOutport of main_type (* bridge type *)
 
         | TRaw of Impl_common.blackbox_term (*TODO move it to IRI by doing so composed type should not be any more in common *)
 
@@ -537,6 +545,12 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         callback: expr
     }
     and port = (_port * main_type) placed
+
+    and _outport = {
+        name: component_variable;
+        input: expr;
+    }
+    and outport = (_outport * main_type) placed
 
     and method_annotation = 
         | Intercept

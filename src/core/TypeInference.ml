@@ -109,6 +109,9 @@ let typeof_function fdcl = typeof_arrow fdcl.value.ret_type fdcl.value.args
 
 let typeof_port p = 
     snd p.value (* Already computed from programmer annotation *)
+
+let typeof_outport p = 
+    snd p.value (* Already computed from programmer annotation *)
 let typeof_state s = 
     match s.value with
     | StateDcl sdcl -> sdcl.type0
@@ -124,6 +127,7 @@ let rec _shallow_scan_component_item ctx place = function
 | Include _ -> ctx, []
 | Method m -> register_expr_type ctx m.value.name (typeof_method m), [m.value.name, typeof_method m]
 | Port p -> register_expr_type ctx (fst p.value).name (typeof_port p), [(fst p.value).name, typeof_port p]
+| Outport p -> register_expr_type ctx (fst p.value).name (typeof_outport p), [(fst p.value).name, typeof_outport p]
 | State ({value=StateDcl {name}} as s)| State ({value=StateAlias {name}} as s) -> 
     register_expr_type ctx name (typeof_state s), [name, typeof_state s]
 | Term t -> shallow_scan_term ctx t
@@ -534,6 +538,26 @@ and tannot_port ctx p =
         value = _p, mt_port 
     }
 
+and _tannot_outport ctx place ((p, mt_p):_outport*main_type) = ctx, {
+    name = p.name;
+    input = tannot_expr ctx p.input;
+} 
+and tannot_outport ctx p = 
+    let fplace = (Error.forge_place "TypeInference.tannot_outport" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+    let ctypeof x = auto_fplace (CType(auto_fplace x)) in
+
+    let ctx, _p = _tannot_outport ctx p.place p.value in
+    let mt_outport = ctypeof (TOutport (
+        snd _p.input.value
+    )) in
+    (* TODO FIXME outer_ctx should be remove from here since it is already compute when doing the shallow_scan*)
+    let outer_ctx = register_expr_type ctx _p.name mt_outport in
+
+    outer_ctx, {
+        place = p.place;
+        value = _p, mt_outport 
+    }
 
 and _tannot_contract ctx ret_type place (p:_contract) = 
     let inner_ctx = List.fold_left (fun ctx (mt, x, _) -> register_expr_type ctx x mt) ctx p.pre_binders in
@@ -606,6 +630,9 @@ and _tannot_component_item ctx place = function
 | Port p -> 
     let ctx, p = tannot_port ctx p in
     ctx, Port p 
+| Outport p -> 
+    let ctx, p = tannot_outport ctx p in
+    ctx, Outport p 
 | State s -> 
     let ctx, s = tannot_state ctx s in
     ctx, State s

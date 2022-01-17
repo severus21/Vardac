@@ -487,6 +487,7 @@ and gtransform_citem_ place = function
 | Method s -> Method s
 | Contract c -> Contract c
 | Port p -> Port p
+| Outport p -> Outport p
 | Include _ -> raise (Error.DeadbranchError "gtransform_citem: Include not supported, include should have been resolved")
 and gtransform_citem citem = map_place gtransform_citem_ citem 
 

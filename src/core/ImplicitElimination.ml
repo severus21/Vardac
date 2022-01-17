@@ -54,6 +54,7 @@ module Make (Args : Params ) : Sig = struct
     | Contract _ as citem -> citem 
     | Method m as citem -> citem
     | Port _ as citem -> citem
+    | Outport _ as citem -> citem
     | Term t -> Term (rterm t)
     | Include _ as citem -> citem
     and rcitem citem : component_item = map_place rewrite_component_item citem

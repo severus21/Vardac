@@ -232,6 +232,13 @@ and _port = {
 }
 and port = _port placed
 
+and _outport = {
+    name: variable;
+    input: expr;
+    input_type: main_type;
+}
+and outport = _outport placed
+
 and _component_item =  
     | State of state 
     | Method of method0 
@@ -239,6 +246,7 @@ and _component_item =
 
     (** Inter-component composition*)
     | Port of port 
+    | Outport of outport
 
     (** Sub-components *)
     | Term of term    

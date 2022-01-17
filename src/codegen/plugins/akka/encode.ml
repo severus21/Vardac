@@ -237,9 +237,9 @@ let encode_builtin_fct place name (args:T.expr list) =
         Maybe some thing like protocol is a value and we bind a protocol type with it.
         *)
         match args with
-        | [ bridge; right ] ->  
+        | [ outport; right ] ->  
             T.CallExpr (
-                auto_place (T.AccessExpr (bridge, auto_place (T.VarExpr (Atom.builtin "initiate_session_with"), auto_place T.TUnknown)), auto_place T.TUnknown),
+                auto_place (T.AccessExpr (outport, auto_place (T.VarExpr (Atom.builtin "initiate_session_with"), auto_place T.TUnknown)), auto_place T.TUnknown),
                 [
                     auto_place(T.CastExpr(
                         auto_place (T.TVar (Atom.builtin "ActorRef")),

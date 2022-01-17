@@ -77,11 +77,15 @@ and resolve_port place (port:S._port) : T._port =
 { port with input= rexpr port.input;
             callback= rexpr port.callback }
 
+and resolve_outport place (outport:S._outport) : T._outport =
+{ outport with input= rexpr outport.input; }
+
 and resolve_component_item place : S._component_item -> T._component_item list = function
 | S.State s -> [ T.State (map_place resolve_state s) ]
 | S.Method m -> [ T.Method (map_place resolve_method m) ]
 | S.Contract c -> [ T.Contract (map_place resolve_contract c) ]
 | S.Port p -> [ T.Port (map_place resolve_port p) ]
+| S.Outport p -> [ T.Outport (map_place resolve_outport p) ]
 | S.Term t -> List.map (function x -> T.Term x) (resolve_term t)
 | S.Include cexpr -> [ T.Include (rcexpr cexpr) ]
 and rcitem citem =  List.map (function x -> {place=citem.place; value = x}) (map0_place resolve_component_item citem)

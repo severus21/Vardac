@@ -532,6 +532,13 @@ any_port_:
   t = placed(any_port_)
     { t }
 
+any_outport_:
+| OUTPORT name=LID ON chan=any_expr DOUBLE_COLON chan_type=any_type
+    { {name=name; input=chan; input_type=chan_type} }
+%inline any_outport:
+  t = placed(any_outport_)
+    { t }
+
 any_component_item_:
 | s = any_state SEMICOLON 
     { State s }
@@ -541,6 +548,8 @@ any_component_item_:
     { Contract c }
 | p = any_port SEMICOLON
     { Port p}
+| p = any_outport SEMICOLON
+    { Outport p}
 | t = any_term
     { 
         match t.value with

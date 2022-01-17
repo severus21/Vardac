@@ -130,6 +130,10 @@ end
         (snd <-> pe_mtype env) mt1,
         (snd <-> pe_mtype env) mt2
     )
+
+| TOutport mt ->
+    let _, mt = pe_mtype env mt in 
+    env, TOutport mt
 and pe_ctype env: composed_type -> env * composed_type = map2_place (peval_composed_type env)
 
 
@@ -545,6 +549,7 @@ and pe_method env: method0 -> env * method0 = map2_place (peval_method env)
 and peval_port env place (port, mt_port) = 
     let expecting_st = snd(pe_mtype env port.expecting_st) in 
     
+    (* TODO Should be move to type checking *)
     begin
         match expecting_st.value with
         | SType {value=STEnd; _} -> Error.error place "a port can not expect the end of a protocol, no message will be send"
@@ -559,6 +564,12 @@ and peval_port env place (port, mt_port) =
     }, snd (pe_mtype env mt_port))
 and pe_port env: port -> env * port = map2_place (peval_port env)
 
+and peval_outport env place (outport, mt_outport) = 
+    env, ({ outport with
+        input =  snd(pe_expr env outport.input);
+    }, snd (pe_mtype env mt_outport))
+and pe_outport env: outport -> env * outport = map2_place (peval_outport env)
+
 and peval_state env place = function 
 | StateDcl s -> env, StateDcl {s with 
     type0 = snd(pe_mtype env s.type0);
@@ -572,6 +583,7 @@ and peval_component_item env place : _component_item -> env * _component_item = 
 | Include cexpr -> env, Include (snd(pe_component_expr env cexpr))
 | Method m -> env, Method (snd(pe_method env m))
 | Port p -> env, Port (snd(pe_port env p))
+| Outport p -> env, Outport (snd(pe_outport env p))
 | State s -> 
     let s = snd(pe_state env s)in
     env, State (snd(pe_state env s))

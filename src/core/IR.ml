@@ -68,13 +68,19 @@ let rec collect_expr_contract_ parent_opt (already_binded:Atom.Set.t) selector c
 
 and collect_expr_contract parent_opt (already_binded:Atom.Set.t) selector collector c = 
     map0_place (collect_expr_contract_ parent_opt already_binded selector collector) c 
-and collect_expr_port_ parent_opt (already_binded:Atom.Set.t) selector collector place (_port, _) =
+and collect_expr_port_ parent_opt (already_binded:Atom.Set.t) selector collector place ((_port, _):_port * 'a ) =
     let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded  selector collector _port.input in
     let _, collected_elts2, fvars2 = collect_expr_mtype parent_opt already_binded selector collector _port.expecting_st in
     let _, collected_elts3, fvars3 = collect_expr_expr parent_opt already_binded  selector collector _port.callback in
     already_binded, collected_elts1@collected_elts2@collected_elts3, fvars1@fvars2@fvars3
 and collect_expr_port parent_opt (already_binded:Atom.Set.t) selector collector p = 
     map0_place (collect_expr_port_ parent_opt already_binded selector collector) p
+
+and collect_expr_outport_ parent_opt (already_binded:Atom.Set.t) selector collector place ((_outport, _):_outport * 'a ) =
+    let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded  selector collector _outport.input in
+    already_binded, collected_elts1, fvars1
+and collect_expr_outport parent_opt (already_binded:Atom.Set.t) selector collector p = 
+    map0_place (collect_expr_outport_ parent_opt already_binded selector collector) p
 
 and collect_expr_state_ parent_opt (already_binded:Atom.Set.t) selector collector place = function 
 | StateDcl sdcl -> 
@@ -128,6 +134,7 @@ and collect_expr_component_item_ parent_opt (already_binded:Atom.Set.t) selector
     | Method m -> collect_expr_method0 parent_opt already_binded selector collector m
     | State s -> collect_expr_state parent_opt already_binded selector collector s 
     | Port p  -> collect_expr_port parent_opt already_binded selector collector p
+    | Outport p  -> collect_expr_outport parent_opt already_binded selector collector p
     | Term t -> collect_expr_term  parent_opt already_binded selector collector t    
 and collect_expr_component_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
     map0_place (collect_expr_component_item_ parent_opt already_binded selector collector) citem
@@ -154,6 +161,7 @@ and collect_expr_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector 
                 | StateAlias s -> s.name
             ) already_binded
             | Port p -> Atom.Set.add (fst p.value).name already_binded
+            | Outport p -> Atom.Set.add (fst p.value).name already_binded
             | Term t -> already_binded
     ) already_binded cdcl.body in
 
@@ -243,12 +251,18 @@ let rec collect_cexpr_contract_ parent_opt selector collector place _contract =
 
 and collect_cexpr_contract parent_opt selector collector c = 
     map0_place (collect_cexpr_contract_ parent_opt  selector collector) c 
-and collect_cexpr_port_ parent_opt selector collector place (_port, _) =
+and collect_cexpr_port_ parent_opt selector collector place ((_port, _):_port*'a) =
     let collected_elts1 = collect_cexpr_expr parent_opt   selector collector _port.input in
     let collected_elts3 = collect_cexpr_expr parent_opt   selector collector _port.callback in
     collected_elts1@collected_elts3
 and collect_cexpr_port parent_opt selector collector p = 
     map0_place (collect_cexpr_port_ parent_opt  selector collector) p
+
+and collect_cexpr_outport_ parent_opt selector collector place (_outport, _) =
+    let collected_elts1 = collect_cexpr_expr parent_opt   selector collector _outport.input in
+    collected_elts1
+and collect_cexpr_outport parent_opt selector collector p = 
+    map0_place (collect_cexpr_outport_ parent_opt  selector collector) p
 
 and collect_cexpr_state_ parent_opt selector collector place = function 
 | StateDcl sdcl -> begin
@@ -426,13 +440,19 @@ let rec collect_type_contract_ parent_opt (already_binded:Atom.Set.t) selector c
 
 and collect_type_contract parent_opt (already_binded:Atom.Set.t) selector collector c = 
     map0_place (collect_type_contract_ parent_opt already_binded selector collector) c 
-and collect_type_port_ parent_opt (already_binded:Atom.Set.t) selector collector place (_port, _) =
+and collect_type_port_ parent_opt (already_binded:Atom.Set.t) selector collector place ((_port, _):_port*'a) =
     let _, collected_elts1, fvars1 = collect_type_expr parent_opt already_binded  selector collector _port.input in
     let _, collected_elts2, fvars2 = collect_type_mtype parent_opt already_binded selector collector _port.expecting_st in
     let _, collected_elts3, fvars3 = collect_type_expr parent_opt already_binded  selector collector _port.callback in
     already_binded, collected_elts1@collected_elts2@collected_elts3, fvars1@fvars2@fvars3
 and collect_type_port parent_opt (already_binded:Atom.Set.t) selector collector p = 
     map0_place (collect_type_port_ parent_opt already_binded selector collector) p
+
+and collect_type_outport_ parent_opt (already_binded:Atom.Set.t) selector collector place (_outport, _) =
+    let _, collected_elts1, fvars1 = collect_type_expr parent_opt already_binded  selector collector _outport.input in
+    already_binded, collected_elts1, fvars1
+and collect_type_outport parent_opt (already_binded:Atom.Set.t) selector collector p = 
+    map0_place (collect_type_outport_ parent_opt already_binded selector collector) p
 
 and collect_type_state_ parent_opt (already_binded:Atom.Set.t) selector collector place = function 
 | StateDcl sdcl -> 
@@ -491,6 +511,7 @@ and collect_type_component_item_ parent_opt (already_binded:Atom.Set.t) selector
     | Method m -> collect_type_method0 parent_opt already_binded selector collector m
     | State s -> collect_type_state parent_opt already_binded selector collector s 
     | Port p  -> collect_type_port parent_opt already_binded selector collector p
+    | Outport p  -> collect_type_outport parent_opt already_binded selector collector p
     | Term t -> collect_type_term  parent_opt already_binded selector collector t    
 and collect_type_component_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
     map0_place (collect_type_component_item_ parent_opt already_binded selector collector) citem
@@ -513,6 +534,7 @@ and collect_type_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector 
             | Method m -> already_binded
             | State s -> already_binded
             | Port p -> already_binded
+            | Outport p -> already_binded
             | Term {value=Component {value=ComponentStructure {name}}} -> Atom.Set.add name already_binded
             | Term _ -> already_binded
     ) already_binded cdcl.body in
@@ -628,7 +650,7 @@ let rec rewrite_type_contract_ selector rewriter place _contract =
     }
 and rewrite_type_contract selector rewriter = map_place (rewrite_type_contract_ selector rewriter) 
 
-and rewrite_type_port_  selector rewriter place (_port, mt) =
+and rewrite_type_port_  selector rewriter place ((_port, mt): _port*main_type) =
     let rewrite_expr = rewrite_type_expr selector rewriter in
     let rewrite_mtype = rewrite_type_mtype selector rewriter in
     ({ _port with
@@ -638,6 +660,15 @@ and rewrite_type_port_  selector rewriter place (_port, mt) =
     }, mt)
     
 and rewrite_type_port selector rewriter = map_place (rewrite_type_port_ selector rewriter) 
+
+and rewrite_type_outport_  selector rewriter place (_outport, mt) =
+    let rewrite_expr = rewrite_type_expr selector rewriter in
+    let rewrite_mtype = rewrite_type_mtype selector rewriter in
+    ({ _outport with
+        input = rewrite_expr  _outport.input; 
+    }, mt)
+    
+and rewrite_type_outport selector rewriter = map_place (rewrite_type_outport_ selector rewriter) 
 
 and rewrite_type_state_  selector rewriter place = function 
 | StateDcl sdcl -> StateDcl {
@@ -713,7 +744,7 @@ let rec rewrite_expr_contract_ selector rewriter place _contract =
     }
 and rewrite_expr_contract selector rewriter = map_place (rewrite_expr_contract_ selector rewriter) 
 
-and rewrite_expr_port_  selector rewriter place (_port, mt) =
+and rewrite_expr_port_  selector rewriter place ((_port, mt): _port * main_type) =
     ({ _port with
         input = rewrite_expr_expr selector rewriter _port.input; 
         (* TODO rewrite_expr_mt expecting_st*)
@@ -721,6 +752,13 @@ and rewrite_expr_port_  selector rewriter place (_port, mt) =
     }, mt)
     
 and rewrite_expr_port selector rewriter = map_place (rewrite_expr_port_ selector rewriter) 
+
+and rewrite_expr_outport_  selector rewriter place (_outport, mt) =
+    ({ _outport with
+        input = rewrite_expr_expr selector rewriter _outport.input; 
+    }, mt)
+    
+and rewrite_expr_outport selector rewriter = map_place (rewrite_expr_outport_ selector rewriter) 
 
 and rewrite_expr_state_  selector rewriter place = function 
 | StateDcl sdcl -> StateDcl {
@@ -745,6 +783,7 @@ and rewrite_expr_component_item_  selector rewriter place = function
     | Method m -> Method (rewrite_expr_method0 selector rewriter m)
     | State s -> State (rewrite_expr_state selector rewriter s )
     | Port p  -> Port (rewrite_expr_port selector rewriter p)
+    | Outport p  -> Outport (rewrite_expr_outport selector rewriter p)
     | Term t -> Term (rewrite_expr_term selector rewriter t)
 and rewrite_expr_component_item selector rewriter = map_place (rewrite_expr_component_item_ selector rewriter) 
 
@@ -1070,7 +1109,7 @@ value = {
 }]
 | Term t -> List.map (function t -> Term t) (rewrite_stmt_term recurse selector rewriter t)
 (* citem without statement *)
-| Contract _ | Include _ | Port _ | State _ -> [citem]
+| Contract _ | Include _ | Port _ | Outport _ | State _ -> [citem]
 and rewrite_stmt_component_item recurse selector rewriter = map_places (rewrite_stmt_component_item_ recurse selector rewriter) 
 
 

@@ -431,7 +431,7 @@ module Make (Args : Params ) : Sig = struct
             (List.map (function s-> auto_fplace (State s)) intermediate_states)
             @
             (List.map (function m-> auto_fplace (Method m)) intermediate_methods)
-    | Port _ as citem -> [], [auto_place citem]
+    | (Port _ as citem) | (Outport _ as citem) -> [], [auto_place citem]
     | Term t -> [], [auto_place (Term (rterm t))]
     | Include _ as citem -> [], [auto_place citem]
     and rcitem citem : expr_variable list * component_item list = rewrite_component_item citem.place citem.value 

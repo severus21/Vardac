@@ -318,7 +318,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         *)
         match value with
         | S.Term t -> cartography_term entry t
-        | S.Method {value={name}} | S.Port {value={name;}} | S.State {value=StateDcl{name;}} | S.State {value=StateAlias{name;}}  -> begin
+        | S.Method {value={name}} | S.Port {value={name;}} | S.Outport {value={name;}} | S.State {value=StateDcl{name;}} | S.State {value=StateAlias{name;}}  -> begin
             match Env.find_opt name entry.inner with 
             | None -> { entry with
                 inner = Env.add name {place; value=register_this place name} entry.inner
@@ -937,6 +937,16 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         new_env << [env1; env2; env3; env4], ({ name; input; expecting_st; callback}, input_type)
     and cport env: S.port -> env * T.port = map2_place (cook_port env)
 
+    and cook_outport env place (outport:S._outport) : env * (T._outport * T.main_type)=
+        let fplace = (Error.forge_place "Coook.cook_method0" 0 0) in
+        let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
+
+        let new_env, name = bind_this env place outport.name in
+        let env1, input = cexpr env outport.input in
+        let env2, input_type = cmtype env outport.input_type in
+        new_env << [env1; env2], ({ name; input }, input_type)
+    and coutport env: S.outport -> env * T.outport = map2_place (cook_outport env)
+
     and cook_component_item env _ : S._component_item -> env * T._component_item list = function
     | S.State s ->
         let new_env, new_s = cstate env s in
@@ -949,6 +959,9 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
     | S.Port p ->
         let new_env, new_p = cport env p in
         new_env, [T.Port new_p]
+    | S.Outport p ->
+        let new_env, new_p = coutport env p in
+        new_env, [T.Outport new_p]
     | S.Term t ->
         let new_env, new_ts = cterm env t in
         new_env, List.map (fun t -> T.Term t) new_ts

@@ -102,6 +102,7 @@ module Make () = struct
         states: S.state list; 
         nested: S.component_dcl list; 
         ports: S.port list;
+        outports: S.outport list;
         others: S.term list
     }
 
@@ -111,6 +112,7 @@ module Make () = struct
         states      = [];
         nested      = [];
         ports       = [];
+        outports       = [];
         others      = [];
     }
 
@@ -122,6 +124,7 @@ module Make () = struct
             | S.Method  m-> {grp with methods=m::grp.methods}
             | S.State f-> {grp with states=f::grp.states}
             | S.Port p -> {grp with ports=p::grp.ports}
+            | S.Outport p -> {grp with outports=p::grp.outports}
             (* Shallow search of Typealias, FIXME do we need deep search ?*)
             | S.Term {place; value=S.Component cdcl} -> {grp with nested=cdcl::grp.nested}
             | S.Term {place; value=S.Typedef ({value=EventDef _;_} as edef)} -> {grp with eventdefs=edef::grp.eventdefs}
@@ -135,6 +138,7 @@ module Make () = struct
                 states=(List.rev grp.states) ; 
                 nested=(List.rev grp.nested) ; 
                 ports=(List.rev grp.ports) ; 
+                outports=(List.rev grp.outports) ; 
                 others=(List.rev grp.others)
             }
 
@@ -916,6 +920,25 @@ module Make () = struct
                 ))]
             }
         ] @ states in
+
+        (*** Outports ***)
+        (* outport p on bridge => state of type outport => OutPort<P> p = OutPort(bridge);
+        *)
+        let states = 
+            List.map (function p -> 
+                let _p : S._outport = fst p.value in
+                auto_place {   
+                    T.persistent = false; (*TODO persistence True ??*)
+                    stmts = [ auto_place(T.LetStmt (
+                        auto_place( T.Atomic "OutPort"),
+                        _p.name,
+                        Some (e_outport_of p.place (fexpr _p.input))
+                    ))]
+                }
+            ) grp_items.outports
+            @ states 
+        in
+
 
 
 

@@ -229,6 +229,15 @@ let e_get_self place context =
             []
         ), auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
+
+let e_outport_of place bridge = 
+    let auto_place smth = {place; value=smth} in
+    auto_place ( Ast.NewExpr (
+        auto_place ( Ast.VarExpr (Atom.builtin "OutPort"), auto_place Ast.TUnknown),
+        [
+            bridge
+        ]
+    ), auto_place Ast.TUnknown)
 let e_this_timers place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(

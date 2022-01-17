@@ -190,7 +190,8 @@ module Make(Args:Args) : Sig = struct
                         auto_fplace (LetExpr(mt_rpc_protocol, s0, auto_fplace (CallExpr(
                             auto_fplace (VarExpr (Atom.builtin "initiate_session_with"), auto_fplace EmptyMainType),
                             [
-                                auto_fplace (VarExpr local_function_bridge, auto_fplace EmptyMainType); 
+                                failwith ("should be an outport");
+                                (*auto_fplace (VarExpr local_function_bridge, auto_fplace EmptyMainType);*) 
                                 auto_fplace (VarExpr local_function_activation, auto_fplace EmptyMainType);
                             ]
                         ), auto_fplace EmptyMainType)));

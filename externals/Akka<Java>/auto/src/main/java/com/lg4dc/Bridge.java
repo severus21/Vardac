@@ -16,7 +16,6 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
     @JsonProperty("id")
     UUID id;
     
-    //private Supplier<P> protocol_supplier;
     @JsonProperty("protocol")
     P protocol;
 
@@ -26,11 +25,9 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
         this.protocol = protocol;
     }
 
-    public Bridge (P protocol){ //Supplier<P> protocol_supplier) {
+    public Bridge (P protocol){
         this.id = UUID.randomUUID();
 
-        //this.protocol_supplier = protocol_supplier;
-        //this.protocol = protocol_supplier.get();
         this.protocol = protocol;
     }
     
@@ -46,13 +43,6 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
     public String toString(){
         return "Bridge<UUID="+this.id+">";
     }
-
-    public Session initiate_session_with(
-        ActorRef<CborSerializable> from, 
-        ActorRef<CborSerializable> to
-    ){
-        return new Session(this.id, from, to, this.protocol.get_st());
-    }    
 
     public boolean equals(Object obj) {
         if (obj == this) {

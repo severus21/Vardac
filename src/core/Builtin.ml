@@ -97,7 +97,7 @@ let t_initiate () =
     let b = Atom.fresh "B" in
     
     (*mtype_of_ct (TArrow(
-        fresh_tbridge (),
+        fresh_outport (),
         mtype_of_ct(TArrow(
             mtype_of_ct(TForall(a, mtype_poly_of_cvar b)), 
             mtype_of_ct(TActivationInfo (

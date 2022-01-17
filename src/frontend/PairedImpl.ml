@@ -139,6 +139,7 @@ and paired_component_item parents place : S2._component_item -> T._component_ite
 | S2.Include _ -> failwith "paired: component include not suported yet"
 | S2.Method m -> T.Method (umethod0 parents m)
 | S2.Port p -> T.Port p
+| S2.Outport p -> T.Outport p
 | S2.State s -> T.State (ustate parents s)
 | S2.Term t -> T.Term (uterm parents t)
 and ucitem parents: S2.component_item -> T.component_item  = map_place (paired_component_item parents)
