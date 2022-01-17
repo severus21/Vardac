@@ -65,11 +65,13 @@ component A () {
     bridge<A, B, inline p_pingpong> _b;
     (*port truc on b0 expecting ?pong. = this.handle_pong;*)
 
+    outport p_out on this._b :: bridge<A, B, inline p_pingpong>;
+
     onstartup void toto (bridge<A, B, inline p_pingpong> b0, activation_info<B> b) {
         this._b = b0;
         print("> Starting A");
         print(string_of_bridge(b0));
-        session<p_pingpong> s0 = initiate_session_with(this._b, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationInfo<'A> -> 'st *)
+        session<p_pingpong> s0 = initiate_session_with(this.p_out, b);
         ?pong. s1 = fire(s0, ping()); (* fire : !'a 'st -> 'a -> Result<'st, error> *)
         int i = 1;
         print("> Ping fired");
@@ -239,162 +241,3 @@ void titib (array<string> args){
 
 activation_info<B> b = (spawn B(b0)); (* B() -> call the oncreate method of B with the argument whereas B(A) will be a functor application TODO fix the syntax *) 
 activation_info<A> a1 = (spawn A(b0, b));  
-
-
-
-(*
-
-(* Ex1.2: event carrying values *)
-type ping = string; (* alias de type, if we do this ping and pong will have the same type *) 
-type ping of string; (* type constructor ping : string -> ping ; type t of 'a has a constructor t: 'a -> t + value_of_t: t-> 'a *)
-type pong of string;
-
-(*  Code diff with Ex1.1
-    - event creation ping("ping") pong("bl")
-    - print("received ping : %s" value_of_ping(msg))
-*)
-
-
-(*  Ex1.3 - ping-pong between activations of the same component 
-    A <====== b0 ======> A
-    A:a ----- ping ----> A:b 
-        <---- pong ----- 
-*)
-
-bridge<A, A, !ping?pong> b0 = bridge();
-
-(* Synchronous wait i.e. can not process incomming request *)
-component A () {
-    oncreate result<void, error> toto (activation_info<A> b) {
-       !ping?pong s0 = b0.initiate_session_with(b);
-
-       ?pong s1 = s0.fire(ping())?;
-       tuple<pong, .> res = s1.receive_timeout(10)?;
-
-       return ok(());
-    }
-
-    port truc on b0 expecting ?ping!pong = handle_ping 
-    
-    result<void, error> handle_ping (?ping!pong s0) {
-        tuple<ping, !pong> res = s0.receive()?;
-        ping msg = res.fst();
-        !pong s1 = res.snd();
-
-        print("ping");
-        s1.fire(pong()); 
-
-        return ok(());
-    }
-}
-
-(* Asynchronous wait *)
-component A () {
-    oncreate result<void, error> toto (activation_info<A> a2) {
-       !ping?pong s0 = b0.initiate_session_with(a2);
-
-       ?pong s1 = s0.fire(ping())?;
-       tuple<pong, .> res = s1.receive_timeout(10)?;
-
-       return ok(());
-    }
-
-    port truc on b0 expecting ?ping!pong = handle_ping 
-    port truc2 on b0 expecting ?pong = handle_pong 
-    
-    result<void, error> handle_ping (?ping!pong s0) {
-        tuple<ping, !pong> res = s0.receive()?;
-        ping msg = res.fst();
-        !pong s1 = res.snd();
-
-        print("ping");
-        s1.fire(pong()); 
-
-        return ok(());
-    }
-
-    result<void, error> handle_pong (?pong s0) {
-        tuple<pong, .> res = s0.receive()?;
-        ping msg = res.fst();
-
-        print("pong");
-
-        return ok(());
-    }
-}
-
-
-(************************** Other discovery method ***************************)
-(*  PB 
-    Until now we discover the remote enpoint by passing it by argument
-    How can we do more ?
-*)
-(* Ex4: broadcasting/multicasting 
-    A ======= b0 =======> B1 + B2
-    A:a1 ----- ping ----> A:a2 
-         <---- pong ----- 
-*)
-
-bridge<A, B1 | B2, !ping?pong> b0 = bridge();
-
-component A () {
-    oncreate result<void, error> toto () {
-        (* initiate_sessions : void -> Sequence/List lazy<Result<'st>> one per target activation that are registered on b0 *)
-        for(res0 in b0.initiate_sessions()?){
-            p_pingpong s0 = res0?;
-            if(s0.endpoint().gid() != this.gid()) { (* No point to send msg to itself*)
-                !ping?pong s0 = b0.initiate_session_with(b);
-
-                ?pong s1 = s0.fire(ping())?;
-                (* wait for answer before contacting the next one *)
-                tuple<pong, .> res = s1.receive()?;
-            }
-        }
-
-       return ok(());
-    }
-
-    (* async version *)
-    port truc2 on b0 expecting ?pong = handle_pong 
-    
-    result<void, error> handle_pong (?pong s0) {
-        tuple<pong, .> res = s0.receive()?;
-        ping msg = res.fst();
-
-        print("pong from %s (low level details : %s)" s0.endpoint().gid() s0.endpoint.ip_addr());
-
-        return ok(());
-    }
-}
-
-(*  Question: which activations of B1/B2 are concerned 
-    Solution: register activations on a channel
-
-    N.B:
-    - no need to register [this] before doing an [b0.initiate_session]
-    - no need to register [b] before doing an [b0.initiate_session_with(b)], it will be done automatically
-*)
-component B1 () { (*same for B2*)
-    oncreate result<void, error> toto () {
-        b0.register(this);
-
-        return ok(());
-    }
-
-    (* same code as B *)
-}
-
-(* Ex5: stream like QPUs
-    A ======= b0 ======> B
-    A:a ----- request ----> A:a2 
-    a   <-- stream of item --- 
-*)
-
-type request;
-type item;
-p_pingpongs = !request µ x. ?item . x;
-
-bridge<A, B, p_pingpongs> b0 = bridge();
-
-(* Code like for classical pingpong *)
-*)

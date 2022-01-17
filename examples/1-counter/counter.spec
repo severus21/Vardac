@@ -19,12 +19,13 @@ protocol p_protocol = !eincr?value!eincr?value.;
 bridge<A, Counter, inline p_protocol> b0 = bridge(p_protocol);
 component A () {
     bridge<A, Counter, inline p_protocol> _b;
+    outport p_out on this._b :: bridge<A, Counter, inline p_protocol>;
 
     onstartup void toto (bridge<A, Counter, inline p_protocol> b0, activation_info<Counter> b) {
         this._b = b0;
 
         print("> Starting A");
-        session<p_protocol> s0 = initiate_session_with(this._b, b); 
+        session<p_protocol> s0 = initiate_session_with(this.p_out, b); 
 
         ?value!eincr?value. s1 = fire(s0, eincr()); 
         tuple<value, !eincr?value.> resa = receive(s1, this._b);  
