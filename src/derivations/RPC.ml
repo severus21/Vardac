@@ -22,7 +22,7 @@ type method_rpc_entry = {
     expecting_st: session_type;
     port: component_item;
     callback: component_item;
-    local_function: function_dcl
+    local_function: Atom.atom -> function_dcl
 }
 
 module type Args = sig
@@ -36,6 +36,9 @@ end
 
 module Make(Args:Args) : Sig = struct
     include Args 
+
+    (* cname -> rpc outputport name *)
+    let rpc_outports_translator = Hashtbl.create 16 
 
     let derive_program program = 
         let rpc_entries = Hashtbl.create 8 in
@@ -57,6 +60,12 @@ module Make(Args:Args) : Sig = struct
         let caller0::callers = callers in
 
 
+        (* Populate the rpc_outports_translator, after this it is read only *)
+        List.iter (function caller_name ->
+            Hashtbl.add rpc_outports_translator caller_name (Atom.fresh ((Atom.to_string caller_name)^"__rpc_outport"))
+        ) callers;
+
+
         let mt_rpc_bridge = mtype_of_ct (TBridge {
             in_type = List.fold_left (fun mt name -> mtype_of_ct (TUnion (mt, mtype_of_cvar name))) (mtype_of_cvar caller0) callers; 
             out_type = mtype_of_cvar cname; 
@@ -69,6 +78,7 @@ module Make(Args:Args) : Sig = struct
             })), mt_rpc_bridge)
         )) in
 
+
         let top_level_terms = ref [] in
 
         (* Rewrite the component *)
@@ -80,7 +90,7 @@ module Make(Args:Args) : Sig = struct
                 |{value=Method m} when false = (m.value.on_startup || m.value.on_destroy) -> [m] 
                 |_ -> []
             ) cstruct.body) in
-            
+
             let process_method (m:method0) =
                 (* Events generation -> should be used outside *)
                 let prefix = Printf.sprintf "%s__%s__" (Atom.to_string cname) (Atom.to_string m.value.name) in
@@ -168,7 +178,6 @@ module Make(Args:Args) : Sig = struct
 
                 (* The function used by the caller to do the communication *)
                 let local_function_activation = Atom.fresh "a" in
-                let local_function_bridge = Atom.fresh "b" in
                 let s0 = Atom.fresh "s" in
                 let s1 = Atom.fresh "s" in
                 let s2 = Atom.fresh "s" in
@@ -177,10 +186,9 @@ module Make(Args:Args) : Sig = struct
                 let refreshed_args = (List.map (function {value=(mt, x)} -> auto_fplace (mt, Atom.fresh (Atom.value x))) m.value.args) in
                 let local_function_args = 
                     (auto_fplace (mtype_of_ct (TActivationInfo (mtype_of_cvar cname)), local_function_activation))::
-                    (auto_fplace (mt_rpc_bridge, local_function_bridge))::
                     refreshed_args 
                 in
-                let local_function = auto_fplace {
+                let local_function caller_name = auto_fplace {
                     targs = [];
                     name = Atom.fresh (prefix^"localfct");
                     ret_type = m.value.ret_type;
@@ -190,8 +198,13 @@ module Make(Args:Args) : Sig = struct
                         auto_fplace (LetExpr(mt_rpc_protocol, s0, auto_fplace (CallExpr(
                             auto_fplace (VarExpr (Atom.builtin "initiate_session_with"), auto_fplace EmptyMainType),
                             [
-                                failwith ("should be an outport");
-                                (*auto_fplace (VarExpr local_function_bridge, auto_fplace EmptyMainType);*) 
+                                auto_fplace (
+                                    AccessExpr (
+                                        auto_fplace( This, auto_fplace EmptyMainType), 
+                                        auto_fplace(VarExpr (Hashtbl.find rpc_outports_translator caller_name), auto_fplace EmptyMainType)
+                                    ), 
+                                    auto_fplace EmptyMainType
+                                );
                                 auto_fplace (VarExpr local_function_activation, auto_fplace EmptyMainType);
                             ]
                         ), auto_fplace EmptyMainType)));
@@ -302,7 +315,7 @@ module Make(Args:Args) : Sig = struct
                         a_rpc_protocol,
                         mtype_of_st full_expecting_st.value
                     ))));
-                    auto_fplace (Stmt let_rpc_bridge)
+                    auto_fplace (Stmt let_rpc_bridge);
                 ]
                 (* N.B: Local function is not defined as a fct but inlined where need since we can not have receive inside a toplevel fct (Rewrite - at least for Akka: receive => port + async) *)
             ;
@@ -340,7 +353,38 @@ module Make(Args:Args) : Sig = struct
         (* TODO FIXME Bridge should be used outside maybe an issue in multi JVM*)
         let program : program = rewrite_component_program cstruct_selector cstruct_rewriter program in
         let program : program = rewrite_scopeterm_program scope_selector scope_rewriter program in
+        
+        (* Rewrite the callers - add them an output port and bind it to [a_rpc_bridge] *)
+        let caller_selector (cstruct:component_structure) = 
+            (Hashtbl.find_opt rpc_outports_translator cstruct.name) <> None
+        in
+        let caller_rewriter place (cstruct:component_structure) = 
+            let caller_name = cstruct.name in
 
+
+            (*
+                
+                RPC bridge is a static bridge
+                because using implicit is not enough, it can not breach binary fronter. 
+                A unique bridge id is given at compile time to a static RPC bridge  and partial-evaluation inline it everywhere.
+
+                TODO Supporting a cross binary implivit elimination will needs to have a communication protocol between guardian (if target = Akka), i.e. a runtime overlay, to exchange implicit transparently from binary to binary.
+                TODOC
+            *)
+            let rpc_outport = auto_fplace (Outport (auto_fplace (
+                { 
+                    name = Hashtbl.find rpc_outports_translator caller_name;
+                    input = auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge);
+                },    
+                mtype_of_ct (TOutport mt_rpc_protocol)
+            ))) in
+            [
+                {cstruct with 
+                    body = rpc_outport :: cstruct.body;
+                }
+            ]
+        in
+        let program = rewrite_component_program caller_selector caller_rewriter program in
 
         (* Rewrite the remaining part of the code *)
         let select_call_site = function
@@ -348,7 +392,7 @@ module Make(Args:Args) : Sig = struct
             | _ -> false
         in
 
-        let rewrite_call_site mt_e = function
+        let rewrite_call_site (Some caller_name) mt_e = function
             | CallExpr ({value=ActivationAccessExpr (_cname, activation, mname),_}, args) when cname =_cname -> 
                 let entry = Hashtbl.find rpc_entries mname in
 
@@ -370,9 +414,8 @@ module Make(Args:Args) : Sig = struct
                     
                     stmts, (VarExpr a_ret, fdcl.value.ret_type)
                 in
-                inline_fdcl entry.local_function ([
+                inline_fdcl (entry.local_function caller_name) ([
                     activation;
-                    auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge) (* we can not use implicit variable here since we want to be able to cross binary boundaries, therefore we use static bridge (TODO see if any kind of plg can support it ?? )*)
                 ] @ args)
 
 

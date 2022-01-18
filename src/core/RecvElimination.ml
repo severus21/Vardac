@@ -343,7 +343,7 @@ module Make (Args : Params ) : Sig = struct
         | (CallExpr ({value=(VarExpr x, _)}, [s; bridge])as e) when Atom.is_builtin x && Atom.hint x = "receive" -> true
         | _ -> false
         in
-        let recv_rewriter mt_e = function
+        let recv_rewriter parent_opt mt_e = function
         | (CallExpr ({value=(VarExpr x, _)}, [s; bridge]) as e) when Atom.is_builtin x && Atom.hint x = "receive" ->
             begin
                 match mt_e.value with
@@ -371,7 +371,7 @@ module Make (Args : Params ) : Sig = struct
         | _ -> false 
         in
 
-        let stmts = rewrite_exprstmts_stmt stmt_exclude recv_selector recv_rewriter {place; value=stmt} in
+        let stmts = rewrite_exprstmts_stmt None stmt_exclude recv_selector recv_rewriter {place; value=stmt} in
         (* Debug *)
         (*if !flag_debug then (
             (Format.fprintf Format.std_formatter "%a" (Error.pp_list "\n" (fun out stmt -> Format.fprintf out "%s " (show_stmt stmt))) stmts);
