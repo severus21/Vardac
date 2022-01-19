@@ -886,7 +886,11 @@ end) = struct
                     ({ place; value =T.VarExpr (Atom.builtin "getSystem"), auto_place T.TUnknown},
                     []), auto_place T.TUnknown
             }) 
-        | S.LambdaExpr (variables, stmt) -> T.LambdaExpr (variables, fstmt stmt)
+        | S.LambdaExpr (params, stmt) -> 
+            T.LambdaExpr (
+                List.map (function (mt, x) -> fctype mt, x) params, 
+                fstmt stmt
+            )
         | S.LitExpr lit -> LiteralExpr (fliteral lit)
         | S.Spawn {context; actor_expr} -> T.AccessExpr (fexpr context, fexpr actor_expr)
         | S.This -> T.ThisExpr
@@ -935,7 +939,7 @@ end) = struct
                 ), auto_place T.TUnknown),
                 [
                     auto_place (T.LambdaExpr (
-                        [t], 
+                        [auto_place T.TUnknown, t], 
                         auto_place ( T.ReturnStmt (auto_place( 
                                 T.NewExpr (
                                     auto_place (T.VarExpr (Atom.builtin "RuntimeException"), auto_place T.TUnknown),
@@ -1352,14 +1356,14 @@ end) = struct
         in
 
         let arg_lambda = auto_place (S.LambdaExpr (
-            [Rt.Misc.a_context],
+            [auto_place S.TUnknown, Rt.Misc.a_context],
             auto_place (S.BlockStmt [
                 auto_place (S.ReturnStmt (
                     auto_place(S.CallExpr(
                         Rt.Misc.e_behaviors_with_timers fplace,
                         [
                             auto_place (S.LambdaExpr (
-                                [Rt.Misc.a_timers],
+                                [auto_place S.TUnknown, Rt.Misc.a_timers],
                                 auto_place (S.BlockStmt [
                                     auto_place (S.ExpressionStmt (
                                     Rt.Misc.e_debug_of 
@@ -1387,14 +1391,14 @@ end) = struct
         ), auto_place S.TUnknown) in
 
         let arg_lambda_guardian = auto_place (S.LambdaExpr (
-            [Rt.Misc.a_context],
+            [auto_place S.TUnknown, Rt.Misc.a_context],
             auto_place (S.BlockStmt [
                 auto_place (S.ReturnStmt (
                     auto_place(S.CallExpr(
                         Rt.Misc.e_behaviors_with_timers fplace,
                         [
                             auto_place (S.LambdaExpr (
-                                [Rt.Misc.a_timers],
+                                [auto_place S.TUnknown, Rt.Misc.a_timers],
                                 auto_place (S.BlockStmt [
                                     auto_place (S.ExpressionStmt (
                                     Rt.Misc.e_debug_of 

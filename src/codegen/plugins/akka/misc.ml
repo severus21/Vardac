@@ -165,12 +165,15 @@ let t_lg4dc_vplace place =
         auto_place (Ast.TVar (Atom.builtin "VPlace")) 
     ))
 
-let t_command_of_actor place actor_name = 
+let t_command_of place ct = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar actor_name),
+        ct,
         auto_place (Ast.TVar a_command) 
     ))
+let t_command_of_actor place actor_name = 
+    let auto_place smth = {place; value=smth} in
+    t_command_of place (auto_place (Ast.TVar actor_name))
 let t_behavior_of_actor place actor_name = 
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam (

@@ -407,7 +407,7 @@ module Make () = struct
         | S.AccessExpr (e1, {value=S.VarExpr x,_}) when Atom.is_builtin x -> Encode.encode_builtin_access place (fexpr e1) (Atom.hint x) 
         | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
         | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
-        | S.LambdaExpr (x, _, e) -> T.LambdaExpr ([x], auto_place (T.ReturnStmt (fexpr e))) 
+        | S.LambdaExpr (x, mt, e) -> T.LambdaExpr ([(fmtype mt, x)], auto_place (T.ReturnStmt (fexpr e))) 
         | S.BridgeCall b -> 
         fst (e_bridge_of_protocol place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown))).value 
         | S.LitExpr {value=S.StaticBridge b; place=lit_place} -> 
@@ -438,7 +438,7 @@ module Make () = struct
         | S.This -> T.This
         | S.Spawn {c; args; at=None} ->
             T.ActivationRef{
-                schema = auto_place (T.VarExpr (schema_of c), auto_place T.TUnknown);
+                schema = auto_place (T.LitExpr ( auto_place (T.StringLit (Atom.to_string (schema_of c)))), auto_place T.TUnknown);
                 actor_ref = auto_place (T.Spawn {
                     context = auto_place (T.CurrentContext, auto_place T.TUnknown);  
                     actor_expr= auto_place (T.CallExpr(
@@ -478,18 +478,30 @@ module Make () = struct
             (* TODO ?? DUplicated with AkkaJAva [arg_lambda] ?? *)
             let runnable = 
             auto_place (T.LambdaExpr (
-                [a_guardian],
+                [auto_place T.TUnknown, a_guardian],
                 auto_place (T.BlockStmt [
                     auto_place (T.ReturnStmt (
                         auto_place (T.LambdaExpr (
-                            [a_context],
+                            [
+                                (* ActorContext<author.project_name.a14.C33.Command> *)
+                                auto_place (
+                                    T.TParam(
+                                        t_context place,
+                                        [
+                                            match (fmtype mt).value with
+                                            | T.TActivationRef ct -> t_command_of place ct
+                                        ]
+                                    )
+                                ),
+                                a_context
+                            ],
                             auto_place (T.BlockStmt [
                                 auto_place (T.ReturnStmt (
                                     auto_place(T.CallExpr(
                                         e_behaviors_with_timers fplace,
                                         [
                                             auto_place (T.LambdaExpr (
-                                                [a_timers],
+                                                [auto_place T.TUnknown, a_timers],
                                                 auto_place (T.BlockStmt [
                                                     auto_place (T.ExpressionStmt (
                                                     e_debug_of 
@@ -523,8 +535,9 @@ module Make () = struct
             ), auto_place T.TUnknown) in
         
             T.ActivationRef {
-                schema = auto_place (T.VarExpr (schema_of c), auto_place T.TUnknown);
-                actor_ref = auto_place(T.CallExpr(
+                schema = auto_place (T.LitExpr ( auto_place (T.StringLit (Atom.to_string (schema_of c)))), auto_place T.TUnknown);
+                actor_ref = 
+                auto_place(T.CallExpr(
                     e_lg4dc_spawnat fplace,
                     [
                         e_get_context place;
@@ -577,7 +590,14 @@ module Make () = struct
                     auto_place (T.VarExpr x, auto_place T.TUnknown))
                 , auto_place T.TUnknown),
                 fexpr e)        
-        | S.LetExpr (mt, x, e) ->  T.LetStmt (fmtype mt, x, Some (fexpr e))                             
+        | S.LetExpr (mt, x, e) ->  
+            (* 
+                Tmp fix, since right handside type of a let is never a TUnknown we use it for e;
+                Once e= (_, not unknown) we could remove the following line
+                FIXME    
+            *)
+            let e = {e with value = (fst e.value, mt)} in
+            T.LetStmt (fmtype mt, x, Some (fexpr e))                             
 
         (*S.* Comments *)
         | S.CommentsStmt comments -> T.CommentsStmt comments.value
@@ -1169,7 +1189,7 @@ module Make () = struct
                             {place; value=T.ClassOf (auto_place (T.TVar (Atom.builtin event_name))), auto_place T.TUnknown};
                             auto_place (T.LambdaExpr (
                                 [
-                                    l_event_name 
+                                    auto_place T.TUnknown, l_event_name 
                                 ],
                                 auto_place(T.BlockStmt [
                                     auto_place(T.ExpressionStmt(auto_place(T.CallExpr(

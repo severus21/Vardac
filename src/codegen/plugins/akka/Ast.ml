@@ -53,7 +53,7 @@ and _expr =
     | BinopExpr of expr * binop * expr 
     | CallExpr of expr * expr list
     | CastExpr of ctype * expr
-    | LambdaExpr of variable list * stmt 
+    | LambdaExpr of (ctype * variable) list * stmt 
     | LitExpr of literal
     | This
     | UnopExpr of unop * expr         
@@ -276,8 +276,11 @@ and _apply_rename_expr rename_binders (renaming : Atom.atom -> Atom.atom) place 
         apply_rename_ctype renaming ct,
         apply_rename_expr rename_binders renaming e
     )
-    | LambdaExpr (xs, stmt) -> LambdaExpr (
-        (if rename_binders then List.map renaming xs else xs),
+    | LambdaExpr (params, stmt) -> LambdaExpr (
+        List.map (function (mt, x) -> 
+            apply_rename_ctype renaming mt, 
+            if rename_binders then renaming x else x
+        ) params,
         apply_rename_stmt rename_binders renaming stmt
     ) 
     | LitExpr l -> LitExpr l

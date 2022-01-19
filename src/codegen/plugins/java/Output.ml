@@ -87,11 +87,19 @@ match e with
     | AssertExpr e -> fprintf out "assert(%a)" oexpr e                   
     | AssignExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_assignop op oexpr e2
     | BinaryExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_binop op oexpr e2
-    | CastExpr (ct, {value=LambdaExpr (variables, stmt),_}) -> (* Otherwise Java error "error: lambda expression not expected here"*)
-        fprintf out "( (%a) (%a) -> { %a } )" ojtype ct output_vars variables ostmt stmt
+    | CastExpr (ct, ({value=LambdaExpr _,_} as lambda)) -> (* Otherwise Java error "error: lambda expression not expected here"*)
+        fprintf out "( (%a) %a )" ojtype ct oexpr lambda 
     | CastExpr (ct, e) -> fprintf out "(%a) %a" ojtype ct oexpr e
     | LiteralExpr lit -> oliteral out lit
-    | LambdaExpr (variables, stmt) -> fprintf out "( (%a) -> { %a } )" output_vars variables ostmt stmt
+    | LambdaExpr (params, stmt) -> 
+        let rec output_lambda_param out ((jt, x):jtype * variable) =
+            match jt.value with
+            | TUnknown -> output_var out x
+            | _ -> fprintf out "%a %a" ojtype jt output_var x 
+        in
+        let output_lambda_params out = pp_list ", " output_lambda_param out in
+        
+        fprintf out "( (%a) -> { %a } )" output_lambda_params params ostmt stmt
     | NewExpr (e1, es) -> fprintf out "new @[%a(@[<hv>@;<0 3>%a@])@]" oexpr e1 oexprs es
     | ThisExpr -> pp_print_string out "this";
     | UnaryExpr (op, e) -> fprintf out "%a %a" output_unop op oexpr e
@@ -216,17 +224,18 @@ and ojmodule out : jmodule -> unit = function jm ->
 
 and output_type_params out : jtype list -> unit = pp_list ", " ojtype out   
 
-and output_jtype out : _jtype -> unit = function
+and output_jtype place out : _jtype -> unit = function
     | ClassOrInterfaceType (t, []) ->  ojtype out t  
     | ClassOrInterfaceType (t, params) -> fprintf out "%a<@[<hv>%a@]>" ojtype t output_type_params params
     | TArray t -> fprintf out "%a[]" ojtype t 
     | TAtomic str -> pp_print_string out str
     | TVar x -> output_var out x 
     | TAccess (t1, t2) -> fprintf out "%a.%a" ojtype t1 ojtype t2
+    | TUnknown -> raise (Error.PlacedDeadbranchError (place, "TUnknown can not be translated to Java code - it should have been resolved to a concrete type first or this is a mock type annotation that should not be translated to Java code."))
 and ojtype out : jtype -> unit = function jt ->
     match Config.provenance_lvl () with
-    | Config.None | Config.Medium -> output_jtype out jt.value
-    | Config.Full -> output_placed out output_jtype jt 
+    | Config.None | Config.Medium -> output_jtype jt.place out jt.value
+    | Config.Full -> output_placed out (output_jtype jt.place) jt 
 
 and output_item out : _str_items -> unit = function
     | Body b -> obody out b 

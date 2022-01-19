@@ -69,7 +69,7 @@ and _expr =
     | BinaryExpr of expr * binop * expr
     | CastExpr of jtype * expr
     | LiteralExpr of literal
-    | LambdaExpr of variable list * stmt 
+    | LambdaExpr of (jtype * variable) list * stmt 
     | NewExpr of expr * expr list
     | ThisExpr
     | UnaryExpr of unop * expr

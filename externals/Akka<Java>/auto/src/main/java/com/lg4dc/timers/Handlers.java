@@ -31,7 +31,7 @@ public class Handlers {
 
         dead_sessions.add(timerMsg.session_id);
 
-        timerMsg.replyTo.actorRef.tell(new SessionIsDead(timerMsg.session_id, (ActorRef) self.actorRef));
+        timerMsg.replyTo.actorRef.tell(new SessionIsDead(timerMsg.session_id, self));
     } 
     public static void onLBTimer(
         ActorContext context, 
