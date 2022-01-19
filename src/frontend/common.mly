@@ -386,8 +386,13 @@ any_stmt_:
     { GhostStmt s}
 | WITH LANGLEBRACKET x=UID RANGLEBRACKET e = any_expr LCURLYBRACKET stmts = flexible_sequence(any_stmt) RCURLYBRACKET
     { WithContextStmt (false, x, e, stmts) }
-| WITHANON LANGLEBRACKET x=UID RANGLEBRACKET e = any_expr LCURLYBRACKET stmts = flexible_sequence(any_stmt) RCURLYBRACKET
-    { WithContextStmt (true, x, e, stmts) }
+| WITH LANGLEBRACKET x=UID COMMA y=LID RANGLEBRACKET e = any_expr LCURLYBRACKET stmts = flexible_sequence(any_stmt) RCURLYBRACKET
+    { 
+        match y with
+        | "anonymous" -> WithContextStmt (true, x, e, stmts) 
+        | _ -> Core.Error.error [$loc] "Wrong parameter for with stmt: %s" y
+    }
+
 
 %public %inline any_stmt:
   t = placed(any_stmt_)

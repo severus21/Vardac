@@ -93,7 +93,6 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "metadata", METADATA;
     "returns", RETURNS;
     "with", WITH;
-    "withanon", WITHANON;
 
     (* lifetime keywords *)
     "this", THIS;
