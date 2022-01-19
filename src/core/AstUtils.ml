@@ -65,6 +65,7 @@ type flat_type =
     | TLabel
     | TVoid
     | TPlace
+    | TSessionID (* can not be created by programmer -> no constructor *)
     | TTimer
     | TWildcard
 [@@deriving show { with_path = false }]

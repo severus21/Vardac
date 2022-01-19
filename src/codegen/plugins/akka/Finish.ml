@@ -161,6 +161,7 @@ module Make () = struct
             | AstUtils.TBool -> T.Atomic "Boolean"
             | AstUtils.TInt -> T.Atomic "Integer"
             | AstUtils.TFloat -> T.Atomic "Float"
+            | AstUtils.TSessionID -> T.Atomic "UUID"
             | AstUtils.TStr -> T.Atomic "String"
             | AstUtils.TVoid -> T.Atomic "Void" 
             | AstUtils.TUUID -> T.Atomic "UUID" 

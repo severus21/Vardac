@@ -103,12 +103,13 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
 
     (* Primtive types *)
     "bool", PTYPE TBool;
-    "int", PTYPE TInt;
     "float", PTYPE TFloat;
-    "string", PTYPE TStr;
+    "int", PTYPE TInt;
     "label", PTYPE TLabel;
-    "void", PTYPE TVoid;
     "place", PTYPE TPlace;
+    "session_id", PTYPE TSessionID;
+    "string", PTYPE TStr;
+    "void", PTYPE TVoid;
 
 
     (* Preprocessor *)
