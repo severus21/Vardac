@@ -100,7 +100,7 @@ let t_initiate () =
         fresh_outport (),
         mtype_of_ct(TArrow(
             mtype_of_ct(TForall(a, mtype_poly_of_cvar b)), 
-            mtype_of_ct(TActivationInfo (
+            mtype_of_ct(TActivationRef (
                 mtype_of_ct(TForall(b, mtype_poly_of_cvar b))
             ))
         ))
@@ -181,7 +181,7 @@ let t_listget () =
 
 let t_placeof () = 
     (*mtype_of_ct(TArrow(
-        quantify ["A"] (function  [a] -> mtype_of_ct (TActivationInfo (mtype_poly_of_cvar a))),
+        quantify ["A"] (function  [a] -> mtype_of_ct (TActivationRef (mtype_poly_of_cvar a))),
         mtype_of_ft TPlace
     ))
     *)
@@ -209,7 +209,7 @@ let t_activationat () =
     (*mtype_of_ct(TArrow(
         mtype_of_ft TPlace,
         mtype_of_ct (TSet (
-            mtype_of_ct (TActivationInfo(mtype_of_ft TWildcard))
+            mtype_of_ct (TActivationRef(mtype_of_ft TWildcard))
         ))
     ))*)
 

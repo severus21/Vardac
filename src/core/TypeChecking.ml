@@ -24,7 +24,7 @@ let auto_fplace smth = {place = fplace; value=smth}
 
 (* we need to find constraints to type check them *)
 let rec _tcheck_composed_type ct = function 
-| TActivationInfo mt -> tcheck_main_type mt
+| TActivationRef mt -> tcheck_main_type mt
 | TArrow (mt1, mt2) -> 
     tcheck_main_type mt1; 
     tcheck_main_type mt2

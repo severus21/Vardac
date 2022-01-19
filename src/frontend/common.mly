@@ -72,7 +72,7 @@ any_composed_type_:
         | TVar "tuple" -> TTuple args
         | TVar "activation_info" -> begin 
             match args with
-            | [arg] -> TActivationInfo arg 
+            | [arg] -> TActivationRef arg 
             | _ -> Core.Error.error ct.place "activation_info except exactly one type parameter (a Component type)"
         end
         (* User defined parametrized types *)

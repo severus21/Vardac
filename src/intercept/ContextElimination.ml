@@ -41,11 +41,11 @@ let analyze_withcontext place cname stmt =
         | LetExpr (mt, x, _) -> begin
             (* Overapproximation + failure *)
             let tactivation_selector = function
-                | CType {value=TActivationInfo _} -> true
+                | CType {value=TActivationRef _} -> true
                 | _ -> false
             in
             let tactivation_collector _ _ = function
-                | {value=CType {value=TActivationInfo mt_comp}} -> [mt_comp]
+                | {value=CType {value=TActivationRef mt_comp}} -> [mt_comp]
             in
             let _,collected_mtypes,_ = collect_type_mtype None Atom.Set.empty tactivation_selector tactivation_collector mt in 
 
@@ -153,7 +153,7 @@ let ctxelim_prepare_stmt parent_opt place = function
     => 
     let a' = spawn ... ()
     ...
-    let a = [InterceptedActivationInfo(i, a')] if identity of [a'] should be exposed else [VarExpr i]
+    let a = [InterceptedActivationRef(i, a')] if identity of [a'] should be exposed else [VarExpr i]
 
 *)
 let ctxelim_rewrite_stmt place = function 
@@ -172,7 +172,7 @@ let ctxelim_rewrite_stmt place = function
 
 
         let i = Atom.fresh "interceptor" in
-        let mt_interceptor = mtype_of_ct (TActivationInfo (mtype_of_cvar interceptor_name)) in
+        let mt_interceptor = mtype_of_ct (TActivationRef (mtype_of_cvar interceptor_name)) in
 
         let spawned_activations = List.flatten (List.map snd (List.map (analyze_withcontext place cname) stmts)) in
 
@@ -196,14 +196,14 @@ let ctxelim_rewrite_stmt place = function
         in
         let stmts = List.flatten stmts in
 
-        (* Step b. add at the end  [let a = [InterceptedActivationInfo(i, a')] if identity of [a'] should be exposed else [VarExpr i]]*)
+        (* Step b. add at the end  [let a = [InterceptedActivationRef(i, a')] if identity of [a'] should be exposed else [VarExpr i]]*)
         let post_binders = Hashtbl.fold (fun  a (a', intercepted_name) acc ->
-            let mt_intercepted = mtype_of_ct (TActivationInfo (mtype_of_cvar intercepted_name)) in
+            let mt_intercepted = mtype_of_ct (TActivationRef (mtype_of_cvar intercepted_name)) in
             let external_binder = auto_fplace(
                 if anonymous_mod then (
-                    VarExpr i, mtype_of_ct (TActivationInfo (mtype_of_cvar interceptor_name))
+                    VarExpr i, mtype_of_ct (TActivationRef (mtype_of_cvar interceptor_name))
                 )else(
-                    InterceptedActivationInfo (
+                    InterceptedActivationRef (
                         auto_fplace (VarExpr i, mt_interceptor), 
                         auto_fplace (VarExpr intercepted_name, mt_intercepted)
                     ), if anonymous_mod then mt_interceptor else mt_intercepted
@@ -211,7 +211,7 @@ let ctxelim_rewrite_stmt place = function
             ) in
             (auto_fplace (LetExpr( 
                 (* Preserved type for the outside world *)
-                mtype_of_ct (TActivationInfo (mtype_of_cvar intercepted_name)), 
+                mtype_of_ct (TActivationRef (mtype_of_cvar intercepted_name)), 
                 a, (* Preserve name for the outside world *) 
                 external_binder
             ))) :: acc

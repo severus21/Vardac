@@ -63,7 +63,7 @@ component A () {
     (*port truc on b0 expecting ?pong. = this.handle_pong;*)
 
     onstartup void toto (activation_info<B> b) {
-        session<p_pingpong> s0 = initiate_session_with(b0, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationInfo<'A> -> 'st *)
+        session<p_pingpong> s0 = initiate_session_with(b0, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationRef<'A> -> 'st *)
 
        ?pong. s1 = fire(s0, ping()); (* fire : !'a 'st -> 'a -> Result<'st, error> *)
         int i = 1;

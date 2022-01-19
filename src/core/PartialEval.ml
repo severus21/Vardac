@@ -74,7 +74,7 @@ let print_env env =
     print_newline ()
 
 let rec peval_composed_type env place : _composed_type -> env * _composed_type = function
-| TActivationInfo mt -> env, TActivationInfo ((snd <-> pe_mtype env) mt)
+| TActivationRef mt -> env, TActivationRef ((snd <-> pe_mtype env) mt)
 | (TArrow (mt1, mt2) as ct) | (TUnion (mt1, mt2) as ct)-> 
     let _, mt1 = pe_mtype env mt1 in
     let _, mt2 = pe_mtype env mt2 in

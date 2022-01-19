@@ -27,7 +27,7 @@ match l with
 | IntLit _ -> of_tflat TInt
 | LabelLit _ -> of_tflat TLabel
 | StringLit _ -> of_tflat TStr
-| ActivationInfo _ -> failwith "ActivationInfo Typeinference - do we need this literal since it carries no value"
+| ActivationRef _ -> failwith "ActivationRef Typeinference - do we need this literal since it carries no value"
 | Place _ -> failwith "Place do we need this literal since it can not exists statically"
 | VPlace _-> 
     (* forall x, vplace<x> - x must be unified during typecheking *)
@@ -184,7 +184,7 @@ and tannot_session_type ctx st = snd (tannot_full_session_type ctx st)
 
 (* Searching for constraints *)
 and _tannot_composed_type ctx place = function 
-| TActivationInfo mt -> TActivationInfo (tannot_main_type ctx mt)
+| TActivationRef mt -> TActivationRef (tannot_main_type ctx mt)
 | TArrow (mt1, mt2) -> TArrow (
     tannot_main_type ctx mt1,
     tannot_main_type ctx mt2
@@ -397,7 +397,7 @@ and _tannot_expr ctx place (e, mt_e) =
                 c = c;
                 args = List.map (tannot_expr ctx) spawn.args;
                 at = Option.map (tannot_expr ctx) spawn.at;
-            }, ctypeof(TActivationInfo(snd c.value))
+            }, ctypeof(TActivationRef(snd c.value))
             | BridgeCall b -> failwith "How to infer type of Bridge" 
             | BoxCExpr ce -> failwith "BoxCExpr Typeinference"
             | OptionExpr e_opt ->  

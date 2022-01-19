@@ -12,7 +12,7 @@ and comments = AstUtils.comments
 (************************************ Types **********************************)
 and flat_type = IR.flat_type
 and _composed_type =
-    | TActivationInfo of main_type
+    | TActivationRef of main_type
     | TArrow of main_type * main_type
 
     | TVar of variable
@@ -97,7 +97,7 @@ and _literal =
     | StringLit of string
 
     (** Activations *)
-    | ActivationInfo of unit (* TODO *)
+    | ActivationRef of unit (* TODO *)
 
     (** No Placement here, since place are defined in a n external file*)
 and literal = _literal placed

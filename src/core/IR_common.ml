@@ -31,7 +31,7 @@ module type TIRC = sig
     }
 
     and _composed_type =
-        | TActivationInfo of main_type
+        | TActivationRef of main_type
         (*| TSession of session_type * variable*)
         | TArrow of main_type * main_type
 
@@ -135,7 +135,7 @@ module type TIRC = sig
         | StringLit of string
 
         (** Activations *)
-        | ActivationInfo of unit (* TODO get ride of literal can not be instancied statically *)
+        | ActivationRef of unit (* TODO get ride of literal can not be instancied statically *)
 
         (** Placement *)
         | Place of place (* TODO get ride *)
@@ -163,7 +163,7 @@ module type TIRC = sig
         | VarExpr of expr_variable 
         | ImplicitVarExpr of expr_variable
 
-        | InterceptedActivationInfo of expr * expr  (* Interceptor activation * intercepted activation *)
+        | InterceptedActivationRef of expr * expr  (* Interceptor activation * intercepted activation *)
 
         | ActivationAccessExpr of component_variable * expr * expr_variable (* cname, e, x*)
         | AccessExpr of expr * expr (*e1.e2*)
@@ -342,7 +342,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     }
 
     and _composed_type =
-        | TActivationInfo of main_type
+        | TActivationRef of main_type
         (*| TSession of session_type * variable*)
         | TArrow of main_type * main_type
 
@@ -443,7 +443,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | StringLit of string
 
         (** Activations *)
-        | ActivationInfo of unit (* TODO *)
+        | ActivationRef of unit (* TODO *)
 
         (** Placement *)
         | Place of place
@@ -469,7 +469,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | VarExpr of expr_variable 
         | ImplicitVarExpr of expr_variable
 
-        | InterceptedActivationInfo of expr * expr  (* Interceptor activation * intercepted activation *)
+        | InterceptedActivationRef of expr * expr  (* Interceptor activation * intercepted activation *)
 
         | ActivationAccessExpr of component_variable * expr * expr_variable (* cname, e, x*)
         | AccessExpr of expr * expr (*e1.e2*)
@@ -802,7 +802,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         
     function
     | TFlatType _ -> already_binded, [], []
-    | TActivationInfo mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt -> collect_mtype mt
+    | TActivationRef mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt -> collect_mtype mt
     | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) | TPort (mt1, mt2) -> 
         let _, collected_elts1, ftvars1 = collect_mtype mt1 in
         let _, collected_elts2, ftvars2 = collect_mtype mt2 in
@@ -1073,7 +1073,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         {AstUtils.place; AstUtils.value}
 
     let rec _replace_type_composed_type x_to_replace ((replaceby_x_opt, _)as replaceby) place : _composed_type -> _composed_type = function
-        | TActivationInfo mt -> TActivationInfo (replace_type_main_type x_to_replace replaceby mt) 
+        | TActivationRef mt -> TActivationRef (replace_type_main_type x_to_replace replaceby mt) 
         | TArrow (mt1, mt2) -> TArrow (
             replace_type_main_type x_to_replace replaceby mt1,
             replace_type_main_type x_to_replace replaceby mt2
@@ -1314,7 +1314,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     let rec _rewrite_type_ctype selector rewriter place = 
         let rewrite_mtype = rewrite_type_mtype selector rewriter in    
     function
-        | TActivationInfo mt -> TActivationInfo (rewrite_mtype mt)
+        | TActivationRef mt -> TActivationRef (rewrite_mtype mt)
         | TArrow (mt1, mt2) -> TArrow (rewrite_mtype mt1, mt2) 
         | TVar x -> TVar x 
         | TFlatType ft -> TFlatType ft 
@@ -1518,7 +1518,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     let rec equal_place inner_equal (x1:'a AstUtils.placed) (x2:'a AstUtils.placed) = inner_equal (x1.value, x2.value)
 
     let rec _equal_ctype = function 
-    | TActivationInfo mt1, TActivationInfo mt2 | TArray mt1, TArray mt2 | TList mt1, TList mt2 | TOption mt1, TOption mt2 | TSet mt1, TSet mt2 | TVPlace mt1, TVPlace mt2 ->
+    | TActivationRef mt1, TActivationRef mt2 | TArray mt1, TArray mt2 | TList mt1, TList mt2 | TOption mt1, TOption mt2 | TSet mt1, TSet mt2 | TVPlace mt1, TVPlace mt2 ->
         equal_mtype mt1 mt2
     | TArrow (mt1_a, mt1_b), TArrow (mt2_a, mt2_b) | TDict (mt1_a, mt1_b), TDict (mt2_a, mt2_b) | TResult (mt1_a, mt1_b), TResult (mt2_a, mt2_b) | TUnion (mt1_a, mt1_b), TUnion (mt2_a, mt2_b) ->
         equal_mtype mt1_a mt2_a && equal_mtype mt1_b mt1_b

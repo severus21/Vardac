@@ -149,7 +149,7 @@ module Make () = struct
 
     (************************************ Types **********************************)
     let rec finish_ctype place : S._composed_type ->  T._ctype = function
-        | S.TActivationInfo mt -> T.TActivationRef (fmtype mt) 
+        | S.TActivationRef mt -> T.TActivationRef (fmtype mt) 
         | S.TArrow (m1, m2) -> T.TFunction (
             fmtype m1,
             fmtype m2
@@ -166,7 +166,7 @@ module Make () = struct
             | AstUtils.TUUID -> T.Atomic "UUID" 
             | AstUtils.TWildcard -> T.Atomic "?"
             | AstUtils.TPlace -> (t_lg4dc_place place).value
-            | _ -> Core.Error.error place "TActivationInfo/Place/VPlace/Label type not yey supported."
+            | _ -> Core.Error.error place "TActivationRef/Place/VPlace/Label type not yey supported."
         end
         | S.TArray mt -> T.TArray (fmtype mt)
         | S.TDict (m1, m2) -> T.TMap (fmtype m1, fmtype m2)
@@ -391,7 +391,7 @@ module Make () = struct
         | S.LabelLit l -> Core.Error.error place "Label are not yet supported"
         | S.StringLit str -> T.StringLit str
 
-        | S.ActivationInfo _ -> failwith "Activation info is not yet supported"
+        | S.ActivationRef _ -> failwith "Activation info is not yet supported"
 
         | S.Place _ -> failwith "Place is not yet supported"
         | S.StaticBridge _ -> raise (Error.DeadbranchError "Bridge should have been process by the finish_expr (returns an expr)")

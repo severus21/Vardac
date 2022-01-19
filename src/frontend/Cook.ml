@@ -414,11 +414,11 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
             error place "Unbound this variable: %s" x
     (************************************ Types **********************************)
     and cook_composed_type (env:env) place: S._composed_type -> env * T._composed_type = function
-    | (S.TActivationInfo mt as ct) | (S.TArray mt as ct) | (S.TList mt as ct) | (S.TOption mt as ct) | (S.TSet mt as ct) -> 
+    | (S.TActivationRef mt as ct) | (S.TArray mt as ct) | (S.TList mt as ct) | (S.TOption mt as ct) | (S.TSet mt as ct) -> 
         let (env1:env), mt = cmtype env mt in
         (env << [env1]), (match ct with 
             | S.TArray _ -> T.TArray mt 
-            | S.TActivationInfo _ -> T.TActivationInfo mt 
+            | S.TActivationRef _ -> T.TActivationRef mt 
             | S.TList _ -> T.TList mt 
             | S.TOption _ -> T.TOption mt 
             | S.TSet _ -> T.TSet mt 
@@ -557,7 +557,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
     | S.VoidLit -> env, T.VoidLit
 
     (** Activations *)
-    | S.ActivationInfo _ -> env, T.ActivationInfo () (* TODO *)
+    | S.ActivationRef _ -> env, T.ActivationRef () (* TODO *)
     and cliteral env lit: env * T.literal = map2_place (cook_literal env) lit
 
     (*
@@ -584,7 +584,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
                     let env1, e = cexpr env e1 in
                     let mt_e1 = Hashtbl.find gamma a in
                     match mt_e1.value with 
-                    | T.CType {value=T.TActivationInfo {value=T.CType {value=T.TVar cname }}} -> begin
+                    | T.CType {value=T.TActivationRef {value=T.CType {value=T.TVar cname }}} -> begin
                         try 
                             let target_env = Hashtbl.find iota cname in (* since Atom are unique*)
                             let mock_entity_env = { (fresh_entity_env !iota_entry_toplevel) with exprs = Env.map (function v -> v.value ) target_env.inner } in (* FIXME add implicit *)

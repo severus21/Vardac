@@ -104,7 +104,7 @@ let register_type ctx x mt = {
 
 let rec _is_subtype_ct place1 place2 ct1 ct2 =  
     match (ct1, ct2) with
-    | TActivationInfo mt1, TActivationInfo mt2 -> is_subtype mt1 mt2
+    | TActivationRef mt1, TActivationRef mt2 -> is_subtype mt1 mt2
     | TArrow (mt1_a, mt1_b), TArrow (mt2_a, mt2_b) ->
         is_subtype mt2_a mt1_a && (* contravariance *)
         is_subtype mt1_b mt2_b
@@ -241,7 +241,7 @@ end
 *)
 let rec _is_instance_ct (cvars:Atom.t list) constraints place1 place2 ct1 ct2 =  
     match (ct1, ct2) with
-    | TActivationInfo mt1, TActivationInfo mt2 -> _is_instance cvars constraints mt1 mt2
+    | TActivationRef mt1, TActivationRef mt2 -> _is_instance cvars constraints mt1 mt2
     | TArrow (mt1_a, mt1_b), TArrow (mt2_a, mt2_b) ->
         let constraints1, flag1 = _is_instance cvars constraints mt1_a mt2_a in
         let constraints2, flag2 = _is_instance cvars constraints mt1_b mt2_b in

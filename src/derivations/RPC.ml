@@ -168,7 +168,7 @@ module Make(Args:Args) : Sig = struct
                         input = auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge);
                         expecting_st = mtype_of_st (dual _expecting_st).value;
                         callback = auto_fplace (AccessExpr(
-                            auto_fplace (This, mtype_of_ct (TActivationInfo (mtype_of_cvar cname))), 
+                            auto_fplace (This, mtype_of_ct (TActivationRef (mtype_of_cvar cname))), 
                             auto_fplace (VarExpr callback.value.name, callback_sign)
                         ), callback_sign); 
                     }, mt_port))) in
@@ -185,7 +185,7 @@ module Make(Args:Args) : Sig = struct
 
                 let refreshed_args = (List.map (function {value=(mt, x)} -> auto_fplace (mt, Atom.fresh (Atom.value x))) m.value.args) in
                 let local_function_args = 
-                    (auto_fplace (mtype_of_ct (TActivationInfo (mtype_of_cvar cname)), local_function_activation))::
+                    (auto_fplace (mtype_of_ct (TActivationRef (mtype_of_cvar cname)), local_function_activation))::
                     refreshed_args 
                 in
                 let local_function caller_name = auto_fplace {

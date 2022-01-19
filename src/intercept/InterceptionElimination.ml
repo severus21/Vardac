@@ -37,7 +37,7 @@ let generate_callback (base_interceptor : component_structure) port_name (expect
     let mt_session_out, mt_session_in = mtype_of_st t_session_out.value, mtype_of_st t_session_in.value in
 
     let a_from, a_to = Atom.fresh "from", Atom.fresh "to" in
-    let t_from, t_to = mtype_of_ct (TActivationInfo t_bridge.in_type), mtype_of_ct (TActivationInfo t_bridge.out_type) in
+    let t_from, t_to = mtype_of_ct (TActivationRef t_bridge.in_type), mtype_of_ct (TActivationRef t_bridge.out_type) in
     let a_res, t_res = Atom.fresh "res", mtype_of_ct (TOption t_msg) in
 
     (* TODO/REFACTOR for perf built once a htbl of intecptors per base_interceptors *)
@@ -220,7 +220,7 @@ let update_bridges_types program (intercepted_name, interceptor_name) =
     in
     let in_rewriter = function 
         | CType {value=TBridge tbridge; place} ->  CType {place; value=TBridge {tbridge with 
-            in_type = mtype_of_ct (TUnion (tbridge.in_type, mtype_of_ct (TActivationInfo interceptor_name)))
+            in_type = mtype_of_ct (TUnion (tbridge.in_type, mtype_of_ct (TActivationRef interceptor_name)))
         }}
     in
     let out_selector = function
@@ -231,7 +231,7 @@ let update_bridges_types program (intercepted_name, interceptor_name) =
     in
     let out_rewriter = function 
         | CType {place; value=TBridge tbridge} ->  CType {place; value=TBridge {tbridge with 
-            out_type = mtype_of_ct (TUnion (tbridge.out_type, mtype_of_ct (TActivationInfo interceptor_name)))
+            out_type = mtype_of_ct (TUnion (tbridge.out_type, mtype_of_ct (TActivationRef interceptor_name)))
         }}
     in 
 
@@ -324,7 +324,7 @@ let apply_intercept_program program =
     (* TODO rewrite bridges types *)
     List.fold_left update_bridges_types program (failwith "TODO rewrite bridgeis");
 
-    (* Step 1. InterceptedActivationInfo *)
+    (* Step 1. InterceptedActivationRef *)
     failwith "TODO apply_intercept_program"
 
     program
