@@ -82,8 +82,7 @@ Semantics
 | place management and remote instanciation | :x:
 | equality in *.spec is structural equality | :x:
 | write the akka-encoding.md from sources   | :x:
-| implicit elimination and why              | :x:  | N.B. create default onstartup if needed + guardian can not have implicit + explain scoping and implicit::
-Warning: implicit::x -> type of x should be serializable not check by the compiler (tech debts)
+| implicit elimination and why              | :x:  | 
 | derivation definition/elimination     | :x: | diff with annotations + derivation are statically reduced + diff with metaprogrammation + deriviation are not location specific
 | direct method call a::method() works only for RPC and inlined (is it working ????????????
 | **Akka**  |
