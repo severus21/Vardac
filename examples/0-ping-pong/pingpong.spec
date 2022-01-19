@@ -67,7 +67,7 @@ component A () {
 
     outport p_out on this._b :: bridge<A, B, inline p_pingpong>;
 
-    onstartup void toto (bridge<A, B, inline p_pingpong> b0, activation_info<B> b) {
+    onstartup void toto (bridge<A, B, inline p_pingpong> b0, activation_ref<B> b) {
         this._b = b0;
         print("> Starting A");
         print(string_of_bridge(b0));
@@ -84,8 +84,8 @@ component A () {
         print("th_ping_fire");
 
         print("Spawn_C");
-        (*activation_info<C> c = spawn C() ;*)  
-        activation_info<C> c = spawn C() @ current_place(); 
+        (*activation_ref<C> c = spawn C() ;*)  
+        activation_ref<C> c = spawn C() @ current_place(); 
         print("Spawned_C");
         place p = placeof(c);
         
@@ -112,7 +112,7 @@ component A () {
             list<place> ps2 = select_places(vpcloud, x  : place -> true);
             print("pstwo_done");
 
-            (*set<activation_info<??>> activations = activationsat(current); TODO general do not exists for generics ....*)
+            (*set<activation_ref<??>> activations = activationsat(current); TODO general do not exists for generics ....*)
             activationsat(currenta);
             print("activations_done");
 
@@ -167,8 +167,8 @@ component B () {
 component Orchestrator () {
     onstartup void toto () {
         bridge<A, B, inline p_pingpong> b0 = bridge(p_pingpong);
-        activation_info<B> c = (spawn B(b0));
-        activation_info<A> a2 = (spawn A(b0, c));  
+        activation_ref<B> c = (spawn B(b0));
+        activation_ref<A> a2 = (spawn A(b0, c));  
     }
 }
 
@@ -195,17 +195,17 @@ component MultiJVMOrchestrator (){
             list<place> ps2 = select_places(vpa, x  : place -> true);
             place p1 = listget(ps1, 0);
             place p2 = listget(ps2, 0);
-            activation_info<B> c = spawn B(b0) @ p1;
+            activation_ref<B> c = spawn B(b0) @ p1;
             print(">>> b 0");
             print(placeof(c));
             print("<<<");
             (* FIXME A|B should be Top *)
-            (*for( activation_info<A|B> x in activationsat(p1)){
+            (*for( activation_ref<A|B> x in activationsat(p1)){
                 print(x);
             }*)
 
             (* FIXME TODO  Should be @p2*)
-            activation_info<A> a2 = spawn A(b0, c);
+            activation_ref<A> a2 = spawn A(b0, c);
             print(">>> a");
             print(placeof(a2));
             print("<<<");
@@ -213,11 +213,11 @@ component MultiJVMOrchestrator (){
 
             (*
             FIXME A|B should be Top
-            for( activation_info<A|B> x in activationsat(p2)){
+            for( activation_ref<A|B> x in activationsat(p2)){
                 print("activationsat p2");
                 print(x);
             }
-            for( activation_info<A|B> x in activationsat(p1)){
+            for( activation_ref<A|B> x in activationsat(p1)){
                 print("activationsat p1");
                 print(x);
             }
@@ -239,5 +239,5 @@ void titib (array<string> args){
     print("Passive player main");
 }
 
-activation_info<B> b = (spawn B(b0)); (* B() -> call the oncreate method of B with the argument whereas B(A) will be a functor application TODO fix the syntax *) 
-activation_info<A> a1 = (spawn A(b0, b));  
+activation_ref<B> b = (spawn B(b0)); (* B() -> call the oncreate method of B with the argument whereas B(A) will be a functor application TODO fix the syntax *) 
+activation_ref<A> a1 = (spawn A(b0, b));  

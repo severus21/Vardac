@@ -21,7 +21,7 @@ sharedcomponent/object PositiveCounter () {
 *)
 
 
-(* shared_object extends [activation_info] with shared method declated inside a shared component, so we can use
+(* shared_object extends [activation_ref] with shared method declated inside a shared component, so we can use
         - .decrement() : args -> Result<res_type, error>
         - .increment()
         ...
@@ -106,7 +106,7 @@ component A () {
 component KVSNode () {
     local int min_key;
     local int max_key;
-    local dict<..., activation_info<KVSNode>> shards;
+    local dict<..., activation_ref<KVSNode>> shards;
     local store; // abstract local store, could be anything
 
     oncreate result<void, error> toto (int min_key, int max_key) {
@@ -118,7 +118,7 @@ component KVSNode () {
         if( min_key <= key && key < max_key) {
             return ok( store.get(key) );
         } else {
-            activation_info<KVSNode> shard = pick_shard(key);
+            activation_ref<KVSNode> shard = pick_shard(key);
             
             ... s0 = b0.initiate_session_with(shard)?;
             s0.fire()?;
@@ -129,7 +129,7 @@ component KVSNode () {
 
     }
 
-    activation_info<KVSNode> pick_shard (int key);
+    activation_ref<KVSNode> pick_shard (int key);
 
     shared result<void, error> put (int key, int value) {}
     (* some mechanisme like a bridge with the parent to discover the other nodes *)
@@ -140,7 +140,7 @@ keys [0;500[
 5 noeuds 
 *)
 (* Create KVSNode activations *)
-list<activation_info<KVSNode>> shards;
+list<activation_ref<KVSNode>> shards;
 for(l in range(5)) {
     shareds.append(spawn KVSNode(((l*100); (l+1)*100))?);
 }

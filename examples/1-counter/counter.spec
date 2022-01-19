@@ -21,7 +21,7 @@ component A () {
     bridge<A, Counter, inline p_protocol> _b;
     outport p_out on this._b :: bridge<A, Counter, inline p_protocol>;
 
-    onstartup void toto (bridge<A, Counter, inline p_protocol> b0, activation_info<Counter> b) {
+    onstartup void toto (bridge<A, Counter, inline p_protocol> b0, activation_ref<Counter> b) {
         this._b = b0;
 
         print("> Starting A");
@@ -45,7 +45,7 @@ component A () {
 }
 
 component B () {
-    onstartup void toto(activation_info<Counter> c){
+    onstartup void toto(activation_ref<Counter> c){
         print(">Starting B");
         c.incr();
         print("> b read value:");
@@ -106,10 +106,10 @@ component MultiJVMOrchestrator (){
             list<place> ps2 = select_places(vpa, x  : place -> true);
             place p1 = listget(ps1, 0);
             place p2 = listget(ps2, 0);
-            activation_info<Counter> c = spawn Counter(b0) @ p1;
+            activation_ref<Counter> c = spawn Counter(b0) @ p1;
             (* FIXME TODO  Should be @p2*)
-            activation_info<A> a2 = spawn A(b0, c) @ p2;
-            activation_info<B> b = spawn B(c);
+            activation_ref<A> a2 = spawn A(b0, c) @ p2;
+            activation_ref<B> b = spawn B(c);
         }
     }
     onstartup void toto (){

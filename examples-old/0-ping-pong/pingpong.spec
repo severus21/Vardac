@@ -62,7 +62,7 @@ bridge<A, B, !ping?pong, TLS> b1 = tlsbridge('xxx.cert');*)
 component A () {
     (*port truc on b0 expecting ?pong. = this.handle_pong;*)
 
-    onstartup void toto (activation_info<B> b) {
+    onstartup void toto (activation_ref<B> b) {
         session<p_pingpong> s0 = initiate_session_with(b0, b); (* initiate_session_with : bridge<_,'A, 'st> -> ActivationRef<'A> -> 'st *)
 
        ?pong. s1 = fire(s0, ping()); (* fire : !'a 'st -> 'a -> Result<'st, error> *)
@@ -76,8 +76,8 @@ component A () {
         print("th_ping_fire");
 
         print("Spawn_C");
-        (*activation_info<C> c = spawn C() ;*)  
-        activation_info<C> c = spawn C() @ current_place(); 
+        (*activation_ref<C> c = spawn C() ;*)  
+        activation_ref<C> c = spawn C() @ current_place(); 
         print("Spawned_C");
         place p = placeof(c);
         
@@ -99,7 +99,7 @@ component A () {
             list<place> ps2 = select_places(vpcloud, x  : place -> true);
             print("pstwo_done");
 
-            (*set<activation_info<??>> activations = activationsat(current); TODO general do not exists for generics ....*)
+            (*set<activation_ref<??>> activations = activationsat(current); TODO general do not exists for generics ....*)
             activationsat(current);
             print("activations_done");
 
@@ -140,8 +140,8 @@ component B () {
 
 component Orchestrator () {
     onstartup void toto () {
-        activation_info<B> c = (spawn B());
-        activation_info<A> a2 = (spawn A(c));  
+        activation_ref<B> c = (spawn B());
+        activation_ref<A> a2 = (spawn A(c));  
     }
 }
 
@@ -149,8 +149,8 @@ void titi (array<string> args){
     print("apossiblemain");
 }
 
-activation_info<B> b = (spawn B()); (* B() -> call the oncreate method of B with the argument whereas B(A) will be a functor application TODO fix the syntax *) 
-activation_info<A> a1 = (spawn A(b));  
+activation_ref<B> b = (spawn B()); (* B() -> call the oncreate method of B with the argument whereas B(A) will be a functor application TODO fix the syntax *) 
+activation_ref<A> a1 = (spawn A(b));  
 
 
 
@@ -177,7 +177,7 @@ bridge<A, A, !ping?pong> b0 = bridge();
 
 (* Synchronous wait i.e. can not process incomming request *)
 component A () {
-    oncreate result<void, error> toto (activation_info<A> b) {
+    oncreate result<void, error> toto (activation_ref<A> b) {
        !ping?pong s0 = b0.initiate_session_with(b);
 
        ?pong s1 = s0.fire(ping())?;
@@ -202,7 +202,7 @@ component A () {
 
 (* Asynchronous wait *)
 component A () {
-    oncreate result<void, error> toto (activation_info<A> a2) {
+    oncreate result<void, error> toto (activation_ref<A> a2) {
        !ping?pong s0 = b0.initiate_session_with(a2);
 
        ?pong s1 = s0.fire(ping())?;

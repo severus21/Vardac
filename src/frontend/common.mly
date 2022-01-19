@@ -70,10 +70,10 @@ any_composed_type_:
             | _ -> Core.Error.error ct.place "Bridge type excepts exactly tree type parameters, gets %d !" (List.length args)
         end
         | TVar "tuple" -> TTuple args
-        | TVar "activation_info" -> begin 
+        | TVar "activation_ref" -> begin 
             match args with
             | [arg] -> TActivationRef arg 
-            | _ -> Core.Error.error ct.place "activation_info except exactly one type parameter (a Component type)"
+            | _ -> Core.Error.error ct.place "activation_ref except exactly one type parameter (a Component type)"
         end
         (* User defined parametrized types *)
         | _ -> Core.Error.error ct.place "Unknow parametric constructor"

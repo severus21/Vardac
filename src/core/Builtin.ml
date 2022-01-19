@@ -333,7 +333,7 @@ let builtin_access : (string * string) list = [
 
 (* name, signature string, description, signature () -> .. , neeed a closure to generate fresh types *)
 let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
-    "activationsat", "place -> set<activation_info>", "", t_activationat;
+    "activationsat", "place -> set<activation_ref>", "", t_activationat;
     "add2dict", "dict<k,v> -> k -> v -> ()", "add in place",t_add2dict ;
     "bridge", "() -> Bridge<'A, 'B, 'a>", "create a new bridge with a fresh id",
     fresh_tbridge;

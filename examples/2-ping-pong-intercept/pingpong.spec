@@ -19,10 +19,10 @@ component CounterInterceptor () {
     }
 
     (* TODO need polymorphism
-        option<'a>intercept(activation_info<'b> from, activation_info<'c> ,....')
+        option<'a>intercept(activation_ref<'b> from, activation_ref<'c> ,....')
     *)
     @intercept
-    option<ping> intercept(activation_info<A> from, activation_info<B> to, ?pong. continuation_in, !pong. continuation_out, ping msg){
+    option<ping> intercept(activation_ref<A> from, activation_ref<B> to, ?pong. continuation_in, !pong. continuation_out, ping msg){
         this.incr();
         return Some(msg);
     }
@@ -32,7 +32,7 @@ component A () {
     bridge<A, B, inline p_pingpong> _b;
     outport p_out on this._b :: bridge<A, B, inline p_pingpong>;
 
-    onstartup void toto (bridge<A, B, inline p_pingpong> b0, activation_info<B> b) {
+    onstartup void toto (bridge<A, B, inline p_pingpong> b0, activation_ref<B> b) {
         this._b = b0;
 
         print("> Starting A");
@@ -71,7 +71,7 @@ component PassivePlayer() {
 }
 
 (* TODO extends/: CounterInterceptor*)
-<Interceptor> activation_info<Interceptor> make_ctx(){
+<Interceptor> activation_ref<Interceptor> make_ctx(){
     //compute p from args or ask some interceptor coordinator e.g. to share interceptor for instance
     return spawn Interceptor();(* @ p; *)
 }
@@ -99,22 +99,22 @@ component MultiJVMOrchestrator (){
             *)
             with<CounterInterceptor> make_ctx() {
             (* withanon<CounterInterceptor> make_ctx() { TODO *)
-                activation_info<B> b = spawn B(b0) @ p1;
+                activation_ref<B> b = spawn B(b0) @ p1;
                 print("a");
             }
 
             (* Low level interception - should be defined as a citem *)
             (* TODO
             component MyInterceptor = MakeInterceptor(CounterInterceptor, [B; A]); 
-            activation_info<MyInterceptor> i = spawn MyInterceptor(i);
-            activation_info<B> b = ispawn (i, B(b0)); (* expose b identity + expose b type + but all proxy everythong trough i *)
-            activation_info<B> b = ispawnanon (i, B(b0)); (* do not expose b identity *)
+            activation_ref<MyInterceptor> i = spawn MyInterceptor(i);
+            activation_ref<B> b = ispawn (i, B(b0)); (* expose b identity + expose b type + but all proxy everythong trough i *)
+            activation_ref<B> b = ispawnanon (i, B(b0)); (* do not expose b identity *)
             *)
 
 
 
 
-            activation_info<A> c = spawn A(b0, b);
+            activation_ref<A> c = spawn A(b0, b);
         }
     }
 
