@@ -551,13 +551,12 @@ module Make () = struct
             }
         | S.BoxCExpr _ -> failwith "finish_expr BoxCexpr is not yet supported"
                 
-        (* TODO use java.utils.Optional instead of vavr.option*)
         | S.OptionExpr None -> T.CallExpr (
-            auto_place (T.VarExpr (Atom.builtin "Option.of"), auto_place T.TUnknown),
-            [auto_place (T.LitExpr (auto_place T.VoidLit), auto_place T.TUnknown)]
+            auto_place (T.VarExpr (Atom.builtin "Optional.empty"), auto_place T.TUnknown),
+            []
         )  
         | S.OptionExpr (Some e) -> T.CallExpr (
-            auto_place (T.VarExpr (Atom.builtin "Option.of"), auto_place T.TUnknown),
+            auto_place (T.VarExpr (Atom.builtin "Optional.of"), auto_place T.TUnknown),
             [fexpr e]
         )  
         | S.ResultExpr (None, Some err) ->  T.CallExpr (
