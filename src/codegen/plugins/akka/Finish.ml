@@ -1049,6 +1049,14 @@ module Make () = struct
                 e,
                 auto_place (T.VarExpr (Atom.builtin "st"), auto_place T.TUnknown)
             ), auto_place T.TUnknown) in
+            let e_init_stage e = auto_place (T.AccessExpr (
+                e,
+                auto_place (T.VarExpr (Atom.builtin "init_stage"), auto_place T.TUnknown)
+            ), auto_place T.TUnknown) in
+            let e_hidden_right e = auto_place (T.AccessExpr (
+                e,
+                auto_place (T.VarExpr (Atom.builtin "hidden_right"), auto_place T.TUnknown)
+            ), auto_place T.TUnknown) in
 
 
             (* Handle frozen/timeout session
@@ -1128,7 +1136,9 @@ module Make () = struct
                                         e_get_self_activation place (e_get_context place)
                                     ), auto_place T.TUnknown);
                                     e_replyto l_event;
-                                    fvstype remaining_st
+                                    fvstype remaining_st;
+                                    e_init_stage l_event;
+                                    e_hidden_right l_event;
                                 ]
                             ), auto_place T.TUnknown))
                         ));

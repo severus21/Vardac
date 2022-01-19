@@ -2,6 +2,7 @@ package com.lg4dc;
 
 import java.util.Set;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import akka.actor.typed.javadsl.ActorContext;
@@ -19,17 +20,24 @@ public class Session implements CborSerializable {
     public UUID session_id;
     public ASTStype.Base st;
 
+    public Boolean init_stage;
+    public Optional<ActivationRef> hidden_right; //e.g. non anonymous redirection
+
     public Session(
         UUID bridge_id,
         ActivationRef left,
         ActivationRef right,
-        ASTStype.Base st) {
+        ASTStype.Base st,
+        Boolean init_stage,
+        Optional<ActivationRef> hidden_right) {
         this.bridge_id = bridge_id;
         this.session_id = UUID.randomUUID();
         this.left = left;
         this.right = right;
 
         this.st = st;
+        this.init_stage = init_stage;
+        this.hidden_right = hidden_right;
     }
     
     public void set_id(UUID id){
@@ -53,13 +61,15 @@ public class Session implements CborSerializable {
             return this; //TODO return Err() and Ok(This)
         }
 
-        e.hydrate(this.bridge_id,  this.session_id,  this.left, this.st, new NoMetadata());
+        e.hydrate(this.bridge_id,  this.session_id,  this.left, this.st, this.init_stage, this.hidden_right, new NoMetadata());
         this.right.actorRef.tell(e);
         context.getLog().debug(String.format("Message %s send from %s to %s", e.toString(), context.getSelf().path().toString(), this.right.actorRef.path().toString()));
 
         ASTStype.TimerHeader.apply_headers(context, contextTimers, frozen_sessions, dead_sessions, this);
 
         this.st = this.st.continuations.get(0)._3;
+        this.init_stage = false;
+
         return this;
     }
 
@@ -94,6 +104,8 @@ public class Session implements CborSerializable {
 
         context.getLog().error( String.format("Can not select [%s] from [%s] to [%s] : label is unknown in ST", label, this.left.toString(), this.right.toString(), this.session_id));
         assert(false);
+
+        this.init_stage = false;
         return this;
     }
 }

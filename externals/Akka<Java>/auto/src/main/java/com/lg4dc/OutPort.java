@@ -1,6 +1,6 @@
 package com.lg4dc;
 
-import java.util.UUID;
+import java.util.*;
 import akka.actor.typed.javadsl.ActorContext;
 import com.bmartin.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -26,13 +26,14 @@ public final class OutPort<P extends Protocol> implements CborSerializable, Json
 
     public Session initiate_session_with(
         ActivationRef from, 
-        ActivationRef to
+        ActivationRef to,
+        Optional<ActivationRef> hidden_to
     ){
         assert(from != null);
         assert(to != null);
         assert(this.bridge != null);
 
-        return new Session(this.bridge.id, from, to, this.bridge.protocol.get_st());
+        return new Session(this.bridge.id, from, to, this.bridge.protocol.get_st(), true, hidden_to);
     }    
 
     public boolean equals(Object obj) {

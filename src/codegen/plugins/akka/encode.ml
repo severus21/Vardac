@@ -246,6 +246,7 @@ let encode_builtin_fct place name (args:T.expr list) =
                         Misc.e_get_self_activation place (Misc.e_get_context place)
                     ), auto_place T.TUnknown);
                     right;
+                    Misc.e_none place ; (* FIXME interception should change this*)
                 ]
             )
         | _ -> Error.error place "first must take one argument"

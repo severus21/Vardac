@@ -839,12 +839,6 @@ end) = struct
         | S.AccessExpr (e1,e2) -> T.AccessExpr (fexpr e1, fexpr e2)
         | S.AccessMethod (e1,x) -> T.AccessMethod (fexpr e1, x)
         | S.ActivationRef{schema; actor_ref} ->
-            let none () = 
-                T.AppExpr (
-                auto_place (T.VarExpr (Atom.builtin "Optional.empty"), auto_place T.TUnknown),
-                []
-            )  
-            in
             (* public ActivationRef (String componentSchema, ActorRef actorRef, Boolean isInterceptor, Optional<ActivationRef> interceptedActivationRef_opt) *)
             T.NewExpr(
                 auto_place(T.VarExpr(Atom.builtin "ActivationRef"), auto_place T.TUnknown),
@@ -852,7 +846,7 @@ end) = struct
                     fexpr schema;
                     fexpr actor_ref;
                     auto_place (T.LiteralExpr (auto_place(T.BoolLit false)), auto_place T.TUnknown);
-                    auto_place (none (), auto_place T.TUnknown);
+                    fexpr (Rt.Misc.e_none fplace);
                 ]
             )              
         | S.AssertExpr e -> T.AssertExpr (fexpr e)                   

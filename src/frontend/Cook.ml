@@ -911,8 +911,10 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
 
         env << [inner_env; env1; env2], {
             annotations = List.map (function
-                | {value=S.Intercept} -> T.Intercept
-                | a -> Error.error a.place "%s is not a component annotation!" (S.show_annotation a)
+                | {value=S.MsgIntercept {kind}} -> T.MsgIntercept {kind}
+                | {value=S.SessionIntercept {anonymous; kind}} -> T.SessionIntercept {anonymous; kind}
+                | {value=S.Onboard xs} -> T.Onboard (List.map (cook_var_component env place) xs)
+                | a -> Error.error a.place "%s is not a method annotation!" (S.show_annotation a)
             ) m.annotations; 
             ghost = m.ghost;
             ret_type = ret_type;

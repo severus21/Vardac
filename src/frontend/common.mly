@@ -601,16 +601,33 @@ any_component_expr_:
 (********************** Signatures *********************)
 
 (************************************ Program *****************************)
+any_intercept_kind:
+| x = LID
+    { 
+        match x with
+        | "egress" -> Core.IR.Egress 
+        | "ingress" -> Ingress
+        | "both" -> Both
+    }
+
 any_annotation_:
 (* TODO syntax should be generalized *)
-|AT x=LID 
+|AT x=LID LPAREN b_opt = option(BOOLLITERAL ) COMMA kind=any_intercept_kind RPAREN 
     { 
         match x with 
-        | "intercept" -> Intercept 
-        | _ -> Core.Error.error [$loc] "Unknown annotation with no args: %s" x 
+        | "msgintercept" -> 
+            if b_opt <> None then Core.Error.error [$loc] "msgintercept(egress|ingress|both)"
+            else MsgIntercept {kind}
+        | "sessionintercept" -> 
+            if b_opt = None then Core.Error.error [$loc] "sessionintercept(bool, egress|ingress|both)"
+            else SessionIntercept {anonymous=Option.get b_opt; kind}
+        | _ -> Core.Error.error [$loc] "Unknown annotation: %s" x 
     }
 |AT x=LID LPAREN LBRACKET interceptors=right_flexible_list(COMMA, UID) RBRACKET COMMA LBRACKET excluded_ports=right_flexible_list(COMMA, LID) RBRACKET RPAREN
-    { Capturable {interceptors; excluded_ports} }
+    { 
+        match x with
+        | "capturable" -> Capturable {interceptors; excluded_ports} 
+    }
 %inline any_annotation:
     t = placed(any_annotation_)
     { t }

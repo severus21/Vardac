@@ -42,7 +42,7 @@ let generate_callback (base_interceptor : component_structure) port_name (expect
 
     (* TODO/REFACTOR for perf built once a htbl of intecptors per base_interceptors *)
     let user_defined_interceptor_selector = function
-    | {value=Method m} when List.mem Intercept m.value.annotations  -> (* only consider method marked as interceptor *)
+    | {value=Method m} when List.mem (failwith "previously: Intercept") m.value.annotations  -> (* only consider method marked as interceptor *)
         
         let flag1 = match m.value.ret_type.value with
             | CType {value=TOption t } -> equal_mtype t t_msg 
@@ -263,9 +263,9 @@ let makeinterceptor_rewriter program place = function
 
         let base_onstartup = Option.map (function {value=Method m} -> m) (List.find_opt (function | {value=Method m} -> m.value.on_startup | _ -> false) base_interceptor.body) in 
         let m_interceptors = List.filter (function |
-        {value=Method m} -> List.mem Intercept m.value.annotations | _ -> false) base_interceptor.body in
+        {value=Method m} -> List.mem (failwith "previously: Intercept") m.value.annotations | _ -> false) base_interceptor.body in
         let other_citems =List.filter (function |
-        {value=Method m} -> Bool.not (List.mem Intercept m.value.annotations) | _ -> true) base_interceptor.body in
+        {value=Method m} -> Bool.not (List.mem (failwith "previously: Intercept") m.value.annotations) | _ -> true) base_interceptor.body in
 
 
         let onstartup_args = 

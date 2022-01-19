@@ -247,9 +247,19 @@ module type TIRC = sig
     }
     and outport = (_outport * main_type) placed
 
-
+    and session_interceptor_kind = 
+        | Egress
+        | Ingress
+        | Both
     and method_annotation = 
-        | Intercept
+        | MsgIntercept of {
+            kind: session_interceptor_kind;
+        }
+        | SessionIntercept of {
+            anonymous: bool;
+            kind: session_interceptor_kind;
+        }
+        | Onboard of component_variable list (* List of schemas that this function can onboard *)
 
     and component_annotation = 
         | Capturable of {interceptors: component_variable list; excluded_ports: component_variable list}
@@ -552,8 +562,20 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     }
     and outport = (_outport * main_type) placed
 
+    and session_interceptor_kind = 
+        | Egress
+        | Ingress
+        | Both
     and method_annotation = 
-        | Intercept
+        | MsgIntercept of {
+            kind: session_interceptor_kind;
+        }
+        | SessionIntercept of {
+            anonymous: bool;
+            kind: session_interceptor_kind;
+        }
+        | Onboard of component_variable list (* List of schemas that this function can onboard *)
+
     and component_annotation = 
         | Capturable of {interceptors: component_variable list; excluded_ports: component_variable list}
 
