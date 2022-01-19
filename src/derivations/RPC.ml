@@ -367,9 +367,6 @@ module Make(Args:Args) : Sig = struct
                 RPC bridge is a static bridge
                 because using implicit is not enough, it can not breach binary fronter. 
                 A unique bridge id is given at compile time to a static RPC bridge  and partial-evaluation inline it everywhere.
-
-                TODO Supporting a cross binary implivit elimination will needs to have a communication protocol between guardian (if target = Akka), i.e. a runtime overlay, to exchange implicit transparently from binary to binary.
-                TODOC
             *)
             let rpc_outport = auto_fplace (Outport (auto_fplace (
                 { 

@@ -4,7 +4,6 @@ import java.util.Set;
 import java.util.List;
 import java.util.UUID;
 
-import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.TimerScheduler;
 
@@ -15,15 +14,15 @@ import com.lg4dc.timers.*;
 
 public class Session implements CborSerializable {
     public UUID bridge_id;
-    public ActorRef left;
-    public ActorRef right;
+    public ActivationRef left;
+    public ActivationRef right;
     public UUID session_id;
     public ASTStype.Base st;
 
     public Session(
         UUID bridge_id,
-        ActorRef left, //TODO remove Cbor and Cast
-        ActorRef right,
+        ActivationRef left,
+        ActivationRef right,
         ASTStype.Base st) {
         this.bridge_id = bridge_id;
         this.session_id = UUID.randomUUID();
@@ -55,8 +54,8 @@ public class Session implements CborSerializable {
         }
 
         e.hydrate(this.bridge_id,  this.session_id,  this.left, this.st, new NoMetadata());
-        this.right.tell(e);
-        context.getLog().debug(String.format("Message %s send from %s to %s", e.toString(), context.getSelf().path().toString(), this.right.path().toString()));
+        this.right.actorRef.tell(e);
+        context.getLog().debug(String.format("Message %s send from %s to %s", e.toString(), context.getSelf().path().toString(), this.right.actorRef.path().toString()));
 
         ASTStype.TimerHeader.apply_headers(context, contextTimers, frozen_sessions, dead_sessions, this);
 
@@ -77,8 +76,8 @@ public class Session implements CborSerializable {
             return this; //TODO return Err() and Ok(This)
         }
 
-        this.right.tell(new LabelEvent(label));
-        context.getLog().debug(String.format("Select %s from %s to %s", label, context.getSelf().path().toString(), this.right.path().toString()));
+        this.right.actorRef.tell(new LabelEvent(label));
+        context.getLog().debug(String.format("Select %s from %s to %s", label, context.getSelf().path().toString(), this.right.actorRef.path().toString()));
 
         ASTStype.TimerHeader.apply_headers(context, contextTimers, frozen_sessions, dead_sessions, this);
 

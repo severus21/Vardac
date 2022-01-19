@@ -325,6 +325,10 @@ let builtin_access : (string * string) list = [
     "_1_", "...";
     "_3_", "...";
     "_4_", "...";
+
+    (* Session attributes *)
+    (* TODO session_from/session_to/session_to_2_ => syntaxic sugar s.from s.to s.to_2_*)
+
 ]
 
 (* name, signature string, description, signature () -> .. , neeed a closure to generate fresh types *)
@@ -357,6 +361,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "select", "st -> label -> st", "select", t_select;
     "option_get", "option<'a> -> 'a", "", t_select; (*TODO*)
     "session_from", "session -> activation<>", "get the initiater of the session", t_select; (*TODO*)
+    "session_to_2_", "session -> activation<>", "TODO", t_select; (*TODO*)
     (*
 
 

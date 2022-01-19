@@ -13,6 +13,7 @@ and comments = Core.AstUtils._comments
 and _ctype = 
     | Atomic of string (*void, Void, int, float, ?, ..*)           
     | ActorRef of ctype
+    | TActivationRef of ctype
     | TFunction of ctype * ctype
     | TArray of ctype 
     | TList of ctype 
@@ -47,6 +48,7 @@ and parameter = ctype * variable
 and _expr =                  
     | AccessExpr of expr * expr
     | AccessMethod of expr * variable
+    | ActivationRef of {schema: expr; actor_ref: expr}
     | AssertExpr of expr 
     | BinopExpr of expr * binop * expr 
     | CallExpr of expr * expr list
@@ -202,6 +204,7 @@ let rec apply_rename_place (apply_rename : Core.Error.place -> 'a -> 'a) ({ Core
 let rec _apply_rename_ctype (renaming : Atom.atom -> Atom.atom) place : _ctype -> _ctype = function
     | Atomic s -> Atomic s
     | ActorRef ct -> ActorRef (apply_rename_ctype renaming ct)
+    | TActivationRef ct -> TActivationRef (apply_rename_ctype renaming ct)
     | TFunction (ct1, ct2) -> TFunction (
         apply_rename_ctype renaming ct1,
         apply_rename_ctype renaming ct2
@@ -253,6 +256,10 @@ and _apply_rename_expr rename_binders (renaming : Atom.atom -> Atom.atom) place 
         apply_rename_expr rename_binders renaming e1,
         renaming x 
     )
+    | ActivationRef {schema; actor_ref} -> ActivationRef { 
+        schema = apply_rename_expr rename_binders renaming schema;
+        actor_ref = apply_rename_expr rename_binders renaming actor_ref
+    }
     | AssertExpr e -> AssertExpr (
         apply_rename_expr rename_binders renaming e
     ) 
@@ -450,6 +457,10 @@ let rec _rewriteexpr_expr selector rewriter place (e, mt): _expr * ctype =
         rewriteexpr_expr selector rewriter e,
         x
     ) 
+    | ActivationRef {schema; actor_ref} -> ActivationRef {
+        schema;
+        actor_ref  = rewriteexpr_expr selector rewriter actor_ref
+    }
     | AssertExpr e -> AssertExpr (
         rewriteexpr_expr selector rewriter e
     ) 

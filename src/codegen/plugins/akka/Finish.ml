@@ -15,7 +15,10 @@ module S = IRI
 module T = Ast 
 
 
-
+(* TODO move it elsewhere in Core*)
+let schema_of cexpr = match fst cexpr.value with
+| S.VarCExpr x -> x
+| _ -> failwith "Other kind of component Expr not yet supported by schema_of"
 
 (*** Global state *)
 type collected_state = {
@@ -146,7 +149,7 @@ module Make () = struct
 
     (************************************ Types **********************************)
     let rec finish_ctype place : S._composed_type ->  T._ctype = function
-        | S.TActivationInfo mt -> T.ActorRef (fmtype mt) 
+        | S.TActivationInfo mt -> T.TActivationRef (fmtype mt) 
         | S.TArrow (m1, m2) -> T.TFunction (
             fmtype m1,
             fmtype m2
@@ -434,22 +437,25 @@ module Make () = struct
         end
         | S.This -> T.This
         | S.Spawn {c; args; at=None} ->
-            T.Spawn {
-                context = auto_place (T.CurrentContext, auto_place T.TUnknown);  
-                actor_expr= auto_place (T.CallExpr(
-                    auto_place (T.VarExpr (Atom.builtin "spawn")
-                    , auto_place T.TUnknown),
-                    [auto_place (T.CallExpr (
-                        auto_place (T.AccessExpr (
-                                fcexpr c,
-                                auto_place (T.VarExpr (Atom.builtin "create")
-                                , auto_place T.TUnknown)
-                            ), auto_place T.TUnknown),
-                            e_this_guardian fplace
-                            :: List.map fexpr args
-                        )
-                    , auto_place T.TUnknown)] @ [ auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))), auto_place T.TUnknown)]
-                ), auto_place T.TUnknown)
+            T.ActivationRef{
+                schema = auto_place (T.VarExpr (schema_of c), auto_place T.TUnknown);
+                actor_ref = auto_place (T.Spawn {
+                    context = auto_place (T.CurrentContext, auto_place T.TUnknown);  
+                    actor_expr= auto_place (T.CallExpr(
+                        auto_place (T.VarExpr (Atom.builtin "spawn")
+                        , auto_place T.TUnknown),
+                        [auto_place (T.CallExpr (
+                            auto_place (T.AccessExpr (
+                                    fcexpr c,
+                                    auto_place (T.VarExpr (Atom.builtin "create")
+                                    , auto_place T.TUnknown)
+                                ), auto_place T.TUnknown),
+                                e_this_guardian fplace
+                                :: List.map fexpr args
+                            )
+                        , auto_place T.TUnknown)] @ [ auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))), auto_place T.TUnknown)]
+                    ), auto_place T.TUnknown)
+                }, auto_place T.TUnknown)
             }
         | S.Spawn {c; args; at=Some at} ->
             (*
@@ -467,6 +473,7 @@ module Make () = struct
             let a_context = Atom.fresh "context" in
             let a_guardian = Atom.fresh "guardian" in
             let a_timers = Atom.fresh "timers" in
+            let schema = schema_of c in
 
             (* TODO ?? DUplicated with AkkaJAva [arg_lambda] ?? *)
             let runnable = 
@@ -514,19 +521,24 @@ module Make () = struct
                     ))
                 ])
             ), auto_place T.TUnknown) in
-            T.CallExpr(
-                e_lg4dc_spawnat fplace,
-                [
-                    e_get_context place;
-                    e_this_guardian fplace;
-                    runnable;
-                    auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))), auto_place T.TUnknown);
-                    auto_place (T.LitExpr (auto_place T.VoidLit), auto_place T.TUnknown);
-                    fexpr at;
-                ]
-            )
-        | S.BoxCExpr _ -> failwith "finish_expr BoxCexpr is not yet supported"
         
+            T.ActivationRef {
+                schema = auto_place (T.VarExpr (schema_of c), auto_place T.TUnknown);
+                actor_ref = auto_place(T.CallExpr(
+                    e_lg4dc_spawnat fplace,
+                    [
+                        e_get_context place;
+                        e_this_guardian fplace;
+                        runnable;
+                        auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))), auto_place T.TUnknown);
+                        auto_place (T.LitExpr (auto_place T.VoidLit), auto_place T.TUnknown);
+                        fexpr at;
+                    ]
+                ), auto_place T.TUnknown)
+            }
+        | S.BoxCExpr _ -> failwith "finish_expr BoxCexpr is not yet supported"
+                
+        (* TODO use java.utils.Optional instead of vavr.option*)
         | S.OptionExpr None -> T.CallExpr (
             auto_place (T.VarExpr (Atom.builtin "Option.of"), auto_place T.TUnknown),
             [auto_place (T.LitExpr (auto_place T.VoidLit), auto_place T.TUnknown)]
@@ -898,11 +910,21 @@ module Make () = struct
             } (* TODO handle persistency*)
         ) grp_items.states in 
 
+        let a_schema = Atom.builtin "schema" in
         let a_intermediate_states = Atom.builtin "intermediate_states" in
         let a_frozen_sessions = Atom.builtin "frozen_sessions" in
         let a_dead_sesison = Atom.builtin "dead_sessions" in
 
         let states = [
+            (* String schema = "schema_of ";*)
+            auto_place {
+                T.persistent = false; (*TODO persistence True ??*)
+                stmts = [ auto_place(T.LetStmt (
+                    auto_place (T.Atomic "String"),
+                    a_schema,
+                    Some (auto_place(T.LitExpr (auto_place (T.StringLit (Atom.to_string name))), auto_place T.TUnknown))
+                ))]
+            };
             (* Set<UUID> frozen_sessions = new HashSet();*)
             auto_place {   T.persistent = false; (*TODO persistence True ??*)
                 stmts = [ auto_place(T.LetStmt (
@@ -1033,7 +1055,7 @@ module Make () = struct
                             ), auto_place T.TUnknown),
                             [ 
                                 e_cast fplace "ActorContext" (e_get_context fplace);
-                                e_cast fplace "ActorRef" (e_get_self fplace (e_get_context fplace));
+                                e_cast fplace "ActivationRef" (e_get_self_activation fplace (e_get_context fplace));
                                 e_this_frozen_sessions fplace; 
                                 e_this_dead_sessions fplace; 
                                 e_sessionid l_event; 
@@ -1082,8 +1104,8 @@ module Make () = struct
                                 [
                                     e_bridgeid l_event;
                                     auto_place (T.CastExpr(
-                                        auto_place (T.TVar (Atom.builtin "ActorRef")),
-                                        e_get_self place (e_get_context place)
+                                        auto_place (T.TVar (Atom.builtin "ActivationRef")),
+                                        e_get_self_activation place (e_get_context place)
                                     ), auto_place T.TUnknown);
                                     e_replyto l_event;
                                     fvstype remaining_st
@@ -1154,7 +1176,7 @@ module Make () = struct
                                         auto_place (T.VarExpr (Atom.builtin handler), auto_place T.TUnknown),
                                         [
                                             e_get_context fplace;
-                                            e_get_self place (e_get_context fplace);
+                                            e_get_self_activation place (e_get_context fplace);
                                             (*Rt.Misc.e_this_timers;*)
                                             e_this_frozen_sessions fplace;
                                             e_this_dead_sessions fplace;

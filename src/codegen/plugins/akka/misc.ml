@@ -220,7 +220,7 @@ let e_get_context place =
         auto_place ( Ast.VarExpr (Atom.builtin "getContext"), auto_place Ast.TUnknown),
         []
     ), t_context place)
-let e_get_self place context = 
+let e_get_self_actor place context : Ast.expr= 
     let auto_place smth = {place; value=smth} in
     auto_place ( Ast.AccessExpr (
         context,
@@ -229,6 +229,18 @@ let e_get_self place context =
             []
         ), auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
+
+let e_get_self_activation place context : Ast.expr = 
+    let auto_place smth = {place; value=smth} in
+
+    auto_place (Ast.ActivationRef{
+        schema = auto_place (Ast.AccessExpr (
+            auto_place (Ast.This, auto_place Ast.TUnknown), 
+            auto_place ((Ast.VarExpr (Atom.builtin "schema"), auto_place Ast.TUnknown))
+        ), auto_place Ast.TUnknown);
+        actor_ref = e_get_self_actor place context;
+    }, auto_place Ast.TUnknown)
+
 
 let e_outport_of place bridge = 
     let auto_place smth = {place; value=smth} in

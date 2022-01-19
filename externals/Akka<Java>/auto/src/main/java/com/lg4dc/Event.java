@@ -4,11 +4,12 @@ import akka.actor.typed.ActorRef;
 import java.util.UUID;
 
 import com.bmartin.*;
+import com.lg4dc.ActivationRef;
 
 public class Event<T extends NoMetadata> implements CborSerializable {
     public UUID bridge_id;
     public UUID session_id;
-    public ActorRef<CborSerializable> replyTo;
+    public ActivationRef<CborSerializable> replyTo;
     public ASTStype.Base st;
     public NoMetadata metadata;
     
@@ -17,7 +18,7 @@ public class Event<T extends NoMetadata> implements CborSerializable {
     public void hydrate(
         UUID bridge_id, 
         UUID session_id, 
-        ActorRef<CborSerializable> replyTo, 
+        ActivationRef<CborSerializable> replyTo, 
         ASTStype.Base st, 
         NoMetadata metadata
     ) {

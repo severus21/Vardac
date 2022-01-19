@@ -69,6 +69,11 @@ public class Place {
         return new Place(null, member.address());
 
     }
+
+    public static Place of_actor_ref(ActorContext context, ActivationRef ref){
+        return of_actor_ref(context, ref.actorRef);
+    }
+
     public static Place of_actor_ref(ActorContext context, ActorRef ref){
         assert(ref!=null);
         Address addr = ref.path().address();

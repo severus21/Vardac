@@ -791,6 +791,8 @@ end) = struct
         | S.Atomic s -> T.TAtomic s 
         | S.ActorRef {value=S.TVar x} -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActorRef"), [fctype (Rt.Misc.t_command_of_actor place x)])  
         | S.ActorRef ct -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActorRef"), [fctype ct]) 
+        | S.TActivationRef {value=S.TVar x} -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActivationRef"), [fctype (Rt.Misc.t_command_of_actor place x)])  
+        | S.TActivationRef ct -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActivationRef"), [fctype ct]) 
         | S.TFunction (t1, t2) -> T.ClassOrInterfaceType  ( auto_place (T.TAtomic "Function"), [fctype t1; fctype t2]) 
         | S.TArray t1 -> T.ClassOrInterfaceType  (auto_place (T.TArray (fctype t1)), [])
         | S.TList t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "List"), [fctype t1])
@@ -836,6 +838,23 @@ end) = struct
     (match e with
         | S.AccessExpr (e1,e2) -> T.AccessExpr (fexpr e1, fexpr e2)
         | S.AccessMethod (e1,x) -> T.AccessMethod (fexpr e1, x)
+        | S.ActivationRef{schema; actor_ref} ->
+            let none () = 
+                T.AppExpr (
+                auto_place (T.VarExpr (Atom.builtin "Optional.empty"), auto_place T.TUnknown),
+                []
+            )  
+            in
+            (* public ActivationRef (String componentSchema, ActorRef actorRef, Boolean isInterceptor, Optional<ActivationRef> interceptedActivationRef_opt) *)
+            T.NewExpr(
+                auto_place(T.VarExpr(Atom.builtin "ActivationRef"), auto_place T.TUnknown),
+                [
+                    fexpr schema;
+                    fexpr actor_ref;
+                    auto_place (T.LiteralExpr (auto_place(T.BoolLit false)), auto_place T.TUnknown);
+                    auto_place (none (), auto_place T.TUnknown);
+                ]
+            )              
         | S.AssertExpr e -> T.AssertExpr (fexpr e)                   
         | S.BinopExpr (e1, op, e2) -> 
             T.BinaryExpr ( fexpr e1, op, fexpr e2) 
@@ -1131,8 +1150,8 @@ end) = struct
                                         Rt.Misc.e_get_context fplace
                                     ), auto_place S.TUnknown);
                                     auto_place(S.CastExpr(
-                                        auto_place (S.TVar (Atom.builtin "ActorRef")),
-                                        Rt.Misc.e_get_self fplace (Rt.Misc.e_get_context fplace)
+                                        auto_place (S.TVar (Atom.builtin "ActivationRef")),
+                                        Rt.Misc.e_get_self_activation fplace (Rt.Misc.e_get_context fplace)
                                     ), auto_place S.TUnknown);
                                     Rt.Misc.e_this_frozen_sessions fplace; 
                                     Rt.Misc.e_this_dead_sessions fplace; 
@@ -1157,7 +1176,7 @@ end) = struct
                     if is_guardian then
                         auto_place(S.AssignExpr( 
                             Rt.Misc.e_this_guardian fplace,
-                            Rt.Misc.e_get_self place (Rt.Misc.e_get_context place) 
+                            Rt.Misc.e_get_self_actor place (Rt.Misc.e_get_context place) 
                         ))
                     else
                         auto_place(S.AssignExpr( 

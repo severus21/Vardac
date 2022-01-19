@@ -11,7 +11,6 @@ import java.util.stream.Collectors;
 
 import com.lg4dc.timers.HBSessionTimer;
 
-import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.TimerScheduler;
 
