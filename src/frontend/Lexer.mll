@@ -74,10 +74,10 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "timer", TIMER;
 
     (* Expr *)
-    "Err", ERR;
-    "None", NONE;
-    "Ok", OK;
-    "Some", SOME;
+    "err", ERR;
+    "none", NONE;
+    "ok", OK;
+    "some", SOME;
 
     (* *)
     "function", FUNCTION;
@@ -106,6 +106,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "int", PTYPE TInt;
     "label", PTYPE TLabel;
     "place", PTYPE TPlace;
+    "activation_id", PTYPE TActivationID;
     "session_id", PTYPE TSessionID;
     "string", PTYPE TStr;
     "void", PTYPE TVoid;

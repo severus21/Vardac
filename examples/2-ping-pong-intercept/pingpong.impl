@@ -7,7 +7,9 @@ impl component A {
 impl component B {
 }
 
-impl component CounterInterceptor {}
+impl component PingPong {}
+
+impl component MsgCounter {}
 
 impl component PassivePlayer {}
 

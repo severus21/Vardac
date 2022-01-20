@@ -158,6 +158,7 @@ module Make () = struct
         | S.TVar x -> T.TVar x 
         | S.TFlatType ft -> begin match ft with  
             (* When using Tuyple, Map, ... we need object so for ease we box atomic type in objects everywhere *)
+            | AstUtils.TActivationID -> T.Atomic "UUID"
             | AstUtils.TBool -> T.Atomic "Boolean"
             | AstUtils.TInt -> T.Atomic "Integer"
             | AstUtils.TFloat -> T.Atomic "Float"

@@ -251,6 +251,15 @@ let encode_builtin_fct place name (args:T.expr list) =
             )
         | _ -> Error.error place "first must take one argument"
     end
+    | "pick" -> begin
+        match args with 
+        | [ dict ] ->
+            T.CallExpr(
+                auto_place (T.VarExpr (Atom.builtin "com.lg4dc.Utils.pick"), auto_place T.TUnknown),
+                [ dict ]
+            )
+        | _ -> Error.error place "pick must take one argument"
+    end
     | "sleep" -> Error.error place "In Akka, sleep must be convertible to a statement"
     | _ -> 
         Error.error place "Akka.Finish do not yet support builtin function %s" name

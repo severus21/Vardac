@@ -252,10 +252,10 @@ module type TIRC = sig
         | Ingress
         | Both
     and method_annotation = 
-        | MsgIntercept of {
+        | MsgInterceptor of {
             kind: session_interceptor_kind;
         }
-        | SessionIntercept of {
+        | SessionInterceptor of {
             anonymous: bool;
             kind: session_interceptor_kind;
         }
@@ -567,10 +567,10 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | Ingress
         | Both
     and method_annotation = 
-        | MsgIntercept of {
+        | MsgInterceptor of {
             kind: session_interceptor_kind;
         }
-        | SessionIntercept of {
+        | SessionInterceptor of {
             anonymous: bool;
             kind: session_interceptor_kind;
         }

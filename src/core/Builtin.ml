@@ -347,6 +347,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     t_initiate;
     "listget", " list<T> -> int -> t", "", t_listget;
     "nth", "tuple -> int -> ...", "nème elmt", t_nth;
+    "pick", "dict<k,v> -> v", "Random choice in a sequence, failed if empty", t_select; (*TODO*)
     "placeof", "abs -> place option", "Give the current place where the abstraction is running. Returns None if the abstraction is not yet placed.", t_placeof;
     "place_to_string", "place -> string", "", t_place_to_string;
     "places", "() -> list<place>", "TODO", t_places;
@@ -365,12 +366,10 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
 
 
     "sqrt", "float -> float", "Compute the square root of a float.";
-    "none", "unit", "unit term";
     "last", "List<T> -> T", "Return the last element of list, failed if empty";
     "switch", "session -> label* sessionTODO", "TODO";
     "remote_endpoint", "session -> TODO", "";
     "ipaddress", "TODO->TODO", "";
-    "pick", "TODO", "Random choice in a sequence, failed if empty";
     "children", "TODO", "child of places";
     *)
 ]

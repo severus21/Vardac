@@ -57,6 +57,7 @@ and comments = _comments placed
 
 type flat_type = 
     (** Literal types *)
+    | TActivationID (* can not be created by programmer -> no constructor *)
     | TBool
     | TInt
     | TUUID

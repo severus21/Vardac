@@ -911,8 +911,8 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
 
         env << [inner_env; env1; env2], {
             annotations = List.map (function
-                | {value=S.MsgIntercept {kind}} -> T.MsgIntercept {kind}
-                | {value=S.SessionIntercept {anonymous; kind}} -> T.SessionIntercept {anonymous; kind}
+                | {value=S.MsgInterceptor {kind}} -> T.MsgInterceptor {kind}
+                | {value=S.SessionInterceptor {anonymous; kind}} -> T.SessionInterceptor {anonymous; kind}
                 | {value=S.Onboard xs} -> T.Onboard (List.map (cook_var_component env place) xs)
                 | a -> Error.error a.place "%s is not a method annotation!" (S.show_annotation a)
             ) m.annotations; 
@@ -1023,10 +1023,11 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         let body = collect_labelevents @ body in
 
         let annotations = List.map (function 
-            | {value=S.Capturable {interceptors; excluded_ports}} -> T.Capturable {
-                interceptors = List.map (cook_var_component env place) interceptors;
-                excluded_ports = List.map (cook_var_this env place ) excluded_ports
-            }
+            | {value=S.Capturable {interceptors; excluded_ports}} -> 
+                T.Capturable {
+                    interceptors = List.map (cook_var_component env place) interceptors;
+                    excluded_ports = List.map (cook_var_this env place ) excluded_ports
+                }
             | a -> Error.error a.place "%s is not a component annotation!" (S.show_annotation a)
         ) cdcl.annotations in
 

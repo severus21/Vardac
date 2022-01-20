@@ -564,7 +564,7 @@ any_component_item_:
             name = x;
             init_opt = Some e
         }}
-        | Stmt _ -> failwith "Stmt can not be a component item"
+        | Stmt _ -> Error.error [$loc] "Stmt can not be a component item"
         | Function _ -> failwith "Function can not be a component item"
         | _ -> Term t 
     }
@@ -617,22 +617,29 @@ any_intercept_kind:
 
 any_annotation_:
 (* TODO syntax should be generalized *)
-|AT x=LID LPAREN b_opt = option(BOOLLITERAL ) COMMA kind=any_intercept_kind RPAREN 
+|AT x=LID LPAREN b = BOOLLITERAL COMMA kind=any_intercept_kind RPAREN 
     { 
         match x with 
-        | "msgintercept" -> 
-            if b_opt <> None then Core.Error.error [$loc] "msgintercept(egress|ingress|both)"
-            else MsgIntercept {kind}
-        | "sessionintercept" -> 
-            if b_opt = None then Core.Error.error [$loc] "sessionintercept(bool, egress|ingress|both)"
-            else SessionIntercept {anonymous=Option.get b_opt; kind}
+        | "sessioninterceptor" -> SessionInterceptor {anonymous=b; kind}
         | _ -> Core.Error.error [$loc] "Unknown annotation: %s" x 
+    }
+|AT x=LID LPAREN kind=any_intercept_kind RPAREN 
+    { 
+        match x with 
+        | "msginterceptor" -> MsgInterceptor {kind}
+        | _ -> Core.Error.error [$loc] "Unknown annotation: %s" x 
+    }
+|AT x=LID LPAREN LBRACKET schemas=right_flexible_list(COMMA, UID) RBRACKET RPAREN
+    { 
+        match x with
+        | "onboard" -> Onboard schemas 
     }
 |AT x=LID LPAREN LBRACKET interceptors=right_flexible_list(COMMA, UID) RBRACKET COMMA LBRACKET excluded_ports=right_flexible_list(COMMA, LID) RBRACKET RPAREN
     { 
         match x with
         | "capturable" -> Capturable {interceptors; excluded_ports} 
     }
+
 %inline any_annotation:
     t = placed(any_annotation_)
     { t }

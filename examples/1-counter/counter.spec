@@ -80,12 +80,12 @@ component Counter () {
         this.counter = this.counter + 1;
         fire(s1, value(this.counter)); 
 
-        return Ok(());
+        return ok(());
     }
     result<void, error> handle_incr2 (eincr msg, ?eincr!value. s1) {
         this.counter = this.counter + 1;
         fire(s1, value(this.counter)); 
-        return Ok(());
+        return ok(());
     }
 }
 

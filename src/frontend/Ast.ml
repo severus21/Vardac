@@ -286,10 +286,10 @@ and component_expr = _component_expr placed
 
 and _annotation = 
     | Capturable of {interceptors: variable list; excluded_ports: variable list}
-    | MsgIntercept of {
+    | MsgInterceptor of {
         kind: IR.session_interceptor_kind;
     }
-    | SessionIntercept of {
+    | SessionInterceptor of {
         anonymous: bool;
         kind: IR.session_interceptor_kind;
     }
