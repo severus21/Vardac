@@ -2,7 +2,7 @@ open Core
 open Core.AstUtils
 open Jingoo
 open Easy_logging
-
+open Akka
 let name = "Akka<Java>"
 let logger = Logging.make_logger ("_1_ compspec.plg."^name) Debug [];;
 
@@ -20,8 +20,8 @@ module T = Lg.Ast
 let system_name = "system"^(String.capitalize_ascii (Config.project_name ())) 
 
 (* TODO FIXME each plugin should have its own sites - separate compilation one day - now at least templates .... inside the plugin directory not toplevel templates/externals*)
-let [templates_location] = Mysites.Sites.templates
-let [externals_location] = Mysites.Sites.externals
+let [templates_location] = failwith "mysites" (*Mysites.Sites.templates*)
+let [externals_location] = failwith "mysites"(*Mysites.Sites.externals*)
 
 let fplace = (Error.forge_place "Plg=AkkaJava" 0 0)
 let auto_place smth = {place = fplace; value=smth}
@@ -1667,7 +1667,7 @@ module RtFinish = Rt.IRI2AstCompilationPass.Make(RFinish)
 type plgstate = Rt.Finish.collected_state
 let plgstate = ref (Rt.Finish.empty_cstate ())
 
-let finish_ir_program target (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
+let finish_ir_program target (ir_program: Registration.Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
     let program = RtFinish.apply ir_program in
 
     let module Akka2Java0 = MakeRt2Lg(struct

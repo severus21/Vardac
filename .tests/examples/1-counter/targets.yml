@@ -1,0 +1,11 @@
+- target: akka 
+  codegen: 
+    language: Java
+    runtime: Akka
+    mains: 
+      multiPlayer:
+        bootstrap: MultiJVMOrchestrator
+        entrypoint: titia
+      passivePlayer:
+        bootstrap: PassivePlayer
+        entrypoint: titib 

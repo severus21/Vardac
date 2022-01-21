@@ -87,7 +87,7 @@ component A () {
         print("pong");
         //fire(s1, pong()); 
 
-        return Ok(());
+        return ok(());
     }*)
     component C () {
         onstartup void toto () {
@@ -124,17 +124,17 @@ component B () {
         sleep(50);
         fire(s1, pong()); 
 
-        return Ok(());
+        return ok(());
     }
     result<void, error> handle_ping2 (ping msg, ?ping?ping. s1) {
         print("ping");
 
-        return Ok(());
+        return ok(());
     }
     result<void, error> handle_ping3 (ping msg, ?ping. s1) {
         print("ping");
 
-        return Ok(());
+        return ok(());
     }
 }
 

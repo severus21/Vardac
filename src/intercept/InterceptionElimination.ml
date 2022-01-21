@@ -322,7 +322,7 @@ let apply_intercept_program program =
 
 
     (* TODO rewrite bridges types *)
-    List.fold_left update_bridges_types program (failwith "TODO rewrite bridgeis");
+    ignore (List.fold_left update_bridges_types program (failwith "TODO rewrite bridgeis"));
 
     (* Step 1. InterceptedActivationRef *)
     failwith "TODO apply_intercept_program"

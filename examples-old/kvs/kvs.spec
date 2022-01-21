@@ -71,9 +71,9 @@ component Client() {
     (* Pattern matching no supported in cook and in Java
     returns res -> {
         match res {
-            //FIXME Ok(e) should be Ok(()) 
-            case Err(e) => return false;
-            case Ok(e) => return true;
+            //FIXME ok(e) should be ok(()) 
+            case err(e) => return false;
+            case ok(e) => return true;
         }
     }
     *)
@@ -122,7 +122,7 @@ component TransactionManager () {
         place ndc = this.nearest_dc(session.remote_endpoint.ipaddress);
         (component TransactionCoordinator) coordinator = (spawn TransactionCoordinator(tx_id, session) @ ndc)?;
         *)
-        return Ok(1);
+        return ok(1);
     }
 
     (*contract start_transaction
@@ -131,8 +131,8 @@ component TransactionManager () {
     (* Pattern matching no supported in cook and in Java
     returns res -> {
         match res {
-            case Err(e) => return false;
-            case Ok(e) => return last_tx_id > current_tx_id;
+            case err(e) => return false;
+            case ok(e) => return last_tx_id > current_tx_id;
         }
     }
     *)
@@ -160,7 +160,7 @@ component TransactionCoordinator () {
 
     onstartup void init(txid tx_id, tc_protocol s) {
         this.tx_id = tx_id;
-        action_protocol s1 = fire(s, Ok(tx_id) );
+        action_protocol s1 = fire(s, ok(tx_id) );
 
 
         (* TODO async dispatcher *)
@@ -174,7 +174,7 @@ component TransactionCoordinator () {
     (* TODO inlue action_porotocl, port port_handleaction on 1 expecting action_protocol = this.dispatcher;*)
     port port_handleaction on 1 expecting ?int. = this.dispatcher;
 
-    (* rev -> Result<...,NetworkError>*)
+    (* rev -> Result<...,Networkerror>*)
     Result<void, error> dispatcher(action_protocol s) {
         (*//https://medium.com/@shannonbarnes_85491/algebraic-data-types-in-scala-701f3227fe91
         *)
@@ -207,12 +207,12 @@ component TransactionCoordinator () {
             case "put" => { 
                 Tuple<action_protocol, Tuple<k,v>> res = receive(s)?; 
 
-                Result<void, Error> value = this.put(res.last().first(), res.last().first());
+                Result<void, error> value = this.put(res.last().first(), res.last().first());
 
                 fire(res.first(), value)?;
             }
         } *)
-        return Ok(1);
+        return ok(1);
     }
 
     (* Business logic *)

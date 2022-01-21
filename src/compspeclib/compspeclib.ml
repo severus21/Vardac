@@ -19,7 +19,7 @@ module TypeChecking = IRCompilationPass.Make(Core.TypeChecking)
 module TypeInference = IRCompilationPass.Make(Core.TypeInference)
 
 let process_check build_dir places_file filename = 
-    let build_dir = Utils.refresh_or_create_build_dir build_dir in
+    Utils.refresh_or_create_build_dir build_dir; 
     let project_dir = Fpath.parent (Fpath.v filename) in
 
     let places = Frontend.process_place places_file in
@@ -32,7 +32,7 @@ let process_check build_dir places_file filename =
 
 let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename filename = 
     (* Prepare dir *)
-    let build_dir = Utils.refresh_or_create_build_dir build_dir in
+    Utils.refresh_or_create_build_dir build_dir;
     Printf.eprintf "Codegeneration directory is \"%s\":\n" (Fpath.to_string build_dir);
     let project_dir = Fpath.parent (Fpath.v filename) in
 

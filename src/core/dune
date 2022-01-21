@@ -1,4 +1,3 @@
-
 ;; Constructing the lexer, parser, and executable.
 (library
     (name core)

@@ -222,11 +222,13 @@ and _tcheck_expr place (e, mt_e) =
         | Block2Expr (b, ees) -> begin
             match mt_e.value with 
             |  CType{value=TDict (t_key, t_elt)} -> 
-                List.fold_left (fun (t_key, t_elt) (key,elt) -> 
+                    failwith "TODO TypeSchecking" 
+                (*List.fold_left (fun (t_key, t_elt) (key,elt) ->
                     equal_mtype t_key (snd key.value); 
-                    equal_mtype t_elt (snd elt.value); snd key.value, snd elt.value
+                    equal_mtype t_elt (snd elt.value); 
+                    snd key.value, snd elt.value
                 )  (t_key, t_elt) ees;
-                ()  
+                ()  *)
         end
 and tcheck_expr (e:expr) : unit = map0_place _tcheck_expr e
 
@@ -349,17 +351,21 @@ and _tcheck_contract place (p:_contract) =
             Error.error place "Type error: types mismatched (equality error)"
             (* The propagation of x:mt has been done by TypeInference to scope of the binder *)
     ) p.pre_binders;
-    Option.map tcheck_expr p.ensures;
+    failwith "TODO Typecheck"
+    (*Option.map tcheck_expr p.ensures;
     Option.map tcheck_expr p.returns;
-    ()
+    ()*)
 and tcheck_contract c = map0_place _tcheck_contract c
 
 and _tcheck_method place (m:_method0) = 
     tcheck_main_type m.ret_type;
-    List.map tcheck_param m.args;
+    failwith "Type check TODO"
+    (*List.map tcheck_param m.args;
     List.map (tcheck_stmt(Some m.ret_type))  m.body; (* propagation of mt already done  by TypeInference and mt_e is the mt -> type of e by type inference *)
+
     Option.map tcheck_contract m.contract_opt;
-    ()
+    ()*)
+
 and tcheck_method (m:method0) = map0_place _tcheck_method m
 
 and _tcheck_state place = function 

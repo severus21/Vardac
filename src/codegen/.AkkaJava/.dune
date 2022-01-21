@@ -1,0 +1,33 @@
+
+(env
+ (dev     (flags :standard (-w -A))) ;TODO get ride of -A
+ (release (flags :standard (-w -A))))
+
+(library
+    (public_name AkkaJava)
+    (name AkkaJava)
+    (preprocess (pps ppx_deriving.show ppx_deriving.map ppx_import ppx_fields_conv))
+    (modules :standard)
+    (libraries 
+        ;dune-site
+        fieldslib 
+        ounit2 
+        yaml 
+        "yaml.unix" 
+        "rresult" 
+        "fileutils" 
+        process 
+        compspec.core 
+        akka 
+        java 
+        compspec.codegen.register))
+
+(plugin
+    (name AkkaJava)
+    (libraries AkkaJava)
+    (site (compspec plugins))
+)
+
+;(generate_sites_module
+; (module mysites)
+; (sites compspec))

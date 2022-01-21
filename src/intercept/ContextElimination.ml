@@ -181,7 +181,7 @@ let ctxelim_rewrite_stmt place = function
         List.iter (function (intercepted_name, a) ->
             let a' = Atom.fresh (Atom.value a) in
             Hashtbl.add htbl a (a', intercepted_name) 
-        );
+        ) (failwith "TODO ctx elim");
 
         (* Step a. let a = spawn => let a' = spawn *)
         let stmts = List.map 

@@ -5,4 +5,4 @@
 
 (env
  (dev     (flags :standard (-w -A))) ;TODO get ride of -A
- (release (flags :standard)))
+ (release (flags :standard (-w -A))))

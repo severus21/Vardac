@@ -1,0 +1,16 @@
+
+target akka;
+
+impl component A {
+}
+
+impl component B {
+}
+
+impl component CounterInterceptor {}
+
+impl component PassivePlayer {}
+
+impl component MultiJVMOrchestrator {}
+
+impl component MultiJVMOrchestrator::Inner{}

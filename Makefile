@@ -8,11 +8,11 @@ all: bin
 .PHONY: bin
 bin: generatedune
 	#dune build @all --profile release
-	dune build -p $(NAME)
+	dune build
 
 .PHONY: odoc
 odoc: 
-	dune build -p $(NAME) @doc
+	dune build @doc
 
 #TODO non developper doc
 
@@ -36,9 +36,9 @@ tests: generatedune
 	@find examples -type f | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o tests/dune -f json -d - tests/dune.j2
 	@dune runtest --profile release
 	@rm -rf tests/examples
-	#dune test -p $(NAME) 
+	#dune test 
 	#@printf "## Decision tree tests ##\n"
-	#@dune exec -p $(NAME) --  
+	#@dune exec --  
 
 #### Localy running targets ########################################################
 

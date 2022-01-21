@@ -124,7 +124,7 @@ component KVSNode () {
             s0.fire()?;
             ... res = s1.receive()?;
 
-            Ok( res.fst() )
+            ok( res.fst() )
         }
 
     }

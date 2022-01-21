@@ -13,7 +13,7 @@ let codegen_program project_dir build_dir places ((target, program):Target.targe
     Utils.refresh_or_create_build_dir build_dir;
 
     let plug = (Factory.load_plugin target.value.codegen.runtime_plg target.value.codegen.language_plg) in 
-    let module Plug = (val plug:Plugins.Plugin.Plug) in    
+    let module Plug = (val plug:Plugin.Plug) in    
 
     logger#info "Init build directory \"%s\" with plugin external files"  (Fpath.to_string build_dir);
     Plug.init_build_dir target project_dir build_dir;

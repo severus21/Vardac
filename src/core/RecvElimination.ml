@@ -389,6 +389,7 @@ module Make (Args : Params ) : Sig = struct
         let stmts = List.flatten (List.map (function stmt -> to_X_form stmt.place stmt.value) m.body) in
 
         (* Debug *)
+        (*
         let m = {m with body = []} in
         let blblbl = function
         | LetExpr (_, _, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e}) as stmt  when Atom.is_builtin x && Atom.hint x = "receive" ->
@@ -397,7 +398,8 @@ module Make (Args : Params ) : Sig = struct
             true 
         | _ -> false 
         in
-        List.map (rewrite_stmt_stmt false blblbl (fun place stmt -> [stmt])) stmts;
+        ignore (List.map (rewrite_stmt_stmt false blblbl (fun place stmt -> [stmt])) stmts);
+        *)
         (* End debug *)
 
 

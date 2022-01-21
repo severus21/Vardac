@@ -55,13 +55,13 @@ match term.value with
 let split_program targets (terms: IRI.program) : (Target.target * IRI.program) Seq.t = 
     (* Initialize targets2aast with empty AST
     and targets2targets *)
-    List.map (function (target:Target.target) -> Hashtbl.add targets2ast target.value.name []) targets;
-    List.map (function (target:Target.target) -> Hashtbl.add targets2targets target.value.name target) targets;
+    List.iter (function (target:Target.target) -> Hashtbl.add targets2ast target.value.name []) targets;
+    List.iter (function (target:Target.target) -> Hashtbl.add targets2targets target.value.name target) targets;
 
     (* Split top-level terms per target*)
     List.iter split_toplvl_term terms;
     (* Correct terms order *)
-    Seq.map (function (target, ast) -> 
+    Seq.iter (function (target, ast) -> 
         Hashtbl.replace targets2ast target (List.rev ast)
     ) (Hashtbl.to_seq targets2ast);
 

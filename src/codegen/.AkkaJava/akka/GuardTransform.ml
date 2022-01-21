@@ -98,7 +98,7 @@ and rename_guard guard = {
 let rec aux_separate_lb_hb_timers_ac ((guard_headers, guard_opt):applied_constraint)= 
     logger#info "separate_lb_hb_timers_";
     let timers = timers_of_headers guard_headers in 
-    List.map (function name ->
+    List.iter (function name ->
     begin
     try 
         ignore (Hashtbl.find separation_hbl name)  

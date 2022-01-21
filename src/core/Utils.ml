@@ -119,7 +119,7 @@ let refresh_or_create_build_dir (build_dir:Fpath.t) =
     | _ -> ();
 
     match Bos.OS.Dir.create build_dir with 
-    | Rresult.Ok _ -> build_dir
+    | Rresult.Ok _ -> () 
     | _ -> failwith "build_dir failed"
   
   

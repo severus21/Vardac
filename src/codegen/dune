@@ -1,8 +1,31 @@
+(library
+    (public_name compspec.codegen.register)
+    (name registration)
+    (modules registration)
+    (libraries easy_logging compspec.core jingoo)
+)
 
 (library
     (name codegen)
     (public_name compspec.codegen)
     (preprocess (pps ppx_deriving.show ppx_import))
-    (modules :standard)
-    (libraries ounit2 yaml easy_logging "yaml.unix" "rresult" "fileutils" process core plugins)
-)
+    (modules :standard \ registration)
+    (libraries 
+        dune-site 
+        dune-site.plugins 
+        compspec.codegen.register 
+        ounit2 
+        yaml 
+        easy_logging 
+        "yaml.unix" 
+        "rresult" 
+        "fileutils" 
+        process 
+        core 
+        ))
+
+
+(generate_sites_module
+    (module sites)
+    (plugins 
+        (compspec plugins)))
