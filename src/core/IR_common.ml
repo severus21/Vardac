@@ -324,6 +324,8 @@ module type TIRC = sig
     val equal_cexpr : component_expr -> component_expr -> bool
 
     val unfold_st_star : session_type -> session_type
+
+    val schema_of : component_expr -> component_variable
 end
 
 
@@ -1703,5 +1705,10 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         st.value
     | st -> st
     and unfold_st_star st = {place = st.place; value = _unfold_st_star st.value}
+
+    (* FIXME limitaiton - static maybe add some dynamic reflexive capabilities *)
+    let schema_of cexpr = match fst cexpr.value with
+    | S.VarCExpr x -> x
+    | _ -> failwith "Other kind of component Expr not yet supported by schema_of"
 
 end

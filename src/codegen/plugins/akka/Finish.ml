@@ -15,10 +15,6 @@ module S = IRI
 module T = Ast 
 
 
-(* TODO move it elsewhere in Core*)
-let schema_of cexpr = match fst cexpr.value with
-| S.VarCExpr x -> x
-| _ -> failwith "Other kind of component Expr not yet supported by schema_of"
 
 (*** Global state *)
 type collected_state = {
