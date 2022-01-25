@@ -22,5 +22,5 @@ let get_onstartup (schema : component_structure) : method0 option=
     Option.map 
         (function {value=Method m} -> m) 
         (List.find_opt 
-            (function | {value=Method m} -> m.value.on_startup | _ -> false) base_interceptor.body
+            (function | {value=Method m} -> m.value.on_startup | _ -> false) schema.body
         )

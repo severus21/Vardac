@@ -163,7 +163,7 @@ module type TIRC = sig
         | VarExpr of expr_variable 
         | ImplicitVarExpr of expr_variable
 
-        | InterceptedActivationRef of expr * expr  (* Interceptor activation * intercepted activation *)
+        | InterceptedActivationRef of expr * expr option (* Interceptor activation * intercepted activation if not in anonymous mode*)
 
         | ActivationAccessExpr of component_variable * expr * expr_variable (* cname, e, x*)
         | AccessExpr of expr * expr (*e1.e2*)
@@ -481,7 +481,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | VarExpr of expr_variable 
         | ImplicitVarExpr of expr_variable
 
-        | InterceptedActivationRef of expr * expr  (* Interceptor activation * intercepted activation *)
+        | InterceptedActivationRef of expr * expr option (* Interceptor activation * intercepted activation 
+        If option for second arg => anonymous mod
+        *)
 
         | ActivationAccessExpr of component_variable * expr * expr_variable (* cname, e, x*)
         | AccessExpr of expr * expr (*e1.e2*)
@@ -1708,7 +1710,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     (* FIXME limitaiton - static maybe add some dynamic reflexive capabilities *)
     let schema_of cexpr = match fst cexpr.value with
-    | S.VarCExpr x -> x
+    | VarCExpr x -> x
     | _ -> failwith "Other kind of component Expr not yet supported by schema_of"
 
 end

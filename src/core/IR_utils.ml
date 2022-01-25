@@ -79,7 +79,7 @@ and find_lca_program names program =
     lca_name = None -> toplevel
     see semantics of IR_utils.insert_in_terms for insertion into lca
 *)
-let insert_terms_into_lca (parents: (variable option) list) terms_to_insert program = 
+let insert_terms_into_lca (parents: (Atom.atom option) list) terms_to_insert program = 
     let common_ancestor_name = 
         if List.mem None parents then ( (* LCA = Top-level *)
             None
@@ -89,12 +89,12 @@ let insert_terms_into_lca (parents: (variable option) list) terms_to_insert prog
             let parents_set = Atom.Set.of_seq (List.to_seq parents) in
 
             (* Search for lowest common ancestor *)
-            IR_utils.find_lca_program parents_set program
+            find_lca_program parents_set program
         ) 
     in
 
     let insert_in_ancestor (program: program) : Atom.atom option -> program = function
-        | None -> IR_utils.insert_in_terms terms_to_insert program 
+        | None -> insert_in_terms terms_to_insert program 
         | Some lca_name ->
             let ancestor_selector = function 
                 | Component {value=ComponentStructure cdcl} -> cdcl.name = lca_name 
@@ -105,7 +105,7 @@ let insert_terms_into_lca (parents: (variable option) list) terms_to_insert prog
                     let terms_body = List.map (function | {value=Term t} -> t) (List.filter (function |{value=Term _} -> true | _ -> false) cdcl.body) in
                     let remaining_body = List.filter (function |{value=Term _} -> false | _ -> true) cdcl.body in
 
-                    let terms_body = IR_utils.insert_in_terms terms_to_insert terms_body in 
+                    let terms_body = insert_in_terms terms_to_insert terms_body in 
                     let terms_body = List.map (function t -> {place=t.place; value=Term t}) terms_body in
 
 

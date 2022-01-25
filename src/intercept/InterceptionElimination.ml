@@ -254,12 +254,12 @@ let makeinterceptor_rewriter program place = function
             |{value=BoxCExpr {value=VarCExpr cname, _}, _} -> cname
         ) component_types in
 
-        let base_interceptor : component_structure = Utils.get_schema program interceptor_name in
+        let base_interceptor : component_structure = InterceptUtils.get_schema program interceptor_name in
             
         (* base_interceptor must be a component not a functor *)
         assert(base_interceptor.args = []);
 
-        let base_onstartup = Utils.get_onstratup base_interceptor.body in 
+        let base_onstartup = InterceptUtils.get_onstartup base_interceptor in 
         let m_interceptors = List.filter (function |
         {value=Method m} -> List.mem (failwith "previously: Intercept") m.value.annotations | _ -> false) base_interceptor.body in
         let other_citems =List.filter (function |
