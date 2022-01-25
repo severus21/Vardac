@@ -7,7 +7,7 @@ open Easy_logging
 let logger = Logging.make_logger ("_1_ compspec.Intercept") Debug [];;
 
 
-module ContextElimination = Core.IRCompilationPass.Make(ContextElimination)
+module ContextElimination = Core.IRCompilationPass.Make(ContextElimination.Make())
 module InterceptionElimination = Core.IRCompilationPass.Make(InterceptionElimination)
 
 let rewrite_program program = 

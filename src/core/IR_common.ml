@@ -156,7 +156,7 @@ module type TIRC = sig
     and block2 = AstUtils.block2
 
     (************************************ Expr & Stmt *****************************)
-
+    and spawn = {c: component_expr; args: expr list; at: expr option}
     and _expr = 
         | EmptyExpr (* ExpressionStmt EmtpyExpr <=> EmptyStmt *)
 
@@ -182,12 +182,14 @@ module type TIRC = sig
         | BridgeCall of { (* denotes a "bridge()" *)
             protocol_name: component_variable;
         }
+        (* condensed form of the if-else statement that also returns a value i.e. an expr *)
+        | TernaryExpr of expr * expr * expr
 
         (* Reflexifity *)
         | This (* current activation *)
 
         (* Activation lifetime expr *)
-        | Spawn of {c: component_expr; args: expr list; at: expr option}  
+        | Spawn of spawn  
 
         (* Structure expr *)
         | BoxCExpr of component_expr
@@ -476,6 +478,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     (************************************ Expr & Stmt *****************************)
 
+    and spawn = {c: component_expr; args: expr list; at: expr option}
     and _expr = 
         | EmptyExpr
         | VarExpr of expr_variable 
@@ -503,11 +506,14 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             protocol_name: component_variable;
         }
 
+        (* condensed form of the if-else statement that also returns a value i.e. an expr *)
+        | TernaryExpr of expr * expr * expr
+
         (* Reflexifity *)
         | This (* current activation *)
 
         (* Activation lifetime expr *)
-        | Spawn of {c: component_expr; args: expr list; at: expr option}  
+        | Spawn of spawn  
 
         (* Structure expr *)
         | BoxCExpr of component_expr
