@@ -71,7 +71,7 @@ module Make(Args:Args) : Sig = struct
             out_type = mtype_of_cvar cname; 
             protocol = mt_rpc_protocol
         }) in
-        let let_rpc_bridge = auto_fplace (LetExpr ( (* Create a static bridge to be able to autocross target boundaries *)
+        let let_rpc_bridge = auto_fplace (LetStmt ( (* Create a static bridge to be able to autocross target boundaries *)
             mt_rpc_bridge, a_rpc_bridge, auto_fplace (LitExpr (auto_fplace (StaticBridge{
                 id = Atom.fresh (Atom.value a_rpc_bridge);
                 protocol_name = a_rpc_protocol;
@@ -124,7 +124,7 @@ module Make(Args:Args) : Sig = struct
                     ];
                     body = [
                         (* T tmp = this.method(e._0_, e._1_, ...); *)
-                        auto_fplace(LetExpr (
+                        auto_fplace(LetStmt (
                             m.value.ret_type, 
                             a_tmp, 
                             auto_fplace(CallExpr(
@@ -195,7 +195,7 @@ module Make(Args:Args) : Sig = struct
                     args = local_function_args;
                     body = [
                         (* s0 = initiate_session_with(counter_bridge, this.instance); *)
-                        auto_fplace (LetExpr(mt_rpc_protocol, s0, auto_fplace (CallExpr(
+                        auto_fplace (LetStmt(mt_rpc_protocol, s0, auto_fplace (CallExpr(
                             auto_fplace (VarExpr (Atom.builtin "initiate_session_with"), auto_fplace EmptyMainType),
                             [
                                 auto_fplace (
@@ -209,7 +209,7 @@ module Make(Args:Args) : Sig = struct
                             ]
                         ), auto_fplace EmptyMainType)));
                         (* s1 = select(s0, counter__incr__label); *)
-                            auto_fplace (LetExpr(mtype_of_st _expecting_st.value, s1, auto_fplace (CallExpr(
+                            auto_fplace (LetStmt(mtype_of_st _expecting_st.value, s1, auto_fplace (CallExpr(
                                 auto_fplace (VarExpr (Atom.builtin "select"), auto_fplace EmptyMainType),
                                 [
                                     auto_fplace (VarExpr s0, auto_fplace EmptyMainType); 
@@ -217,7 +217,7 @@ module Make(Args:Args) : Sig = struct
                                 ]
                             ), auto_fplace EmptyMainType)));
                         (* s2 = fire(s1, counter__incr__call(args_as_tuple))?; *)
-                        auto_fplace (LetExpr(mtype_of_st _expecting_st2.value, s2, auto_fplace (CallExpr(
+                        auto_fplace (LetStmt(mtype_of_st _expecting_st2.value, s2, auto_fplace (CallExpr(
                             auto_fplace (VarExpr (Atom.builtin "fire"), auto_fplace EmptyMainType),
                             [
                                 auto_fplace (VarExpr s1, auto_fplace EmptyMainType); 
@@ -399,7 +399,7 @@ module Make(Args:Args) : Sig = struct
 
                     (* Each return is rewritten to an assign of [inline_ret] *)
                     let a_ret = Atom.fresh "inline_ret" in
-                    let stmts = (auto_fplace (LetExpr(
+                    let stmts = (auto_fplace (LetStmt(
                         fdcl.value.ret_type, 
                         a_ret, 
                         (auto_fplace ((LitExpr (auto_fplace VoidLit)), fdcl.value.ret_type)) (* Works in Java since null can be of any type - FIXME maybe we will need to use an option type initialized to None *)

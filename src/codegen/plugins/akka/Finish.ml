@@ -587,7 +587,7 @@ module Make () = struct
                     auto_place (T.VarExpr x, auto_place T.TUnknown))
                 , auto_place T.TUnknown),
                 fexpr e)        
-        | S.LetExpr (mt, x, e) ->  
+        | S.LetStmt (mt, x, e) ->  
             (* 
                 Tmp fix, since right handside type of a let is never a TUnknown we use it for e;
                 Once e= (_, not unknown) we could remove the following line
@@ -701,7 +701,7 @@ module Make () = struct
 
         (* Pre binders *)
         let with_params = List.map (function (x,y,_) -> finish_param place (x,y)) contract.pre_binders in
-        let with_stmts : S.stmt list = List.map (function (x,y,z) -> {place; value=S.LetExpr (x,y,z)}) contract.pre_binders in 
+        let with_stmts : S.stmt list = List.map (function (x,y,z) -> {place; value=S.LetStmt (x,y,z)}) contract.pre_binders in 
         let with_stmts : T.stmt list = List.map fstmt with_stmts in
         (*let with_body : T.stmt = T.BlockStmt with_stmts in*)
 

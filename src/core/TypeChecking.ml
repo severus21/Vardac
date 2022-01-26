@@ -234,7 +234,7 @@ and _tcheck_stmt ret_type_opt place : _stmt -> unit = function
 | EmptyStmt -> () 
 | AssignExpr (x, e) -> () (* Type checking in TypeInference -> FIXME to it here we need to have a context ..... but having context here is redundent ..... *) 
 | AssignThisExpr (x, e) -> () (* cf. AssignExpr*) 
-| LetExpr (mt, x, e) as ee -> 
+| LetStmt (mt, x, e) as ee -> 
     tcheck_main_type mt; 
     tcheck_expr e; 
 

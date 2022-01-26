@@ -207,7 +207,7 @@ module type TIRC = sig
         (** Binders *)
         | AssignExpr of expr_variable * expr
         | AssignThisExpr of component_variable * expr
-        | LetExpr of main_type * expr_variable * expr
+        | LetStmt of main_type * expr_variable * expr
 
         (** Comments *)
         | CommentsStmt of comments
@@ -531,7 +531,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         (** Binders *)
         | AssignExpr of expr_variable * expr
         | AssignThisExpr of component_variable * expr
-        | LetExpr of main_type * expr_variable * expr
+        | LetStmt of main_type * expr_variable * expr
 
         (** Comments *)
         | CommentsStmt of comments
@@ -733,7 +733,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | None ->already_binded, collected_elts0@collected_elts1, fvars0@fvars1
         | Some (_, collected_elts2, fvars2) -> already_binded, collected_elts0@collected_elts1@collected_elts2,fvars0@fvars1@fvars2
     end
-    | LetExpr (ct, x, e) -> 
+    | LetStmt (ct, x, e) -> 
         let already_binded = Variable.Set.add x already_binded in
         let _, collected_elts, fvars = collect_expr_expr parent_opt already_binded selector collector e in  
         already_binded, collected_elts, fvars 
@@ -810,7 +810,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | stmt when selector stmt -> collector parent_opt place stmt
 
     (* Propagation *)
-    | EmptyStmt | AssignExpr _ | AssignThisExpr  _ | BreakStmt | CommentsStmt _ | ContinueStmt | ExpressionStmt _ | ExitStmt _ | LetExpr _ | ReturnStmt _-> []
+    | EmptyStmt | AssignExpr _ | AssignThisExpr  _ | BreakStmt | CommentsStmt _ | ContinueStmt | ExpressionStmt _ | ExitStmt _ | LetStmt _ | ReturnStmt _-> []
     | BlockStmt stmts | WithContextStmt (_, _, _, stmts) ->
         List.flatten (List.map collect_stmt stmts) 
     | ForStmt (_, _, _, stmt) | GhostStmt stmt  ->
@@ -1051,7 +1051,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         match stmt with
         | BreakStmt | CommentsStmt _ | ContinueStmt | ExitStmt _ | EmptyStmt -> already_binded, [], []
         | AssignExpr (_, e) | AssignThisExpr (_, e) | ExpressionStmt e |  ReturnStmt e -> collect_expr e
-        | LetExpr (mt, _, e) ->
+        | LetStmt (mt, _, e) ->
             let _, collected_elts1, ftvars1 = collect_mtype mt in
             let _, collected_elts2, ftvars2 = collect_expr e in
             already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
@@ -1293,8 +1293,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | EmptyStmt -> EmptyStmt
         | AssignExpr (x, e) -> AssignExpr (x, rewrite_expr_expr selector rewriter e) 
         | AssignThisExpr (x, e) -> AssignThisExpr (x, rewrite_expr_expr selector rewriter e)
-        | LetExpr (mt, x, e) -> (* TODO FIXME expr in type are not yet concerned *)
-            LetExpr (mt, x, rewrite_expr_expr selector rewriter e)
+        | LetStmt (mt, x, e) -> (* TODO FIXME expr in type are not yet concerned *)
+            LetStmt (mt, x, rewrite_expr_expr selector rewriter e)
         | CommentsStmt c -> CommentsStmt c
         | BreakStmt -> BreakStmt
         | ContinueStmt -> ContinueStmt
@@ -1452,7 +1452,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | (BreakStmt as stmt) | (CommentsStmt _ as stmt) | (ContinueStmt as stmt) | (EmptyStmt as stmt) | (ExitStmt _ as stmt) -> stmt
     | AssignExpr (x, e) -> AssignExpr (x, rewrite_expr e)
     | AssignThisExpr (x, e) -> AssignThisExpr (x, rewrite_expr e)
-    | LetExpr (mt, x, e) -> LetExpr (rewrite_mtype mt, x , rewrite_expr e)
+    | LetStmt (mt, x, e) -> LetStmt (rewrite_mtype mt, x , rewrite_expr e)
     | ForStmt (mt, x, e, stmt) -> ForStmt (
         rewrite_mtype mt,
         x, 
@@ -1517,7 +1517,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | EmptyStmt -> [EmptyStmt]
         | AssignExpr (x, e) -> [AssignExpr (x, e)]
         | AssignThisExpr (x, e) -> [AssignThisExpr (x, e)]
-        | LetExpr (mt, x, e) -> [LetExpr (mt, x,  e)]
+        | LetStmt (mt, x, e) -> [LetStmt (mt, x,  e)]
         | CommentsStmt c -> [CommentsStmt c]
         | BreakStmt -> [BreakStmt]
         | ContinueStmt -> [ContinueStmt]

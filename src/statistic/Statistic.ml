@@ -19,7 +19,7 @@ let rec _analyze_stmt place =
     logger#debug "analyze stmt";
 function
 | EmptyStmt | CommentsStmt _ -> () 
-| AssignExpr _ | AssignThisExpr _ | LetExpr _ | BreakStmt | ContinueStmt | ExitStmt _ | ReturnStmt _ | ExpressionStmt _ -> incr global_stats.ssc
+| AssignExpr _ | AssignThisExpr _ | LetStmt _ | BreakStmt | ContinueStmt | ExitStmt _ | ReturnStmt _ | ExpressionStmt _ -> incr global_stats.ssc
 | ForStmt (_,_,_,stmt) ->
     incr global_stats.ssc;
     analyze_stmt stmt

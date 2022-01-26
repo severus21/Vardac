@@ -113,7 +113,7 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
                         auto_fplace (TODO, auto_fplace EmptyMainType)
                     ), auto_fplace EmptyMainType),
                     auto_place (BlockStmt [
-                        auto_fplace (LetExpr (
+                        auto_fplace (LetStmt (
                             auto_fplace (TTuple [ 
                                 auto_fplace (TTuple [ mtype_of_ct (TActivationRef TODO), mtype_of_ft TPlace]);
                                 mtype_of_st (STSend (mtype_of_ft TBool, auto_fplace STEnd))
@@ -127,7 +127,7 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
                                 ]
                             ), auto_fplace EmptyMainType)
                         ));
-                        auto_fplace (LetExpr (
+                        auto_fplace (LetStmt (
                             auto_fplace (TTuple [ mtype_of_ct (TActivationRef TODO), mtype_of_ft TPlace]),
                             local_res2,
                             auto_fplace (CallExpr (
@@ -138,7 +138,7 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
                                 ]
                             ), auto_fplace EmptyMainType)
                         ));
-                        auto_fplace (LetExpr (
+                        auto_fplace (LetStmt (
                             mtype_of_st (STSend (mtype_of_ft TBool, auto_fplace STEnd)),
                             local_s2,
                             auto_fplace (CallExpr (
@@ -149,7 +149,7 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
                                 ]
                             ), auto_fplace EmptyMainType)
                         ));
-                        auto_fplace (LetExpr (
+                        auto_fplace (LetStmt (
                             mtype_of_ct (TActivationRef TODO),
                             local_a,
                             auto_fplace (CallExpr (
@@ -160,7 +160,7 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
                                 ]
                             ), auto_fplace EmptyMainType)
                         ));
-                        auto_fplace (LetExpr (
+                        auto_fplace (LetStmt (
                             mtype_of_ft TPlace,
                             local_p,
                             auto_fplace (CallExpr (
@@ -173,7 +173,7 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
                         ));
 
 
-                        auto_fplace( LetExpr (
+                        auto_fplace( LetStmt (
                             mtype_of_ft TBool,
                             local_flag,
                             auto_fplace (
@@ -305,8 +305,8 @@ let generate_callback (base_interceptor : component_structure) port_name (expect
             auto_fplace (mt_session_in, a_session_in)
         ]; 
         body = [ 
-            auto_fplace (LetExpr (mt_session_out, a_session_out, failwith "TODO get session out"));
-            auto_fplace (LetExpr(t_from, a_from, 
+            auto_fplace (LetStmt (mt_session_out, a_session_out, failwith "TODO get session out"));
+            auto_fplace (LetStmt(t_from, a_from, 
                 auto_fplace(CallExpr(
                     auto_fplace (VarExpr (Atom.builtin "session_from"), auto_fplace EmptyMainType),
                     [
@@ -314,7 +314,7 @@ let generate_callback (base_interceptor : component_structure) port_name (expect
                     ]
                 ), auto_fplace EmptyMainType)
             ));
-            auto_fplace (LetExpr(t_to, a_to, 
+            auto_fplace (LetStmt(t_to, a_to, 
                 auto_fplace(CallExpr(
                     auto_fplace (VarExpr (Atom.builtin "session_to"), auto_fplace EmptyMainType),
                     [
@@ -337,7 +337,7 @@ let generate_callback (base_interceptor : component_structure) port_name (expect
                     )))
                 | Some user_defined_interceptor ->
                     auto_fplace (BlockStmt [
-                        auto_fplace (LetExpr (
+                        auto_fplace (LetStmt (
                             t_res,
                             a_res,
                             auto_fplace (CallExpr(

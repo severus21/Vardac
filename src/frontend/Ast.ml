@@ -149,7 +149,7 @@ and _stmt =
     (** Binders *)
     | AssignExpr of variable * expr
     | AssignThisExpr of variable * expr
-    | LetExpr of main_type * variable * expr
+    | LetStmt of main_type * variable * expr
 
     (** Comments *)
     | CommentsStmt of comments

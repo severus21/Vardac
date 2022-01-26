@@ -59,7 +59,7 @@ module Make (Args : Params ) : Sig = struct
                         body = acc_method.body @ (List.rev acc_stmts)
                 }
             ]
-        | {place; value=LetExpr ({value=CType{value=TTuple [msg_t;{value = SType continuation_st}]}}, let_x, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
+        | {place; value=LetStmt ({value=CType{value=TTuple [msg_t;{value = SType continuation_st}]}}, let_x, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
         (*
             N.B. We use exatcly one [s] in the final AST when storing the intermediate arguments
         *)
@@ -213,7 +213,7 @@ module Make (Args : Params ) : Sig = struct
             | Some (x1, msg_t, continuation_st) -> begin
                 (* Tuple<MsgT, continuation_st> x1 = tuple(tmp_event, tmp_session) *)
                 [
-                    auto_fplace(LetExpr(
+                    auto_fplace(LetStmt(
                         auto_fplace (CType(auto_fplace (TTuple[ msg_t; continuation_st]))),
                         x1,
                         auto_fplace(BlockExpr(
@@ -291,7 +291,7 @@ module Make (Args : Params ) : Sig = struct
                 body = 
                 load_recv_result @
                 [
-                    auto_fplace (LetExpr (ctype_intermediate_args, tmp_args, (auto_fplace(CallExpr(
+                    auto_fplace (LetStmt (ctype_intermediate_args, tmp_args, (auto_fplace(CallExpr(
                         auto_fplace(VarExpr (Atom.builtin "remove2dict"), auto_fplace EmptyMainType),
                         [
                             auto_fplace(AccessExpr(
@@ -306,7 +306,7 @@ module Make (Args : Params ) : Sig = struct
                     ), auto_fplace EmptyMainType))));
                 ] @ (
                     List.mapi (fun i {value=(mt, x)} ->
-                        auto_fplace (LetExpr (mt, x, 
+                        auto_fplace (LetStmt (mt, x, 
                             auto_fplace( CallExpr(
                                 auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
                                 [ 
@@ -356,7 +356,7 @@ module Make (Args : Params ) : Sig = struct
             let tmp = Atom.fresh "tmp_receive" in
             let recv = auto_place (e, mt_e) in 
             [
-                auto_fplace (LetExpr (
+                auto_fplace (LetStmt (
                     mt_e,
                     tmp, 
                     recv)
@@ -365,7 +365,7 @@ module Make (Args : Params ) : Sig = struct
         in
 
         let stmt_exclude = function
-        | LetExpr (_, _, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e}) as stmt  when Atom.is_builtin x && Atom.hint x = "receive" ->
+        | LetStmt (_, _, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e}) as stmt  when Atom.is_builtin x && Atom.hint x = "receive" ->
             logger#warning ">>>> to_X_form -> detect receive";
             true 
         | _ -> false 
@@ -391,7 +391,7 @@ module Make (Args : Params ) : Sig = struct
         (* Debug *)
         let m = {m with body = []} in
         let blblbl = function
-        | LetExpr (_, _, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e}) as stmt  when Atom.is_builtin x && Atom.hint x = "receive" ->
+        | LetStmt (_, _, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e}) as stmt  when Atom.is_builtin x && Atom.hint x = "receive" ->
             incr troloc;
             logger#warning ">>>> to_X_form -> correct at the end %d" !troloc;
             true 

@@ -468,10 +468,10 @@ and _tannot_stmt ctx place : _stmt -> context * _stmt = function
         Error.error place "Type error: types do not match";
     
     ctx, AssignThisExpr (x, e)
-| LetExpr (mt, x, e) -> 
+| LetStmt (mt, x, e) -> 
     let ctx = register_expr_type ctx x mt in
     let e = tannot_expr ctx e in 
-    ctx, LetExpr (mt, x, e)
+    ctx, LetStmt (mt, x, e)
 | CommentsStmt c -> ctx, CommentsStmt c
 | BreakStmt -> ctx, BreakStmt
 | ContinueStmt -> ctx, ContinueStmt

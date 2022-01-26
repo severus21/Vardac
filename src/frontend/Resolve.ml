@@ -40,7 +40,7 @@ and rexpr e = map_place resolve_expr e
 and resolve_stmt place : S._stmt -> T._stmt = function 
 | S.AssignExpr (v, e) -> T.AssignExpr (v, rexpr e)
 | S.AssignThisExpr (v, e) -> T.AssignThisExpr (v, rexpr e)
-| S.LetExpr (mt, v, e) -> T.LetExpr (mt, v, rexpr e)
+| S.LetStmt (mt, v, e) -> T.LetStmt (mt, v, rexpr e)
 | S.ForStmt (mt, v, e, stmt) -> T.ForStmt (mt, v, rexpr e, rstmt stmt)
 | S.IfStmt (e, stmt1, stmt2_opt) -> T.IfStmt (rexpr e, rstmt stmt1,  Option.map rstmt stmt2_opt)
 | S.MatchStmt (e, entries) -> T.MatchStmt (rexpr e, List.map (function (e1, stmt) -> (e1, rstmt stmt)) entries)

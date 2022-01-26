@@ -136,7 +136,7 @@ module Make (Args:Params) : Sig = struct
     (* TODO bridge could hidden inside lambda body therefore we need to unfold expr *)
 
     and generate_slt_stmt { AstUtils.place ; AstUtils.value}= match value with
-    | LetExpr (mt,_,_) -> generate_slt_mtype mt
+    | LetStmt (mt,_,_) -> generate_slt_mtype mt
     | ForStmt (_,_,_,stmt) -> generate_slt_stmt stmt
     | IfStmt (_, stmt, None) -> generate_slt_stmt stmt
     | IfStmt (_, stmt1, Some stmt2) -> generate_slt_stmt stmt1; generate_slt_stmt stmt2

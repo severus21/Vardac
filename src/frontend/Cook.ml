@@ -695,7 +695,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         let y = cook_var_this env place x in
         let env1, e = cexpr env e in 
         env << [env1], T.AssignThisExpr (y, e) 
-    | S.LetExpr (mt, x, e) ->
+    | S.LetStmt (mt, x, e) ->
         if is_instance_expr env e then error place "constructor can not be aliased";
 
         let env1, mt = cmtype env mt in
@@ -704,7 +704,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
 
         register_gamma y mt;
 
-        new_env << [env1; env2], T.LetExpr (mt, y, e)
+        new_env << [env1; env2], T.LetStmt (mt, y, e)
     | S.CommentsStmt c -> env, T.CommentsStmt c
     | S.BreakStmt -> env, T.BreakStmt
     | S.ContinueStmt -> env, T.ContinueStmt
@@ -1126,7 +1126,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         try
             new_env2, [
                 T.Typedef {place; value=T.ClassicalDef (y, [], ())};
-                T.Stmt(auto_place(T.LetExpr(
+                T.Stmt(auto_place(T.LetStmt(
                         mt,  
                         y,
                         auto_place(T.LitExpr(auto_place(T.VPlace (Hashtbl.find places name))), mt) 

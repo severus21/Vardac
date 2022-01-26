@@ -1022,9 +1022,9 @@ and rewrite_exprstmts_stmt_ parent_opt exclude_stmt selector rewriter place : _s
                 auto_fplace (BlockStmt (rewrite_exprstmts_stmt stmt2))
             ) stmt2_opt
         ))]    
-    | LetExpr (mt, x, e) ->
+    | LetStmt (mt, x, e) ->
         let estmts, e = rewrite_exprstmts_expr e in
-        estmts @ [auto_place (LetExpr (mt, x, e))]
+        estmts @ [auto_place (LetStmt (mt, x, e))]
     | MatchStmt (e, branches) ->
         let estmts, e = rewrite_exprstmts_expr e in
         (* interaction primitives are disallowed in pattern *)

@@ -110,7 +110,7 @@ module Make () = struct
     let exposed_activations_of_stmt place cname stmt : ExposedActivationSet.t = 
         let selector = function
             (* direct-simpl*)
-            | LetExpr (_, _, {value=Spawn _, _}) -> true
+            | LetStmt (_, _, {value=Spawn _, _}) -> true
 
             (* direct-complex*)
             (* TODO not processed neeed control flow - TODOC search spawn or activation in left hand side of a let then search where the activation is spawned then decide*)
@@ -124,7 +124,7 @@ module Make () = struct
             | _ -> false
         in
         let collector parent_opt place = function
-            | LetExpr (_, x, {value=Spawn spawn, _}) -> begin 
+            | LetStmt (_, x, {value=Spawn spawn, _}) -> begin 
                 match fst spawn.c.value with
                 | VarCExpr c -> [(c, x)]
                 | _ -> Error.error place "spawn first arg should have been reduce into a cexpr value (i.e. component name)"
@@ -310,7 +310,7 @@ module Make () = struct
                 []
             ), auto_fplace EmptyMainType) in
 
-            let b_in__let = auto_fplace (LetExpr (
+            let b_in__let = auto_fplace (LetStmt (
                 mtype_of_ct tbridge.value,
                 b_in,
                 b_in__constructor
@@ -326,7 +326,7 @@ module Make () = struct
             out_type = mtype_of_cvar interceptor_name;
             protocol = st_onboard;
         }) in
-        let b_onboard_let = auto_fplace (LetExpr (
+        let b_onboard_let = auto_fplace (LetStmt (
             b_onboard_mt,
             b_onboard,
             auto_fplace (CallExpr(
@@ -422,7 +422,7 @@ module Make () = struct
             (* b_out_1, b_in_1, ..., b_out_n, b_in_n *)
             @ List.flatten (List.map (function (b_out, b_in, b_in_let) -> 
                 let mt = match b_in_let.value with
-                | LetExpr (mt,_,_) -> mt
+                | LetStmt (mt,_,_) -> mt
                 in
                 [mt; mt]
             ) (List.of_seq (Hashtbl.to_seq_values generated_bridges)));
@@ -438,7 +438,7 @@ module Make () = struct
         let factory = Atom.fresh "factory" in
         let factory_expr = make_wraper core_factory (List.rev base_interceptor_constructor_params) in
 
-        factory, auto_fplace (LetExpr(factory_signature, factory, factory_expr))
+        factory, auto_fplace (LetStmt(factory_signature, factory, factory_expr))
 
 
     (*************** Step 4 - Ctx elimination  ******************)
@@ -579,7 +579,7 @@ module Make () = struct
                             stmt_headers := !stmt_headers @  
                                 (* Store a copy of p_of_a is any *)
                                 (if spawn.at <> None then
-                                    [LetExpr(
+                                    [LetStmt(
                                         mtype_of_ft TPlace,
                                         p_of_a,
                                         Option.get spawn.at
@@ -587,7 +587,7 @@ module Make () = struct
                                 else []) 
 
                                 (* Get the interceptor in charge of a *)
-                                @ [ LetExpr(
+                                @ [ LetStmt(
                                     mtype_of_ct (TActivationRef (mtype_of_cvar interceptor_name)),
                                     i_a,
                                     auto_fplace (CallExpr(
@@ -613,7 +613,7 @@ module Make () = struct
                 (* TODO logic duplicated with exposed_activation*)
                 match stmt with 
                 (* Exposed activations must be identified to hydrate corretly the exposed_activations_info *)
-                | LetExpr (mt, a, ({value=Spawn spawn, _} as spawn_e)) ->
+                | LetStmt (mt, a, ({value=Spawn spawn, _} as spawn_e)) ->
                     (* Replace a by a' to ensure that this pass guarantee `` a binder create a unique named variable`` even if we reintroduce a binder for [a] in ctx footer *)
                     (* NB. variable in ctx body will be replaced afterward using expose_activations_info *)
                     let a' = Atom.fresh (Atom.value a) in
@@ -626,7 +626,7 @@ module Make () = struct
                     (* Exposed_activation *) 
                     let e = {place = spawn_e.place @ fplace; value = spawn_rewriter (Some (a, a')) (fst spawn_e.value), (snd spawn_e.value)} in
 
-                    !stmt_headers @ [ LetExpr(mt, a', e)]
+                    !stmt_headers @ [ LetStmt(mt, a', e)]
 
                 (* Non-exposed activations *)
                 | _ -> [ (rewrite_expr_stmt spawn_selector (spawn_rewriter None) (auto_fplace stmt)).value ]
@@ -675,7 +675,7 @@ module Make () = struct
                 (*  Preserve name and type for the outside world 
                     see whitepaper for detailed discussion of type and subtyping
                 *)
-                (auto_fplace (LetExpr( 
+                (auto_fplace (LetStmt( 
                     mt_a, 
                     a,  
                     binded_value

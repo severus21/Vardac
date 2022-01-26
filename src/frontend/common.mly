@@ -351,7 +351,7 @@ any_stmt_:
 | v=LID EQ e=any_expr SEMICOLON
     { AssignExpr (v, e) }
 | mt = any_type v=LID EQ e=any_expr SEMICOLON
-    { LetExpr (mt, v, e) }
+    { LetStmt (mt, v, e) }
 | c=any_comments
     { CommentsStmt c}
 (* Control flow *)
@@ -558,7 +558,7 @@ any_component_item_:
 | t = any_term
     { 
         match t.value with
-        | Stmt {place; value=LetExpr (mt, x, e)} -> State {place; value = StateDcl {
+        | Stmt {place; value=LetStmt (mt, x, e)} -> State {place; value = StateDcl {
             ghost = false;
             type0 = mt;
             name = x;

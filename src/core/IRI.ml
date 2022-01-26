@@ -140,7 +140,7 @@ and _type_replace_main_type to_be_replaced by : _main_type -> _main_type = funct
 and type_replace_main_type to_be_replaced by = replace_place (_type_replace_main_type to_be_replaced by)
 
 and _type_replace_stmt to_be_replaced by = function
-| LetExpr (mt, x, e) -> LetExpr (type_replace_main_type to_be_replaced by mt, x, e)
+| LetStmt (mt, x, e) -> LetStmt (type_replace_main_type to_be_replaced by mt, x, e)
 | stmt -> stmt
 and type_replace_stmt to_be_replaced by = replace_place (_type_replace_stmt to_be_replaced by)
 

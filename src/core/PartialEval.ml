@@ -465,17 +465,17 @@ end
     | (LitExpr {value=BoolLit false; _}, _) -> env, Option.value (Option.map (fun (x:stmt) -> x.value) stmt_opt) ~default:EmptyStmt (*TODO should be stmt.place *)
     | _ -> env, IfStmt (e, stmt, stmt_opt)
 end
-| LetExpr (let_mt, let_x, let_e) -> begin 
+| LetStmt (let_mt, let_x, let_e) -> begin 
     let _, let_mt = pe_mtype env let_mt in
     let _, let_e = pe_expr env let_e in
 
     if is_terminal_expr let_e.value then (
         logger#debug "Is terminal %s" (Atom.to_string let_x);
         let new_env = bind_terminal_expr env let_x let_e in
-        new_env, LetExpr (let_mt, let_x, let_e) (* TODO removing a let needs us to know if their is an assigned somewhere *)
+        new_env, LetStmt (let_mt, let_x, let_e) (* TODO removing a let needs us to know if their is an assigned somewhere *)
     ) else(
         logger#debug "Is not terminal %s" (Atom.to_string let_x);
-        env, LetExpr( let_mt, let_x, let_e)
+        env, LetStmt( let_mt, let_x, let_e)
     )
 end
 | MatchStmt (e, entries) -> (* TODO *) 
