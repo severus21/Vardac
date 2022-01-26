@@ -2,6 +2,8 @@ open Core
 open AstUtils
 open IR
 open Easy_logging
+open IRMisc
+open InterceptUtils
 
 let logger = Logging.make_logger ("_1_ compspec.Intercept") Debug [];;
 
@@ -9,10 +11,15 @@ let fplace = (Error.forge_place "Intercept" 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
+module type TArgs = sig
+    (* name -> interceptor_info *)
+    val interceptors_info : (Atom.atom, interceptor_info) Hashtbl.t
+end
 
-
+module Make (Args: TArgs) = struct
 
     (******************* Shared state of the pass **************************)
+    include Args
 
     (*************** Step 0 - gather intell ******************)
     let methods_of (base_interceptor : component_structure) method0 list =
@@ -31,10 +38,195 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
     (* TODO/TODOC is there a way to index this methods and not to run is_subtype in an O(n²) strategy for pairing ports with interception methods ???? *)
 
     (*************** Step 1 - Activation onboarding generation ******************)
+    let generate_onboard_index interceptor_info onboard_methods = 
+        (* for a given interceptor *)
+        let onboard_index = Hashtbl.create 16 in
+
+        List.iter ( function (m:method0) ->
+            List.iter (function 
+                | Onboard schemas -> 
+                    List.iter (function schema -> Hashtbl.add onboard_index schema m.value.name) schemas  
+                | _ -> ()) m.value.annotations
+        ) onboard_methods;
+
+        onboard_index
+
+    (*
+        method onboard_A for schema A
+    *)
+    let get_onboard_of_schema default_onboard onboard_index schema = 
+        match Hashtbl.find_opt onboard_index schema with
+        | Some m -> m
+        | None -> default_onboard 
 
 
-    let generate_onboard place interceptor_name base_interceptor_name intercepted_schemas = 
-        let st_onboard, this_b_onboard_mt = (* TODO b_onboard_mt provided by same fct thant ctx elim *) in
+
+    (*TODO Where to place this *)
+    let e_param_of str = 
+        let param = Atom.fresh str in
+        param, auto_fplace (VarExpr param, auto_fplace EmptyMainType)
+    let e_this = auto_fplace (This, auto_fplace EmptyMainType)
+
+
+
+    
+    (* branch: if flag == "Schema" ... *)
+    let generate_main_callback_branch interceptor_info default_onboard onboard_index e_this_b_onboard ((param_schema, e_param_schema), (param_s, e_param_s)) schema: stmt list =
+        let a_mt = mtype_of_ct (TActivationRef (mtype_of_cvar schema)) in 
+        let e_onboard_A = auto_fplace (AccessExpr(
+            auto_fplace (This, auto_fplace EmptyMainType),
+            auto_fplace (VarExpr (get_onboard_of_schema default_onboard onboard_index schema), auto_fplace EmptyMainType)
+        ), auto_fplace EmptyMainType) in 
+
+        let local_res, e_local_res = e_param_of "res" in
+        let local_res2, e_local_res2 = e_param_of "_res" in
+        let local_s2, e_local_s2 = e_param_of "_s" in
+        let local_s3, e_local_s3 = e_param_of "__s" in
+        let local_a, e_local_a = e_param_of "a" in
+        let local_p, e_local_p = e_param_of "p" in
+        let local_flag, e_local_flag = e_param_of "flag" in
+
+        auto_fplace (IfStmt (
+            auto_fplace (BinopExpr (
+                auto_fplace (VarExpr param_schema, auto_fplace EmptyMainType),
+                StructuralEqual, 
+                schema_to_label fplace schema
+            ), auto_fplace EmptyMainType),
+            auto_fplace (BlockStmt [
+                (* ... local_s2 = select(param_s, label); *)
+                auto_fplace (LetStmt (
+                    mtype_of_ct (TTuple [ 
+                        mtype_of_ct (TTuple [ a_mt; mtype_of_ft TPlace]);
+                        mtype_of_st (STSend (mtype_of_ft TBool, auto_fplace STEnd))
+                    ]),
+                    local_s2,
+                    auto_fplace (CallExpr (
+                        auto_fplace(VarExpr (Atom.builtin "select"), auto_fplace EmptyMainType),
+                        [
+                            e_param_s;
+                            e_param_schema
+                        ]
+                    ), auto_fplace EmptyMainType)
+                ));
+
+
+                auto_fplace (LetStmt (
+                    mtype_of_ct (TTuple [ 
+                        mtype_of_ct (TTuple [ a_mt; mtype_of_ft TPlace]);
+                        mtype_of_st (STSend (mtype_of_ft TBool, auto_fplace STEnd))
+                    ]),
+                    local_res,
+                    auto_fplace (CallExpr (
+                        auto_fplace (VarExpr (Atom.builtin "receive"), auto_fplace EmptyMainType),
+                        [
+                            auto_fplace (VarExpr local_s2, auto_fplace EmptyMainType);
+                            e_this_b_onboard
+                        ]
+                    ), auto_fplace EmptyMainType)
+                ));
+                auto_fplace (LetStmt (
+                    mtype_of_ct (TTuple [ a_mt; mtype_of_ft TPlace]),
+                    local_res2,
+                    auto_fplace (CallExpr (
+                        auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
+                        [
+                            e_local_res;
+                            auto_fplace (LitExpr (auto_fplace (IntLit 0)), auto_fplace EmptyMainType)
+                        ]
+                    ), auto_fplace EmptyMainType)
+                ));
+                auto_fplace (LetStmt (
+                    mtype_of_st (STSend (mtype_of_ft TBool, auto_fplace STEnd)),
+                    local_s3,
+                    auto_fplace (CallExpr (
+                        auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
+                        [
+                            e_local_res;
+                            auto_fplace (LitExpr (auto_fplace (IntLit 1)), auto_fplace EmptyMainType)
+                        ]
+                    ), auto_fplace EmptyMainType)
+                ));
+                auto_fplace (LetStmt (
+                    mt_a, 
+                    local_a,
+                    auto_fplace (CallExpr (
+                        auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
+                        [
+                            e_local_res2;
+                            auto_fplace (LitExpr (auto_fplace Int 0), auto_fplace EmptyMainType)
+                        ]
+                    ), auto_fplace EmptyMainType)
+                ));
+                auto_fplace (LetStmt (
+                    mtype_of_ft TPlace,
+                    local_p,
+                    auto_fplace (CallExpr (
+                        auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
+                        [
+                            e_local_resZ;
+                            auto_fplace (LitExpr (auto_fplace (IntLit 1)), auto_fplace EmptyMainType)
+                        ]
+                    ), auto_fplace EmptyMainType)
+                ));
+
+
+                auto_fplace( LetStmt (
+                    mtype_of_ft TBool,
+                    local_flag,
+                    auto_fplace (
+                        CallExpr (
+                            e_onboard_A,
+                            [
+                                e_local_a;
+                                e_local_p
+                            ]
+                        )
+                        , auto_fplace EmptyMainType)
+                ));
+                auto_place(IfStmt(
+                    e_local_flag,
+                    (CallExpr (
+                        auto_fplace (VarExpr (Atom.builtin "add2dict"), auto_fplace EmptyMainType),
+                        [
+                            this_onboarded_activations;
+                            aid_of e_local_a;
+                            e_local_a
+                        ]
+                    ), auto_fplace EmptyMainType)
+                    None
+                ));
+
+                auto_place (ExpressionStmt (
+                    auto_fplace (CallExpr (
+                        Atom.builtin "fire",
+                        [
+                            auto_fplace (VarExpr local_s3, auto_fplace EmptyMainType);
+                            e_local_flag 
+                        ]
+                    ), auto_fplace EmptyMainType)
+                ))
+            ]),
+            None
+        ))   
+
+
+
+
+
+
+    (*
+        - states and port related to onboarding
+        - per schema onboarding policy
+            - programer-defined onboard method -> have been injected earlier when inlining base interceptor into interceptor
+            - default onboard method
+        - main onboard callback
+    *)
+    let generate_onboard_bloc place interceptor_info (interceptor : component_structure) = 
+        (*** Collect intells ***)
+        let onboard_methods = extract_onboard_methods (methods_of interceptor) in
+        let onboard_index = generate_onboard_index interceptor_info onboard_methods in
+
+        (*** States and port ***)
         let this_b_onboard = Atom.fresh "b_onboard" in 
         let e_this_b_onboard = auto_fplace (AccessExpr (
                 auto_fplace (This, auto_fplace EmptyMainType), 
@@ -46,7 +238,6 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
             name = this_b_onboard;
             body = None;
         }) in
-
 
         let this_onboarded_activations = Atom.fresh "onboarded_activations" in 
         let e_this_onboarded_activations = auto_fplace (AccessExpr (
@@ -66,7 +257,7 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
             {
                 name = port_onboard;
                 input = e_this_b_onboard; 
-                expecting_st = st_onboard; 
+                expecting_st = interceptor_info.st_onboard; 
                 callback = auto_fplace (AccessExpr (
                     auto_fplace (This, auto_fplace EmptyMainType), 
                     auto_fplace (VarExpr callback_onboard, auto_fplace EmptyMaintype)
@@ -75,23 +266,32 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
             auto_fplace EmptyMainType
         )) in
 
-        TODO iline or generated onboard_default
+        (*** Generate default_onboard ***)
+        let default_onboard = Atom.fresh "default_onboard" in
+        let default_onboard_def = {
+            annotations = [];
+            ghost = false;
+            ret_type = mtype_of_ft TBool;
+            name = callback_onboard;
+            args = [
+                mtype_of_ct (TActivationRef (mtype_of_ft TWildcard));
+                mtype_of_ct TPlace
+            ];
+            on_destroy = false;
+            on_startup = false;
+            contract_opt = None;
+            body = [
+                auto_fplace (ReturnStmt (
+                    auto_fplace (LitExpr (auto_fplace (BoolLit true)), auto_fplace EmptyMainType)
+                ))
+            ]
+        } in
 
 
-        let e_param_of str = 
-            let param = Atom.fresh str in
-            param, auto_fplace (VarExpr param, auto_fplace EmptyMainType)
-
+        (*** Main callback ***)
         let param_schema, e_param_schema = e_param_of "schema" in
         let param_s, e_param_s = e_param_of "s" in
-        let local_res, e_local_res = e_param_of "res" in
-        let local_res2, e_local_res2 = e_param_of "_res" in
-        let local_s2, e_local_s2 = e_param_of "_s" in
-        let local_a, e_local_a = e_param_of "a" in
-        let local_p, e_local_p = e_param_of "p" in
-        let local_flag, e_local_flag = e_param_of "flag" in
 
-        let e_this = auto_fplace (This, auto_fplace EmptyMainType) in
 
         let callback_onboard_def = {
             annotations = [];
@@ -99,120 +299,22 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
             ret_type = mtype_of_ft TVoid;
             name = callback_onboard;
             args = [
-                auto_fplace (mtype_of_fr TString, param_schema);
-                TODO (*auto_fplace (mtype_of_st (STSend (mtype_of_ft TBool, auto_fplace STEnd) ), param_s);*)
+                auto_fplace (mtype_of_ft TString, param_schema);
+                mtype_of_st interceptor_info.st_onboard
             ];
             on_destroy = false;
-            on_startup = true;
+            on_startup = false;
             contract_opt = None;
-            body = [
-                auto_fplace (IfStmt (
-                    auto_fplace (BinopExpr (
-                        auto_fplace (VarExpr param_schema, auto_fplace EmptyMainType),
-                        StructuralEqual, 
-                        auto_fplace (TODO, auto_fplace EmptyMainType)
-                    ), auto_fplace EmptyMainType),
-                    auto_place (BlockStmt [
-                        auto_fplace (LetStmt (
-                            auto_fplace (TTuple [ 
-                                auto_fplace (TTuple [ mtype_of_ct (TActivationRef TODO), mtype_of_ft TPlace]);
-                                mtype_of_st (STSend (mtype_of_ft TBool, auto_fplace STEnd))
-                            ])
-                            local_res,
-                            auto_fplace (CallExpr (
-                                Atom.builtin "receive",
-                                [
-                                    auto_fplace (VarExpr param_s, auto_fplace EmptyMainType);
-                                    e_this_b_onboard
-                                ]
-                            ), auto_fplace EmptyMainType)
-                        ));
-                        auto_fplace (LetStmt (
-                            auto_fplace (TTuple [ mtype_of_ct (TActivationRef TODO), mtype_of_ft TPlace]),
-                            local_res2,
-                            auto_fplace (CallExpr (
-                                auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
-                                [
-                                    e_local_res;
-                                    auto_fplace (LitExpr (auto_fplace Int 0), auto_fplace EmptyMainType)
-                                ]
-                            ), auto_fplace EmptyMainType)
-                        ));
-                        auto_fplace (LetStmt (
-                            mtype_of_st (STSend (mtype_of_ft TBool, auto_fplace STEnd)),
-                            local_s2,
-                            auto_fplace (CallExpr (
-                                auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
-                                [
-                                    e_local_res;
-                                    auto_fplace (LitExpr (auto_fplace Int 1), auto_fplace EmptyMainType)
-                                ]
-                            ), auto_fplace EmptyMainType)
-                        ));
-                        auto_fplace (LetStmt (
-                            mtype_of_ct (TActivationRef TODO),
-                            local_a,
-                            auto_fplace (CallExpr (
-                                auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
-                                [
-                                    e_local_res2;
-                                    auto_fplace (LitExpr (auto_fplace Int 0), auto_fplace EmptyMainType)
-                                ]
-                            ), auto_fplace EmptyMainType)
-                        ));
-                        auto_fplace (LetStmt (
-                            mtype_of_ft TPlace,
-                            local_p,
-                            auto_fplace (CallExpr (
-                                auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
-                                [
-                                    e_local_resZ;
-                                    auto_fplace (LitExpr (auto_fplace Int 1), auto_fplace EmptyMainType)
-                                ]
-                            ), auto_fplace EmptyMainType)
-                        ));
+            body = List.map (generate_main_callback_branch interceptor_info default_onboard onboard_index e_this_b_onboard ((param_schema, e_param_schema), (param_s, e_param_s))) interceptor_info.intercepted_schemas
+        } in
 
-
-                        auto_fplace( LetStmt (
-                            mtype_of_ft TBool,
-                            local_flag,
-                            auto_fplace (
-                                CallExpr (
-                                    TODO,
-                                    [
-                                        e_local_a;
-                                        e_local_p
-                                    ]
-                                )
-                                , auto_fplace EmptyMainType)
-                        ));
-                        auto_place(IfStmt(
-                            e_local_flag,
-                            (CallExpr (
-                                auto_fplace (VarExpr (Atom.builtin "add2dict"), auto_fplace EmptyMainType),
-                                [
-                                    this_onboarded_activations;
-                                    TODOget_activativation_id_of e_local_a;
-                                    e_local_a
-                                ]
-                            ), auto_fplace EmptyMainType)
-                            None
-                        ));
-
-                        auto_place (ExpressionStmt (
-                            auto_fplace (CallExpr (
-                                Atom.builtin "fire",
-                                [
-                                    auto_fplace (VarExpr local_s2, auto_fplace EmptyMainType);
-                                    e_local_flag 
-                                ]
-                            ), auto_fplace EmptyMainType)
-                        ))
-                    ]),
-                    None
-                ))   
-            ] 
-        }
+        [
+            statedef_b_onboard;
+            statedef_onboarded_activations;
+            port_onboard_def;
+            default_onboard_def;
+            callback_onboard_def;
+        ]
 
 
     (*************** Step 2 - Interception session handling generation ******************)
@@ -227,8 +329,11 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
         build a globlal index for the all program
     *)
 
+    (* TODO hydrate interceptors_info for non ctx crafted interceptor *)
+
     (*** Elim ***)
 
+end
 
 
 (*

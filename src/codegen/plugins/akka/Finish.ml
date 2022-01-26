@@ -436,7 +436,7 @@ module Make () = struct
         | S.This -> T.This
         | S.Spawn {c; args; at=None} ->
             T.ActivationRef{
-                schema = auto_place (T.LitExpr ( auto_place (T.StringLit (Atom.to_string (IR.schema_of c)))), auto_place T.TUnknown);
+                schema = auto_place (T.LitExpr ( auto_place (T.StringLit (Atom.to_string (IRMisc.schema_of c)))), auto_place T.TUnknown);
                 actor_ref = auto_place (T.Spawn {
                     context = auto_place (T.CurrentContext, auto_place T.TUnknown);  
                     actor_expr= auto_place (T.CallExpr(
@@ -471,7 +471,7 @@ module Make () = struct
             let a_context = Atom.fresh "context" in
             let a_guardian = Atom.fresh "guardian" in
             let a_timers = Atom.fresh "timers" in
-            let schema = IR.schema_of c in
+            let schema = IRMisc.schema_of c in
 
             (* TODO ?? DUplicated with AkkaJAva [arg_lambda] ?? *)
             let runnable = 
@@ -533,7 +533,7 @@ module Make () = struct
             ), auto_place T.TUnknown) in
         
             T.ActivationRef {
-                schema = auto_place (T.LitExpr ( auto_place (T.StringLit (Atom.to_string (IR.schema_of c)))), auto_place T.TUnknown);
+                schema = auto_place (T.LitExpr ( auto_place (T.StringLit (Atom.to_string (IRMisc.schema_of c)))), auto_place T.TUnknown);
                 actor_ref = 
                 auto_place(T.CallExpr(
                     e_lg4dc_spawnat fplace,

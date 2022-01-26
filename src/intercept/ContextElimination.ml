@@ -3,6 +3,7 @@ open Core
 open AstUtils
 open IR
 open Easy_logging
+open IRMisc
 
 let logger = Logging.make_logger ("_1_ compspec.Intercept") Debug [];;
 
@@ -44,6 +45,12 @@ module Make () = struct
     let show_key (cname, cnames) = 
         Printf.sprintf "Key<%s><%s>" (Atom.show cname) (Atom.Set.show cnames) 
 
+
+    (* TODO use interceptors_info to avoid recomputing interceptors_schemas
+
+        Warning: interceptor_info should only stores information that are exchanged between ctx elim and intercep elim
+    *)
+    let interceptors_info : (Atom.atom, interceptor_info) Hashtbl.t = Hashtbl.create 16 
 
 
 
@@ -595,7 +602,7 @@ module Make () = struct
                                         List.map (function x -> auto_fplace (VarExpr (snd x.value), fst x.value) ) base_interceptor_constructor_params
                                         @ [
                                             auto_fplace (VarExpr factory, auto_fplace EmptyMainType);
-                                            auto_fplace (LitExpr (auto_fplace (StringLit (Atom.to_string (schema_of spawn.c)))), auto_fplace EmptyMainType); 
+                                            schema_to_label fplace (schema_of  spawn.c);
                                             auto_fplace (VarExpr p_of_a, auto_fplace EmptyMainType)
                                         ]
                                     ), auto_fplace EmptyMainType)
@@ -681,6 +688,26 @@ module Make () = struct
                     binded_value
                 ))) :: footers
             ) exposed_activations_info [] in
+
+
+            (*** Update interceptors_info ***)
+            if Hashtbl.find_opt interceptors_info interceptor_name = None then
+                Hashtbl.add interceptors_info interceptor_name {
+                    from_ctx_elim = true;
+
+                    name = interceptor_name;
+                    base_interceptor_name = base_interceptor_name;
+
+                    onboard_info = (st_onboard, p_onboard);
+                    inout_bridges_info = List.map (function (b_out, b_int, b_in_let) ->
+                        b_out, 
+                        b_int,
+                        match b_in_let.value with
+                        | LetStmt (mt,_,_) -> mt
+                    ) (List.of_seq (Hashtbl.to_seq_values generated_bridges));
+
+                    intercepted_schemas;
+                };
 
             let stmts = stmts @ (List.rev footer_binders) in
             List.map (function stmt -> stmt.value) stmts
