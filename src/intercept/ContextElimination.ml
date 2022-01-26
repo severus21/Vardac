@@ -289,15 +289,6 @@ module Make () = struct
 
     (*************** Step 2 - Bridge handling  ******************)
 
-    let mt_internals_of place intercepted_schemas = 
-        (* Already checked by main ctx_elim *)
-        assert(intercepted_schemas <> []);
-        List.fold_left 
-            (fun mt schema -> 
-                mtype_of_ct (TUnion (mt, mtype_of_cvar schema))
-            )
-            (mtype_of_cvar (List.hd intercepted_schemas))
-            (List.tl intercepted_schemas)
 
 
     (*  Per context and not (per interceptor schema or per interceptor activation) 

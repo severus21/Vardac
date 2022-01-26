@@ -24,3 +24,12 @@ let get_onstartup (schema : component_structure) : method0 option=
         (List.find_opt 
             (function | {value=Method m} -> m.value.on_startup | _ -> false) schema.body
         )
+
+let mt_internals_of place intercepted_schemas = 
+    assert(intercepted_schemas <> []);
+    List.fold_left 
+        (fun mt schema -> 
+            mtype_of_ct (TUnion (mt, mtype_of_cvar schema))
+        )
+        (mtype_of_cvar (List.hd intercepted_schemas))
+        (List.tl intercepted_schemas)
