@@ -633,11 +633,7 @@ any_annotation_:
     { 
         match x with
         | "onboard" -> Onboard schemas 
-    }
-|AT x=LID LPAREN LBRACKET interceptors=right_flexible_list(COMMA, UID) RBRACKET COMMA LBRACKET excluded_ports=right_flexible_list(COMMA, LID) RBRACKET RPAREN
-    { 
-        match x with
-        | "capturable" -> Capturable {interceptors; excluded_ports} 
+        | "capturable" -> Capturable {allowed_interceptors = schemas; } 
     }
 
 %inline any_annotation:

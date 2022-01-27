@@ -1024,10 +1024,9 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         let body = collect_labelevents @ body in
 
         let annotations = List.map (function 
-            | {value=S.Capturable {interceptors; excluded_ports}} -> 
+            | {value=S.Capturable {allowed_interceptors;}} -> 
                 T.Capturable {
-                    interceptors = List.map (cook_var_component env place) interceptors;
-                    excluded_ports = List.map (cook_var_this env place ) excluded_ports
+                    allowed_interceptors = List.map (cook_var_component env place) allowed_interceptors;
                 }
             | a -> Error.error a.place "%s is not a component annotation!" (S.show_annotation a)
         ) cdcl.annotations in

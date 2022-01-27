@@ -285,7 +285,7 @@ and component_expr = _component_expr placed
 (************************************ Program *****************************)
 
 and _annotation = 
-    | Capturable of {interceptors: variable list; excluded_ports: variable list}
+    | Capturable of {allowed_interceptors: variable list;}
     | MsgInterceptor of {
         kind: IR.session_interceptor_kind;
     }

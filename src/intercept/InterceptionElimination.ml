@@ -39,7 +39,7 @@ module Make (Args: TArgs) = struct
 
     (* TODO/TODOC is there a way to index this methods and not to run is_subtype in an O(n²) strategy for pairing ports with interception methods ???? *)
 
-    (*************** Step 1 - Activation onboarding bloc ******************)
+    (*************** Step 1 - Activation onboarding block******************)
     let generate_onboard_index interceptor_info onboard_methods = 
         (* for a given interceptor *)
         let onboard_index = Hashtbl.create 16 in
@@ -61,15 +61,9 @@ module Make (Args: TArgs) = struct
         | Some m -> m
         | None -> default_onboard 
 
-
-
-    (*TODO Where to place this *)
     let e_param_of str = 
         let param = Atom.fresh str in
         param, e2var param
-
-
-
     
     (* branch: if flag == "Schema" ... *)
     let generate_main_callback_branch interceptor_info default_onboard onboard_index (e_this_b_onboard, e_this_onboarded_activations) ((param_schema, e_param_schema), (param_s, e_param_s)) schema: stmt =
@@ -215,9 +209,9 @@ module Make (Args: TArgs) = struct
             - default onboard method
         - main onboard callback
     *)
-    let generate_onboard_bloc place interceptor_info (interceptor : component_structure) : interceptor_info * component_item list = 
+    let generate_onboard_block base_interceptor interceptor_info : interceptor_info * component_item list = 
         (*** Collect intells ***)
-        let onboard_methods = extract_onboard_methods (methods_of interceptor) in
+        let onboard_methods = extract_onboard_methods (methods_of base_interceptor) in
         let onboard_index = generate_onboard_index interceptor_info onboard_methods in
 
         (*** States and port ***)
@@ -245,7 +239,7 @@ module Make (Args: TArgs) = struct
         )) in
         let statedef_onboarded_activations = auto_fplace (State (auto_fplace (StateDcl {
             ghost = false;
-            type0 = mtype_of_ct (TDict (mtype_of_ft TActivationID, mtype_of_ct (TActivationRef (mt_internals_of place (Atom.Set.to_list interceptor_info.intercepted_schemas)))) );
+            type0 = mtype_of_ct (TDict (mtype_of_ft TActivationID, mtype_of_ct (TActivationRef (mt_internals_of fplace (Atom.Set.to_list interceptor_info.intercepted_schemas)))) );
             name = this_onboarded_activations;
             body = Some ( e2_e (Block2Expr (Dict, [])));
         }))) in
@@ -308,6 +302,9 @@ module Make (Args: TArgs) = struct
         })) in
 
         interceptor_info, [
+            auto_fplace (Term (auto_fplace (Comments
+                (auto_fplace(DocComment "******************** Onboarding Block ********************"))
+            )));
             statedef_b_onboard;
             statedef_onboarded_activations;
             port_onboard_def;
@@ -413,23 +410,168 @@ module Make (Args: TArgs) = struct
         interceptor_info, onstartup :: (citems_wo_onstartup @ inout_bridges_states)
 
 
-    (*************** Step 2 - Interception session bloc ******************)
+    (*************** Step 2 - Interception session block******************)
+    let generate_sessions_block interceptor_info : interceptor_info * component_item list = 
+        let this_4external2internal = Atom.fresh "4external2internal" in
+        let this_4internal2external = Atom.fresh "4internal2external" in
+        let this_sessions_4ext = Atom.fresh "sessions_4ext" in
+        let this_sessions_4int = Atom.fresh "sessions_4int" in
+
+        assert(interceptor_info.sessions_info = None);
+        let interceptor_info = {interceptor_info with
+            sessions_info = Some { 
+                this_4external2internal;
+                this_4internal2external; this_sessions_4ext; 
+                this_sessions_4int; 
+            }
+        } in
+
+        interceptor_info, [
+            auto_fplace (Term (auto_fplace (Comments
+                (auto_fplace(DocComment "******************** Intercepted Sessions Handling Block ********************"))
+            )));
+
+            auto_fplace (State (auto_fplace (StateDcl {
+                ghost = false;
+                type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TSessionID));
+                name = this_4external2internal;
+                body = Some (e2_e (Block2Expr (Dict, [])));
+            })));
+            auto_fplace (State (auto_fplace (StateDcl {
+                ghost = false;
+                type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TSessionID));
+                name = this_4internal2external;
+                body = Some (e2_e (Block2Expr (Dict, [])));
+            })));
+            auto_fplace (State (auto_fplace (StateDcl {
+                ghost = false;
+                type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TWildcard));
+                name = this_sessions_4ext;
+                body = Some (e2_e (Block2Expr (Dict, [])));
+            })));
+            auto_fplace (State (auto_fplace (StateDcl {
+                ghost = false;
+                type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TWildcard));
+                name = this_sessions_4int;
+                body = Some (e2_e (Block2Expr (Dict, [])));
+            })));
+        ]
+
+
+
     (*************** Step 3 - Ingress generation ******************)
+    let generate_ingress_blockplace interceptor_info base_interceptor : component_item list = 
+        failwith "TODO"
+
     (*************** Step 4 - Egress generation ******************)
+    let generate_egress_blockplace interceptor_info base_interceptor : component_item list = 
+        failwith "TODO"
+
 
     (*************** Interception Elimination ******************)
 
-    (*** Interceptor generation ***)
+    let generate_interceptor base_interceptor interceptor_info : _term = 
 
-    (* TODO check that InterceptedSchemas are annotated with capturable and checks pass and select port accordingly 
-        build a globlal index for the all program
-    *)
+        let interceptor_info, onboard_block = generate_onboard_block base_interceptor interceptor_info in
+        let interceptor_info, inlined_onstartup_block = include_base_citems interceptor_info base_interceptor in
+        let interceptor_info, sessions_block = generate_sessions_block interceptor_info in
+        let ingress_block = generate_ingress_blockplace interceptor_info base_interceptor in
+        let egress_block = generate_egress_blockplace interceptor_info base_interceptor in
 
-    (* TODO hydrate interceptors_info for non ctx crafted interceptor *)
 
-    (*** Elim ***)
+        Component (auto_fplace (ComponentStructure {
+            target_name = base_interceptor.target_name; 
+            annotations = base_interceptor.annotations;
+            name = interceptor_info.name;
+            args = [];
+            body = 
+                onboard_block
+                @ inlined_onstartup_block
+                @ sessions_block
+                @ ingress_block
+                @ egress_block
+        }))
 
+    let makeinterceptor_selector = function 
+    | Component {value=ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} when Atom.hint functorname = "MakeInterceptor" && Atom.is_builtin functorname -> true 
+    | _ -> false
+    let makeinterceptor_rewriter program place = function
+    | Component {value=ComponentAssign {name=interceptor_name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} -> begin
+        (* Ad-hoc functor since we do not have meta programming capabilities *)
+        match args with
+        | [{value=VarCExpr base_interceptor_name,_;}; {value=AnyExpr {value=BlockExpr (List, intercepted_schemas), _}, _}] 
+        when List.fold_left (function flag -> function | {value=BoxCExpr {value=VarCExpr _,_}, _} -> true | _ -> false) true intercepted_schemas -> begin
+
+            (* Generated by ctx elim *)
+            let interceptor_info = 
+                match Hashtbl.find_opt interceptors_info interceptor_name with 
+                | Some x -> assert(x.from_ctx_elim); x  
+                | None -> 
+                    let intercepted_schemas = Atom.Set.of_seq (List.to_seq (List.map (function {value=BoxCExpr {value=VarCExpr schema,_}, _} -> schema) intercepted_schemas)) in
+
+                    (* Compute onboard_info *)
+                    let st_onboard = st_onboard_of intercepted_schemas in
+                    let b_onboard_mt = b_onboarf_mt_of interceptor_name (Atom.Set.to_list intercepted_schemas) (mtype_of_st st_onboard.value) in
+                    let onboard_info = {st_onboard; b_onboard_mt} in
+
+                    { from_ctx_elim = false;
+                        name = interceptor_name; 
+                        base_interceptor_name;
+
+                        onboard_info;
+                        inout_bridges_info = failwith "TODO howto to compute inout_bridges_info for low level API - add this to whitepapre";
+
+                        intercepted_schemas;
+
+                        b_onboard_state = None;
+                        inout_statebridges_info = None;
+                        sessions_info = None;
+                    }
+            in
+
+
+            (*** Check that intercepted_schemas can be captured by base_interceptor ***)
+
+            (* schema_name -> capturable_by_schemas *)
+            let all_schemas = Hashtbl.create 16 in 
+            let _ = collect_term_program 
+                true (* recursive to collect all schemas of the AST *)
+                (function | Component _ -> true |_ -> false) 
+                (function place -> function 
+                    | Component {value = ComponentStructure cstruct } -> begin 
+                        match List.filter (function | Capturable _ -> true | _ -> false) cstruct.annotations with
+                        | [Capturable annot] -> 
+                            Hashtbl.add all_schemas cstruct.name (Atom.Set.of_seq (List.to_seq annot.allowed_interceptors));
+                            []
+                        | _ -> Error.error place "At most one capturable annotations per schema."
+                    end
+            ) in
+            
+            Atom.Set.iter (function schema -> 
+                let allowed_interceptors = (Hashtbl.find all_schemas schema) in
+                if Bool.not (Atom.Set.mem base_interceptor_name allowed_interceptors) then    
+                    Error.error place "%s can not be intercepted by %s. To make it capturable add ```@capturable`` annotation to %s." (Atom.value schema) (Atom.value interceptor_info.base_interceptor_name) (Atom.value schema);
+            ) interceptor_info.intercepted_schemas;
+            
+            (*TODO and checks pass and select port accordingly 
+            *)
+
+            let base_interceptor : component_structure = get_schema program interceptor_info.base_interceptor_name in
+
+            [ generate_interceptor base_interceptor interceptor_info ]
+        end
+        | _ -> Error.error place "Illformed MakeInterceptor functor: MakeInterceptor(BaseInterceptor, [intercepted_schemas])"
+    end
+
+    let intercept_elim_program program =
+        (* Elimination of MakeInterceptor *)
+        let program = rewrite_term_program makeinterceptor_selector (makeinterceptor_rewriter program) program in 
+
+        program
 end
+
+
+(* TODO to remove the followings *)
 
 
 (*
@@ -584,7 +726,9 @@ let generate_callback (base_interceptor : component_structure) port_name (expect
 
 let make_citem_for_intercepted_component program base_interceptor intercepted_cname = 
     let [intercepted_struct] : component_structure list = 
-        collect_term_program (function | Component {value=ComponentStructure {name}} -> name = intercepted_cname | _ -> false) (function place -> function | Component {value=ComponentStructure cstruct} -> [cstruct]) program 
+        collect_term_program 
+        false 
+        (function | Component {value=ComponentStructure {name}} -> name = intercepted_cname | _ -> false) (function place -> function | Component {value=ComponentStructure cstruct} -> [cstruct]) program 
     in
 
     let interception_states = [] in 

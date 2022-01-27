@@ -264,7 +264,7 @@ module type TIRC = sig
         | Onboard of component_variable list (* List of schemas that this function can onboard *)
 
     and component_annotation = 
-        | Capturable of {interceptors: component_variable list; excluded_ports: component_variable list}
+        | Capturable of {allowed_interceptors: component_variable list}
 
     (******************************** Contracts **********************************)
     and _contract = { (* TODO GADT *)
@@ -585,7 +585,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | Onboard of component_variable list (* List of schemas that this function can onboard *)
 
     and component_annotation = 
-        | Capturable of {interceptors: component_variable list; excluded_ports: component_variable list}
+        | Capturable of {allowed_interceptors: component_variable list;}
 
     (******************************** Contracts **********************************)
     and _contract = { (* TODO GADT *)

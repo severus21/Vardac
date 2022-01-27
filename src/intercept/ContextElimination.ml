@@ -185,10 +185,6 @@ module Make () = struct
     let intercepted_bridges_of_ctx place cname stmts : InterceptedBridgeSet.t = 
         let fvars = List.map (function stmt -> snd (free_vars_stmt Atom.Set.empty stmt)) stmts in
         let fvars = List.flatten fvars in
-        (*
-        TODO remove 
-        let fvars_htbl = Hashtbl.create 16 in
-        List.iter (function (mt, x) -> Hashtbl.add fvars_htbl x mt) fvars;*)
 
         let intercepted_bridges = List.map (function (mt,x) ->
             match mt.value with (* FIXME do not work if m.value is an alias of bridge -> us is_subtype or type equal if they handle aliasing *)
@@ -247,22 +243,10 @@ module Make () = struct
         })
 
     let generate_onboard_typedef place interceptor_name intercepted_schemas = 
-        let intercepted_schemas = (List.of_seq (Atom.Set.to_seq intercepted_schemas)) in
-
-        let onboard_st_branch_of schema = 
-            (* ('A': !tuple<activation_ref<A>, place>> ?bool.) *)
-            schema, auto_fplace (STSend(
-                mtype_of_ct (TTuple [
-                    mtype_of_ct (TActivationRef (mtype_of_cvar schema));
-                    mtype_of_ft (TPlace)
-                ]),
-                auto_fplace (STRecv (mtype_of_ft TBool, auto_fplace STEnd))
-            )), None
-        in
-        let st_onboard = STBranch ( List.map onboard_st_branch_of intercepted_schemas) in
+        let st_onboard = st_onboard_of intercepted_schemas in
         let p_onboard = Atom.fresh ("p_onboard_"^(Atom.value interceptor_name)) in 
-        let p_def_onboard = ProtocolDef (p_onboard, mtype_of_st st_onboard) in
-        (p_onboard, auto_fplace st_onboard, Typedef (auto_fplace p_def_onboard))
+        let p_def_onboard = ProtocolDef (p_onboard, mtype_of_st st_onboard.value) in
+        (p_onboard, st_onboard, Typedef (auto_fplace p_def_onboard))
     (*
         Register each ctx inside shared state (interceptor_parents, interceptor_makes) in order to deduplicate schemas.
     *)
@@ -327,11 +311,7 @@ module Make () = struct
 
         (*** b_onboard ***)
         let b_onboard = Atom.fresh ("b_onboard_"^(Atom.value interceptor_name)) in 
-        let b_onboard_mt = mtype_of_ct (TBridge {
-            in_type = mt_internals_of place intercepted_schemas;
-            out_type = mtype_of_cvar interceptor_name;
-            protocol = st_onboard;
-        }) in
+        let b_onboard_mt = b_onboarf_mt_of interceptor_name intercepted_schemas st_onboard in
         let b_onboard_let = auto_fplace (LetStmt (
             b_onboard_mt,
             b_onboard,
@@ -692,7 +672,7 @@ module Make () = struct
                     name = interceptor_name;
                     base_interceptor_name = base_interceptor_name;
 
-                    onboard_info = {st_onboard; p_onboard; b_onboard_mt};
+                    onboard_info = {st_onboard; b_onboard_mt};
                     inout_bridges_info = List.map (function (b_out, b_int, b_in_let) ->
                         b_out, 
                         b_int,
@@ -706,6 +686,7 @@ module Make () = struct
                     (*** Hydrated by intercept elim***)
                     b_onboard_state = None;
                     inout_statebridges_info = None;
+                    sessions_info = None;
                 };
 
             let stmts = stmts @ (List.rev footer_binders) in

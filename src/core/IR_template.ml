@@ -49,7 +49,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
 
     (************************************ Component *****************************)
 
-    type  _state = 
+    type _state = 
         | StateDcl of  {
             ghost: bool; 
             type0: main_type; 
@@ -106,7 +106,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
         target_name: target_name; 
         annotations: component_annotation list;
         name: component_variable; 
-        args: param list; 
+        args: param list; (* TODO get ride of this and introduce a functor construct *) 
         body: component_item list}
 
     and _component_dcl = 

@@ -591,6 +591,10 @@ and collect_type_derivation parent_opt (already_binded:Atom.Set.t) selector coll
     let fvars = List.flatten (List.map snd res) in
     already_binded, collected_elts, fvars
 
+(*
+    recursive = true means that even if a term is selected, its sub-terms could be selector also. 
+        = false - when a term is selected, sub-terms are ignored
+*)
 and collect_type_term_ parent_opt (already_binded:Atom.Set.t) selector collector place = function 
     | EmptyTerm | Comments _ -> already_binded, [], []
     | Stmt stmt -> collect_type_stmt parent_opt already_binded selector collector stmt
@@ -814,23 +818,36 @@ let replace_expr_component_item x_to_replace replaceby =
 
 (******************************************)
 
-let rec collect_term_component_item_  selector collector place = function 
-| Term t -> collect_term_term selector collector t
+let rec collect_term_component_item_ recursive selector collector place = function 
+| Term t -> collect_term_term recursive selector collector t
 | citem -> []
-and collect_term_component_item selector collector = map0_place (collect_term_component_item_ selector collector) 
+and collect_term_component_item recursive selector collector = map0_place (collect_term_component_item_ recursive selector collector) 
 
-and collect_term_component_dcl_  selector collector place = function 
-| ComponentStructure cdcl -> List.flatten (List.map (collect_term_component_item selector collector) cdcl.body)
+and collect_term_component_dcl_  recursive selector collector place = function 
+| ComponentStructure cdcl -> List.flatten (List.map (collect_term_component_item recursive selector collector) cdcl.body)
 | x -> [] 
-and collect_term_component_dcl selector collector = map0_place (collect_term_component_dcl_ selector collector) 
+and collect_term_component_dcl recursive selector collector = map0_place (collect_term_component_dcl_ recursive selector collector) 
 
-and collect_term_term_ selector collector place = function 
-| t when selector t -> collector place t
-| Component cdcl -> collect_term_component_dcl selector collector cdcl
+and collect_term_term_ recursive selector collector place = function 
+| t when selector t  -> 
+    collector place t 
+    @ (
+        (* sub-terms *)
+        if recursive then 
+            match t with 
+            | Component cdcl -> collect_term_component_dcl recursive selector collector cdcl
+            | _ -> []
+        else []
+    )
+| Component cdcl -> collect_term_component_dcl recursive selector collector cdcl
 | t -> [] 
-and collect_term_term selector collector = map0_place (collect_term_term_ selector collector) 
+and collect_term_term recursive selector collector = map0_place (collect_term_term_ recursive selector collector) 
 
-and collect_term_program (selector : _term -> bool) (collector : Error.place -> _term -> 'a list) program = List.flatten (List.map (collect_term_term selector collector) program )
+(*
+    recursive = true means that even if a term is selected, its sub-terms could be selector also. 
+        = false - when a term is selected, sub-terms are ignored
+*)
+and collect_term_program recursive (selector : _term -> bool) (collector : Error.place -> _term -> 'a list) program = List.flatten (List.map (collect_term_term recursive selector collector) program )
 (******************************************)
 let rec rewrite_term_component_item_  selector rewriter place = function 
 | Term t -> List.map (function x -> Term x) (rewrite_term_term selector rewriter t)

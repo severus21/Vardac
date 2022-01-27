@@ -20,6 +20,7 @@ let failure_collector_ce msg parent_opt place ce = failure_collector msg parent_
 let get_schema program wanted_name= 
     let [schema] : component_structure list = 
         collect_term_program 
+            false
             (function | Component {value=ComponentStructure {name}} -> name = wanted_name | _ -> false) 
             (function place -> function | Component {value=ComponentStructure cstruct} -> [cstruct]) 
             program 
@@ -44,9 +45,14 @@ let mt_internals_of place intercepted_schemas =
         (List.tl intercepted_schemas)
 type onboard_info = {
     st_onboard: session_type; 
-    p_onboard: Atom.atom; 
     b_onboard_mt: main_type
 }
+type sessions_info = {
+    this_4external2internal: Atom.atom;
+    this_4internal2external: Atom.atom;
+    this_sessions_4ext: Atom.atom;
+    this_sessions_4int: Atom.atom
+} 
 
 type interceptor_info = {
     from_ctx_elim: bool; (* Source: ctx API if true else low-level API*)
@@ -66,4 +72,27 @@ type interceptor_info = {
     (*** Hydrated by intercept elim***)
     b_onboard_state: Atom.atom option; (* state holding the onboarding bridge *)
     inout_statebridges_info: ((Atom.atom * Atom.atom * main_type) list) option; (* schema state that holds the bridges *)
+    sessions_info: sessions_info option
 }
+
+let st_onboard_of intercepted_schemas = 
+    let intercepted_schemas = (Atom.Set.to_list intercepted_schemas) in
+
+    let onboard_st_branch_of schema = 
+        (* ('A': !tuple<activation_ref<A>, place>> ?bool.) *)
+        schema, auto_fplace (STSend(
+            mtype_of_ct (TTuple [
+                mtype_of_ct (TActivationRef (mtype_of_cvar schema));
+                mtype_of_ft (TPlace)
+            ]),
+            auto_fplace (STRecv (mtype_of_ft TBool, auto_fplace STEnd))
+        )), None
+    in
+    auto_fplace (STBranch ( List.map onboard_st_branch_of intercepted_schemas))
+
+let b_onboarf_mt_of interceptor_name intercepted_schemas st_onboard = 
+    mtype_of_ct (TBridge {
+        in_type = mt_internals_of fplace intercepted_schemas;
+        out_type = mtype_of_cvar interceptor_name;
+        protocol = st_onboard;
+    })
