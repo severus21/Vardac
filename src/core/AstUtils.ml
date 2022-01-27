@@ -35,6 +35,8 @@ module type TVariable = sig
         include Set.S with type elt = t 
         val show: t -> string
         val print: out_channel -> t -> unit
+
+        val to_list: t -> elt list
     end
 
     module VMap : sig

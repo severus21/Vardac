@@ -698,7 +698,7 @@ module Make () = struct
                     name = interceptor_name;
                     base_interceptor_name = base_interceptor_name;
 
-                    onboard_info = (st_onboard, p_onboard);
+                    onboard_info = {st_onboard; p_onboard; b_onboard_mt};
                     inout_bridges_info = List.map (function (b_out, b_int, b_in_let) ->
                         b_out, 
                         b_int,

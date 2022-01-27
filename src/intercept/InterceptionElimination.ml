@@ -9,6 +9,11 @@ let logger = Logging.make_logger ("_1_ compspec.Intercept") Debug [];;
 
 let fplace = (Error.forge_place "Intercept" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
+let e2_e e =  auto_fplace (e, auto_fplace EmptyMainType)
+let e2var x =  e2_e (VarExpr x)
+let e2_lit lit =  e2_e (LitExpr (auto_fplace lit))
+
+
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
 module type TArgs = sig
@@ -22,7 +27,7 @@ module Make (Args: TArgs) = struct
     include Args
 
     (*************** Step 0 - gather intell ******************)
-    let methods_of (base_interceptor : component_structure) method0 list =
+    let methods_of (base_interceptor : component_structure) : method0 list =
         let citems = List.filter (function {value=Method _} -> true | _ -> false) base_interceptor.body in
         List.map (function |{value=Method m} -> m) citems
 
@@ -71,7 +76,7 @@ module Make (Args: TArgs) = struct
 
     
     (* branch: if flag == "Schema" ... *)
-    let generate_main_callback_branch interceptor_info default_onboard onboard_index e_this_b_onboard ((param_schema, e_param_schema), (param_s, e_param_s)) schema: stmt list =
+    let generate_main_callback_branch interceptor_info default_onboard onboard_index (e_this_b_onboard, e_this_onboarded_activations) ((param_schema, e_param_schema), (param_s, e_param_s)) schema: stmt =
         let a_mt = mtype_of_ct (TActivationRef (mtype_of_cvar schema)) in 
         let e_onboard_A = auto_fplace (AccessExpr(
             auto_fplace (This, auto_fplace EmptyMainType),
@@ -147,13 +152,13 @@ module Make (Args: TArgs) = struct
                     ), auto_fplace EmptyMainType)
                 ));
                 auto_fplace (LetStmt (
-                    mt_a, 
+                    a_mt, 
                     local_a,
                     auto_fplace (CallExpr (
                         auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
                         [
                             e_local_res2;
-                            auto_fplace (LitExpr (auto_fplace Int 0), auto_fplace EmptyMainType)
+                            e2_lit (IntLit 0)
                         ]
                     ), auto_fplace EmptyMainType)
                 ));
@@ -163,8 +168,8 @@ module Make (Args: TArgs) = struct
                     auto_fplace (CallExpr (
                         auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
                         [
-                            e_local_resZ;
-                            auto_fplace (LitExpr (auto_fplace (IntLit 1)), auto_fplace EmptyMainType)
+                            e_local_res2;
+                            e2_lit (IntLit 1)
                         ]
                     ), auto_fplace EmptyMainType)
                 ));
@@ -183,27 +188,27 @@ module Make (Args: TArgs) = struct
                         )
                         , auto_fplace EmptyMainType)
                 ));
-                auto_place(IfStmt(
+                auto_fplace(IfStmt(
                     e_local_flag,
-                    (CallExpr (
-                        auto_fplace (VarExpr (Atom.builtin "add2dict"), auto_fplace EmptyMainType),
+                    auto_fplace (ExpressionStmt (e2_e(CallExpr (
+                        e2var (Atom.builtin "add2dict"),
                         [
-                            this_onboarded_activations;
-                            aid_of e_local_a;
+                            e_this_onboarded_activations;
+                            aid_of fplace e_local_a;
                             e_local_a
                         ]
-                    ), auto_fplace EmptyMainType)
+                    )))),
                     None
                 ));
 
-                auto_place (ExpressionStmt (
-                    auto_fplace (CallExpr (
-                        Atom.builtin "fire",
+                auto_fplace (ExpressionStmt (
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "fire"),
                         [
-                            auto_fplace (VarExpr local_s3, auto_fplace EmptyMainType);
+                            e2var local_s3;
                             e_local_flag 
                         ]
-                    ), auto_fplace EmptyMainType)
+                    ))
                 ))
             ]),
             None
@@ -230,62 +235,62 @@ module Make (Args: TArgs) = struct
         let this_b_onboard = Atom.fresh "b_onboard" in 
         let e_this_b_onboard = auto_fplace (AccessExpr (
                 auto_fplace (This, auto_fplace EmptyMainType), 
-                auto_fplace (VarExpr this_b_onboard, auto_fplace EmptyMaintype)
+                e2var this_b_onboard
             ), auto_fplace EmptyMainType) in
-        let statedef_b_onboard = auto_fplace (StateDcl {
+        let statedef_b_onboard = auto_fplace (State (auto_fplace (StateDcl {
             ghost = false;
-            type0 = b_onboard_mt;
+            type0 = interceptor_info.onboard_info.b_onboard_mt;
             name = this_b_onboard;
             body = None;
-        }) in
+        }))) in
 
         let this_onboarded_activations = Atom.fresh "onboarded_activations" in 
         let e_this_onboarded_activations = auto_fplace (AccessExpr (
             auto_fplace (This, auto_fplace EmptyMainType), 
-            auto_fplace (VarExpr this_onboarded_activations, auto_fplace EmptyMaintype)
+            e2var this_onboarded_activations
         ), auto_fplace EmptyMainType) in
-        let statedef_onboarded_activations = auto_fplace (StateDcl {
+        let statedef_onboarded_activations = auto_fplace (State (auto_fplace (StateDcl {
             ghost = false;
-            type0 = mtype_of_ct (TDict (mtype_of_ft TActivationID, mtype_of_ct (TActivationDef (mt_internals_of place intercepted_schemas))) );
+            type0 = mtype_of_ct (TDict (mtype_of_ft TActivationID, mtype_of_ct (TActivationRef (mt_internals_of place (Atom.Set.to_list interceptor_info.intercepted_schemas)))) );
             name = this_onboarded_activations;
             body = Some (auto_fplace (Block2Expr (Dict, []), auto_fplace EmptyMainType));
-        }) in
+        }))) in
 
         let callback_onboard = Atom.fresh "onboard" in
         let port_onboard = Atom.fresh "port_onboard" in
-        let port_onboard_def = Port (auto_fplace (
+        let port_onboard_def = auto_fplace (Port (auto_fplace (
             {
                 name = port_onboard;
                 input = e_this_b_onboard; 
-                expecting_st = interceptor_info.st_onboard; 
+                expecting_st = mtype_of_st interceptor_info.onboard_info.st_onboard.value; 
                 callback = auto_fplace (AccessExpr (
-                    auto_fplace (This, auto_fplace EmptyMainType), 
-                    auto_fplace (VarExpr callback_onboard, auto_fplace EmptyMaintype)
+                    e2_e This, 
+                    e2var callback_onboard
                 ), auto_fplace EmptyMainType);
             },
             auto_fplace EmptyMainType
-        )) in
+        ))) in
 
         (*** Generate default_onboard ***)
         let default_onboard = Atom.fresh "default_onboard" in
-        let default_onboard_def = {
+        let default_onboard_def = auto_fplace (Method (auto_fplace {
             annotations = [];
             ghost = false;
             ret_type = mtype_of_ft TBool;
             name = callback_onboard;
             args = [
-                mtype_of_ct (TActivationRef (mtype_of_ft TWildcard));
-                mtype_of_ct TPlace
+                auto_fplace (mtype_of_ct (TActivationRef (mtype_of_ft TWildcard)), Atom.fresh "a");
+                auto_fplace (mtype_of_ft TPlace, Atom.fresh "p_of_a")
             ];
             on_destroy = false;
             on_startup = false;
             contract_opt = None;
             body = [
                 auto_fplace (ReturnStmt (
-                    auto_fplace (LitExpr (auto_fplace (BoolLit true)), auto_fplace EmptyMainType)
+                    e2_lit (BoolLit true)
                 ))
             ]
-        } in
+        })) in
 
 
         (*** Main callback ***)
@@ -293,20 +298,20 @@ module Make (Args: TArgs) = struct
         let param_s, e_param_s = e_param_of "s" in
 
 
-        let callback_onboard_def = {
+        let callback_onboard_def = auto_fplace (Method (auto_fplace {
             annotations = [];
             ghost = false;
             ret_type = mtype_of_ft TVoid;
             name = callback_onboard;
             args = [
-                auto_fplace (mtype_of_ft TString, param_schema);
-                mtype_of_st interceptor_info.st_onboard
+                auto_fplace (mtype_of_ft TStr, param_schema);
+                auto_fplace (mtype_of_st interceptor_info.onboard_info.st_onboard.value, param_s)
             ];
             on_destroy = false;
             on_startup = false;
             contract_opt = None;
-            body = List.map (generate_main_callback_branch interceptor_info default_onboard onboard_index e_this_b_onboard ((param_schema, e_param_schema), (param_s, e_param_s))) interceptor_info.intercepted_schemas
-        } in
+            body = List.map (generate_main_callback_branch interceptor_info default_onboard onboard_index (e_this_b_onboard, e_this_onboarded_activations) ((param_schema, e_param_schema), (param_s, e_param_s))) (Atom.Set.to_list interceptor_info.intercepted_schemas)
+        })) in
 
         [
             statedef_b_onboard;

@@ -35,7 +35,10 @@ val hash: atom -> int
 
 module Set : sig
   include Set.S with type elt = atom
-(* NOT yet included in TVariable
+
+  val to_list: t -> elt list
+
+(* TODO NOT yet included in TVariable
   val disjoint: t -> t -> bool
 
   val union_many: ('a -> t) -> 'a list -> t

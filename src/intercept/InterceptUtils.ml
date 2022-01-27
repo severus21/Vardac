@@ -42,6 +42,11 @@ let mt_internals_of place intercepted_schemas =
         )
         (mtype_of_cvar (List.hd intercepted_schemas))
         (List.tl intercepted_schemas)
+type onboard_info = {
+    st_onboard: session_type; 
+    p_onboard: Atom.atom; 
+    b_onboard_mt: main_type
+}
 
 type interceptor_info = {
     from_ctx_elim: bool; (* Source: ctx API if true else low-level API*)
@@ -51,7 +56,7 @@ type interceptor_info = {
     base_interceptor_name: Atom.atom;
     
     (* Generated *)
-    onboard_info: session_type * Atom.atom; (* (st_onboard, p_onboard) *)
+    onboard_info: onboard_info; (* (st_onboard, p_onboard, b_onboard_mt) *)
     inout_bridges_info: (Atom.atom * Atom.atom * main_type) list; (* (b_out_1, b_in_1, mt) ... (b_out_n ... b_in_n) *)
 
     (* Computed *)

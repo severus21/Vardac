@@ -149,6 +149,8 @@ module Set = struct
 
   include Set.Make(Order)
 
+  let to_list x = List.of_seq (to_seq x)
+
   (* A disjointness test. *)
 
   let disjoint xs ys =
