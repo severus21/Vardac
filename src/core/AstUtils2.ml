@@ -15,6 +15,7 @@ module Mtype = struct
 
         let auto_fplace smth = {place = fplace; value=smth}
 
+        (* Type *)
         let mtype_of_var x = 
             auto_fplace(CType(auto_fplace (TVar x)))
         let mtype_poly_of_var x = 
@@ -36,7 +37,20 @@ module Mtype = struct
             mtype_of_ct (TFlatType ft)
 
 
+        let mtype_of_fun2 targs ret_type = 
+            List.fold_right (fun mt1 mt2 -> mtype_of_ct (TArrow (mt1, mt2))) targs ret_type
         let mtype_of_fun args ret_type = 
-            List.fold_right (fun {value=(mt1,_)} mt2 -> mtype_of_ct (TArrow (mt1, mt2))) args ret_type
+            mtype_of_fun2 (List.map (function param -> fst param.value) args) ret_type 
+
+
+
+        (* Expression *)
+        let e2_e e =  auto_fplace (e, auto_fplace EmptyMainType)
+        let e2var x =  e2_e (VarExpr x)
+        let e2_lit lit =  e2_e (LitExpr (auto_fplace lit))
+
+        (* CExpression *)
+        let ce2_ce ce = auto_fplace (ce, auto_fplace EmptyMainType) 
+        let ce2var x = ce2_ce (VarCExpr x)
     end
 end

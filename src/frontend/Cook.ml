@@ -10,6 +10,7 @@ let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
 let fplace = (Error.forge_place "Frontend.Cook" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
+include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
 (* The source calculus. *)
 module S = Ast 
@@ -789,7 +790,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         let env1, ret_type = cmtype env_with_targs f.ret_type in
         let env2, body = List.fold_left_map cstmt inner_env (remove_empty_stmt f.abstract_impl) in
 
-        let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (T.CType (auto_fplace(T.TArrow (t1, t2))))) (List.map (function (arg: T.param) -> fst arg.value) args) ret_type in 
+        let fct_sign = mtype_of_fun args ret_type in 
         register_gamma name fct_sign;
 
         new_env << [inner_env; env1; env2], {
@@ -1143,7 +1144,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         let envs, args = List.split (List.map (cmtype env) args) in 
 
         (* t : args1 -> ... argsn -> t *)
-        let constructor_type = List.fold_right (fun t1 t2 -> auto_fplace (T.CType (auto_fplace(T.TArrow (t1, t2))))) args (auto_fplace(T.CType(auto_fplace(T.TVar y)))) in 
+        let constructor_type = mtype_of_fun2 args (auto_fplace(T.CType(auto_fplace(T.TVar y)))) in 
         register_gamma y constructor_type;
 
         new_env2 << envs, [T.Typedef ({ place; value = 

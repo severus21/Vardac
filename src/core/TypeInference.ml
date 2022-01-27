@@ -103,7 +103,7 @@ let typeof_block2 b (mts: (main_type * main_type) list) =
 let typeof_arrow ret_type args= 
     let fplace = (Error.forge_place "TypeInference.typeof_arrow" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
-    List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) (List.map (function (arg: param) -> fst arg.value) args) ret_type 
+    mtype_of_fun args ret_type 
 let typeof_method (m:method0) = typeof_arrow m.value.ret_type m.value.args
 let typeof_function fdcl = typeof_arrow fdcl.value.ret_type fdcl.value.args
 
@@ -584,7 +584,7 @@ and _tannot_method ctx place (m:_method0) =
     let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
     (* TODO FIXME outer_ctx should be remove from here since it is already compute when doing the shallow_scan*)
-    let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) (List.map (function (arg: param) -> fst arg.value) m.args) m.ret_type in 
+    let fct_sign = mtype_of_fun m.args m.ret_type in 
     let outer_ctx = register_expr_type ctx m.name fct_sign in
     let inner_ctx = List.fold_left (fun ctx {value=(mt, x)} -> register_expr_type ctx x mt) ctx m.args in
     
@@ -702,7 +702,7 @@ and _tannot_function_dcl ctx place (fdcl:_function_dcl) : context * _function_dc
             failwith "TODO how to specify the write number of constructor"
     ) ctx fdcl.targs in
 
-    let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) (List.map (function (arg: param) -> fst arg.value) fdcl.args) fdcl.ret_type in 
+    let fct_sign = mtype_of_fun fdcl.args fdcl.ret_type in 
     (* Adding forall targs on top of regular signature *)
     let fct_sign = List.fold_left (fun sign tvar -> 
         mtype_of_ct (TForall (tvar, sign))     

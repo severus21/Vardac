@@ -4,6 +4,12 @@ open Utils
 open AstUtils
 
 let logger = Logging.make_logger "_1_ compspec" Debug [];;
+let fplace = (Error.forge_place "RecvElimination" 0 0) 
+let auto_fplace smth = {place = fplace; value=smth}
+include AstUtils2.Mtype.Make(struct let fplace = fplace end)
+
+
+
 module type Params = sig
     (* Gamma is not used anymore - since IR is annotated with types
     TODO refactor can be removed *)
@@ -72,17 +78,11 @@ module Make (Args : Params ) : Sig = struct
             let intermediate_port = auto_fplace ({
                 name = intermediate_port_name;
                 input = bridge;
-                expecting_st = auto_fplace (SType( auto_fplace (STRecv (msg_t, continuation_st)))); (* TODO need type annotation to support more cases *)
-                callback = auto_fplace (AccessExpr (
-                    auto_fplace (
-                        This, 
-                        auto_fplace EmptyMainType
-                    ), 
-                    auto_fplace (
-                        VarExpr intermediate_method_name, 
-                        auto_fplace EmptyMainType
-                    )
-                ), auto_fplace EmptyMainType);
+                expecting_st = mtype_of_st (STRecv (msg_t, continuation_st)); (* TODO need type annotation to support more cases *)
+                callback = e2_e (AccessExpr (
+                    e2_e This, 
+                    e2var intermediate_method_name
+                ));
             }, auto_fplace EmptyMainType) in
             
             let tmp_event = Atom.builtin "e" in
@@ -214,15 +214,15 @@ module Make (Args : Params ) : Sig = struct
                 (* Tuple<MsgT, continuation_st> x1 = tuple(tmp_event, tmp_session) *)
                 [
                     auto_fplace(LetStmt(
-                        auto_fplace (CType(auto_fplace (TTuple[ msg_t; continuation_st]))),
+                        mtype_of_ct (TTuple[ msg_t; continuation_st]),
                         x1,
-                        auto_fplace(BlockExpr(
+                        e2_e (BlockExpr(
                             Tuple,
                             [
-                                auto_fplace (VarExpr tmp_event, auto_fplace EmptyMainType);
-                                auto_fplace (VarExpr tmp_session, auto_fplace EmptyMainType)
+                                e2var tmp_event;
+                                e2var tmp_session
                             ]
-                        ), auto_fplace EmptyMainType)
+                        ))
                     ))
                 ]
             end
@@ -241,23 +241,21 @@ module Make (Args : Params ) : Sig = struct
             let intermediate_state_name = Atom.fresh ((Atom.hint m.name)^"_intermediate_state") in
             (* use to store args between acc_methd and intermediate_method*)
             let intermediate_state_type = 
-                auto_fplace(CType(auto_fplace(TDict(
-                    auto_fplace(CType (auto_fplace(TFlatType(TUUID)))), (*session id*)
-                    ctype_intermediate_args)) 
-                ))
+                mtype_of_ct (TDict(
+                    mtype_of_ft TUUID, (*session id*)
+                    ctype_intermediate_args
+                )) 
             in
+
             let intermediate_state = auto_fplace (StateDcl {
                 ghost = false;
                 type0 = intermediate_state_type;
                 name = intermediate_state_name;
-                body =  Some (auto_fplace (
+                body =  Some (e2_e (
                     CallExpr (
-                        auto_place (
-                            VarExpr (Atom.builtin "dict"), auto_place EmptyMainType
-                        ), 
+                        e2var (Atom.builtin "dict"),
                         []
-                    ),
-                    intermediate_state_type
+                    )
                 ))
             }) in
 
@@ -265,24 +263,23 @@ module Make (Args : Params ) : Sig = struct
             let m1 = { m1 with 
                 body = m1.body @ [
                     (* Store args in state TODO add cleansing when timeout *)
-                    auto_fplace (ExpressionStmt (auto_fplace(CallExpr(
-                        auto_fplace(VarExpr (Atom.builtin "add2dict"), auto_fplace EmptyMainType),
+                    auto_fplace (ExpressionStmt ( e2_e (CallExpr(
+                        e2var (Atom.builtin "add2dict"),
                         [
-                            auto_fplace(AccessExpr(
-                                auto_fplace( This, auto_fplace EmptyMainType),
-                                auto_fplace (VarExpr intermediate_state_name, auto_fplace EmptyMainType)
-                            ), auto_fplace EmptyMainType);
-                            auto_fplace(CallExpr(
-                                auto_fplace(VarExpr (Atom.builtin "sessionid"), auto_fplace EmptyMainType),
+                            e2_e (AccessExpr(
+                                e2_e This,
+                                e2var intermediate_state_name
+                            ));
+                            e2_e (CallExpr(
+                                e2var (Atom.builtin "sessionid"),
                                 [ match s1_opt with
                                     | Some session -> session (* when we are in the first method of the list*)
-                                    | None -> auto_fplace (VarExpr tmp_session, auto_fplace EmptyMainType) (* for all the intermediate (and last) methods *) 
+                                    | None -> e2var tmp_session (* for all the intermediate (and last) methods *) 
                                 ]
-                            ), auto_fplace EmptyMainType);
+                            ));
                             tuple_intermediate_args;
                         ]
-                    ), auto_fplace EmptyMainType
-                    )))
+                    ))))
                 ]
             } in
 
@@ -291,29 +288,29 @@ module Make (Args : Params ) : Sig = struct
                 body = 
                 load_recv_result @
                 [
-                    auto_fplace (LetStmt (ctype_intermediate_args, tmp_args, (auto_fplace(CallExpr(
-                        auto_fplace(VarExpr (Atom.builtin "remove2dict"), auto_fplace EmptyMainType),
+                    auto_fplace (LetStmt (ctype_intermediate_args, tmp_args, (e2_e(CallExpr(
+                        e2var (Atom.builtin "remove2dict"),
                         [
-                            auto_fplace(AccessExpr(
-                                auto_fplace (This, auto_fplace EmptyMainType),
-                                auto_fplace (VarExpr intermediate_state_name, auto_fplace EmptyMainType)
-                            ), auto_fplace EmptyMainType);
-                            auto_fplace(CallExpr(
-                                auto_fplace(VarExpr (Atom.builtin "sessionid"), auto_fplace EmptyMainType),
-                                [ auto_fplace (VarExpr tmp_session, auto_fplace EmptyMainType) ]
-                            ), auto_fplace EmptyMainType);
+                            e2_e(AccessExpr(
+                                e2_e This,
+                                e2var intermediate_state_name
+                            ));
+                            e2_e (CallExpr(
+                                e2var (Atom.builtin "sessionid"),
+                                [ e2var tmp_session ]
+                            ));
                         ]
-                    ), auto_fplace EmptyMainType))));
+                    )))));
                 ] @ (
                     List.mapi (fun i {value=(mt, x)} ->
                         auto_fplace (LetStmt (mt, x, 
-                            auto_fplace( CallExpr(
-                                auto_fplace (VarExpr (Atom.builtin "nth"), auto_fplace EmptyMainType),
+                            e2_e( CallExpr(
+                                e2var (Atom.builtin "nth"),
                                 [ 
-                                    auto_fplace (LitExpr (auto_fplace (IntLit i)), auto_fplace EmptyMainType);
-                                    auto_fplace (VarExpr tmp_args, auto_fplace EmptyMainType) 
+                                    e2_lit (IntLit i);
+                                    e2var tmp_args 
                                 ]
-                            ), auto_fplace EmptyMainType)
+                            ))
                         )) 
                     ) intermediate_args
                 )
@@ -461,7 +458,7 @@ module Make (Args : Params ) : Sig = struct
                         ))))
             ))));
             name = a_intermediate_states;
-            body = Some (auto_fplace(BlockExpr(List, []), auto_fplace EmptyMainType))
+            body = Some (e2_e(BlockExpr(List, [])))
         }))) in
         let body = body @ [intermediate_states_index] in 
 

@@ -229,22 +229,21 @@ module Make () = struct
         auto_fplace (ComponentAssign {
             name = interceptor_name;
             args = []; (* TODO Remove args and create a dedicated type for functor *)
-            value = auto_fplace (
+            value = ce2_ce (
                 AppCExpr (
-                    auto_fplace (VarCExpr (Atom.builtin "MakeInterceptor"), auto_fplace EmptyMainType), 
+                    ce2var (Atom.builtin "MakeInterceptor"), 
                     [
-                        auto_fplace (VarCExpr cname, auto_fplace EmptyMainType);
-                        auto_fplace (AnyExpr 
-                            (auto_fplace (BlockExpr(
+                        ce2var cname;
+                        ce2_ce (AnyExpr 
+                            (e2_e (BlockExpr(
                                 AstUtils.List,
                                 List.map (function x -> 
-                                    auto_fplace (BoxCExpr (auto_fplace (VarCExpr x, auto_fplace EmptyMainType)), auto_fplace EmptyMainType)
+                                    e2_e (BoxCExpr (ce2var x))
                                 ) intercepted_schemas
-                            ), auto_fplace EmptyMainType)
-                        ), auto_fplace EmptyMainType)
+                            ))
+                        ))
                     ]
-                ), auto_fplace EmptyMainType
-            );
+                ));
         })
 
     let generate_onboard_typedef place interceptor_name intercepted_schemas = 
@@ -312,10 +311,10 @@ module Make () = struct
             let b_in = Atom.fresh ((Atom.value b)^"_in") in
 
             (* FIXME default constructor - see whitepaper for improvement *)
-            let b_in__constructor = auto_fplace (CallExpr(
-                auto_fplace (VarExpr (Atom.builtin "bridge"), auto_fplace EmptyMainType),
+            let b_in__constructor = e2_e (CallExpr(
+                e2var (Atom.builtin "bridge"),
                 []
-            ), auto_fplace EmptyMainType) in
+            )) in
 
             let b_in__let = auto_fplace (LetStmt (
                 mtype_of_ct tbridge.value,
@@ -336,10 +335,10 @@ module Make () = struct
         let b_onboard_let = auto_fplace (LetStmt (
             b_onboard_mt,
             b_onboard,
-            auto_fplace (CallExpr(
-                auto_fplace (VarExpr (Atom.builtin "bridge"), auto_fplace EmptyMainType),
+            e2_e (CallExpr(
+                e2var (Atom.builtin "bridge"),
                 []
-            ), auto_fplace EmptyMainType)
+            ))
         )) in
         
         (generated_bridges, (b_onboard, b_onboard_mt, b_onboard_let))
@@ -367,7 +366,7 @@ module Make () = struct
         (* return spawn Interceptor( *BaseInterceptor::on_startup_args, b_onboard, b_out_1, b_in_1, ..., b_out_n, b_in_n); *)
         let spawn = 
             {
-                c = auto_fplace(VarCExpr interceptor, auto_fplace EmptyMainType);
+                c = ce2var interceptor;
                 args = 
                     (* *BaseInterceptor::on_startup_args *)
                     List.map (function p -> auto_fplace (VarExpr (snd p.value), fst p.value)) base_interceptor_constructor_params
@@ -376,8 +375,8 @@ module Make () = struct
                     @ List.flatten (
                         List.map 
                             (function (b_out, b_in, _) -> [
-                                auto_fplace (VarExpr b_out, auto_fplace EmptyMainType); 
-                                auto_fplace (VarExpr b_in, auto_fplace EmptyMainType)
+                                e2var b_out; 
+                                e2var b_in
                             ])
                             (List.of_seq (Hashtbl.to_seq_values generated_bridges))
                     );
@@ -387,27 +386,27 @@ module Make () = struct
 
 
         let body : expr = 
-            auto_fplace (TernaryExpr (
-                auto_fplace (BinopExpr(
-                    auto_fplace (VarExpr p_of_i, auto_fplace EmptyMainType),
+            e2_e (TernaryExpr (
+                e2_e (BinopExpr(
+                    e2var p_of_i,
                     StructuralEqual,
-                    auto_fplace (OptionExpr None, auto_fplace EmptyMainType)
-                ), auto_fplace EmptyMainType),
-                (auto_fplace (Spawn spawn, auto_fplace EmptyMainType)),
+                    e2_e (OptionExpr None)
+                )),
+                (e2_e (Spawn spawn)),
                 (
-                    auto_fplace (Spawn { spawn with at = Some (auto_fplace (CallExpr(
-                            auto_fplace (VarExpr (Atom.builtin "option_get"), auto_fplace EmptyMainType),
-                            [ auto_fplace (VarExpr p_of_i, auto_fplace EmptyMainType) ]
-                        ), auto_fplace EmptyMainType))}, auto_fplace EmptyMainType) 
+                    e2_e (Spawn { spawn with at = Some (e2_e (CallExpr(
+                            e2var (Atom.builtin "option_get"),
+                            [ e2var p_of_i ]
+                        )))}) 
                 )
-            ), auto_fplace EmptyMainType)
+            ))
         in
 
-        let core_factory = auto_fplace (LambdaExpr (
+        let core_factory = e2_e (LambdaExpr (
             p_of_i,
             mtype_of_ct (TOption (mtype_of_ft (TPlace))),
             body
-        ), auto_fplace EmptyMainType) in
+        )) in
 
 
         (***  Wrap core_factory inside function that binds base_interceptor_constructor arguments ***)
@@ -417,7 +416,7 @@ module Make () = struct
         let rec make_wraper core_factory = function
         | [] -> core_factory
         | {value=(mt, x)}::params -> 
-            let res = auto_fplace (LambdaExpr (x, mt, core_factory), auto_fplace EmptyMainType) in 
+            let res = e2_e (LambdaExpr (x, mt, core_factory)) in 
             make_wraper res params
         in
 
@@ -435,12 +434,7 @@ module Make () = struct
             ) (List.of_seq (Hashtbl.to_seq_values generated_bridges)));
         in 
         (* targs -> activation_ref<Interceptor>*) 
-        let factory_signature  = 
-            List.fold_right 
-                (fun targ mt -> mtype_of_ct (TArrow (targ, mt))) 
-                factory_targs
-                (mtype_of_ct (TActivationRef (mtype_of_cvar interceptor))) 
-        in
+        let factory_signature  = mtype_of_fun2 factory_targs (mtype_of_ct (TActivationRef (mtype_of_cvar interceptor))) in
 
         let factory = Atom.fresh "factory" in
         let factory_expr = make_wraper core_factory (List.rev base_interceptor_constructor_params) in
@@ -597,20 +591,20 @@ module Make () = struct
                                 @ [ LetStmt(
                                     mtype_of_ct (TActivationRef (mtype_of_cvar interceptor_name)),
                                     i_a,
-                                    auto_fplace (CallExpr(
+                                    e2_e (CallExpr(
                                         user_defined_policy, 
                                         List.map (function x -> auto_fplace (VarExpr (snd x.value), fst x.value) ) base_interceptor_constructor_params
                                         @ [
-                                            auto_fplace (VarExpr factory, auto_fplace EmptyMainType);
+                                            e2var factory;
                                             schema_to_label fplace (schema_of  spawn.c);
-                                            auto_fplace (VarExpr p_of_a, auto_fplace EmptyMainType)
+                                            e2var p_of_a
                                         ]
-                                    ), auto_fplace EmptyMainType)
+                                    ))
                                 ) ]; 
                             
                             (* Need to replace at if exists, in case at expr is not idempotent or costly *)
                             Spawn { spawn with
-                                at = Option.map (function _ -> auto_fplace (VarExpr p_of_a, auto_fplace EmptyMainType)) spawn.at
+                                at = Option.map (function _ -> e2var p_of_a) spawn.at
                             }
                         end 
                         | _ -> Error.error place "spawn first arg should have been reduce into a cexpr value (i.e. component name)"
@@ -671,12 +665,12 @@ module Make () = struct
             let footer_binders = Hashtbl.fold (fun  a (schema_a, _, a', i_a) footers ->
                 let mt_a = mtype_of_ct (TActivationRef (mtype_of_cvar schema_a)) in
 
-                let binded_value = auto_fplace(
+                let binded_value = e2_e (
                     InterceptedActivationRef (
-                        auto_fplace (VarExpr i_a, auto_fplace EmptyMainType),
+                        e2var i_a,
                         if anonymous_mod then None
-                        else Some (auto_fplace (VarExpr a', auto_fplace EmptyMainType))
-                    ), mt_a
+                        else Some (e2var a')
+                    )
                 ) in
 
                 (*  Preserve name and type for the outside world 
