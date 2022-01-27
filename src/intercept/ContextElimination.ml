@@ -701,6 +701,11 @@ module Make () = struct
                     ) (List.of_seq (Hashtbl.to_seq_values generated_bridges));
 
                     intercepted_schemas;
+
+                    (*** Not hydrated by ctx_elim ***)
+                    (*** Hydrated by intercept elim***)
+                    b_onboard_state = None;
+                    inout_statebridges_info = None;
                 };
 
             let stmts = stmts @ (List.rev footer_binders) in

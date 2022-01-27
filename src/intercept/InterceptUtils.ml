@@ -63,4 +63,7 @@ type interceptor_info = {
     intercepted_schemas: Atom.Set.t;
 
     (*** Not hydrated by ctx_elim ***)
+    (*** Hydrated by intercept elim***)
+    b_onboard_state: Atom.atom option; (* state holding the onboarding bridge *)
+    inout_statebridges_info: ((Atom.atom * Atom.atom * main_type) list) option; (* schema state that holds the bridges *)
 }

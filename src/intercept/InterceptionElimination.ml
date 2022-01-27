@@ -39,7 +39,7 @@ module Make (Args: TArgs) = struct
 
     (* TODO/TODOC is there a way to index this methods and not to run is_subtype in an O(n²) strategy for pairing ports with interception methods ???? *)
 
-    (*************** Step 1 - Activation onboarding generation ******************)
+    (*************** Step 1 - Activation onboarding bloc ******************)
     let generate_onboard_index interceptor_info onboard_methods = 
         (* for a given interceptor *)
         let onboard_index = Hashtbl.create 16 in
@@ -208,11 +208,6 @@ module Make (Args: TArgs) = struct
             None
         ))   
 
-
-
-
-
-
     (*
         - states and port related to onboarding
         - per schema onboarding policy
@@ -220,13 +215,18 @@ module Make (Args: TArgs) = struct
             - default onboard method
         - main onboard callback
     *)
-    let generate_onboard_bloc place interceptor_info (interceptor : component_structure) = 
+    let generate_onboard_bloc place interceptor_info (interceptor : component_structure) : interceptor_info * component_item list = 
         (*** Collect intells ***)
         let onboard_methods = extract_onboard_methods (methods_of interceptor) in
         let onboard_index = generate_onboard_index interceptor_info onboard_methods in
 
         (*** States and port ***)
-        let this_b_onboard = Atom.fresh "b_onboard" in 
+        assert( interceptor_info.b_onboard_state = None );
+        let interceptor_info = {interceptor_info with
+            b_onboard_state = Some (Atom.fresh "b_onboard")
+        } in
+
+        let this_b_onboard = Option.get interceptor_info.b_onboard_state in 
         let e_this_b_onboard = e2_e (AccessExpr (
                 e2_e This, 
                 e2var this_b_onboard
@@ -307,7 +307,7 @@ module Make (Args: TArgs) = struct
             body = List.map (generate_main_callback_branch interceptor_info default_onboard onboard_index (e_this_b_onboard, e_this_onboarded_activations) ((param_schema, e_param_schema), (param_s, e_param_s))) (Atom.Set.to_list interceptor_info.intercepted_schemas)
         })) in
 
-        [
+        interceptor_info, [
             statedef_b_onboard;
             statedef_onboarded_activations;
             port_onboard_def;
@@ -315,8 +315,105 @@ module Make (Args: TArgs) = struct
             callback_onboard_def;
         ]
 
+    (*************** Step 2 - Onstartup and inline other base component citems ******************)
 
-    (*************** Step 2 - Interception session handling generation ******************)
+    (*
+        return an hydrated copy of interceptor_info
+    *)
+    let include_base_citems interceptor_info (base_interceptor : component_structure) : interceptor_info * component_item list = 
+        (*** Collect intells ***)
+        let base_onstartup_opt = get_onstartup base_interceptor in
+        let citems_wo_onstartup = List.filter (function | {value=Method m} -> Bool.not m.value.on_startup | _ -> true) base_interceptor.body in 
+
+        (*** Add states to store in/out bridges and onboarding bridge ***)
+        
+        (* Hydrate inout_statebridges *)
+        assert( interceptor_info.inout_statebridges_info = None);
+        let interceptor_info = {interceptor_info with 
+            inout_statebridges_info = Some (List.mapi ( fun i (_, _, b_mt) -> 
+                Atom.fresh ("b_out_"^string_of_int i),
+                Atom.fresh ("b_in_"^string_of_int i),
+                b_mt
+            )  interceptor_info.inout_bridges_info);
+        }
+        in
+
+
+        let inout_bridges_states = List.flatten (List.map ( function (b_out, b_in, b_mt) ->
+            [ 
+                auto_fplace (State (auto_fplace (StateDcl {
+                    ghost = false;
+                    type0 = b_mt;
+                    name = b_in;
+                    body = None 
+                } )));
+                auto_fplace (State (auto_fplace (StateDcl {
+                    ghost = false;
+                    type0 = b_mt;
+                    name = b_out;
+                    body = None 
+                } )))
+            ]
+        ) (Option.get interceptor_info.inout_statebridges_info)) in
+
+        (*** Create onstartup ***)
+        let param_b_onboarding, e_param_b_onboarding = e_param_of "b_onboarding" in
+        let onstartup_params_inout = (List.map (function (_, _, b_mt) -> 
+                (Atom.fresh "param_b_out", Atom.fresh "param_b_in", b_mt) 
+        ) interceptor_info.inout_bridges_info) in
+        let onstartup_params = 
+            auto_fplace (interceptor_info.onboard_info.b_onboard_mt, param_b_onboarding)
+            ::
+            (List.flatten (List.map (function (param_b_out, param_b_in, b_mt) -> 
+                [
+                    auto_fplace (b_mt, param_b_out);
+                    auto_fplace (b_mt, param_b_in);
+                ]) onstartup_params_inout)
+            )
+            @ (match base_onstartup_opt with
+                | None -> []
+                | Some m -> m.value.args 
+            )
+        in
+
+        let onstartup = auto_fplace (Method (auto_fplace {
+            annotations = (match base_onstartup_opt with Some m -> m.value.annotations | _ -> []);
+            ghost = false;
+            ret_type = mtype_of_ft TVoid;
+            name = Atom.fresh "onstartup"; 
+            args = onstartup_params;
+            contract_opt = None;
+            body = 
+            auto_fplace (AssignThisExpr(
+                Option.get interceptor_info.b_onboard_state,
+                e2var param_b_onboarding
+            ))
+            ::
+            (List.map (function ((this_b_out, this_b_in, _), (param_b_out, param_b_in, _)) -> 
+                auto_fplace (AssignThisExpr(
+                    this_b_out, 
+                    e2var param_b_out
+                ));
+                auto_fplace (AssignThisExpr(
+                    this_b_in, 
+                    e2var param_b_in 
+                ));
+                
+            ) (List.combine (Option.get interceptor_info.inout_statebridges_info) onstartup_params_inout))
+            @ (
+                match base_onstartup_opt with
+                | None -> []
+                | Some m -> m.value.body
+            );
+            on_startup = true;
+            on_destroy = false;
+        })) in
+
+        (*** Retrun citems ***)
+        interceptor_info, onstartup :: (citems_wo_onstartup @ inout_bridges_states)
+
+
+    (*************** Step 2 - Interception session bloc ******************)
     (*************** Step 3 - Ingress generation ******************)
     (*************** Step 4 - Egress generation ******************)
 
