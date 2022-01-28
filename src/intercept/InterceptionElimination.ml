@@ -539,37 +539,119 @@ module Make (Args: TArgs) = struct
 
     (*************** Step 4 - Egress generation ******************)
 
+    let generate_egress_callback_sessioninit interceptor_info st = 
+        failwith "TODO"
+    let generate_egress_callback_msg interceptor_info st_stage = 
+        failwith "TODO"
+
     (*
         @param i - n° of the stage. 0 == session init 
     *)
-    let generate_egress_block_per_intercepted_bridge_per_st_stage  interceptor_info this_b_out this_b_int b_mt i st_stage = 
-        (*
+    let generate_egress_block_per_intercepted_bridge_per_st_stage  interceptor_info b_intercepted this_b_out this_b_int b_mt i st_stage = 
+        let e_this_b_out = e2_e (AccessExpr (e2_e This, e2var this_b_out)) in
+        let e_this_b_int = e2_e (AccessExpr (e2_e This, e2var this_b_int)) in
+
         (*** Callback names ***)
-        let callback_egress_name = Atom.fresh (Printf.sprintf "callback_egress_%s_%s" (Atom.to_string intercepted_schema_name) (Atom.to_string p_name)) in
+        let egress_callback_name = Atom.fresh (Printf.sprintf "callback_egress__%s__%d" (Atom.to_string b_intercepted) i) in
 
         (*** Port & Outport generation ***)
-        let egress_port_outer = auto_fplace (Outport (auto_fplace ({
-            name = callback_egress_name;
-            input = ;
+        let egress_outport_name = Atom.fresh (Printf.sprintf "egress_outport__%s__%d" (Atom.to_string b_intercepted) i) in
+        let egress_outport = auto_fplace (Outport (auto_fplace ({
+            name = egress_outport_name;
+            input = e_this_b_out;
         }, auto_fplace EmptyMainType))) in
-        let egress_port_inner = auto_fplce (Port (auto_fplace ({
-            name = ;
-            input = ;
-            expecting_st;
-            callback = ;
-        }, auto_fplace EmptyMainPlace)) in
 
-        (*** Session interception generation ***)
-        let callback_session_init = 
+        let egress_inport_name = Atom.fresh (Printf.sprintf "egress_inport__%s__%d" (Atom.to_string b_intercepted) i) in
+        let egress_inport = auto_fplace (Port (auto_fplace ({
+            name = egress_inport_name;
+            input = e_this_b_int;
+            expecting_st = mtype_of_st st_stage;
+            callback = e2_e (AccessExpr(
+                e2_e This,
+                e2var egress_callback_name
+            ));
+        }, auto_fplace EmptyMainType))) in
+
+        (*** Session interception callback ***)
+        let callback_session_init : method0 option = 
             if i = 0 then 
-                Some ...
+                Some (generate_egress_callback_sessioninit interceptor_info st_stage)
             else None 
         in
-        *)
 
-        failwith "TODO"
+        (*** Msg interception callback ***)
+        let callback_msg : method0 = generate_egress_callback_msg interceptor_info st_stage in
 
-    let generate_egress_block_per_intercepted_bridge interceptor_info this_b_out this_b_int b_mt : component_item list = 
+        let tmsg, st_continuation = failwith "TODO to compute it reuse existing fct for Akka or RecvElim" in
+
+        (*** Main callback ***)
+        let param_msg = Atom.fresh "msg" in
+        let param_s_in = Atom.fresh "s_in" in
+        let egress_callback : method0 = 
+            if i = 0 then 
+                auto_fplace {
+                    annotations = [];
+                    ghost = false;
+                    ret_type = mtype_of_ft TVoid;
+                    name = egress_callback_name;
+                    args = [
+                        auto_fplace (tmsg, param_msg);
+                        auto_fplace (st_continuation, param_s_in);
+                    ];
+                    body = [
+                        auto_fplace (IfStmt(
+                            e2_e (CallExpr( 
+                                e2var (Atom.builtin "is_init_stage"),
+                                [ e2var param_s_in ]
+                            )),
+                            auto_fplace (ReturnStmt (
+                                e2_e (CallExpr(
+                                    e2_e (AccessExpr(
+                                        e2_e This,
+                                        e2var (Option.get callback_session_init).value.name 
+                                    )),
+                                    [
+                                        e2var param_msg;
+                                        e2var param_s_in
+                                    ]
+                                ))
+                            )),
+                            Some (auto_fplace (ReturnStmt (
+                                e2_e (CallExpr(
+                                    e2_e (AccessExpr(
+                                        e2_e This,
+                                        e2var callback_msg.value.name 
+                                    )),
+                                    [
+                                        e2var param_msg;
+                                        e2var param_s_in
+                                    ]
+                                ))
+                            )))
+                        ))
+                    ];
+                    contract_opt = None;
+                    on_destroy = false;
+                    on_startup = false;
+                }
+            else 
+                auto_fplace { callback_msg.value with name = egress_callback_name } 
+        in
+
+        [
+            egress_outport;
+            egress_inport;
+            auto_fplace (Method egress_callback);
+        ]
+        @ (if i = 0 then
+            [
+                auto_fplace (Method (Option.get callback_session_init));
+                auto_fplace (Method callback_msg);
+            ]
+        else [])
+
+
+    let generate_egress_block_per_intercepted_bridge interceptor_info b_intercepted this_b_out this_b_int b_mt : component_item list = 
         let p_st = (match b_mt with | {value = CType {value = TBridge tb}} ->
             match tb.protocol with 
             | {value = SType st} -> st
@@ -579,7 +661,7 @@ module Make (Args: TArgs) = struct
 
         List.flatten (
             List.mapi
-                (generate_egress_block_per_intercepted_bridge_per_st_stage interceptor_info this_b_out this_b_int b_mt)
+                (generate_egress_block_per_intercepted_bridge_per_st_stage interceptor_info b_intercepted this_b_out this_b_int b_mt)
                 st_stages
         )
     
@@ -603,7 +685,7 @@ module Make (Args: TArgs) = struct
                     auto_fplace (Term (auto_fplace (Comments
                         (auto_fplace(DocComment (Printf.sprintf "*** Egress Block for bridge [%s] ***" (Atom.to_string b_intercepted))))
                     )))
-                    :: (generate_egress_block_per_intercepted_bridge interceptor_info this_b_out this_b_int b_mt) 
+                    :: (generate_egress_block_per_intercepted_bridge interceptor_info b_intercepted this_b_out this_b_int b_mt) 
                 end
             ) (List.combine interceptor_info.inout_bridges_info (Option.get interceptor_info.inout_statebridges_info)) 
         )
