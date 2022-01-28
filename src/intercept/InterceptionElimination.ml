@@ -39,6 +39,69 @@ module Make (Args: TArgs) = struct
 
     (* TODO/TODOC is there a way to index this methods and not to run is_subtype in an O(n²) strategy for pairing ports with interception methods ???? *)
 
+    module InterceptedPortSet = struct
+        include Set.Make(struct 
+            type t = (Atom.atom * (_port * main_type))(* name * port_def * tport *)
+            let compare (a,_) (c, _) = Atom.compare a c
+        end)
+
+        let to_list set = List.of_seq (to_seq set)
+    end
+
+    (*
+        Returns set of intercepted_ports of a schema 
+        Do not captures the ports of nested schemas - since they are hidden for the outside.
+    *)
+    let extract_intercepted_ports_of_schema (schema_struct : component_structure) : InterceptedPortSet.t = 
+        let intercepted_ports = List.map (function
+        | {value=Port p} -> Some ((fst p.value).name, p.value) | _ -> None ) schema_struct.body in
+        let intercepted_ports = List.filter Option.is_some intercepted_ports in
+        let intercepted_ports = List.map Option.get intercepted_ports in
+
+        InterceptedPortSet.of_seq (List.to_seq intercepted_ports)
+
+
+
+
+    module InterceptedOutportSet = struct
+        include Set.Make(struct 
+            type t = (Atom.atom * (_outport * main_type))(* name * port_def * tport *)
+            let compare (a,_) (c, _) = Atom.compare a c
+        end)
+
+        let to_list set = List.of_seq (to_seq set)
+    end
+
+    (*
+        Returns set of intercepted_outputports of a schema 
+        Do not captures the ports of nested schemas - since they are hidden for the outside.
+    *)
+    let extract_intercepted_outputports_of_schema (schema_struct : component_structure) : InterceptedOutportSet.t = 
+        let intercepted_outputports = List.map (function
+        | {value=Outport p} -> Some ((fst p.value).name, p.value) | _ -> None ) schema_struct.body in
+        let intercepted_outputports = List.filter Option.is_some intercepted_outputports in
+        let intercepted_outputports = List.map Option.get intercepted_outputports in
+
+        InterceptedOutportSet.of_seq (List.to_seq intercepted_outputports)
+
+    let compute_intercepted_outputports program (schemas : Atom.Set.t) = 
+        let intercepted_outputports_per_schema = Hashtbl.create 16 in
+
+        let selector = function
+            | Component {value = ComponentStructure cstruct} -> Atom.Set.find_opt cstruct.name schemas <> None
+            | _ -> false
+        in
+        let collector _ = function
+            | Component {value = ComponentStructure cstruct} -> 
+                Hashtbl.add intercepted_outputports_per_schema cstruct.name (extract_intercepted_outputports_of_schema cstruct);
+                []
+        in
+
+        (* Hydrate hashtbl *)
+        ignore (collect_term_program true selector collector program);
+
+        intercepted_outputports_per_schema
+
     (*************** Step 1 - Activation onboarding block******************)
     let generate_onboard_index interceptor_info onboard_methods = 
         (* for a given interceptor *)
@@ -460,12 +523,90 @@ module Make (Args: TArgs) = struct
 
 
     (*************** Step 3 - Ingress generation ******************)
-    let generate_ingress_blockplace interceptor_info base_interceptor : component_item list = 
+
+
+    let has_kind_ingress interceptor_info = function
+    | {value=CType {value = TBridge tbridge}} ->
+        let right = tbridge.out_type in
+
+        List.fold_left (fun flag schema -> 
+            flag || (TypingUtils.is_subtype (mtype_of_cvar schema) right) 
+        ) false (Atom.Set.to_list interceptor_info.intercepted_schemas)
+    | _ -> raise (Error.DeadbranchError "intercepted bridge must have a bridge type!")
+
+    let generate_ingress_block interceptor_info base_interceptor : component_item list = 
         failwith "TODO"
 
     (*************** Step 4 - Egress generation ******************)
-    let generate_egress_blockplace interceptor_info base_interceptor : component_item list = 
+
+    (*
+        @param i - n° of the stage. 0 == session init 
+    *)
+    let generate_egress_block_per_intercepted_bridge_per_st_stage  interceptor_info this_b_out this_b_int b_mt i st_stage = 
+        (*
+        (*** Callback names ***)
+        let callback_egress_name = Atom.fresh (Printf.sprintf "callback_egress_%s_%s" (Atom.to_string intercepted_schema_name) (Atom.to_string p_name)) in
+
+        (*** Port & Outport generation ***)
+        let egress_port_outer = auto_fplace (Outport (auto_fplace ({
+            name = callback_egress_name;
+            input = ;
+        }, auto_fplace EmptyMainType))) in
+        let egress_port_inner = auto_fplce (Port (auto_fplace ({
+            name = ;
+            input = ;
+            expecting_st;
+            callback = ;
+        }, auto_fplace EmptyMainPlace)) in
+
+        (*** Session interception generation ***)
+        let callback_session_init = 
+            if i = 0 then 
+                Some ...
+            else None 
+        in
+        *)
+
         failwith "TODO"
+
+    let generate_egress_block_per_intercepted_bridge interceptor_info this_b_out this_b_int b_mt : component_item list = 
+        let p_st = (match b_mt with | {value = CType {value = TBridge tb}} ->
+            match tb.protocol with 
+            | {value = SType st} -> st
+            | _ -> failwith "TODO resolve type aliasing using an external fct or requires that type aliasing should have been eliminated before using [generate_egress_block_per_intercepted_bridge]"
+        ) in
+        let st_stages = stages_of_st p_st in
+
+        List.flatten (
+            List.mapi
+                (generate_egress_block_per_intercepted_bridge_per_st_stage interceptor_info this_b_out this_b_int b_mt)
+                st_stages
+        )
+    
+    let has_kind_egress interceptor_info = function
+    | {value=CType {value = TBridge tbridge}} ->
+        let left = tbridge.in_type in
+
+        List.fold_left (fun flag schema -> 
+            flag || ( TypingUtils.is_subtype (mtype_of_cvar schema) left) 
+        ) false (Atom.Set.to_list interceptor_info.intercepted_schemas)
+    | _ -> raise (Error.DeadbranchError "intercepted bridge must have a bridge type!")
+
+    let generate_egress_block program interceptor_info base_interceptor : component_item list = 
+        auto_fplace (Term (auto_fplace (Comments
+            (auto_fplace(DocComment "******************** Egress Block ********************"))
+        )))
+        :: List.flatten(
+            List.map (function ((b_intercepted, _, b_mt), (this_b_out, this_b_int, _)) ->
+                if Bool.not (has_kind_egress interceptor_info b_mt) then []
+                else begin
+                    auto_fplace (Term (auto_fplace (Comments
+                        (auto_fplace(DocComment (Printf.sprintf "*** Egress Block for bridge [%s] ***" (Atom.to_string b_intercepted))))
+                    )))
+                    :: (generate_egress_block_per_intercepted_bridge interceptor_info this_b_out this_b_int b_mt) 
+                end
+            ) (List.combine interceptor_info.inout_bridges_info (Option.get interceptor_info.inout_statebridges_info)) 
+        )
 
 
     (*************** Interception Elimination ******************)
@@ -475,8 +616,8 @@ module Make (Args: TArgs) = struct
         let interceptor_info, onboard_block = generate_onboard_block base_interceptor interceptor_info in
         let interceptor_info, inlined_onstartup_block = include_base_citems interceptor_info base_interceptor in
         let interceptor_info, sessions_block = generate_sessions_block interceptor_info in
-        let ingress_block = generate_ingress_blockplace interceptor_info base_interceptor in
-        let egress_block = generate_egress_blockplace interceptor_info base_interceptor in
+        let ingress_block = generate_ingress_block interceptor_info base_interceptor in
+        let egress_block = generate_egress_block (failwith "TODO parent program or parent intercepted_outputports") interceptor_info base_interceptor in
 
 
         Component (auto_fplace (ComponentStructure {

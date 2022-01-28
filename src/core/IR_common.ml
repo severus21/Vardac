@@ -326,9 +326,8 @@ module type TIRC = sig
     val equal_cexpr : component_expr -> component_expr -> bool
 
     val unfold_st_star : session_type -> session_type
+    val stages_of_st : session_type -> _session_type list
 end
-
-
 
 
 module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t = V.t)  = struct
@@ -1712,4 +1711,33 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | st -> st
     and unfold_st_star st = {place = st.place; value = _unfold_st_star st.value}
 
+
+    (* returns the list of st stages that introduce a message send or receive
+        e.g.
+        st =def= µx. +{ l1: ?ping!pong. ; l2: x.};
+        =>
+        [
+            st; //therefore we do not store +{ l1: ?ping!pong. ; l2: x.}
+            ?ping!pong.
+            !pong.
+        ]
+        then compute a set 
+
+        @param recsts_def - retains (x -> µx. st) for each µx - st found
+    *)
+    let stages_of_st = 
+        let rec aux_stages_of_st_ place = function
+        | STEnd -> []
+        | STVar x -> [] (* Do not store µx. ... to avoid doing deduplication afterwards.*)
+        | (STRecv (_, st2) as st1) | (STSend (_, st2) as st1)-> st1 :: (aux_stages_of_st st2)
+        | (STBranch branches as st) | (STSelect branches as st) -> 
+            st :: (List.flatten (List.map (function (_, st_branch, _) -> aux_stages_of_st st_branch) branches))
+        | STRec (x, st2) as st1 ->
+            (* do not store twice the input stage of the recursion - we choose to retains the recusive aspect (i.e. storing st1 and not st2 (erase by List.tl)) *)
+            st1:: List.tl (aux_stages_of_st st2)
+        | STInline _ -> raise (Error.PlacedDeadbranchError (place, "STInlinie should have been compiled away before using [aux_stages_of_st]!"))
+        and aux_stages_of_st st = map0_place aux_stages_of_st_ st
+        in
+
+        aux_stages_of_st 
 end
