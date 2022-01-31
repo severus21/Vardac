@@ -671,6 +671,7 @@ module Make () = struct
 
                     name = interceptor_name;
                     base_interceptor_name = base_interceptor_name;
+                    base_interceptor_place = interceptor_assign.place; 
 
                     onboard_info = {st_onboard; b_onboard_mt};
                     inout_bridges_info = List.map (function (b_out, b_int, b_in_let) ->
@@ -684,6 +685,7 @@ module Make () = struct
 
                     (*** Not hydrated by ctx_elim ***)
                     (*** Hydrated by intercept elim***)
+                    this_onboarded_activations = None;
                     b_onboard_state = None;
                     inout_statebridges_info = None;
                     sessions_info = None;

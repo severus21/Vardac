@@ -60,6 +60,7 @@ type interceptor_info = {
     (*** Hydrated by ctx API if from_ctx_elim  ***)
     name: Atom.atom;  
     base_interceptor_name: Atom.atom;
+    base_interceptor_place: Error.place;
     
     (* Generated *)
     onboard_info: onboard_info; (* (st_onboard, p_onboard, b_onboard_mt) *)
@@ -70,6 +71,7 @@ type interceptor_info = {
 
     (*** Not hydrated by ctx_elim ***)
     (*** Hydrated by intercept elim***)
+    this_onboarded_activations: Atom.atom option;
     b_onboard_state: Atom.atom option; (* state holding the onboarding bridge *)
     inout_statebridges_info: ((Atom.atom * Atom.atom * main_type) list) option; (* schema state that holds the bridges *)
     sessions_info: sessions_info option
