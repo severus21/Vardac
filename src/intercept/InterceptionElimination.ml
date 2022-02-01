@@ -124,7 +124,7 @@ module Make (Args: TArgs) = struct
         | Some m -> m
         | None -> default_onboard 
 
-    let e_param_of str = 
+    let e_param_of str : Atom.atom * expr = 
         let param = Atom.fresh str in
         param, e2var param
     
@@ -529,10 +529,16 @@ module Make (Args: TArgs) = struct
 
     (*************** Step 3 - Ingress generation ******************)
 
+    let paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_B, st3, tmsg3)=
+        TypingUtils.is_subtype left_mt  mt_A
+        && TypingUtils.is_subtype right_mt mt_B
+        && TypingUtils.is_subtype st_continuation (mtype_of_st st3.value)
+        && TypingUtils.is_subtype tmsg tmsg3  
+
     (*
         return if exists the msginterceptor function for [intercepted_bridge] at stage [i]
     *)
-    let get_msginterceptor interceptor_info (msg_interceptors: method0 list) tb_intercepted_bridge i st_stage =
+    let get_msginterceptor interceptor_info (msg_interceptors: method0 list) tb_intercepted_bridge i (tmsg, st_continuation) =
         let left_mt = tb_intercepted_bridge.in_type in
         let right_mt = tb_intercepted_bridge.out_type in
 
@@ -543,11 +549,9 @@ module Make (Args: TArgs) = struct
             let mt_A = fst param_from.value in
             let mt_B = fst param_to.value in
             let st3 = match fst param_continuation_in.value with | {value=SType st} -> st in (* type of continuation_in*)
-            let tmsg = fst param_msg.value in 
+            let tmsg3 = fst param_msg.value in 
 
-            TypingUtils.is_subtype left_mt  mt_A
-            && TypingUtils.is_subtype right_mt mt_B
-            && TypingUtils.is_subtype st_stage (mtype_of_st st3.value)
+            paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_B, st3, tmsg3)
         in 
 
         match List.filter filter msg_interceptors with
@@ -555,7 +559,7 @@ module Make (Args: TArgs) = struct
         | [ m ] -> Some m.value.name
         | ms -> Error.error interceptor_info.base_interceptor_place "Multiple msg interceptors are defined for the same msg (+ context) in %s" (Atom.to_string interceptor_info.base_interceptor_name)
 
-    let get_sessioninterceptor_anon  interceptor_info (session_interceptors: method0 list) tb_intercepted_bridge i st_stage = 
+    let get_sessioninterceptor_anon  interceptor_info (session_interceptors: method0 list) tb_intercepted_bridge i (tmsg, st_continuation) = 
         let left_mt = tb_intercepted_bridge.in_type in
         let right_mt = tb_intercepted_bridge.out_type in
 
@@ -571,11 +575,9 @@ module Make (Args: TArgs) = struct
                 | CType{ value = TBridge tb } -> tb.in_type (* see whitepaper *)
             in
             let st3 = match fst param_continuation_in.value with | {value=SType st} -> st in (* type of continuation_in*)
-            let tmsg = fst param_msg.value in 
+            let tmsg3 = fst param_msg.value in 
 
-            TypingUtils.is_subtype left_mt mt_A
-            && TypingUtils.is_subtype right_mt mt_Bs
-            && TypingUtils.is_subtype st_stage (mtype_of_st st3.value) 
+            paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_Bs, st3, tmsg3)
         in 
 
         match List.filter filter session_interceptors with
@@ -583,7 +585,7 @@ module Make (Args: TArgs) = struct
         | [ m ] -> Some m.value.name
         | ms -> Error.error interceptor_info.base_interceptor_place "Multiple session interceptors, for non anonymous case, are defined for the same msg (+ context) in %s" (Atom.to_string interceptor_info.base_interceptor_name)
 
-    let get_sessioninterceptor_not_anon interceptor_info (session_interceptors: method0 list) tb_intercepted_bridge i st_stage = 
+    let get_sessioninterceptor_not_anon interceptor_info (session_interceptors: method0 list) tb_intercepted_bridge i (tmsg, st_continuation) = 
         let left_mt = tb_intercepted_bridge.in_type in
         let right_mt = tb_intercepted_bridge.out_type in
 
@@ -594,27 +596,25 @@ module Make (Args: TArgs) = struct
             let mt_A = fst param_from.value in
             let mt_B = fst param_to.value in
             let st3 = match fst param_continuation_in.value with | {value=SType st} -> st in (* type of continuation_in*)
-            let tmsg = fst param_msg.value in 
+            let tmsg3 = fst param_msg.value in 
 
-            TypingUtils.is_subtype left_mt  mt_A
-            && TypingUtils.is_subtype right_mt mt_B
-            && TypingUtils.is_subtype st_stage (mtype_of_st st3.value)
+            paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_B, st3, tmsg3)
         in 
 
         match List.filter filter session_interceptors with
         | [] -> None
-        | [ m ] -> Some m.value.name
+        | [ m ] -> Some m.value.name 
         | ms -> Error.error interceptor_info.base_interceptor_place "Multiple session interceptors, for non anonymous case, are defined for the same msg (+ context) in %s" (Atom.to_string interceptor_info.base_interceptor_name)
 
-    let get_sessioninterceptor interceptor_info session_interceptors flag_anonymous tb_intercepted_bridge i st_stage =
+    let get_sessioninterceptor interceptor_info session_interceptors flag_anonymous tb_intercepted_bridge i (tmsg, st_continuation) =
         let session_interceptors = List.filter (function (m:method0) ->
             List.exists (function | SessionInterceptor annot -> annot.anonymous = flag_anonymous | _ -> false ) m.value.annotations 
         ) session_interceptors in
        
         if flag_anonymous then 
-            get_sessioninterceptor_anon interceptor_info session_interceptors tb_intercepted_bridge i st_stage
+            get_sessioninterceptor_anon interceptor_info session_interceptors tb_intercepted_bridge i (tmsg, st_continuation)
         else
-            get_sessioninterceptor_not_anon interceptor_info session_interceptors tb_intercepted_bridge i st_stage
+            get_sessioninterceptor_not_anon interceptor_info session_interceptors tb_intercepted_bridge i (tmsg, st_continuation)
 
 
     let has_kind_ingress interceptor_info = function
@@ -631,9 +631,9 @@ module Make (Args: TArgs) = struct
 
     (*************** Step 4 - Egress generation ******************)
 
-    let generate_egress_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted i this_callback_msg tmsg st_continuation = 
-        let param_msg = Atom.fresh "msg" in
-        let param_s_in = Atom.fresh "s_in" in
+    let generate_egress_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_b_out this_b_int i this_callback_msg tmsg st_continuation = 
+        let param_msg, e_param_msg = e_param_of "msg" in
+        let param_s_in, e_param_s_in = e_param_of "s_in" in
 
         let local_from, e_local_from = e_param_of "from" in
         let local_to_opt, e_local_to_opt = e_param_of "to_opt" in
@@ -644,14 +644,20 @@ module Make (Args: TArgs) = struct
 
         let e_session_interceptor_by_schema = e2_e (AccessExpr ( 
             e2_e This, 
-            e2var (get_sessioninterceptor_anon interceptor_info session_interceptors tb_intercepted i st_stage)
+            match (get_sessioninterceptor_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation)) with
+            | Some x_to -> e2var x_to
+            | None -> Error.error interceptor_info.base_interceptor_place "No @sessioninterceptor(true, ...) for bridge type %s" (show_tbridge tb_intercepted)
         )) in
         let e_session_interceptor_by_activation = e2_e (AccessExpr ( 
             e2_e This, 
-            e2var (get_sessioninterceptor_not_anon interceptor_info session_interceptors tb_intercepted i st_stage)
-        )) 
-        in
-        let e_this_onboarded_activations = e2_e (AccessExpr ( e2_e This, interceptor_info.this_onboarded_activations)) in
+            match (get_sessioninterceptor_not_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation)) with
+            | Some x_to -> e2var x_to
+            | None -> 
+                (* Case there is no user defined function *)
+                logger#warning "No @sessioninterceptor(false, ...) for bridge type %s" (show_tbridge tb_intercepted);
+                e2_e (CallExpr ( e2var (Atom.builtin "option_get"), [ e_local_to_opt ])) (* by default, use the requested to *)
+        )) in
+        let e_this_onboarded_activations = e2_e (AccessExpr ( e2_e This, e2var (Option.get interceptor_info.this_onboarded_activations))) in
 
         let left_mt = tb_intercepted.in_type in
         let right_mt = tb_intercepted.out_type in
@@ -674,7 +680,7 @@ module Make (Args: TArgs) = struct
                     local_from,
                     e2_e (CallExpr (
                         e2var (Atom.builtin "session_from"),
-                        [ param_s_in ]
+                        [ e_param_s_in ]
                     ))
                 ));
                 (* TODO assert ... *)
@@ -686,17 +692,17 @@ module Make (Args: TArgs) = struct
                         [
                             e_this_onboarded_activations;
                             e_local_from;
-                            e_this_b_out;
+                            e2_e(AccessExpr (e2_e This, e2var this_b_out));
                             e2_e (CallExpr( 
                                 e2var (Atom.builtin "option_get"),
                                 [ 
                                     e2_e (CallExpr (
                                         e2var (Atom.builtin "session_to_2_"),
-                                        [ param_s_in ]
+                                        [ e_param_s_in ]
                                     ))
                                 ]
                             ));
-                            e2var param_msg;
+                            e_param_msg;
                         ]
                     ))
                 ));
@@ -704,15 +710,15 @@ module Make (Args: TArgs) = struct
                 auto_fplace(IfStmt(
                     e2_e(BinopExpr( e_local_to_opt, StructuralEqual, e2_e (OptionExpr None))),     
                     auto_fplace (BlockStmt [
-                        autp_fplace(ExpressionStmt (e2_e (CallExpr(
+                        auto_fplace(ExpressionStmt (e2_e (CallExpr(
                             e2var (Atom.builtin "print"),
                             [ e2_lit (StringLit "Egress request refused!") ]))));
-                        auto_fplace (RetrunStmt (e2_lit VoidLit))
+                        auto_fplace (ReturnStmt (e2_lit VoidLit))
                     ]),
                     None
                 ));
-                auto_fplace (LetExpr(
-                    mtype_of_ct (TActivationRef mt_right),
+                auto_fplace (LetStmt(
+                    mtype_of_ct (TActivationRef right_mt),
                     local_to,
                     e2_e (CallExpr( 
                         e2var (Atom.builtin "option_get"),
@@ -764,7 +770,7 @@ module Make (Args: TArgs) = struct
     (*
         @param i - n° of the stage. 0 == session init 
     *)
-    let generate_egress_block_per_intercepted_bridge_per_st_stage  interceptor_info msg_interceptors session_interceptors b_intercepted this_b_out this_b_int b_mt i st_stage = 
+    let generate_egress_block_per_intercepted_bridge_per_st_stage  interceptor_info msg_interceptors session_interceptors b_intercepted this_b_out this_b_int tb_intercepted i st_stage = 
         let e_this_b_out = e2_e (AccessExpr (e2_e This, e2var this_b_out)) in
         let e_this_b_int = e2_e (AccessExpr (e2_e This, e2var this_b_int)) in
 
@@ -793,19 +799,19 @@ module Make (Args: TArgs) = struct
         let tmsg, st_continuation = failwith "TODO to compute it reuse existing fct for Akka or RecvElim" in
 
         (*** Msg interception callback ***)
-        let callback_msg : method0 = generate_egress_callback_msg interceptor_info  b_intercepted tb_intercepted i tmsg st_continuation in
+        let callback_msg : method0 = generate_egress_callback_msg interceptor_info  b_intercepted i tmsg st_continuation in
 
         (*** Session interception callback ***)
         let callback_session_init : method0 option = 
             if i = 0 then 
-                Some (generate_egress_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted i callback_msg.value.name tmsg st_continuation)
+                Some (generate_egress_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_b_out this_b_int i callback_msg.value.name tmsg st_continuation)
             else None 
         in
 
 
         (*** Main callback ***)
-        let param_msg = Atom.fresh "msg" in
-        let param_s_in = Atom.fresh "s_in" in
+        let param_msg, e_param_msg= e_param_of "msg" in
+        let param_s_in, e_param_s_in = e_param_of "s_in" in
         let egress_callback : method0 = 
             if i = 0 then 
                 auto_fplace {
@@ -821,7 +827,7 @@ module Make (Args: TArgs) = struct
                         auto_fplace (IfStmt(
                             e2_e (CallExpr( 
                                 e2var (Atom.builtin "is_init_stage"),
-                                [ e2var param_s_in ]
+                                [ e_param_s_in ]
                             )),
                             auto_fplace (ReturnStmt (
                                 e2_e (CallExpr(
@@ -830,8 +836,8 @@ module Make (Args: TArgs) = struct
                                         e2var (Option.get callback_session_init).value.name 
                                     )),
                                     [
-                                        e2var param_msg;
-                                        e2var param_s_in
+                                        e_param_msg;
+                                        e_param_s_in
                                     ]
                                 ))
                             )),
@@ -842,8 +848,8 @@ module Make (Args: TArgs) = struct
                                         e2var callback_msg.value.name 
                                     )),
                                     [
-                                        e2var param_msg;
-                                        e2var param_s_in
+                                        e_param_msg;
+                                        e_param_s_in
                                     ]
                                 ))
                             )))
@@ -872,7 +878,7 @@ module Make (Args: TArgs) = struct
 
     let generate_egress_block_per_intercepted_bridge interceptor_info msg_interceptors session_interceptors b_intercepted this_b_out this_b_int b_mt : component_item list = 
         let tb_intercepted = (match b_mt with | {value = CType {value = TBridge tb}} -> tb) in
-        let p_st = (match tb_intercepted with 
+        let p_st = (match tb_intercepted.protocol with 
             | {value = SType st} -> st
             | _ -> failwith "TODO resolve type aliasing using an external fct or requires that type aliasing should have been eliminated before using [generate_egress_block_per_intercepted_bridge]"
         ) in
@@ -880,7 +886,7 @@ module Make (Args: TArgs) = struct
 
         List.flatten (
             List.mapi
-                (generate_egress_block_per_intercepted_bridge_per_st_stage interceptor_info msg_interceptors sessions_interceptors b_intercepted this_b_out this_b_int b_mt)
+                (generate_egress_block_per_intercepted_bridge_per_st_stage interceptor_info msg_interceptors session_interceptors b_intercepted this_b_out this_b_int tb_intercepted)
                 st_stages
         )
     
@@ -907,7 +913,7 @@ module Make (Args: TArgs) = struct
                     auto_fplace (Term (auto_fplace (Comments
                         (auto_fplace(DocComment (Printf.sprintf "*** Egress Block for bridge [%s] ***" (Atom.to_string b_intercepted))))
                     )))
-                    :: (generate_egress_block_per_intercepted_bridge interceptor_info b_intercepted this_b_out this_b_int b_mt) 
+                    :: (generate_egress_block_per_intercepted_bridge interceptor_info  msg_interceptors session_interceptors b_intercepted this_b_out this_b_int b_mt) 
                 end
             ) (List.combine interceptor_info.inout_bridges_info (Option.get interceptor_info.inout_statebridges_info)) 
         )
@@ -942,10 +948,14 @@ module Make (Args: TArgs) = struct
     | _ -> false
     let makeinterceptor_rewriter program place = function
     | Component {value=ComponentAssign {name=interceptor_name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} -> begin
+
         (* Ad-hoc functor since we do not have meta programming capabilities *)
         match args with
         | [{value=VarCExpr base_interceptor_name,_;}; {value=AnyExpr {value=BlockExpr (List, intercepted_schemas), _}, _}] 
         when List.fold_left (function flag -> function | {value=BoxCExpr {value=VarCExpr _,_}, _} -> true | _ -> false) true intercepted_schemas -> begin
+
+            let base_interceptor_place, base_interceptor = get_schema program base_interceptor_name in
+
 
             (* Generated by ctx elim *)
             let interceptor_info = 
@@ -962,6 +972,7 @@ module Make (Args: TArgs) = struct
                     { from_ctx_elim = false;
                         name = interceptor_name; 
                         base_interceptor_name;
+                        base_interceptor_place;
 
                         onboard_info;
                         inout_bridges_info = failwith "TODO howto to compute inout_bridges_info for low level API - add this to whitepapre";
@@ -971,6 +982,7 @@ module Make (Args: TArgs) = struct
                         b_onboard_state = None;
                         inout_statebridges_info = None;
                         sessions_info = None;
+                        this_onboarded_activations = None;
                     }
             in
 
@@ -1001,8 +1013,6 @@ module Make (Args: TArgs) = struct
             (*TODO and checks pass and select port accordingly 
             *)
 
-            let base_interceptor : component_structure = get_schema program interceptor_info.base_interceptor_name in
-
             [ generate_interceptor base_interceptor interceptor_info ]
         end
         | _ -> Error.error place "Illformed MakeInterceptor functor: MakeInterceptor(BaseInterceptor, [intercepted_schemas])"
@@ -1013,336 +1023,16 @@ module Make (Args: TArgs) = struct
         let program = rewrite_term_program makeinterceptor_selector (makeinterceptor_rewriter program) program in 
 
         program
+
+    (*********************************************************)
+
+    let displayed_pass_shortdescription = "interception logic has been eliminated from IR"
+    let displayed_ast_name = "interception-eliminated IR"
+    let show_ast = true
+    let precondition program = program
+
+    (* TODO*)
+    let postcondition program = program
+    let apply_program = intercept_elim_program
 end
 
-
-(* TODO to remove the followings *)
-
-
-(*
-    void callback(tmsg msg, tsession s){
-        tsession_out sessionout = ... from s;
-        activation<> from = ...;
-        activation<> to = ...;
-
-        (* Case one user define an interceptor *)
-        option<tmsg> res = this.intercept(from, to, sessionin, sessionout, msg);
-
-        if(res not =equals= None){ 
-            fire(session_out, option.get res);
-        }
-
-        (* Case no interceptor *)
-        fire(session_out, msg);
-
-    }
-*)
-let generate_callback (base_interceptor : component_structure) port_name (expecting_st, t_bridge) = 
-    let a_msg, a_session_in = Atom.fresh "msg", Atom.fresh "session_in" in 
-    let t_msg, t_session_in = match expecting_st.value with 
-        | STRecv (t_msg, t_session) -> t_msg, t_session
-        | STBranch branches -> mtype_of_ft TStr, expecting_st
-    in
-    let a_session_out, t_session_out = Atom.fresh "session_out", dual expecting_st in
-    let mt_session_out, mt_session_in = mtype_of_st t_session_out.value, mtype_of_st t_session_in.value in
-
-    let a_from, a_to = Atom.fresh "from", Atom.fresh "to" in
-    let t_from, t_to = mtype_of_ct (TActivationRef t_bridge.in_type), mtype_of_ct (TActivationRef t_bridge.out_type) in
-    let a_res, t_res = Atom.fresh "res", mtype_of_ct (TOption t_msg) in
-
-    (* TODO/REFACTOR for perf built once a htbl of intecptors per base_interceptors *)
-    let user_defined_interceptor_selector = function
-    | {value=Method m} when List.mem (failwith "previously: Intercept") m.value.annotations  -> (* only consider method marked as interceptor *)
-        
-        let flag1 = match m.value.ret_type.value with
-            | CType {value=TOption t } -> equal_mtype t t_msg 
-            | _ -> Error.error m.place "Invalid intercept method, return type should be an option"
-        in
-
-        let flag2 = match m.value.args with
-            | [_from; _to; _session_in; _session_out; _msg] ->
-                (* NB two bridges that have the same protocol and that have the same input output type will have the same interceptor.
-                However, programmer can distinguish between both by accessing the unique bridge identifier.
-                TODO TODOC add this to doc
-                *)
-                (Core.TypingUtils.is_subtype (fst _from.value) t_from) &&
-                (Core.TypingUtils.is_subtype (fst _to.value) t_to) &&
-                equal_mtype (fst _session_in.value) (auto_fplace (SType t_session_in)) &&
-                equal_mtype (fst _session_out.value) (auto_fplace (SType t_session_out)) &&
-                equal_mtype (fst _msg.value) t_msg
-            | _ -> Error.error m.place "Invalid intercept method, expected aruments should have the following form [from, to, session_in, session_out, msg]"
-        in
-        flag1 && flag2
-        | _ -> false
-    in
-
-        
-    let user_define_interceptor_opt : method0 option = match List.filter user_defined_interceptor_selector base_interceptor.body with
-        | [] -> None
-        | [{value=Method m}] -> Some m 
-        | m::ms -> Error.error (List.fold_left (fun acc m -> acc@m.place) m.place ms) "Multiple interceptors defined with the same signature" (* TODO should be checked before generating the callback and for all @capturable component *)
-    in
-
-    {
-        annotations = [];
-        ghost = false;
-        ret_type = mtype_of_ft TVoid;
-        name = Atom.fresh ((Atom.value port_name) ^ "__callback");
-        args = [
-            auto_fplace (t_msg, a_msg); 
-            auto_fplace (mt_session_in, a_session_in)
-        ]; 
-        body = [ 
-            auto_fplace (LetStmt (mt_session_out, a_session_out, failwith "TODO get session out"));
-            auto_fplace (LetStmt(t_from, a_from, 
-                e2_e (CallExpr(
-                    e2var (Atom.builtin "session_from"),
-                    [
-                        auto_fplace (VarExpr a_session_in, mt_session_in)
-                    ]
-                ))
-            ));
-            auto_fplace (LetStmt(t_to, a_to, 
-                e2_e (CallExpr(
-                    e2var (Atom.builtin "session_to"),
-                    [
-                        auto_fplace (VarExpr a_session_out, mt_session_out)
-                    ]
-                ))
-            ));
-
-            (match user_define_interceptor_opt with
-                | None ->
-                    auto_fplace (ExpressionStmt (e2_e(
-                        CallExpr(
-                            e2var (Atom.fresh "fire"),
-                            [
-                                auto_fplace (VarExpr a_session_out, mt_session_out);
-                                auto_fplace (VarExpr a_msg, t_msg)
-                            ]
-                        )
-                    )))
-                | Some user_defined_interceptor ->
-                    auto_fplace (BlockStmt [
-                        auto_fplace (LetStmt (
-                            t_res,
-                            a_res,
-                            e2_e (CallExpr(
-                                e2var (Atom.fresh "fire"),
-
-                                [
-                                    auto_fplace (VarExpr a_from, t_from); 
-                                    auto_fplace (VarExpr a_to, t_to);
-                                    auto_fplace (VarExpr a_session_in, mt_session_in);
-                                    auto_fplace (VarExpr a_session_out, mt_session_out); 
-                                    auto_fplace (VarExpr a_msg, t_msg); 
-                                ]
-                            ))
-                        ));
-                        auto_fplace (IfStmt(
-                            auto_fplace(UnopExpr(Not, auto_fplace(BinopExpr(
-                                auto_fplace (VarExpr a_res, t_res),
-                                StructuralEqual,
-                                auto_fplace (OptionExpr None, t_res)
-                            ), mtype_of_ft TBool)), mtype_of_ft TBool),
-                            auto_fplace (ExpressionStmt(
-                                e2_e (CallExpr(
-                                    e2var (Atom.fresh "fire"),
-                                    [
-                                        e2var a_session_out; 
-                                        e2_e (CallExpr (
-                                            e2var  (Atom.builtin "option_get"),
-                                            [
-                                                auto_fplace (VarExpr a_res, t_res)
-                                            ] 
-                                        ))
-                                    ]
-                                ))
-                            )),
-                            None
-                        ))
-                    ])
-            )
-        ];
-        contract_opt = None;
-        on_destroy = false;
-        on_startup = false;
-    }
-
-let make_citem_for_intercepted_component program base_interceptor intercepted_cname = 
-    let [intercepted_struct] : component_structure list = 
-        collect_term_program 
-        false 
-        (function | Component {value=ComponentStructure {name}} -> name = intercepted_cname | _ -> false) (function place -> function | Component {value=ComponentStructure cstruct} -> [cstruct]) program 
-    in
-
-    let interception_states = [] in 
-
-    (* Input ports and bridges *)
-    let intercepted_input_ports = List.filter (
-        function 
-        |{value=Port _} -> true | _ -> false) intercepted_struct.body
-    in
-
-    (* NB. port type is left unchanged *)
-    let interception_callbacks, interception_ports = List.split (List.map (function |{place; value=Port {value=p,mt_p; place=p_port}} -> 
-        let port_name = Atom.fresh ("interceptor_pinput_"^(Atom.to_string intercepted_cname)^"_"^(Atom.to_string p.name)) in
-        let t_bridge:tbridge = match mt_p.value with 
-            | CType {value=TPort ({value=CType {value=TBridge t_bridge}},_)} -> t_bridge 
-            | _ -> raise (Error.PlacedDeadbranchError (mt_p.place, "Can not extract bridge type"))
-        in
-        let callback = generate_callback base_interceptor port_name ((match p.expecting_st.value with | SType st -> st | _ -> raise (Error.PlacedDeadbranchError (p.expecting_st.place, "port expecting_st must be a session type"))), t_bridge) in
-        
-        auto_fplace (Method (auto_fplace callback)), auto_fplace (Port (auto_fplace ({
-            name = port_name;
-            input = p.input;
-            expecting_st = p.expecting_st; (* FIXME if not anonymous add the identity propagation ?? *)
-            callback = e2var callback.name;
-        }, mt_p)))    
-    ) intercepted_input_ports) in
-    
-    
-
-
-    (* Output ports and bridges *)
-    failwith "TODO intercept output of intercepted";
-    (* FIXME TODO Receive case ??? -> should have been rewritten or smth else *)
-
-    (interception_states, interception_ports, interception_callbacks)
-(*
-    replace 
-    bridge< ... | A, ..., ...> -> bridge<....| A | Interceptor, ..., ...> 
-    bridge< ..., ... | A, ..., ...> -> bridge<..., ....| A | Interceptor, ...> 
-
-    REFACTOR
-    For performance, one can do one update pass for all tuple (intercepted_name, interceptor_name)
-    For readability and code reuse, we do one pass per (intercepted_name, interceptor_name)
-*)
-let update_bridges_types program (intercepted_name, interceptor_name) = 
-    let aux_selector = function 
-        | CompType {value=CompTUid intercepted_name} -> true
-        | _ -> false
-    in
-    let in_selector = function
-    | CType {value=TBridge tbridge} -> 
-        let _, collected_elts, _ = collect_type_mtype None Atom.Set.empty aux_selector (fun _ _ _ -> []) tbridge.in_type in
-        collected_elts <> []
-    | _ -> false
-    in
-    let in_rewriter = function 
-        | CType {value=TBridge tbridge; place} ->  CType {place; value=TBridge {tbridge with 
-            in_type = mtype_of_ct (TUnion (tbridge.in_type, mtype_of_ct (TActivationRef interceptor_name)))
-        }}
-    in
-    let out_selector = function
-    | CType {value=TBridge tbridge} -> 
-        let _, collected_elts, _ = collect_type_mtype None Atom.Set.empty aux_selector (fun _ _ _ -> []) tbridge.out_type in
-        collected_elts <> []
-    | _ -> false
-    in
-    let out_rewriter = function 
-        | CType {place; value=TBridge tbridge} ->  CType {place; value=TBridge {tbridge with 
-            out_type = mtype_of_ct (TUnion (tbridge.out_type, mtype_of_ct (TActivationRef interceptor_name)))
-        }}
-    in 
-
-    program 
-    |> rewrite_type_program in_selector in_rewriter  
-    |> rewrite_type_program out_selector out_rewriter
-
-
-let makeinterceptor_selector = function 
-| Component {value=ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} when Atom.hint functorname = "MakeInterceptor" && Atom.is_builtin functorname -> true 
-| _ -> false
-
-let makeinterceptor_rewriter program place = function
-| Component {value=ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} -> begin
-    (* Ad-hoc functor since we do not have meta programming capabilities *)
-    match args with
-    | [{value=VarCExpr interceptor_name,_;}; {value=AnyExpr {value=BlockExpr (List, component_types), _}, _}] 
-    when List.fold_left (function flag -> function | {value=BoxCExpr {value=VarCExpr _,_}, _} -> true | _ -> false) true component_types ->
-        let spawned_component_types = List.map (function
-            |{value=BoxCExpr {value=VarCExpr cname, _}, _} -> cname
-        ) component_types in
-
-        let base_interceptor : component_structure = InterceptUtils.get_schema program interceptor_name in
-            
-        (* base_interceptor must be a component not a functor *)
-        assert(base_interceptor.args = []);
-
-        let base_onstartup = InterceptUtils.get_onstartup base_interceptor in 
-        let m_interceptors = List.filter (function |
-        {value=Method m} -> List.mem (failwith "previously: Intercept") m.value.annotations | _ -> false) base_interceptor.body in
-        let other_citems =List.filter (function |
-        {value=Method m} -> Bool.not (List.mem (failwith "previously: Intercept") m.value.annotations) | _ -> true) base_interceptor.body in
-
-
-        let onstartup_args = 
-            [] @
-            match base_onstartup with
-            | None -> []
-            | Some m -> m.value.args 
-        in
-        let onstartup_body = 
-            [] @
-            match base_onstartup with
-            | None -> []
-            | Some m -> m.value.body 
-        in
-        let onstartup = auto_fplace (Method (auto_fplace {
-            annotations = (match base_onstartup with | None -> [] | Some m -> m.value.annotations);
-            ghost = false;
-            ret_type = mtype_of_ft TVoid;
-            name = Atom.fresh "interceptor_onstartup";
-            args = onstartup_args;
-            body = onstartup_body; 
-            contract_opt = (match base_onstartup with | None -> None | Some m -> m.value.contract_opt);
-            on_startup = true;
-            on_destroy = false;
-        })) in (* TODO we need to add logic here ?? *)
-
-        let tmp = List.map (make_citem_for_intercepted_component program base_interceptor) spawned_component_types in
-        let interception_states = List.flatten (List.map (function (x,_,_) -> x) tmp) in 
-        let interception_ports = List.flatten (List.map (function (_,y,_) -> y) tmp) in 
-        let interception_callbacks = List.flatten (List.map (function (_,_,z) -> z) tmp) in 
-
-
-        let structure = {
-            target_name = base_interceptor.target_name; 
-            annotations = base_interceptor.annotations; (* NB. remove annotations that have been consumed *)
-            name = name; 
-            args = []; (* Not a functor *)
-            body = 
-                onstartup ::
-                other_citems @
-                interception_states @
-                interception_ports @
-                interception_callbacks;
-        }
-        in
-
-        [ Component (auto_fplace (ComponentStructure structure)) ]
-    | _ -> Error.error place "Functor [MakeInterceptor] expect two arguments : the Interceptor component and a list of Component type that should be intercepted" 
-end
-
-let apply_intercept_program program =
-    (* Step 0. resolve MakeInterceptor *)
-    let program = rewrite_term_program makeinterceptor_selector (makeinterceptor_rewriter program) program in 
-
-
-    (* TODO rewrite bridges types *)
-    List.fold_left update_bridges_types program (failwith "TODO rewrite bridgeis");
-
-    (* Step 1. InterceptedActivationRef *)
-    failwith "TODO apply_intercept_program"
-
-    program
-
-(*********************************************************)
-
-let displayed_pass_shortdescription = "interception logic has been eliminated from IR"
-let displayed_ast_name = "interception-eliminated IR"
-let show_ast = true
-let precondition program = program
-let postcondition program = program
-let apply_program = apply_intercept_program

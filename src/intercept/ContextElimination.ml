@@ -440,7 +440,7 @@ module Make () = struct
             logger#debug "ctxelim_rewrite: %s" (show_key key);
 
 
-            let base_interceptor : component_structure = get_schema program base_interceptor_name in
+            let base_interceptor_place, base_interceptor =  get_schema program base_interceptor_name in
             let base_interceptor_constructor : method0 option = get_onstartup base_interceptor in
             let base_interceptor_constructor_params = match base_interceptor_constructor with
                 | None -> []
@@ -671,7 +671,7 @@ module Make () = struct
 
                     name = interceptor_name;
                     base_interceptor_name = base_interceptor_name;
-                    base_interceptor_place = interceptor_assign.place; 
+                    base_interceptor_place; 
 
                     onboard_info = {st_onboard; b_onboard_mt};
                     inout_bridges_info = List.map (function (b_out, b_int, b_in_let) ->

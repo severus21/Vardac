@@ -6,14 +6,15 @@ open Easy_logging
 
 let logger = Logging.make_logger ("_1_ compspec.Intercept") Debug [];;
 
-
-module ContextElimination = Core.IRCompilationPass.Make(ContextElimination.Make())
-module InterceptionElimination = Core.IRCompilationPass.Make(InterceptionElimination)
+module ContextElimination0 = ContextElimination.Make()
+module ContextElimination = Core.IRCompilationPass.Make(ContextElimination0)
 
 let rewrite_program program = 
-    program
-    |> ContextElimination.apply
-    |> InterceptionElimination.apply
+    let program = ContextElimination.apply program in
+
+    let module InterceptionElimination = InterceptionElimination.Make(struct let interceptors_info = ContextElimination0.interceptors_info end) in
+    let module InterceptionElimination = Core.IRCompilationPass.Make(InterceptionElimination) in
+    InterceptionElimination.apply program
     
 (*********************************************************)
 

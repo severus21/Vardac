@@ -18,15 +18,15 @@ let failure_collector_e msg parent_opt env e = failure_collector msg parent_opt 
 let failure_collector_ce msg parent_opt place ce = failure_collector msg parent_opt place 
 
 let get_schema program wanted_name= 
-    let [schema] : component_structure list = 
+    let [place, schema] : (Error.place * component_structure) list = 
         collect_term_program 
             false
             (function | Component {value=ComponentStructure {name}} -> name = wanted_name | _ -> false) 
-            (function place -> function | Component {value=ComponentStructure cstruct} -> [cstruct]) 
+            (function place -> function | Component {value=ComponentStructure cstruct} -> [place, cstruct]) 
             program 
     in
 
-   schema
+   place, schema
 
 let get_onstartup (schema : component_structure) : method0 option= 
     Option.map 
