@@ -72,8 +72,8 @@ component Counter () {
     }
 
 
-    port truc on this._b :: bridge<A, Counter, inline p_protocol> expecting ?eincr!value?eincr!value. = this.handle_incr1;
-    port truc2 on this._b :: bridge<A, Counter, inline p_protocol>  expecting ?eincr!value. = this.handle_incr2;
+    inport truc on this._b :: bridge<A, Counter, inline p_protocol> expecting ?eincr!value?eincr!value. = this.handle_incr1;
+    inport truc2 on this._b :: bridge<A, Counter, inline p_protocol>  expecting ?eincr!value. = this.handle_incr2;
 
 
     result<void, error> handle_incr1 (eincr msg, !value?eincr!value. s1) {

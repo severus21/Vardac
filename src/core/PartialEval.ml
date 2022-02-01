@@ -554,7 +554,7 @@ and peval_port env place (port, mt_port) =
         match expecting_st.value with
         | SType {value=STEnd; _} -> Error.error place "a port can not expect the end of a protocol, no message will be send"
         | SType _ -> ()
-        | _ -> Error.error place "port expecting value must be a session type"
+        | _ -> Error.error place "inport expecting value must be a session type"
     end;
 
     env, ({ port with

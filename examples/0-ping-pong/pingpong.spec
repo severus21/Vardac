@@ -131,14 +131,14 @@ component B () {
 
     (*
         port name - not used, only to ease the debugging by providing meaningfull name 
-        port    1. listen [on] a logical bridge (i.e. get the guarantee of the bridge)
+        inport    1. listen [on] a logical bridge (i.e. get the guarantee of the bridge)
                 2. a bridge can transmit various type of messages (any substet of the protocol) 
                 so we specify which point of the protocol is handled by this port using [expecting]
         then the handling of an incomming interaction is delegated to a callback : 'st -> Result<void, error>
     *)
-    port truc on this._b :: bridge<A, B, inline p_pingpong> expecting ?ping!pong?ping?ping. = this.handle_ping;
-    port truc2 on this._b :: bridge<A, B, inline p_pingpong>  expecting ?ping?ping. = this.handle_ping2;
-    port truc3 on this._b :: bridge<A, B, inline p_pingpong>  expecting ?ping. = this.handle_ping3;
+    inport truc on this._b :: bridge<A, B, inline p_pingpong> expecting ?ping!pong?ping?ping. = this.handle_ping;
+    inport truc2 on this._b :: bridge<A, B, inline p_pingpong>  expecting ?ping?ping. = this.handle_ping2;
+    inport truc3 on this._b :: bridge<A, B, inline p_pingpong>  expecting ?ping. = this.handle_ping3;
 
     result<void, error> handle_ping (ping msg, !pong?ping?ping. s1) {
         print("ping");

@@ -19,7 +19,7 @@ component A () {
         this._b = b0;
     }
 
-    port p_in on this._b :: bridge<B, A, inline p_pingpong> expecting (dual p_pingpong) = this.handle_ping;
+    inport p_in on this._b :: bridge<B, A, inline p_pingpong> expecting (dual p_pingpong) = this.handle_ping;
 
     void handle_ping (ping msg, !pong. s1) {
         print("ping");

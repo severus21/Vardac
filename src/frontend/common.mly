@@ -531,7 +531,7 @@ any_method_:
     { t }
 
 any_inport_:
-| PORT name=LID ON chan=any_expr DOUBLE_COLON chan_type=any_type EXPECTING t=any_type EQ callback=any_expr
+| INPORT name=LID ON chan=any_expr DOUBLE_COLON chan_type=any_type EXPECTING t=any_type EQ callback=any_expr
     { {name=name; input=chan; input_type=chan_type; expecting_st=t; callback=callback} }
 %inline any_inport:
   t = placed(any_inport_)

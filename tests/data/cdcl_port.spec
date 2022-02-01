@@ -1,3 +1,3 @@
 component A () {
-    port port_name on c :: bridge<A, A, !int.> expecting !int. = toto;
+    inport port_name on c :: bridge<A, A, !int.> expecting !int. = toto;
 }
