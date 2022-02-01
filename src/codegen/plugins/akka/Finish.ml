@@ -122,7 +122,7 @@ module Make () = struct
             | S.Include _ -> Core.Error.error citem.place "Include is not yet supported in Akka plg"
             | S.Method  m-> {grp with methods=m::grp.methods}
             | S.State f-> {grp with states=f::grp.states}
-            | S.Port p -> {grp with ports=p::grp.ports}
+            | S.InPort p -> {grp with ports=p::grp.ports}
             | S.Outport p -> {grp with outports=p::grp.outports}
             (* Shallow search of Typealias, FIXME do we need deep search ?*)
             | S.Term {place; value=S.Component cdcl} -> {grp with nested=cdcl::grp.nested}

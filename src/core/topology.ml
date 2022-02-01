@@ -155,7 +155,7 @@ module Make (Args:Params) : Sig = struct
         generate_slt_mtype type0
     | StateDcl {type0;body=Some _} -> generate_slt_mtype type0
     and generate_slt_citem { AstUtils.place ; AstUtils.value}= match value with
-    | Port p -> () 
+    |InPort p -> () 
     | Method m -> generate_slt_method m 
     | State s -> generate_slt_state s
     | Term t -> generate_slt_term t

@@ -205,7 +205,7 @@ and _type_replace_component_item to_be_replaced by = function
 | State s -> State (type_replace_state to_be_replaced by s)
 | Method m -> Method (type_replace_method to_be_replaced by m)
 | Contract c -> Contract (type_replace_contract to_be_replaced by c)   
-| Port p -> Port (type_replace_port to_be_replaced by p)
+|InPort p ->InPort (type_replace_port to_be_replaced by p)
 | Term t -> Term (type_replace_term to_be_replaced by t)
 | Include ce -> Include ce
 and type_replace_component_item to_be_replaced by = replace_place (_type_replace_component_item to_be_replaced by)

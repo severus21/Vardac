@@ -126,7 +126,7 @@ let rec _shallow_scan_component_item ctx place = function
 | Contract _ -> ctx, [] (*TODO*)
 | Include _ -> ctx, []
 | Method m -> register_expr_type ctx m.value.name (typeof_method m), [m.value.name, typeof_method m]
-| Port p -> register_expr_type ctx (fst p.value).name (typeof_port p), [(fst p.value).name, typeof_port p]
+|InPort p -> register_expr_type ctx (fst p.value).name (typeof_port p), [(fst p.value).name, typeof_port p]
 | Outport p -> register_expr_type ctx (fst p.value).name (typeof_outport p), [(fst p.value).name, typeof_outport p]
 | State ({value=StateDcl {name}} as s)| State ({value=StateAlias {name}} as s) -> 
     register_expr_type ctx name (typeof_state s), [name, typeof_state s]
@@ -526,7 +526,7 @@ and tannot_port ctx p =
     let ctypeof x = auto_fplace (CType(auto_fplace x)) in
 
     let ctx, _p = _tannot_port ctx p.place p.value in
-    let mt_port = ctypeof (TPort (
+    let mt_port = ctypeof (TInPort (
         snd _p.input.value,
         _p.expecting_st
     )) in
@@ -627,9 +627,9 @@ and _tannot_component_item ctx place = function
 | Method m -> 
     let ctx, m = tannot_method ctx m in
     ctx, Method m 
-| Port p -> 
+|InPort p -> 
     let ctx, p = tannot_port ctx p in
-    ctx, Port p 
+    ctx,InPort p 
 | Outport p -> 
     let ctx, p = tannot_outport ctx p in
     ctx, Outport p 

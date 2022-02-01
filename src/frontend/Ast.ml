@@ -245,7 +245,7 @@ and _component_item =
     | Contract of contract 
 
     (** Inter-component composition*)
-    | Port of port 
+    |InPort of port 
     | Outport of outport
 
     (** Sub-components *)

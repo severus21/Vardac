@@ -133,7 +133,7 @@ and collect_expr_component_item_ parent_opt (already_binded:Atom.Set.t) selector
     | Contract c -> collect_expr_contract parent_opt already_binded selector collector c
     | Method m -> collect_expr_method0 parent_opt already_binded selector collector m
     | State s -> collect_expr_state parent_opt already_binded selector collector s 
-    | Port p  -> collect_expr_port parent_opt already_binded selector collector p
+    |InPort p  -> collect_expr_port parent_opt already_binded selector collector p
     | Outport p  -> collect_expr_outport parent_opt already_binded selector collector p
     | Term t -> collect_expr_term  parent_opt already_binded selector collector t    
 and collect_expr_component_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
@@ -160,7 +160,7 @@ and collect_expr_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector 
                 | StateDcl s -> s.name
                 | StateAlias s -> s.name
             ) already_binded
-            | Port p -> Atom.Set.add (fst p.value).name already_binded
+            |InPort p -> Atom.Set.add (fst p.value).name already_binded
             | Outport p -> Atom.Set.add (fst p.value).name already_binded
             | Term t -> already_binded
     ) already_binded cdcl.body in
@@ -298,7 +298,7 @@ and collect_cexpr_component_item_ parent_opt selector collector place = function
     | Contract c -> collect_cexpr_contract parent_opt  selector collector c
     | Method m -> collect_cexpr_method0 parent_opt  selector collector m
     | State s -> collect_cexpr_state parent_opt  selector collector s 
-    | Port p  -> collect_cexpr_port parent_opt  selector collector p
+    |InPort p  -> collect_cexpr_port parent_opt  selector collector p
     | Term t -> collect_cexpr_term  parent_opt  selector collector t    
 and collect_cexpr_component_item parent_opt selector collector citem =              
     map0_place (collect_cexpr_component_item_ parent_opt  selector collector) citem
@@ -376,7 +376,7 @@ and collect_stmt_component_item_ parent_opt selector collector place = function
     | Contract c -> collect_stmt_contract parent_opt  selector collector c
     | Method m -> collect_stmt_method0 parent_opt  selector collector m
     | State s -> collect_stmt_state parent_opt  selector collector s 
-    | Port p  -> collect_stmt_port parent_opt  selector collector p
+    |InPort p  -> collect_stmt_port parent_opt  selector collector p
     | Term t -> collect_stmt_term  parent_opt  selector collector t    
 and collect_stmt_component_item parent_opt selector collector citem =              
     map0_place (collect_stmt_component_item_ parent_opt  selector collector) citem
@@ -510,7 +510,7 @@ and collect_type_component_item_ parent_opt (already_binded:Atom.Set.t) selector
     | Contract c -> collect_type_contract parent_opt already_binded selector collector c
     | Method m -> collect_type_method0 parent_opt already_binded selector collector m
     | State s -> collect_type_state parent_opt already_binded selector collector s 
-    | Port p  -> collect_type_port parent_opt already_binded selector collector p
+    |InPort p  -> collect_type_port parent_opt already_binded selector collector p
     | Outport p  -> collect_type_outport parent_opt already_binded selector collector p
     | Term t -> collect_type_term  parent_opt already_binded selector collector t    
 and collect_type_component_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
@@ -533,7 +533,7 @@ and collect_type_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector 
             | Contract _ -> already_binded
             | Method m -> already_binded
             | State s -> already_binded
-            | Port p -> already_binded
+            |InPort p -> already_binded
             | Outport p -> already_binded
             | Term {value=Component {value=ComponentStructure {name}}} -> Atom.Set.add name already_binded
             | Term _ -> already_binded
@@ -711,7 +711,7 @@ and rewrite_type_component_item_  selector rewriter place = function
     | Contract c -> Contract (rewrite_type_contract selector rewriter c)
     | Method m -> Method (rewrite_type_method0 selector rewriter m)
     | State s -> State (rewrite_type_state selector rewriter s )
-    | Port p  -> Port (rewrite_type_port selector rewriter p)
+    |InPort p  ->InPort (rewrite_type_port selector rewriter p)
     | Outport p  -> Outport (rewrite_type_outport selector rewriter p)
     | Term t -> Term (rewrite_type_term selector rewriter t)
 and rewrite_type_component_item selector rewriter = map_place (rewrite_type_component_item_ selector rewriter) 
@@ -787,7 +787,7 @@ and rewrite_expr_component_item_  selector rewriter place = function
     | Contract c -> Contract (rewrite_expr_contract selector rewriter c)
     | Method m -> Method (rewrite_expr_method0 selector rewriter m)
     | State s -> State (rewrite_expr_state selector rewriter s )
-    | Port p  -> Port (rewrite_expr_port selector rewriter p)
+    |InPort p  ->InPort (rewrite_expr_port selector rewriter p)
     | Outport p  -> Outport (rewrite_expr_outport selector rewriter p)
     | Term t -> Term (rewrite_expr_term selector rewriter t)
 and rewrite_expr_component_item selector rewriter = map_place (rewrite_expr_component_item_ selector rewriter) 
@@ -1086,7 +1086,7 @@ value = {
 }]
 | Term t -> List.map (function t -> Term t) (rewrite_exprstmts_term parent_opt exclude_stmt selector rewriter t)
 (* citem without statement *)
-| Contract _ | Include _ | Port _ | Outport _ | State _ -> [citem]
+| Contract _ | Include _ |InPort _ | Outport _ | State _ -> [citem]
 and rewrite_exprstmts_component_item parent_opt exclude_stmt selector rewriter = map_places (rewrite_exprstmts_component_item_ parent_opt exclude_stmt selector rewriter) 
 
 
@@ -1129,7 +1129,7 @@ value = {
 }]
 | Term t -> List.map (function t -> Term t) (rewrite_stmt_term recurse selector rewriter t)
 (* citem without statement *)
-| Contract _ | Include _ | Port _ | Outport _ | State _ -> [citem]
+| Contract _ | Include _ |InPort _ | Outport _ | State _ -> [citem]
 and rewrite_stmt_component_item recurse selector rewriter = map_places (rewrite_stmt_component_item_ recurse selector rewriter) 
 
 

@@ -530,11 +530,11 @@ any_method_:
   t = placed(any_method_)
     { t }
 
-any_port_:
+any_inport_:
 | PORT name=LID ON chan=any_expr DOUBLE_COLON chan_type=any_type EXPECTING t=any_type EQ callback=any_expr
     { {name=name; input=chan; input_type=chan_type; expecting_st=t; callback=callback} }
-%inline any_port:
-  t = placed(any_port_)
+%inline any_inport:
+  t = placed(any_inport_)
     { t }
 
 any_outport_:
@@ -551,8 +551,8 @@ any_component_item_:
     { Method m }
 | c = any_contract
     { Contract c }
-| p = any_port SEMICOLON
-    { Port p}
+| p = any_inport SEMICOLON
+    { InPort p}
 | p = any_outport SEMICOLON
     { Outport p}
 | t = any_term
@@ -707,11 +707,11 @@ any_contract_sig_:
   t = placed(any_contract_sig_)
     { t }
 
-any_port_sig_:
+any_inport_sig_:
 | x=LID ON c=UID 
     {SP (x,c)}
-%inline any_port_sig:
-  t = placed(any_port_sig_)
+%inline any_inport_sig:
+  t = placed(any_inport_sig_)
     { t }
 
 any_signature_item_:
@@ -721,7 +721,7 @@ any_signature_item_:
     { SContract c}
 | METHOD m = any_method_sig     
     { SMethod m }
-| PORT p =any_port_sig
+| PORT p =any_inport_sig
     { SPort p }
 | SIGNATURE c = any_signature_dcl
     { SigDcl c}

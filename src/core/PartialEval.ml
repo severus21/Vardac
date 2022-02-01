@@ -125,8 +125,8 @@ end
 | TForall (x, mt) -> env, TForall (x, snd (pe_mtype env mt))
 (* no inner_env with x for pe_eval mt because x is not binded to any concrete type at this point *)
 | TPolyVar x -> env, TPolyVar x
-| TPort (mt1, mt2) ->
-    env, TPort ( 
+| TInPort (mt1, mt2) ->
+    env, TInPort ( 
         (snd <-> pe_mtype env) mt1,
         (snd <-> pe_mtype env) mt2
     )
@@ -582,7 +582,7 @@ and peval_component_item env place : _component_item -> env * _component_item = 
 | Contract c -> raise (Error.PlacedDeadbranchError (place, "contract should be paired with method before partial_evaluation, therefore no contract should remains as a component_item"))
 | Include cexpr -> env, Include (snd(pe_component_expr env cexpr))
 | Method m -> env, Method (snd(pe_method env m))
-| Port p -> env, Port (snd(pe_port env p))
+|InPort p -> env,InPort (snd(pe_port env p))
 | Outport p -> env, Outport (snd(pe_outport env p))
 | State s -> 
     let s = snd(pe_state env s)in

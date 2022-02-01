@@ -54,7 +54,7 @@ module Make (Args: TArgs) = struct
     *)
     let extract_intercepted_ports_of_schema (schema_struct : component_structure) : InterceptedPortSet.t = 
         let intercepted_ports = List.map (function
-        | {value=Port p} -> Some ((fst p.value).name, p.value) | _ -> None ) schema_struct.body in
+        | {value=InPort p} -> Some ((fst p.value).name, p.value) | _ -> None ) schema_struct.body in
         let intercepted_ports = List.filter Option.is_some intercepted_ports in
         let intercepted_ports = List.map Option.get intercepted_ports in
 
@@ -314,7 +314,7 @@ module Make (Args: TArgs) = struct
 
         let callback_onboard = Atom.fresh "onboard" in
         let port_onboard = Atom.fresh "port_onboard" in
-        let port_onboard_def = auto_fplace (Port (auto_fplace (
+        let port_onboard_def = auto_fplace (InPort (auto_fplace (
             {
                 name = port_onboard;
                 input = e_this_b_onboard; 
@@ -777,7 +777,7 @@ module Make (Args: TArgs) = struct
         (*** Callback names ***)
         let egress_callback_name = Atom.fresh (Printf.sprintf "callback_egress__%s__%d" (Atom.to_string b_intercepted) i) in
 
-        (*** Port & Outport generation ***)
+        (***InPort & Outport generation ***)
         let egress_outport_name = Atom.fresh (Printf.sprintf "egress_outport__%s__%d" (Atom.to_string b_intercepted) i) in
         let egress_outport = auto_fplace (Outport (auto_fplace ({
             name = egress_outport_name;
@@ -785,7 +785,7 @@ module Make (Args: TArgs) = struct
         }, auto_fplace EmptyMainType))) in
 
         let egress_inport_name = Atom.fresh (Printf.sprintf "egress_inport__%s__%d" (Atom.to_string b_intercepted) i) in
-        let egress_inport = auto_fplace (Port (auto_fplace ({
+        let egress_inport = auto_fplace (InPort (auto_fplace ({
             name = egress_inport_name;
             input = e_this_b_int;
             expecting_st = mtype_of_st st_stage;
