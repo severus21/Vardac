@@ -1,0 +1,35 @@
+{
+    "name": "aspeclg",
+    "displayName": "aspeclg",
+    "description": "aspecdesc",
+    "version": "0.0.1",
+    "publisher": "severus21",
+    "engines": {
+        "vscode": "^1.53.2"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "aspec",
+                "aliases": [
+                    "aspec",
+                    "aspec"
+                ],
+                "extensions": [
+                    ".spec"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "aspec",
+                "scopeName": "source.spec",
+                "path": "./syntaxes/aspec.tmLanguage.json"
+            }
+        ]
+    }
+}

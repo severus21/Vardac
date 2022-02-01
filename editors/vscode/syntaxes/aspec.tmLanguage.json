@@ -1,0 +1,391 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "aspec",
+	"foldingStartMarker": "(\\{|\\[|\\()\\s*$",
+	"foldingStopMarker":  "^\\s*(\\{|\\[|\\()",
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#constants"
+		},
+		{
+			"include": "#entities"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#metas"
+		},
+		{
+			"include": "#storages"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#supports"
+		},
+		{
+			"include": "#variables"
+		}
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+				"name": "comment.line.double-slash.aspec",
+				"begin": "//",
+				"end": "\n"
+				},
+				{
+				"name":"comment.block.aspec",
+				"begin": "\/[*]",
+				"end": "[*](\/)"
+				},
+				{
+				"name":"comment.block.only.aspec",
+				"begin": "\\([*]",
+				"end": "[*](\\))"
+				}
+			]
+		},
+		"constants": {
+			"patterns": [
+				{
+				"name": "constant.character",
+				"match": "(<|>|=|!|@)"
+				},
+				{
+				"name": "constant.language",
+				"match": "\\b(true|false|void)\\b"
+				},
+				{
+					"match": "\\b(?i:(0x\\h*)L)",
+					"name": "constant.numeric.integer.long.hexadecimal.aspec"
+				},
+				{
+					"match": "\\b(?i:(0x\\h*))",
+					"name": "constant.numeric.integer.hexadecimal.aspec"
+				},
+				{
+					"match": "\\b(?i:(0o?[0-7]+)L)",
+					"name": "constant.numeric.integer.long.octal.aspec"
+				},
+				{
+					"match": "\\b(?i:(0o?[0-7]+))",
+					"name": "constant.numeric.integer.octal.aspec"
+				},
+				{
+					"match": "\\b(?i:(0b[01]+)L)",
+					"name": "constant.numeric.integer.long.binary.aspec"
+				},
+				{
+					"match": "\\b(?i:(0b[01]+))",
+					"name": "constant.numeric.integer.binary.aspec"
+				},
+				{
+					"match": "\\b(?i:(((\\d+(\\.(?=[^a-zA-Z_])\\d*)?|(?<=[^0-9a-zA-Z_])\\.\\d+)(e[\\-\\+]?\\d+)?))J)",
+					"name": "constant.numeric.complex.aspec"
+				},
+				{
+					"match": "\\b(?i:(\\d+\\.\\d*(e[\\-\\+]?\\d+)?))(?=[^a-zA-Z_])",
+					"name": "constant.numeric.float.aspec"
+				},
+				{
+					"match": "(?<=[^0-9a-zA-Z_])(?i:(\\.\\d+(e[\\-\\+]?\\d+)?))",
+					"name": "constant.numeric.float.aspec"
+				},
+				{
+					"match": "\\b(?i:(\\d+e[\\-\\+]?\\d+))",
+					"name": "constant.numeric.float.aspec"
+				},
+				{
+					"match": "\\b(?i:([1-9]+[0-9]*|0)L)",
+					"name": "constant.numeric.integer.long.decimal.aspec"
+				},
+				{
+					"match": "\\b([1-9]+[0-9]*|0)",
+					"name": "constant.numeric.integer.decimal.aspec"
+				}
+			]
+		},
+		"entity_name_component": {
+			"patterns": [
+				{
+					"include": "#illegal_names"
+				},
+				{
+					"include": "#generic_names"
+				}
+			]
+		},
+		"entity_name_method": {
+			"patterns": [
+				{
+					"include": "#illegal_names"
+				},
+				{
+					"include": "#generic_names"
+				}
+			]
+		},
+		"entities": {
+			"patterns": [
+			]
+		},
+		"generic_names": {
+			"match": "[A-Za-z_][A-Za-z0-9_]*"
+		},
+		"illegal_names": {
+			"match": "\\b(and|as|assert|break|case|component|elif|else|for|from|global|if|import|in|is|let|match|not|or|inport|outport|return|while)\\b",
+			"name": "invalid.illegal.name.aspec"
+		},
+		"keywords": {
+			"patterns": [
+				{
+				"name": "keyword.control.aspec",
+				"match": "\\b(case|else|for|if|match|when)\\b"
+				},
+				{				
+				"name": "keyword.operator.aspec", 
+				"match": "\\b(or|and|not|\\+|\\-|->|\\.|in|:|::|;|@)\\b"
+				},
+				{				
+				"name": "keyword.other.aspec", 
+				"match": "\\b(expecting|on|spawn)\\b"
+				}
+			]
+		},
+		"labels": {
+			"match": "[a-zA-Z][a-zA-Z0-9]*(?:\\:\\:[a-zA-Z][a-zA-Z0-9]*)*"
+		},
+		"metas": {
+			"patterns": [					
+				{						
+					"name": "meta.component.aspec",
+					"begin": "^\\s*(component)\\s+(?=[a-zA-Z_][a-zA-Z_0-9]*\\s*\\(?)",
+					"beginCaptures": {
+						"1": {
+							"name": "storage.type.component.aspec"
+						}
+					},
+					"end": "(\\)?)\\s*(?:(\\{))",
+					"endCaptures": {
+						"1": {
+							"name": "punctuation.definition.parameters.end.aspec"
+						},
+						"2": {
+							"name": "punctuation.section.component.begin.aspec"
+						}
+					},
+					"patterns": [
+						{
+							"match": "([A-Za-z_][A-Za-z0-9_]*)(?=(\\s*\\(|\\*\\{))",
+							"name": "entity.name.type.component.aspec",
+							"patterns": [
+								{
+									"include": "#entity_name_component"
+								}
+							]
+						},
+						{
+							"begin": "(\\()",
+							"beginCaptures": {
+								"1": {
+									"name": "punctuation.definition.parameters.begin.aspec"
+								}
+							},
+							"contentName": "meta.component.parameters.parameters",
+							"end": "(?=\\s*\\))",
+							"endCaptures": {
+								"1": {
+									"name": "punctuation.definition.parameters.end.aspec"
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "meta.component.method.aspec",
+					"begin": "^\\s*(method)\\s+(?=[a-zA-Z_][a-zA-Z_0-9]*\\s*\\(?)",
+					"beginCaptures": {
+						"1": {
+							"name": "storage.type.method.aspec"
+						}
+					},
+					"end": "(\\)?)\\s*(?:(\\{))",
+					"endCaptures": {
+						"1": {
+							"name": "punctuation.definition.parameters.end.aspec"
+						},
+						"2": {
+							"name": "punctuation.section.method.begin.aspec"
+						}
+					},
+					"patterns": [
+						{
+							"match": "([A-Za-z_][A-Za-z0-9_]*)(?=(\\s*\\(|\\*\\{))",
+							"name": "entity.name.type.method.aspec",
+							"patterns": [
+								{
+									"include": "#entity_name_method"
+								}
+							]
+						},
+						{
+							"begin": "(\\()",
+							"beginCaptures": {
+								"1": {
+									"name": "punctuation.definition.parameters.begin.aspec"
+								}
+							},
+							"contentName": "meta.method.parameters.parameters",
+							"end": "(?=\\s*\\))",
+							"endCaptures": {
+								"1": {
+									"name": "punctuation.definition.parameters.end.aspec"
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "meta.component.method.aspec",
+					"begin": "^\\s*(onstartup|ondestroy)(?=\\s*\\(?)",
+					"beginCaptures": {
+						"1": {
+							"name": "storage.type.method.aspec"
+						}
+					},
+					"end": "(\\)?)\\s*(?:(\\{))",
+					"endCaptures": {
+						"1": {
+							"name": "punctuation.definition.parameters.end.aspec"
+						},
+						"2": {
+							"name": "punctuation.section.method.begin.aspec"
+						}
+					},
+					"patterns": [
+						{
+							"begin": "(\\()",
+							"beginCaptures": {
+								"1": {
+									"name": "punctuation.definition.parameters.begin.aspec"
+								}
+							},
+							"contentName": "meta.method.parameters.parameters",
+							"end": "(?=\\s*\\))",
+							"endCaptures": {
+								"1": {
+									"name": "punctuation.definition.parameters.end.aspec"
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "meta.component.inport.aspec",
+					"begin": "^\\s*(inport)",
+					"beginCaptures": {
+						"1": {
+							"name": "storage.type.inport.aspec"
+						}
+					},
+					"end": "(;)",
+					"endCaptures": {
+						"1": {
+							"name": "punctuation.section.inport.end.aspec"
+						}
+					},
+					"patterns": []
+				},
+				{
+					"name": "meta.component.outport.aspec",
+					"begin": "^\\s*(outport)",
+					"beginCaptures": {
+						"1": {
+							"name": "storage.type.outport.aspec"
+						}
+					},
+					"end": "(;)",
+					"endCaptures": {
+						"1": {
+							"name": "punctuation.section.outport.end.aspec"
+						}
+					},
+					"patterns": []
+				}
+			]
+		},
+		"storage": {
+			"patterns": [
+				{					
+					"name": "storage.type",
+					"match": "\\b(component|channel|session|method|contract|port)\\b"	
+				},
+				{					
+					"name": "storage.modifier",				
+					"match": "\\b(local|shared|global|ghost)\\b"	
+				}
+			]
+		},
+		"strings": {
+			"patterns": [
+				{
+					"begin": "(l\")",
+					"beginCaptures": {
+						"1": {
+							"name": "punctuation.definition.string.begin.aspec"
+						}
+					},
+					"comment": "double quoted label string",
+
+					"end": "(\")",
+					"endCaptures": {
+						"1": {
+							"name": "punctuation.definition.string.end.aspec"
+						}
+					},
+					"name": "string.quoted.double.block.label.aspec",
+					"patterns": [
+						{
+							"include": "#labels"
+						}
+					]
+				},
+				{
+				"name": "string.quoted.double.aspec",
+				"begin": "\"",
+				"end": "\""
+				},
+				{
+				"name": "string.quoted.single.aspec",
+				"begin": "'",
+				"end": "'"
+				}
+			]
+		},
+		"supports": {
+			"patterns": [
+				{
+					"name": "support.function.aspec",
+					"match": "\\b(fire|initiate_session)\\b"
+				}
+			]
+		},
+		"variables": {
+			"patterns": [
+				{
+					"names": "variable.language.aspec",
+					"match": "\\b(current_place)\\b"
+				}
+			]
+		}
+
+	},
+	"scopeName": "source.spec"
+}

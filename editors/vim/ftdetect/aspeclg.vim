@@ -1,0 +1,1 @@
+au BufRead,BufNewFile *.spec set filetype=aspeclg
