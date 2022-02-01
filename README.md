@@ -88,6 +88,23 @@ Start a compiler with the compiled jar
 docker-compose up -d
 ```
 
+## Editors integration
+We provide two plugins for vim and vscode.
+
+Manual installation of vim plugin for the current user
+```bash
+    cd editors/vim && make install
+```
+
+Manual installation of vscode plugin for the current user
+```bash
+    cd editors/vscode
+
+    # generate the package from sources
+    vsce package
+    code --install-extension aspeclg-0.0.1.vsix
+```
+
 # Docker and Docker-Compose
 
 A little tweak/hack is currently needed for the console application to work from outside a docker context.
