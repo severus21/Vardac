@@ -110,20 +110,11 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
         body: component_item list}
 
     and _component_dcl = 
-        (* 
-        component X args = {
-            component_stmt1; 
-            ...
-            component_stmtn;
-        } =>
-        TODO component X = lambda arg1: ... lambda argn: { body } ???
-        *)
-        | ComponentStructure of component_structure
         | ComponentAssign of {
             name: component_variable; 
-            args: param list; 
             value: component_expr
         }
+        | ComponentStructure of component_structure
 
     and component_dcl = _component_dcl placed
 

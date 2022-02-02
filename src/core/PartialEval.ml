@@ -593,9 +593,8 @@ and peval_component_item env place : _component_item -> env * _component_item = 
 and pe_component_item env: component_item -> env * component_item = map2_place (peval_component_item env)
 
 and peval_component_dcl env place : _component_dcl -> env * _component_dcl = function  
-| ComponentAssign {name; args; value} -> env, ComponentAssign {
+| ComponentAssign {name; value} -> env, ComponentAssign {
     name;
-    args = List.map (function param -> snd(pe_param env param)) args;
     value = snd(pe_component_expr env value) 
 } 
 | ComponentStructure cdcl ->

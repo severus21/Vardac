@@ -584,7 +584,7 @@ any_component_dcl_:
     { ComponentStructure {name=name; annotations=[]; args=params; body=body} }
 (* component X = Y*)
 | COMPONENT name=UID EQ value=any_component_expr SEMICOLON
-    { ComponentAssign {name=name; args=[]; value=value} }
+    { ComponentAssign {name=name; value=value} }
 (* TODO args+functor *)
 %inline any_component_dcl:
   t = placed(any_component_dcl_)

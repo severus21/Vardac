@@ -153,7 +153,7 @@ and paired_component_dcl parents place : S2._component_dcl -> T._component_dcl =
         T.ComponentStructure {target_name; annotations; name; args; body}
     with | Not_found -> raise (Error.PlacedDeadbranchError (place, "A target should have been assign to each component"))
 end
-| S2.ComponentAssign {name; args; value} -> T.ComponentAssign {name; args; value} 
+| S2.ComponentAssign {name; value} -> T.ComponentAssign {name; value} 
 and ccdcl parents: S2.component_dcl -> T.component_dcl = map_place (paired_component_dcl parents)
 
 and paired_function_dcl parents place : S2._function_dcl -> T._function_dcl = function

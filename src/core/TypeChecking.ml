@@ -388,9 +388,8 @@ and _tcheck_component_dcl place = function
 | ComponentStructure cdcl ->
     List.iter tcheck_param cdcl.args;
     List.iter tcheck_component_item cdcl.body
-| ComponentAssign cdcl -> 
-    List.iter tcheck_param cdcl.args;
-    tcheck_component_expr cdcl.value
+| ComponentAssign {value} -> 
+    tcheck_component_expr value
 and tcheck_component_dcl cdcl = map0_place _tcheck_component_dcl cdcl
 
 

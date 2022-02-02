@@ -144,6 +144,12 @@ and free_vars_component_item already_binded citem =
     already_binded, Utils.deduplicate snd fvars 
 
 and collect_expr_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector collector place = function 
+| ComponentAssign {name; value} ->
+    (* TODO write collect expr_cexpr
+    let _, collected_elts, fvars = collect_expr_cexpr parent_opt already_binded selector collector in 
+    (Atom.Set.add name already_binded), collected_elts, fvars
+    *)
+    already_binded, [], []
 | ComponentStructure cdcl ->
     let parent_opt = Some cdcl.name in
     assert(cdcl.args = []);

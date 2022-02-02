@@ -1036,10 +1036,9 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         let new_env, name = bind_component env place cdcl.name in
         let env = {env with component = new_env.component } in
 
-        let inner_env, args = List.fold_left_map cparam env cdcl.args in
-        let inner_env, value = ccexpr inner_env cdcl.value in
+        let inner_env, value = ccexpr env cdcl.value in
         (* TODO what should i do with the inner_env + should i refresh the env ?? *)
-        new_env, T.ComponentAssign {name; args; value }
+        new_env, T.ComponentAssign {name; value }
     and ccdcl env: S.component_dcl -> env * T.component_dcl = map2_place (cook_component_dcl env)
 
     (********************** Manipulating component structure *********************)

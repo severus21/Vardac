@@ -224,7 +224,6 @@ module Make () = struct
 
         auto_fplace (ComponentAssign {
             name = interceptor_name;
-            args = []; (* TODO Remove args and create a dedicated type for functor *)
             value = ce2_ce (
                 AppCExpr (
                     ce2var (Atom.builtin "MakeInterceptor"), 

@@ -664,10 +664,9 @@ function
     args = List.map (tannot_param ctx) cdcl.args;
     body =  body (* TODO first pass allow mutual recursive function ?? - only from header *)
 } 
-| ComponentAssign cdcl -> ctx, ComponentAssign {
-    name = cdcl.name;
-    args = List.map (tannot_param ctx) cdcl.args;
-    value = tannot_component_expr ctx cdcl.value;
+| ComponentAssign {name; value} -> ctx, ComponentAssign {
+    name = name;
+    value = tannot_component_expr ctx value;
 } 
 and tannot_component_dcl ctx cdcl = 
     let ctx, _cdcl = _tannot_component_dcl ctx cdcl.place cdcl.value in

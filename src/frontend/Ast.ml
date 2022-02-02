@@ -267,7 +267,10 @@ and _component_dcl =
         args: param list; 
         body: component_item list
     } 
-    | ComponentAssign of {name: variable; args: param list; value: component_expr}
+    | ComponentAssign of {
+        name: variable; 
+        value: component_expr
+    }
 
 and component_dcl = _component_dcl placed
 
