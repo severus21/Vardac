@@ -7,10 +7,7 @@ event pong of;
 protocol p_pingpong = !ping?pong.;
 
 (********************* PingPong *********************)
-@capturable(
-    [MsgCounter], 
-    [p_in]
-)
+@capturable([MsgCounter])
 component A () {
     bridge<B, A, inline p_pingpong> _b;
     

@@ -522,7 +522,7 @@ and collect_type_component_item_ parent_opt (already_binded:Atom.Set.t) selector
     | Contract c -> collect_type_contract parent_opt already_binded selector collector c
     | Method m -> collect_type_method0 parent_opt already_binded selector collector m
     | State s -> collect_type_state parent_opt already_binded selector collector s 
-    |Inport p  -> collect_type_port parent_opt already_binded selector collector p
+    | Inport p  -> collect_type_port parent_opt already_binded selector collector p
     | Outport p  -> collect_type_outport parent_opt already_binded selector collector p
     | Term t -> collect_type_term  parent_opt already_binded selector collector t    
 and collect_type_component_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
@@ -533,6 +533,13 @@ and free_tvars_component_item already_binded citem =
     already_binded, Utils.deduplicate Fun.id ftvars 
 
 and collect_type_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector collector place = function 
+| ComponentAssign {name; value} ->
+    (*
+    TODO ?? if so do the same for component structure
+    let already_binded = Atom.Set.add name already_binded in
+    *)
+    let _, collected_elts, ftvars = collect_type_cexpr parent_opt already_binded selector collector value in
+    already_binded, collected_elts, ftvars 
 | ComponentStructure cdcl ->
     let parent_opt = Some cdcl.name in
     assert(cdcl.args = []);
@@ -545,7 +552,7 @@ and collect_type_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector 
             | Contract _ -> already_binded
             | Method m -> already_binded
             | State s -> already_binded
-            |Inport p -> already_binded
+            | Inport p -> already_binded
             | Outport p -> already_binded
             | Term {value=Component {value=ComponentStructure {name}}} -> Atom.Set.add name already_binded
             | Term _ -> already_binded
