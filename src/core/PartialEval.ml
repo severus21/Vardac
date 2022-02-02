@@ -2,6 +2,7 @@ open IR
 open Easy_logging
 open Utils
 open AstUtils
+open IRMisc
 
 let logger = Logging.make_logger "_1_ compspec" Debug [];;
 

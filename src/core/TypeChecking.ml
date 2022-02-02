@@ -4,6 +4,7 @@ open Easy_logging
 open Fieldslib
 open AstUtils
 open TypingUtils
+open IRMisc
 
 module S = IR
 module T = IR

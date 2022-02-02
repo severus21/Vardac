@@ -777,7 +777,6 @@ module Make (Args: TArgs) = struct
         let local_s_out, e_local_s_out = e_param_of "s_out" in
         let local_s_out2, e_local_s_out2 = e_param_of "s_out_next" in
 
-        (* TODO select*)
         let mt_out, mt_out2 = 
             match tmsg.value with
             | CType{ value = TFlatType TBLabel} -> 
@@ -942,7 +941,7 @@ module Make (Args: TArgs) = struct
         }, auto_fplace EmptyMainType))) in
 
 
-        let (tmsg, st_continuation) : main_type * session_type = failwith "TODO to compute it reuse existing fct for Akka or RecvElim" in
+        let (tmsg, st_continuation) : main_type * session_type = msgcont_of_st (auto_fplace st_stage) in
 
         (*** Msg interception callback ***)
         let callback_msg : method0 = generate_egress_callback_msg interceptor_info msg_interceptors (b_intercepted, tb_intercepted) i tmsg st_continuation in
@@ -1148,9 +1147,6 @@ module Make (Args: TArgs) = struct
                     Error.error place "%s can not be intercepted by %s. To make it capturable add ```@capturable`` annotation to %s." (Atom.value schema) (Atom.value interceptor_info.base_interceptor_name) (Atom.value schema);
             ) interceptor_info.intercepted_schemas;
             
-            (*TODO and checks pass and select port accordingly 
-            *)
-
             [ generate_interceptor base_interceptor interceptor_info ]
         end
         | _ -> Error.error place "Illformed MakeInterceptor functor: MakeInterceptor(BaseInterceptor, [intercepted_schemas])"
@@ -1169,8 +1165,11 @@ module Make (Args: TArgs) = struct
     let show_ast = true
     let precondition program = program
 
-    (* TODO*)
-    let postcondition program = program
+    let postcondition program = 
+        (* Check: no MakeInterceptor *)
+        ignore (collect_term_program true makeinterceptor_selector (failwith "MakeInterceptor remains in IR") program);
+
+        program 
     let apply_program = intercept_elim_program
 end
 

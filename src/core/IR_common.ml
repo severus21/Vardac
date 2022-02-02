@@ -291,7 +291,6 @@ module type TIRC = sig
 
 
     (****** BEGIN EDIT BY HUMAN*****)
-    val dual : session_type -> session_type
     val collect_type_mtype : Atom.atom option -> Atom.Set.t -> (_main_type -> bool) -> (Atom.atom option -> Atom.Set.t -> main_type -> 'a list) -> main_type -> Atom.Set.t * 'a list * type_variable list
     val collect_type_stmt : Atom.atom option -> Atom.Set.t -> (_main_type -> bool) -> (Atom.atom option -> Atom.Set.t -> main_type -> 'a list) -> stmt -> Atom.Set.t * 'a list * type_variable list
     val collect_type_cexpr : Atom.atom option -> Atom.Set.t -> (_main_type -> bool) -> (Atom.atom option -> Atom.Set.t -> main_type -> 'a list) -> component_expr -> Atom.Set.t * 'a list * type_variable list
@@ -324,9 +323,6 @@ module type TIRC = sig
     val equal_mtype : main_type -> main_type -> bool
     val equal_expr : expr -> expr -> bool
     val equal_cexpr : component_expr -> component_expr -> bool
-
-    val unfold_st_star : session_type -> session_type
-    val stages_of_st : session_type -> _session_type list
 end
 
 
@@ -611,18 +607,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
 
 
-    let rec _dual place : _session_type -> _session_type  = function
-    | STEnd -> STEnd
-    | STVar _ as st -> st
-    | STSend (mt, st) -> STRecv (mt, dual st)
-    | STRecv (mt, st) -> STSend (mt, dual st)
-    | STBranch choices -> STSelect (List.map (function (x, st, c) -> (x, dual st, c)) choices)
-    | STSelect choices -> STBranch (List.map (function (x, st, c) -> (x, dual st, c)) choices)
-    | STRec (x, st) -> STRec (x, dual st)
-    | STInline x -> STInline x
-    | STDual st -> (dual st).value
-    and dual st : session_type = 
-    { st with value = _dual st.place st.value }
 
     (* TODO get ride of return fvars and encode it as a selector collector if possible ?? links with stmt ?? *)
     (* collector : env -> expr -> 'a list*)
@@ -1703,41 +1687,4 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     _equal_cexpr ((fst ce1.value), (fst ce2.value))
 
 
-    (* Return form do not start with an µx.*)
-    let rec _unfold_st_star = function
-    | STRec (x, st) ->
-        let st = replace_stype_session_type x (None, Some st.value) st in
-        st.value
-    | st -> st
-    and unfold_st_star st = {place = st.place; value = _unfold_st_star st.value}
-
-
-    (* returns the list of st stages that introduce a message send or receive
-        e.g.
-        st =def= µx. +{ l1: ?ping!pong. ; l2: x.};
-        =>
-        [
-            st; //therefore we do not store +{ l1: ?ping!pong. ; l2: x.}
-            ?ping!pong.
-            !pong.
-        ]
-        then compute a set 
-
-        @param recsts_def - retains (x -> µx. st) for each µx - st found
-    *)
-    let stages_of_st = 
-        let rec aux_stages_of_st_ place = function
-        | STEnd -> []
-        | STVar x -> [] (* Do not store µx. ... to avoid doing deduplication afterwards.*)
-        | (STRecv (_, st2) as st1) | (STSend (_, st2) as st1)-> st1 :: (aux_stages_of_st st2)
-        | (STBranch branches as st) | (STSelect branches as st) -> 
-            st :: (List.flatten (List.map (function (_, st_branch, _) -> aux_stages_of_st st_branch) branches))
-        | STRec (x, st2) as st1 ->
-            (* do not store twice the input stage of the recursion - we choose to retains the recusive aspect (i.e. storing st1 and not st2 (erase by List.tl)) *)
-            st1:: List.tl (aux_stages_of_st st2)
-        | STInline _ -> raise (Error.PlacedDeadbranchError (place, "STInlinie should have been compiled away before using [aux_stages_of_st]!"))
-        and aux_stages_of_st st = map0_place aux_stages_of_st_ st
-        in
-
-        aux_stages_of_st 
 end

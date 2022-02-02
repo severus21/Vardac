@@ -1118,7 +1118,7 @@ module Make () = struct
                     auto_place (T.BinopExpr(
                         auto_place (T.BinopExpr (e_bridgeid l_event, AstUtils.StructuralEqual, bridgeid bridge), auto_place T.TUnknown),
                         AstUtils.And,
-                        auto_place (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, fvstype (S.dual st)), auto_place T.TUnknown)
+                        auto_place (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, fvstype (IRMisc.dual st)), auto_place T.TUnknown)
                     ), auto_place T.TUnknown),
                     auto_place (T.BlockStmt [
                         auto_place (T.LetStmt (
