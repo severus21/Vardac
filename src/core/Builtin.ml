@@ -363,6 +363,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "session_from", "session -> activation<>", "get the initiater of the session", t_select; (*TODO*)
     "session_to_2_", "session -> activation<>", "TODO", t_select; (*TODO*)
     "activationid", "activation_ref -> activation_id", "TODO", t_select; (*TODO*)
+    "sessionid", "'st -> session_id", "TODO", t_select; (*TODO*)
     (*
 
 

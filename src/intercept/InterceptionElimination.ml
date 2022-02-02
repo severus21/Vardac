@@ -482,15 +482,15 @@ module Make (Args: TArgs) = struct
     let generate_sessions_block interceptor_info : interceptor_info * component_item list = 
         let this_4external2internal = Atom.fresh "4external2internal" in
         let this_4internal2external = Atom.fresh "4internal2external" in
-        let this_sessions_4ext = Atom.fresh "sessions_4ext" in
-        let this_sessions_4int = Atom.fresh "sessions_4int" in
+        let this_4external = Atom.fresh "sessions_4ext" in
+        let this_4internal = Atom.fresh "sessions_4int" in
 
         assert(interceptor_info.sessions_info = None);
         let interceptor_info = {interceptor_info with
             sessions_info = Some { 
                 this_4external2internal;
-                this_4internal2external; this_sessions_4ext; 
-                this_sessions_4int; 
+                this_4internal2external; this_4external; 
+                this_4internal; 
             }
         } in
 
@@ -514,25 +514,24 @@ module Make (Args: TArgs) = struct
             auto_fplace (State (auto_fplace (StateDcl {
                 ghost = false;
                 type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TWildcard));
-                name = this_sessions_4ext;
+                name = this_4external;
                 body = Some (e2_e (Block2Expr (Dict, [])));
             })));
             auto_fplace (State (auto_fplace (StateDcl {
                 ghost = false;
                 type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TWildcard));
-                name = this_sessions_4int;
+                name = this_4internal;
                 body = Some (e2_e (Block2Expr (Dict, [])));
             })));
         ]
 
 
-
-    (*************** Step 3 - Ingress generation ******************)
+    (*************** Ingress Egress utils ******************)
 
     let paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_B, st3, tmsg3)=
         TypingUtils.is_subtype left_mt  mt_A
         && TypingUtils.is_subtype right_mt mt_B
-        && TypingUtils.is_subtype st_continuation (mtype_of_st st3.value)
+        && TypingUtils.is_subtype (mtype_of_st st_continuation.value) (mtype_of_st st3.value)
         && TypingUtils.is_subtype tmsg tmsg3  
 
     (*
@@ -617,6 +616,7 @@ module Make (Args: TArgs) = struct
             get_sessioninterceptor_not_anon interceptor_info session_interceptors tb_intercepted_bridge i (tmsg, st_continuation)
 
 
+    (*************** Step 3 - Ingress generation ******************)
     let has_kind_ingress interceptor_info = function
     | {value=CType {value = TBridge tbridge}} ->
         let right = tbridge.out_type in
@@ -626,10 +626,31 @@ module Make (Args: TArgs) = struct
         ) false (Atom.Set.to_list interceptor_info.intercepted_schemas)
     | _ -> raise (Error.DeadbranchError "intercepted bridge must have a bridge type!")
 
+    let generate_ingress_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_b_out this_b_int i this_callback_msg tmsg st_continuation = 
+        failwith "TODO"
+
+    let generate_ingress_callback_msg interceptor_info b_intercepted i tmsg st_continuation = 
+        failwith "TODO"
+
+    let generate_ingress_block_per_intercepted_bridge_per_st_stage  interceptor_info msg_interceptors session_interceptors b_intercepted this_b_out this_b_int tb_intercepted i st_stage = 
+        failwith "TODO"
+
+    let generate_ingress_block_per_intercepted_bridge interceptor_info msg_interceptors session_interceptors b_intercepted this_b_out this_b_int b_mt : component_item list = 
+        failwith "TODO"
+
     let generate_ingress_block interceptor_info base_interceptor : component_item list = 
         failwith "TODO"
 
     (*************** Step 4 - Egress generation ******************)
+
+    let has_kind_egress interceptor_info = function
+    | {value=CType {value = TBridge tbridge}} ->
+        let left = tbridge.in_type in
+
+        List.fold_left (fun flag schema -> 
+            flag || ( TypingUtils.is_subtype (mtype_of_cvar schema) left) 
+        ) false (Atom.Set.to_list interceptor_info.intercepted_schemas)
+    | _ -> raise (Error.DeadbranchError "intercepted bridge must have a bridge type!")
 
     let generate_egress_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_b_out this_b_int i this_callback_msg tmsg st_continuation = 
         let param_msg, e_param_msg = e_param_of "msg" in
@@ -669,7 +690,7 @@ module Make (Args: TArgs) = struct
             name = Atom.fresh (Printf.sprintf "egress_callback_sessioninit__%s__%d" (Atom.to_string b_intercepted) i);
             args = [
                 auto_fplace (tmsg, param_msg);
-                auto_fplace (st_continuation, param_s_in);
+                auto_fplace (mtype_of_st st_continuation.value, param_s_in);
             ];
             body = [
                 (* TODO assert(s_in.to_2_ != None ); *)
@@ -746,9 +767,59 @@ module Make (Args: TArgs) = struct
         }
 
 
-    let generate_egress_callback_msg interceptor_info b_intercepted i tmsg st_continuation = 
-        let param_msg = Atom.fresh "msg" in
-        let param_s_in = Atom.fresh "s_in" in
+    let generate_egress_callback_msg interceptor_info msg_interceptors (b_intercepted, tb_intercepted) i tmsg st_continuation = 
+        let param_msg, e_param_msg = e_param_of "msg" in
+        let param_s_in, e_param_s_in = e_param_of "s_in" in
+
+
+        let local_from, e_local_from = e_param_of "from" in
+        let local_to, e_local_to = e_param_of "to" in
+        let local_s_out, e_local_s_out = e_param_of "s_out" in
+        let local_s_out2, e_local_s_out2 = e_param_of "s_out_next" in
+
+        (* TODO select*)
+        let mt_out, mt_out2 = 
+            match tmsg.value with
+            | CType{ value = TFlatType TBLabel} -> 
+                (* select*)
+                mtype_of_st (dual st_continuation).value, mtype_of_ft TWildcard 
+            | _ -> (* fire *)
+                let mt_out2 = dual st_continuation in
+                mtype_of_st (STSend (tmsg, mt_out2)), mtype_of_st mt_out2.value 
+        in 
+
+
+
+        let e_res_msginterceptor = e2_e (AccessExpr ( 
+            e2_e This, 
+            match (get_msginterceptor interceptor_info msg_interceptors tb_intercepted i (tmsg, st_continuation)) with
+            | Some x_to -> 
+                e2_e (CallExpr (
+                    e2var x_to,
+                    [
+                        e_local_from;
+                        e_local_to;
+                        e_param_s_in;
+                        e_local_s_out;
+                        e_param_msg;
+                    ]
+                ))
+            | None -> 
+                (* Case there is no user defined function *)
+                logger#warning "No @msginterceptor(...) for bridge type %s" (show_tbridge tb_intercepted);
+                e2_e (CallExpr (
+                    e2var (Atom.builtin "fire"),
+                    [
+                        e_local_s_out;
+                        e_param_msg;
+                    ]
+                )) 
+        )) in
+
+        let left_mt = tb_intercepted.in_type in
+        let right_mt = tb_intercepted.out_type in
+
+        let sessions_info = Option.get interceptor_info.sessions_info in
 
         auto_fplace {
             annotations = [];
@@ -757,10 +828,85 @@ module Make (Args: TArgs) = struct
             name = Atom.fresh (Printf.sprintf "egress_callback_ongoing__%s__%d" (Atom.to_string b_intercepted) i);
             args = [
                 auto_fplace (tmsg, param_msg);
-                auto_fplace (st_continuation, param_s_in);
+                auto_fplace (mtype_of_st st_continuation.value, param_s_in);
             ];
             body = [
-                failwith "TODO"
+                (*** Computing from, to and s_out ***)
+                auto_fplace (LetStmt(
+                    mtype_of_ct (TActivationRef left_mt),
+                    local_from,
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "session_from"),
+                        [ e_param_s_in ]
+                    ))
+                ));
+                auto_fplace (LetStmt(
+                    mtype_of_ct (TActivationRef right_mt),
+                    local_to,
+                    e2_e (CallExpr( 
+                        e2var (Atom.builtin "option_get"),
+                        [ 
+                            e2_e (CallExpr (
+                                e2var (Atom.builtin "session_to_2_"),
+                                [ e_param_s_in ]
+                            ))
+                        ]
+                    ))
+                ));
+                auto_fplace (LetStmt(
+                    mt_out,
+                    local_to,
+                    e2_e (CallExpr( 
+                        e2var (Atom.builtin "get2dict"),
+                        [ 
+                            e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4internal));
+                            e2_e (CallExpr( 
+                                e2var (Atom.builtin "get2dict"),
+                                [ 
+                                    e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4external2internal));
+                                    e2_e (CallExpr (
+                                        e2var (Atom.builtin "sessionid"),
+                                        [ e_param_s_in ]
+                                    ))
+                                ]
+                            ));
+                        ]
+                    ))
+                ));
+
+                (* TODO assert  ... *)
+
+                (*** Apply msg interceptor ***)
+                auto_fplace (LetStmt(
+                    mt_out2,
+                    local_s_out2,
+                    e_res_msginterceptor
+                ));
+
+                (*** Update metadata ***)
+                auto_fplace (ExpressionStmt (e2_e(CallExpr(
+                    e2var (Atom.builtin "add2dict"),
+                    [
+                        e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4internal));
+                        e2_e (CallExpr (
+                            e2var (Atom.builtin "sessionid"),
+                            [ e_local_s_out2 ]
+                        ));
+                        e_local_s_out2
+                    ]
+                ))));
+                auto_fplace (ExpressionStmt (e2_e(CallExpr(
+                    e2var (Atom.builtin "add2dict"),
+                    [
+
+                        e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4external));
+                        e2_e (CallExpr (
+                            e2var (Atom.builtin "sessionid"),
+                            [ e_param_s_in ]
+                        ));
+                        e_param_s_in
+                    ]
+                ))));
             ];
             contract_opt = None;
             on_destroy = false;
@@ -796,10 +942,10 @@ module Make (Args: TArgs) = struct
         }, auto_fplace EmptyMainType))) in
 
 
-        let tmsg, st_continuation = failwith "TODO to compute it reuse existing fct for Akka or RecvElim" in
+        let (tmsg, st_continuation) : main_type * session_type = failwith "TODO to compute it reuse existing fct for Akka or RecvElim" in
 
         (*** Msg interception callback ***)
-        let callback_msg : method0 = generate_egress_callback_msg interceptor_info  b_intercepted i tmsg st_continuation in
+        let callback_msg : method0 = generate_egress_callback_msg interceptor_info msg_interceptors (b_intercepted, tb_intercepted) i tmsg st_continuation in
 
         (*** Session interception callback ***)
         let callback_session_init : method0 option = 
@@ -821,7 +967,7 @@ module Make (Args: TArgs) = struct
                     name = egress_callback_name;
                     args = [
                         auto_fplace (tmsg, param_msg);
-                        auto_fplace (st_continuation, param_s_in);
+                        auto_fplace (mtype_of_st st_continuation.value, param_s_in);
                     ];
                     body = [
                         auto_fplace (IfStmt(
@@ -890,16 +1036,8 @@ module Make (Args: TArgs) = struct
                 st_stages
         )
     
-    let has_kind_egress interceptor_info = function
-    | {value=CType {value = TBridge tbridge}} ->
-        let left = tbridge.in_type in
 
-        List.fold_left (fun flag schema -> 
-            flag || ( TypingUtils.is_subtype (mtype_of_cvar schema) left) 
-        ) false (Atom.Set.to_list interceptor_info.intercepted_schemas)
-    | _ -> raise (Error.DeadbranchError "intercepted bridge must have a bridge type!")
-
-    let generate_egress_block program interceptor_info base_interceptor : component_item list = 
+    let generate_egress_block interceptor_info base_interceptor : component_item list = 
         let msg_interceptors = extract_message_intercept_methods (methods_of base_interceptor) in
         let session_interceptors = extract_message_intercept_methods (methods_of base_interceptor) in
 
@@ -927,7 +1065,7 @@ module Make (Args: TArgs) = struct
         let interceptor_info, inlined_onstartup_block = include_base_citems interceptor_info base_interceptor in
         let interceptor_info, sessions_block = generate_sessions_block interceptor_info in
         let ingress_block = generate_ingress_block interceptor_info base_interceptor in
-        let egress_block = generate_egress_block (failwith "TODO parent program or parent intercepted_outputports") interceptor_info base_interceptor in
+        let egress_block = generate_egress_block interceptor_info base_interceptor in
 
 
         Component (auto_fplace (ComponentStructure {

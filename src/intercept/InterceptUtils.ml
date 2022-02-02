@@ -50,8 +50,8 @@ type onboard_info = {
 type sessions_info = {
     this_4external2internal: Atom.atom;
     this_4internal2external: Atom.atom;
-    this_sessions_4ext: Atom.atom;
-    this_sessions_4int: Atom.atom
+    this_4external: Atom.atom;
+    this_4internal: Atom.atom
 } 
 
 type interceptor_info = {

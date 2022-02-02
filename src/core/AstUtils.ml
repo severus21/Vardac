@@ -66,6 +66,7 @@ type flat_type =
     | TFloat 
     | TStr
     | TLabel
+    | TBLabel (* label for non deterministic choices (STBranch/STSelect) only *)
     | TVoid
     | TPlace
     | TSessionID (* can not be created by programmer -> no constructor *)
