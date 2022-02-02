@@ -43,7 +43,9 @@ let mark_type key =
     types_seen := SeenSet.add key !types_seen
 let type_impls : (string list, S1.type_impl  AstUtils.placed) Hashtbl.t = Hashtbl.create 256
 
+let name2key : (Atom.atom, string list) Hashtbl.t = Hashtbl.create 16
 let component2target : (string list, string) Hashtbl.t = Hashtbl.create 256
+
 
 let show_htblimpls htbl = 
     Printf.fprintf stdout "Htbl has %d entries\n" (Hashtbl.length htbl);
@@ -145,13 +147,21 @@ and paired_component_item parents place : S2._component_item -> T._component_ite
 and ucitem parents: S2.component_item -> T.component_item  = map_place (paired_component_item parents)
 
 and paired_component_dcl parents place : S2._component_dcl -> T._component_dcl = function
-| S2.ComponentStructure {name; annotations; args; body} -> begin 
+| S2.ComponentStructure {target_name; name; annotations; args; body} -> begin 
+    let key = match target_name with 
+        | UserDefined -> Hashtbl.find name2key name 
+        | SameAs as_name -> 
+            try
+                Hashtbl.find name2key as_name
+            with Not_found -> failwith (Printf.sprintf "[%s].target = SameAs [%s].target, [%s].target can not be a SameAs indirection" (Atom.to_string name) (Atom.to_string as_name) (Atom.to_string as_name))
+    in
+
+
     try 
-        let key = List.rev ((Atom.hint name)::parents) in 
         let target_name = Hashtbl.find component2target key in
         let body = List.map (ucitem ((Atom.hint name)::parents)) body in
         T.ComponentStructure {target_name; annotations; name; args; body}
-    with | Not_found -> raise (Error.PlacedDeadbranchError (place, "A target should have been assign to each component"))
+    with | Not_found -> raise (Error.PlacedDeadbranchError (place, Printf.sprintf "A target should have been assign to component [%s]." (List.fold_left (fun x y -> if x <> "" then x^"::"^y else y) "" key)))
 end
 | S2.ComponentAssign {name; value} -> T.ComponentAssign {name; value} 
 and ccdcl parents: S2.component_dcl -> T.component_dcl = map_place (paired_component_dcl parents)
@@ -240,6 +250,18 @@ let paired_program targets terms impl_terms =
     (* Pass 1 *)
     scan_program impl_terms;
     (* Pass 2 *)
+
+    (*TODO to support multiple SameAs indirection - loop until all SameAs have been seen + cycle detection *)
+    S2.collect_term_program
+        true
+        (function | Component {value = S2.ComponentStructure _ } -> true | _ -> false)
+        (fun parents place -> function | Component { value = S2.ComponentStructure {target_name; name}} -> 
+            let key = List.rev ((Atom.hint name)::(List.map Atom.hint parents)) in
+            logger#debug "%s <-> %s" (Atom.to_string name) (List.fold_left (fun x y -> x^"::"^y)"" key);
+            Hashtbl.add name2key name key;
+            []
+        ) terms;
+
     let program = List.map (uterm []) terms in
     check_seen_all !methods_seen method_impls; 
     check_seen_all !states_seen state_impls; 

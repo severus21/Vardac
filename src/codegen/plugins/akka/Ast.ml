@@ -48,7 +48,8 @@ and parameter = ctype * variable
 and _expr =                  
     | AccessExpr of expr * expr
     | AccessMethod of expr * variable
-    | ActivationRef of {schema: expr; actor_ref: expr}
+    | ActivationRef of {schema: expr; actor_ref: expr;}
+    | InterceptedActivationRef of {actor_ref: expr; intercepted_actor_ref: expr option}
     | AssertExpr of expr 
     | BinopExpr of expr * binop * expr 
     | CallExpr of expr * expr list
@@ -63,6 +64,7 @@ and _expr =
     | ClassOf of ctype 
 
     | BlockExpr of IR.block * expr list
+    | Block2Expr of IR.block2 * (expr * expr) list
 
     (** Akka scheduler *)
     | Spawn of { context: expr; actor_expr: expr }
@@ -156,6 +158,7 @@ and _actor = {
     states: state list;
     events: event list; 
     nested_items: term list;
+    static_items: term list; (* class (not actor), typedef *)
 }
 and actor = _actor placed
 (************************************ Akka streams **********************************)
@@ -259,6 +262,10 @@ and _apply_rename_expr rename_binders (renaming : Atom.atom -> Atom.atom) place 
     | ActivationRef {schema; actor_ref} -> ActivationRef { 
         schema = apply_rename_expr rename_binders renaming schema;
         actor_ref = apply_rename_expr rename_binders renaming actor_ref
+    }
+    | InterceptedActivationRef {actor_ref; intercepted_actor_ref} -> InterceptedActivationRef { 
+        actor_ref = apply_rename_expr rename_binders renaming actor_ref;
+        intercepted_actor_ref = Option.map (apply_rename_expr rename_binders renaming) intercepted_actor_ref
     }
     | AssertExpr e -> AssertExpr (
         apply_rename_expr rename_binders renaming e
@@ -392,6 +399,7 @@ and _apply_rename_actor rename_binders (renaming : Atom.atom -> Atom.atom) place
     states = List.map (apply_rename_state rename_binders renaming) a.states;
     events = List.map (apply_rename_event rename_binders renaming) a.events; 
     nested_items = List.map (apply_rename_term rename_binders renaming) a.nested_items;
+    static_items = List.map (apply_rename_term rename_binders renaming) a.static_items;
 }
 and apply_rename_actor rename_binders renaming a = apply_rename_place (_apply_rename_actor rename_binders renaming) a 
 
@@ -463,6 +471,10 @@ let rec _rewriteexpr_expr selector rewriter place (e, mt): _expr * ctype =
     | ActivationRef {schema; actor_ref} -> ActivationRef {
         schema;
         actor_ref  = rewriteexpr_expr selector rewriter actor_ref
+    }
+    | InterceptedActivationRef {actor_ref; intercepted_actor_ref} -> InterceptedActivationRef {
+        actor_ref  = rewriteexpr_expr selector rewriter actor_ref;
+        intercepted_actor_ref  = Option.map (rewriteexpr_expr selector rewriter) intercepted_actor_ref
     }
     | AssertExpr e -> AssertExpr (
         rewriteexpr_expr selector rewriter e

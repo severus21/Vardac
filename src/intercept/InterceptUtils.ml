@@ -22,7 +22,7 @@ let get_schema program wanted_name=
         collect_term_program 
             false
             (function | Component {value=ComponentStructure {name}} -> name = wanted_name | _ -> false) 
-            (function place -> function | Component {value=ComponentStructure cstruct} -> [place, cstruct]) 
+            (fun _ place -> function | Component {value=ComponentStructure cstruct} -> [place, cstruct]) 
             program 
     in
 

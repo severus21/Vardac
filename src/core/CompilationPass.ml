@@ -3,7 +3,6 @@
 *)
 
 open Easy_logging
-let logger = Logging.make_logger "_1_" Debug [];;
 
 module type Arg = sig 
     type program
@@ -26,6 +25,8 @@ module Make(S:Arg)(T:Arg) = struct
         include Pass
 
         let apply program = 
+            let logger = Logging.make_logger ("_1_ compspec") Debug [] in
+
             program
             |> precondition
             |> apply_program
@@ -52,6 +53,8 @@ module Make2(S:Arg)(T:Arg)(Acc:sig type acc end) = struct
         include Pass
 
         let apply program = 
+            let logger = Logging.make_logger ("_1_ compspec") Debug [] in
+
             program
             |> precondition
             |> apply_program

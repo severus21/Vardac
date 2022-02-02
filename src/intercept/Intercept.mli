@@ -1,7 +1,5 @@
 (* 
-    TODO rewrite doc
-    - remove InterceptedActivation 
-    - remove MakeInterceptor function
+    - remove MakeInterceptor
 *)
 
 val rewrite_program : Core.IR.program -> Core.IR.program

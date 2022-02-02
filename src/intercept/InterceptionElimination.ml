@@ -91,7 +91,7 @@ module Make (Args: TArgs) = struct
             | Component {value = ComponentStructure cstruct} -> Atom.Set.find_opt cstruct.name schemas <> None
             | _ -> false
         in
-        let collector _ = function
+        let collector _ _ = function
             | Component {value = ComponentStructure cstruct} -> 
                 Hashtbl.add intercepted_outputports_per_schema cstruct.name (extract_intercepted_outputports_of_schema cstruct);
                 []
@@ -1241,7 +1241,7 @@ module Make (Args: TArgs) = struct
 
 
         Component (auto_fplace (ComponentStructure {
-            target_name = base_interceptor.target_name; 
+            target_name = SameAs base_interceptor.name; 
             annotations = base_interceptor.annotations;
             name = interceptor_info.name;
             args = [];
@@ -1304,18 +1304,25 @@ module Make (Args: TArgs) = struct
             let _ = collect_term_program 
                 true (* recursive to collect all schemas of the AST *)
                 (function | Component _ -> true |_ -> false) 
-                (function place -> function 
+                (fun _ place -> function 
                     | Component {value = ComponentStructure cstruct } -> begin 
                         match List.filter (function | Capturable _ -> true | _ -> false) cstruct.annotations with
+                        | [] -> []
                         | [Capturable annot] -> 
                             Hashtbl.add all_schemas cstruct.name (Atom.Set.of_seq (List.to_seq annot.allowed_interceptors));
                             []
                         | _ -> Error.error place "At most one capturable annotations per schema."
                     end
-            ) in
+                    | Component {value=ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} when Atom.hint functorname = "MakeInterceptor" && Atom.is_builtin functorname -> []| Component {value=ComponentAssign _ } -> failwith "componentassign are not yet supported by InterceptionElimination"
+            ) program in
             
             Atom.Set.iter (function schema -> 
-                let allowed_interceptors = (Hashtbl.find all_schemas schema) in
+                assert(Hashtbl.length all_schemas > 0);
+                let allowed_interceptors = 
+                    try
+                        Hashtbl.find all_schemas schema
+                    with Not_found -> failwith (Printf.sprintf "schema [%s] not found in [all_schemas]" (Atom.to_string schema))
+                in
                 if Bool.not (Atom.Set.mem base_interceptor_name allowed_interceptors) then    
                     Error.error place "%s can not be intercepted by %s. To make it capturable add ```@capturable`` annotation to %s." (Atom.value schema) (Atom.value interceptor_info.base_interceptor_name) (Atom.value schema);
             ) interceptor_info.intercepted_schemas;
@@ -1340,7 +1347,7 @@ module Make (Args: TArgs) = struct
 
     let postcondition program = 
         (* Check: no MakeInterceptor *)
-        ignore (collect_term_program true makeinterceptor_selector (function place -> raise (Error.PlacedDeadbranchError (place, "InterceptionElimination: MakeInterceptor remains in IR"))) program);
+        ignore (collect_term_program true makeinterceptor_selector (fun _ place -> raise (Error.PlacedDeadbranchError (place, "InterceptionElimination: MakeInterceptor remains in IR"))) program);
 
         program 
     let apply_program = intercept_elim_program

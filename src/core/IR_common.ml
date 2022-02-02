@@ -655,6 +655,22 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
                 collected_elts@acc0, fvars@acc1) (collected_elts0, []) es
             in
             already_binded, collected_elts, fvars
+        | Block2Expr (_, ees) ->
+            let collect_expr_exprs = List.fold_left (fun (acc0, acc1) e -> 
+                let _, collected_elts, fvars = collect_expr_expr parent_opt already_binded selector collector e in
+                collected_elts@acc0, fvars@acc1) (collected_elts0, [])
+            in
+            let es1, es2 = List.split ees in
+            let collected_elts1, fvars1 = collect_expr_exprs es1 in 
+            let collected_elts2, fvars2 = collect_expr_exprs es2 in
+            already_binded, collected_elts1@collected_elts2, fvars1@fvars2
+        | InterceptedActivationRef (e1, e2_opt) ->
+            let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e1 in
+            let _, collected_elts2, fvars2 = match e2_opt with
+                | None -> Variable.Set.empty, [], []
+                | Some e2 -> collect_expr_expr parent_opt already_binded selector collector e2 
+            in
+            already_binded, collected_elts1@collected_elts2, fvars1@fvars2
     and collect_expr_expr (parent_opt:Atom.atom option) (already_binded:Variable.Set.t) (selector:_expr->bool) (collector:Atom.atom option -> Variable.Set.t -> expr -> 'a list) (expr:expr) = 
         map0_place (collect_expr_expr_ parent_opt already_binded selector collector) expr
     and free_vars_expr already_binded e = 

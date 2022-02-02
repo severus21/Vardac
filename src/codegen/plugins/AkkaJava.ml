@@ -398,6 +398,7 @@ end) = struct
                     states = [];
                     events = [];
                     nested_items = [];
+                    static_items = [];
                 }))
             })
         in
@@ -1251,7 +1252,7 @@ end) = struct
             }
     and fmethod is_guardian is_actor_method m : T.str_items = {place=m.place; value= T.Body (map_place (finish_annoted (finish_method_v is_guardian is_actor_method)) m)}
 
-    and finish_actor place ({is_guardian; extended_types; implemented_types; name; methods; states; events; nested_items; receiver}: S._actor): T._str_items =
+    and finish_actor place ({is_guardian; extended_types; implemented_types; name; methods; states; events; nested_items; static_items; receiver}: S._actor): T._str_items =
         let fplace = place@(Error.forge_place "Plg=Akka/finish_actor" 0 0) in
         let auto_place smth = {place = fplace; value=smth} in
 
@@ -1531,6 +1532,8 @@ end) = struct
         body := !body @ [{place; value=T.Comments (AstUtils.LineComment "Nested structures")}];
         if is_guardian = false then body := command_cl :: !body;
         body := !body @ (List.map fterm nested_items);
+        body := !body @ [{place; value=T.Comments (AstUtils.LineComment "Static definitions")}];
+        body := !body @ (List.map fterm static_items);
         if is_guardian = false then begin
             body := !body @ [{place; value=T.Comments (AstUtils.LineComment "Receiver")}];
             body := !body @ [fmethod is_guardian true receiver];

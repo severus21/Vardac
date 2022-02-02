@@ -32,7 +32,7 @@ let insert_in_terms new_terms terms =
         let _ftvars = Atom.Set.diff _ftvars toplevel_components in
 
         if Atom.Set.subset _fvars  fvars0  && Atom.Set.subset _ftvars ftvars0 then(
-            logger#debug "RPC insert depth %d" !insert_depth;
+            logger#debug "insert_in_terms insert depth %d" !insert_depth;
             new_terms@(t::ts)
         )else
             t::(insert_new_terms (acc@[t]) ts) (* FIXME O(n²) *)
@@ -92,6 +92,7 @@ let insert_terms_into_lca (parents: (Atom.atom option) list) terms_to_insert pro
             find_lca_program parents_set program
         ) 
     in
+    logger#warning "LCA = %s"(match common_ancestor_name with | None -> "None" | Some x -> Atom.to_string x);
 
     let insert_in_ancestor (program: program) : Atom.atom option -> program = function
         | None -> insert_in_terms terms_to_insert program 
@@ -118,4 +119,5 @@ let insert_terms_into_lca (parents: (Atom.atom option) list) terms_to_insert pro
 
             rewrite_term_program ancestor_selector ancestor_rewriter program
     in 
-    insert_in_ancestor program common_ancestor_name 
+
+    insert_in_ancestor program common_ancestor_name

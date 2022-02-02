@@ -6,7 +6,12 @@ end
 
 module IRC  : (IR_common.TIRC with module Variable = Atom.AtomVariable )= IR_common.Make(Atom.AtomVariable)
 
-type ir_target_name = unit 
+type ir_target_name = 
+    | UserDefined (* i.e. defined in *.impl *)
+    | SameAs of Atom.atom (* 
+    B.target_name = SameAs A means that when A load from *.impl B will be completed as well 
+    SameAs can not be chained -> PairImpl issue a "Target should have been assign to .."
+    *)
 and ir_state_dcl_body = IRC.expr option 
 and ir_custom_method0_body = IRC.stmt list 
 and ir_custom_function_body = ir_custom_method0_body 
@@ -837,36 +842,36 @@ let replace_expr_component_item x_to_replace replaceby =
 
 (******************************************)
 
-let rec collect_term_component_item_ recursive selector collector place = function 
-| Term t -> collect_term_term recursive selector collector t
+let rec collect_term_component_item_ recursive parents selector collector place = function 
+| Term t -> collect_term_term recursive (List.rev parents) selector collector t
 | citem -> []
-and collect_term_component_item recursive selector collector = map0_place (collect_term_component_item_ recursive selector collector) 
+and collect_term_component_item recursive parents selector collector = map0_place (collect_term_component_item_ recursive parents selector collector) 
 
-and collect_term_component_dcl_  recursive selector collector place = function 
-| ComponentStructure cdcl -> List.flatten (List.map (collect_term_component_item recursive selector collector) cdcl.body)
+and collect_term_component_dcl_  recursive parents selector collector place = function 
+| ComponentStructure cdcl -> List.flatten (List.map (collect_term_component_item recursive (cdcl.name::parents) selector collector) cdcl.body)
 | x -> [] 
-and collect_term_component_dcl recursive selector collector = map0_place (collect_term_component_dcl_ recursive selector collector) 
+and collect_term_component_dcl recursive parents selector collector = map0_place (collect_term_component_dcl_ recursive parents selector collector) 
 
-and collect_term_term_ recursive selector collector place = function 
+and collect_term_term_ recursive parents selector collector place = function 
 | t when selector t  -> 
-    collector place t 
+    collector (List.rev parents) place t 
     @ (
         (* sub-terms *)
         if recursive then 
             match t with 
-            | Component cdcl -> collect_term_component_dcl recursive selector collector cdcl
+            | Component cdcl -> collect_term_component_dcl recursive parents selector collector cdcl
             | _ -> []
         else []
     )
-| Component cdcl -> collect_term_component_dcl recursive selector collector cdcl
+| Component cdcl -> collect_term_component_dcl recursive parents selector collector cdcl
 | t -> [] 
-and collect_term_term recursive selector collector = map0_place (collect_term_term_ recursive selector collector) 
+and collect_term_term recursive parents selector collector = map0_place (collect_term_term_ recursive parents selector collector) 
 
 (*
     recursive = true means that even if a term is selected, its sub-terms could be selector also. 
         = false - when a term is selected, sub-terms are ignored
 *)
-and collect_term_program recursive (selector : _term -> bool) (collector : Error.place -> _term -> 'a list) program = List.flatten (List.map (collect_term_term recursive selector collector) program )
+and collect_term_program recursive (selector : _term -> bool) (collector : Atom.atom list -> Error.place -> _term -> 'a list) program = List.flatten (List.map (collect_term_term recursive [] selector collector) program )
 (******************************************)
 let rec rewrite_term_component_item_  selector rewriter place = function 
 | Term t -> List.map (function x -> Term x) (rewrite_term_term selector rewriter t)

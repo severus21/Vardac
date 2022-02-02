@@ -111,7 +111,7 @@ module Make () = struct
         states      = [];
         nested      = [];
         ports       = [];
-        outports       = [];
+        outports    = [];
         others      = [];
     }
 
@@ -252,7 +252,9 @@ module Make () = struct
 
     let encodectype = function
     | {value=T.TVar x; place} -> {value=T.VarExpr x, auto_place T.TUnknown; place} 
+    | _ -> {value=T.RawExpr "TODO encodectype_Finish", auto_place T.TUnknown; place}
     in
+
     function 
         | S.STEnd -> T.NewExpr (auto_place (T.VarExpr (a_ASTStype_of "End"), auto_place T.TUnknown), []), auto_place T.TUnknown
         (* With guard *)
@@ -567,8 +569,12 @@ module Make () = struct
         ) 
         | S.ResultExpr (_,_) -> raise (Core.Error.PlacedDeadbranchError (place, "finish_expr : a result expr can not be Ok and Err at the same time."))
         | S.BlockExpr (b, es) -> T.BlockExpr(b, List.map fexpr es)
-        | S.Block2Expr (b, xs) -> failwith "block not yet supported"
-        | e -> failwith (S.show__expr e)
+        | S.Block2Expr (b, ees) -> T.Block2Expr(b, List.map (function (e1, e2) -> fexpr e1, fexpr e2) ees) 
+        | S.InterceptedActivationRef (e1, e2_opt) -> 
+            T.InterceptedActivationRef{
+                actor_ref = fexpr e1;
+                intercepted_actor_ref = Option.map fexpr e2_opt
+            }
     ), fmtype mt
     and fexpr e : T.expr = map_place finish_expr e
 
@@ -902,7 +908,13 @@ module Make () = struct
             in order to display well stuctured code at the end (and since the order of definition do not matter)
         *)
         let grp_items = group_cdcl_by body in
-        assert(grp_items.others == []);
+        List.iter (function x -> 
+            (* Ensure that x is static otherwise it should be a state *)
+            match x.value with
+            | S.Typedef _ -> ()
+            | S.Comments _ -> () (* TODO needs to get ride of grp_items to support comments at the right place *)
+            | _ -> raise (Error.PlacedDeadbranchError (x.place, "Non static term in others"));
+        ) grp_items.others;
 
         
         (*** Building events ***)
@@ -991,14 +1003,21 @@ module Make () = struct
         let hydrate_env (p: S.port) = 
             let expecting_st, (msg_type, remaining_st) = match (fst p.value).expecting_st.value with 
             | S.SType st -> begin
-                st,
-                match st.value with
-                | S.STRecv ({value=S.CType {value=S.TVar event_name;};}, st) -> event_name, st
-                | S.STRecv _ -> Core.Error.error p.place "only event type supported"
-                | S.STBranch xs -> failwith "TODO"
-                | S.STEnd | S.STVar _ |S.STRecv _-> failwith "TOTO"
-                | S.STInline _ -> failwith "TITI"
-                | _ -> Core.Error.error (fst p.value).expecting_st.place "%s plugin: expecting type can only start by the reception of a message or of a label" plg_name  
+                let t_msg, st_continuation = IRMisc.msgcont_of_st st in
+                
+                (* Convert to event *)
+                let event_name = match t_msg.value with
+                    | S.CType {value=S.TVar event_name;} -> event_name
+                    | S.CType {value=S.TFlatType AstUtils.TBLabel} -> Atom.builtin "BLabel" 
+                in
+
+                (
+                    match (IRMisc.unfold_st_star st).value with
+                    | S.STBranch _ | S.STRecv _ -> () 
+                    | _ -> Core.Error.error (fst p.value).expecting_st.place "%s plugin: expecting type can only start by the reception of a message or of a label" plg_name
+                );
+
+                st, (event_name, st_continuation)
             end 
             | _ -> Core.Error.error (fst p.value).expecting_st.place "%s plugin do not support main type for port expecting" plg_name  
             in
@@ -1329,6 +1348,7 @@ module Make () = struct
                     })
                     (List.flatten (List.map fcdcl grp_items.nested)
                 ); 
+                static_items = List.flatten (List.map fterm grp_items.others); 
                 receiver = receiver
             }
         }]
