@@ -615,159 +615,8 @@ module Make (Args: TArgs) = struct
         else
             get_sessioninterceptor_not_anon interceptor_info session_interceptors tb_intercepted_bridge i (tmsg, st_continuation)
 
-
-    (*************** Step 3 - Ingress generation ******************)
-    let has_kind_ingress interceptor_info = function
-    | {value=CType {value = TBridge tbridge}} ->
-        let right = tbridge.out_type in
-
-        List.fold_left (fun flag schema -> 
-            flag || (TypingUtils.is_subtype (mtype_of_cvar schema) right) 
-        ) false (Atom.Set.to_list interceptor_info.intercepted_schemas)
-    | _ -> raise (Error.DeadbranchError "intercepted bridge must have a bridge type!")
-
-    let generate_ingress_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_b_out this_b_int i this_callback_msg tmsg st_continuation = 
-        failwith "TODO"
-
-    let generate_ingress_callback_msg interceptor_info b_intercepted i tmsg st_continuation = 
-        failwith "TODO"
-
-    let generate_ingress_block_per_intercepted_bridge_per_st_stage  interceptor_info msg_interceptors session_interceptors b_intercepted this_b_out this_b_int tb_intercepted i st_stage = 
-        failwith "TODO"
-
-    let generate_ingress_block_per_intercepted_bridge interceptor_info msg_interceptors session_interceptors b_intercepted this_b_out this_b_int b_mt : component_item list = 
-        failwith "TODO"
-
-    let generate_ingress_block interceptor_info base_interceptor : component_item list = 
-        failwith "TODO"
-
-    (*************** Step 4 - Egress generation ******************)
-
-    let has_kind_egress interceptor_info = function
-    | {value=CType {value = TBridge tbridge}} ->
-        let left = tbridge.in_type in
-
-        List.fold_left (fun flag schema -> 
-            flag || ( TypingUtils.is_subtype (mtype_of_cvar schema) left) 
-        ) false (Atom.Set.to_list interceptor_info.intercepted_schemas)
-    | _ -> raise (Error.DeadbranchError "intercepted bridge must have a bridge type!")
-
-    let generate_egress_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_b_out this_b_int i this_callback_msg tmsg st_continuation = 
-        let param_msg, e_param_msg = e_param_of "msg" in
-        let param_s_in, e_param_s_in = e_param_of "s_in" in
-
-        let local_from, e_local_from = e_param_of "from" in
-        let local_to_opt, e_local_to_opt = e_param_of "to_opt" in
-        let local_to_schema, e_local_to_schema = e_param_of "to_schema" in
-        let local_to, e_local_to = e_param_of "to" in
-        let local_s_out, e_local_s_out = e_param_of "s_out" in
-
-
-        let e_session_interceptor_by_schema = e2_e (AccessExpr ( 
-            e2_e This, 
-            match (get_sessioninterceptor_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation)) with
-            | Some x_to -> e2var x_to
-            | None -> Error.error interceptor_info.base_interceptor_place "No @sessioninterceptor(true, ...) for bridge type %s" (show_tbridge tb_intercepted)
-        )) in
-        let e_session_interceptor_by_activation = e2_e (AccessExpr ( 
-            e2_e This, 
-            match (get_sessioninterceptor_not_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation)) with
-            | Some x_to -> e2var x_to
-            | None -> 
-                (* Case there is no user defined function *)
-                logger#warning "No @sessioninterceptor(false, ...) for bridge type %s" (show_tbridge tb_intercepted);
-                e2_e (CallExpr ( e2var (Atom.builtin "option_get"), [ e_local_to_opt ])) (* by default, use the requested to *)
-        )) in
-        let e_this_onboarded_activations = e2_e (AccessExpr ( e2_e This, e2var (Option.get interceptor_info.this_onboarded_activations))) in
-
-        let left_mt = tb_intercepted.in_type in
-        let right_mt = tb_intercepted.out_type in
-
-        auto_fplace {
-            annotations = [];
-            ghost = false;
-            ret_type = mtype_of_ft TVoid;
-            name = Atom.fresh (Printf.sprintf "egress_callback_sessioninit__%s__%d" (Atom.to_string b_intercepted) i);
-            args = [
-                auto_fplace (tmsg, param_msg);
-                auto_fplace (mtype_of_st st_continuation.value, param_s_in);
-            ];
-            body = [
-                (* TODO assert(s_in.to_2_ != None ); *)
-
-                (*** Computing from and to ***)
-                auto_fplace (LetStmt(
-                    mtype_of_ct (TActivationRef left_mt),
-                    local_from,
-                    e2_e (CallExpr (
-                        e2var (Atom.builtin "session_from"),
-                        [ e_param_s_in ]
-                    ))
-                ));
-                (* TODO assert ... *)
-                auto_fplace (LetStmt(
-                    mtype_of_ct (TOption (mtype_of_ct (TActivationRef right_mt))),
-                    local_to_opt,
-                    e2_e (CallExpr(
-                        e_session_interceptor_by_activation,
-                        [
-                            e_this_onboarded_activations;
-                            e_local_from;
-                            e2_e(AccessExpr (e2_e This, e2var this_b_out));
-                            e2_e (CallExpr( 
-                                e2var (Atom.builtin "option_get"),
-                                [ 
-                                    e2_e (CallExpr (
-                                        e2var (Atom.builtin "session_to_2_"),
-                                        [ e_param_s_in ]
-                                    ))
-                                ]
-                            ));
-                            e_param_msg;
-                        ]
-                    ))
-                ));
-
-                auto_fplace(IfStmt(
-                    e2_e(BinopExpr( e_local_to_opt, StructuralEqual, e2_e (OptionExpr None))),     
-                    auto_fplace (BlockStmt [
-                        auto_fplace(ExpressionStmt (e2_e (CallExpr(
-                            e2var (Atom.builtin "print"),
-                            [ e2_lit (StringLit "Egress request refused!") ]))));
-                        auto_fplace (ReturnStmt (e2_lit VoidLit))
-                    ]),
-                    None
-                ));
-                auto_fplace (LetStmt(
-                    mtype_of_ct (TActivationRef right_mt),
-                    local_to,
-                    e2_e (CallExpr( 
-                        e2var (Atom.builtin "option_get"),
-                        [ e_local_to_opt ]
-                    ))
-                ));
-
-                (*** Process the first message ***)
-                auto_fplace (ReturnStmt(
-                    e2_e (CallExpr (
-                        e2_e (AccessExpr(
-                            e2_e This,
-                            e2var this_callback_msg 
-                        )),
-                        [
-                            e_param_msg;
-                            e_param_s_in;
-                        ]
-                    ))
-                ));
-            ];
-            contract_opt = None;
-            on_destroy = false;
-            on_startup = false;
-        }
-
-
-    let generate_egress_callback_msg interceptor_info msg_interceptors (b_intercepted, tb_intercepted) i tmsg st_continuation = 
+    (* flag =true if egress else ingress *)
+    let generate_skeleton_callback_msg (flag_egress, aux_ongoing__e_skeleton_s_out, aux_ongoing__es_skeleton_update_metadata) interceptor_info msg_interceptors (b_intercepted, tb_intercepted) i tmsg st_continuation = 
         let param_msg, e_param_msg = e_param_of "msg" in
         let param_s_in, e_param_s_in = e_param_of "s_in" in
 
@@ -824,7 +673,7 @@ module Make (Args: TArgs) = struct
             annotations = [];
             ghost = false;
             ret_type = mtype_of_ft TVoid;
-            name = Atom.fresh (Printf.sprintf "egress_callback_ongoing__%s__%d" (Atom.to_string b_intercepted) i);
+            name = Atom.fresh (Printf.sprintf "%s_callback_ongoing__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i);
             args = [
                 auto_fplace (tmsg, param_msg);
                 auto_fplace (mtype_of_st st_continuation.value, param_s_in);
@@ -855,22 +704,7 @@ module Make (Args: TArgs) = struct
                 auto_fplace (LetStmt(
                     mt_out,
                     local_to,
-                    e2_e (CallExpr( 
-                        e2var (Atom.builtin "get2dict"),
-                        [ 
-                            e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4internal));
-                            e2_e (CallExpr( 
-                                e2var (Atom.builtin "get2dict"),
-                                [ 
-                                    e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4external2internal));
-                                    e2_e (CallExpr (
-                                        e2var (Atom.builtin "sessionid"),
-                                        [ e_param_s_in ]
-                                    ))
-                                ]
-                            ));
-                        ]
-                    ))
+                    aux_ongoing__e_skeleton_s_out sessions_info e_param_s_in
                 ));
 
                 (* TODO assert  ... *)
@@ -881,36 +715,259 @@ module Make (Args: TArgs) = struct
                     local_s_out2,
                     e_res_msginterceptor
                 ));
+            ]
+            (*** Update metadata ***)
+            @ (aux_ongoing__es_skeleton_update_metadata sessions_info e_param_s_in e_local_s_out2)
+            ;
+            contract_opt = None;
+            on_destroy = false;
+            on_startup = false;
+        }
 
-                (*** Update metadata ***)
-                auto_fplace (ExpressionStmt (e2_e(CallExpr(
-                    e2var (Atom.builtin "add2dict"),
-                    [
-                        e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4internal));
-                        e2_e (CallExpr (
-                            e2var (Atom.builtin "sessionid"),
-                            [ e_local_s_out2 ]
-                        ));
-                        e_local_s_out2
-                    ]
-                ))));
-                auto_fplace (ExpressionStmt (e2_e(CallExpr(
-                    e2var (Atom.builtin "add2dict"),
-                    [
+    let generate_skeleton_callback_sessioninit (flag_egress, aux_sessioninit__es_skeleton_update_metadata) interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_b_out this_b_int i this_callback_msg tmsg st_continuation = 
+        let param_msg, e_param_msg = e_param_of "msg" in
+        let param_s_in, e_param_s_in = e_param_of "s_in" in
 
-                        e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4external));
-                        e2_e (CallExpr (
-                            e2var (Atom.builtin "sessionid"),
-                            [ e_param_s_in ]
-                        ));
-                        e_param_s_in
-                    ]
-                ))));
+        let local_from, e_local_from = e_param_of "from" in
+        let local_to_opt, e_local_to_opt = e_param_of "to_opt" in
+        let local_to_schema, e_local_to_schema = e_param_of "to_schema" in
+        let local_to, e_local_to = e_param_of "to" in
+        let local_s_out, e_local_s_out = e_param_of "s_out" in
+
+
+        let e_session_interceptor_by_schema = e2_e (AccessExpr ( 
+            e2_e This, 
+            match (get_sessioninterceptor_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation)) with
+            | Some x_to -> e2var x_to
+            | None -> Error.error interceptor_info.base_interceptor_place "No @sessioninterceptor(true, ...) for bridge type %s" (show_tbridge tb_intercepted)
+        )) in
+        let e_session_interceptor_by_activation = e2_e (AccessExpr ( 
+            e2_e This, 
+            match (get_sessioninterceptor_not_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation)) with
+            | Some x_to -> e2var x_to
+            | None -> 
+                (* Case there is no user defined function *)
+                logger#warning "No @sessioninterceptor(false, ...) for bridge type %s" (show_tbridge tb_intercepted);
+                e2_e (CallExpr ( e2var (Atom.builtin "option_get"), [ e_local_to_opt ])) (* by default, use the requested to *)
+        )) in
+        let e_this_onboarded_activations = e2_e (AccessExpr ( e2_e This, e2var (Option.get interceptor_info.this_onboarded_activations))) in
+
+        let left_mt = tb_intercepted.in_type in
+        let right_mt = tb_intercepted.out_type in
+
+        let sessions_info = Option.get interceptor_info.sessions_info in
+
+        auto_fplace {
+            annotations = [];
+            ghost = false;
+            ret_type = mtype_of_ft TVoid;
+            name = Atom.fresh (Printf.sprintf "%s_callback_sessioninit__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i);
+            args = [
+                auto_fplace (tmsg, param_msg);
+                auto_fplace (mtype_of_st st_continuation.value, param_s_in);
+            ];
+            body = [
+                (* TODO assert(s_in.to_2_ != None ); *)
+
+                (*** Computing from and to ***)
+                auto_fplace (LetStmt(
+                    mtype_of_ct (TActivationRef left_mt),
+                    local_from,
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "session_from"),
+                        [ e_param_s_in ]
+                    ))
+                ));
+                (* TODO assert ... *)
+                auto_fplace (LetStmt(
+                    mtype_of_ct (TOption (mtype_of_ct (TActivationRef right_mt))),
+                    local_to_opt,
+                    e2_e (CallExpr(
+                        e_session_interceptor_by_activation,
+                        [
+                            e_this_onboarded_activations;
+                            e_local_from;
+                            e2_e(AccessExpr (e2_e This, e2var this_b_out));
+                            e2_e (CallExpr( 
+                                e2var (Atom.builtin "option_get"),
+                                [ 
+                                    e2_e (CallExpr (
+                                        e2var (Atom.builtin "session_to_2_"),
+                                        [ e_param_s_in ]
+                                    ))
+                                ]
+                            ));
+                            e_param_msg;
+                        ]
+                    ))
+                ));
+
+                auto_fplace(IfStmt(
+                    e2_e(BinopExpr( e_local_to_opt, StructuralEqual, e2_e (OptionExpr None))),     
+                    auto_fplace (BlockStmt [
+                        auto_fplace(ExpressionStmt (e2_e (CallExpr(
+                            e2var (Atom.builtin "print"),
+                            [ e2_lit (StringLit (Printf.sprintf "%s request refused!" (if flag_egress then "Egress" else "Ingress"))) ]))));
+                        auto_fplace (ReturnStmt (e2_lit VoidLit))
+                    ]),
+                    None
+                ));
+                auto_fplace (LetStmt(
+                    mtype_of_ct (TActivationRef right_mt),
+                    local_to,
+                    e2_e (CallExpr( 
+                        e2var (Atom.builtin "option_get"),
+                        [ e_local_to_opt ]
+                    ))
+                ));
+
+                (*** Establishing s_out ???***)
+                failwith "TODO";
+            ]
+
+            (*** Updateing metdata ***)
+            @ (aux_sessioninit__es_skeleton_update_metadata sessions_info e_param_s_in e_local_s_out)
+
+            @ [
+                (*** Process the first message ***)
+                auto_fplace (ReturnStmt(
+                    e2_e (CallExpr (
+                        e2_e (AccessExpr(
+                            e2_e This,
+                            e2var this_callback_msg 
+                        )),
+                        [
+                            e_param_msg;
+                            e_param_s_in;
+                        ]
+                    ))
+                ));
             ];
             contract_opt = None;
             on_destroy = false;
             on_startup = false;
         }
+
+
+    (*************** Step 3 - Ingress generation ******************)
+    let has_kind_ingress interceptor_info = function
+    | {value=CType {value = TBridge tbridge}} ->
+        let right = tbridge.out_type in
+
+        List.fold_left (fun flag schema -> 
+            flag || (TypingUtils.is_subtype (mtype_of_cvar schema) right) 
+        ) false (Atom.Set.to_list interceptor_info.intercepted_schemas)
+    | _ -> raise (Error.DeadbranchError "intercepted bridge must have a bridge type!")
+
+    let generate_ingress_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_b_out this_b_int i this_callback_msg tmsg st_continuation = 
+        failwith "TODO"
+
+    let generate_ingress_callback_msg interceptor_info b_intercepted i tmsg st_continuation = 
+        failwith "TODO"
+
+    let generate_ingress_block_per_intercepted_bridge_per_st_stage  interceptor_info msg_interceptors session_interceptors b_intercepted this_b_out this_b_int tb_intercepted i st_stage = 
+        failwith "TODO"
+
+    let generate_ingress_block_per_intercepted_bridge interceptor_info msg_interceptors session_interceptors b_intercepted this_b_out this_b_int b_mt : component_item list = 
+        failwith "TODO"
+
+    let generate_ingress_block interceptor_info base_interceptor : component_item list = 
+        failwith "TODO"
+
+    (*************** Step 4 - Egress generation ******************)
+
+    let has_kind_egress interceptor_info = function
+    | {value=CType {value = TBridge tbridge}} ->
+        let left = tbridge.in_type in
+
+        List.fold_left (fun flag schema -> 
+            flag || ( TypingUtils.is_subtype (mtype_of_cvar schema) left) 
+        ) false (Atom.Set.to_list interceptor_info.intercepted_schemas)
+    | _ -> raise (Error.DeadbranchError "intercepted bridge must have a bridge type!")
+
+    let aux_ongoing__e_egress_s_out sessions_info e_param_s_in = 
+        e2_e (CallExpr( 
+            e2var (Atom.builtin "get2dict"),
+            [ 
+                e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4internal));
+                e2_e (CallExpr( 
+                    e2var (Atom.builtin "get2dict"),
+                    [ 
+                        e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4external2internal));
+                        e2_e (CallExpr (
+                            e2var (Atom.builtin "sessionid"),
+                            [ e_param_s_in ]
+                        ))
+                    ]
+                ));
+            ]
+        ))
+
+    let aux_ongoing__es_egress_update_metadata sessions_info e_param_s_in e_local_s_out2 = 
+        [
+            auto_fplace (ExpressionStmt (e2_e(CallExpr(
+                e2var (Atom.builtin "add2dict"),
+                [
+                    e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4internal));
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "sessionid"),
+                        [ e_local_s_out2 ]
+                    ));
+                    e_local_s_out2
+                ]
+            ))));
+            auto_fplace (ExpressionStmt (e2_e(CallExpr(
+                e2var (Atom.builtin "add2dict"),
+                [
+
+                    e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4external));
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "sessionid"),
+                        [ e_param_s_in ]
+                    ));
+                    e_param_s_in
+                ]
+            ))));
+        ]
+    
+    let generate_egress_callback_msg interceptor_info msg_interceptors (b_intercepted, tb_intercepted) i tmsg st_continuation = generate_skeleton_callback_msg (true, aux_ongoing__e_egress_s_out,aux_ongoing__es_egress_update_metadata) interceptor_info msg_interceptors (b_intercepted, tb_intercepted) i tmsg st_continuation
+
+    let aux_sessioninit__es_egress_update_metadata sessions_info e_param_s_in e_local_s_out = 
+        [
+            auto_fplace (ExpressionStmt (e2_e(CallExpr(
+                e2var (Atom.builtin "add2dict"),
+                [
+                    e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4internal2external));
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "sessionid"),
+                        [ e_local_s_out ]
+                    ));
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "sessionid"),
+                        [ e_param_s_in ]
+                    ));
+                ]
+            ))));
+            auto_fplace (ExpressionStmt (e2_e(CallExpr(
+                e2var (Atom.builtin "add2dict"),
+                [
+
+                    e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4external2internal));
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "sessionid"),
+                        [ e_param_s_in ]
+                    ));
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "sessionid"),
+                        [ e_local_s_out ]
+                    ));
+                ]
+            ))));
+        ] @ aux_ongoing__es_egress_update_metadata sessions_info e_param_s_in e_local_s_out
+
+    let generate_egress_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_b_out this_b_int i this_callback_msg tmsg st_continuation =
+    generate_skeleton_callback_sessioninit (true, aux_sessioninit__es_egress_update_metadata) interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_b_out this_b_int i this_callback_msg tmsg st_continuation 
+        
 
     (*
         @param i - n° of the stage. 0 == session init 
