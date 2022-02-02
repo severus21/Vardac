@@ -87,7 +87,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
         | State of state 
 
         (** Inter-component composition*)
-        |InPort of port 
+        |Inport of port 
         | Outport of outport 
 
         (** Sub-components *)

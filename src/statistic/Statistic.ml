@@ -42,7 +42,7 @@ and _analyze_component_item place = function
     if c.invariant <> None then incr global_stats.ssc;
 | State _ -> incr global_stats.ssc
 | Method m -> List.iter analyze_stmt m.value.abstract_impl
-|InPort _ -> incr global_stats.ssc
+|Inport _ -> incr global_stats.ssc
 | Term t -> analyze_term t
 | Include _ -> incr global_stats.ssc
 and analyze_component_item (citem:component_item) = map0_place _analyze_component_item citem

@@ -54,7 +54,7 @@ module Make (Args: TArgs) = struct
     *)
     let extract_intercepted_ports_of_schema (schema_struct : component_structure) : InterceptedPortSet.t = 
         let intercepted_ports = List.map (function
-        | {value=InPort p} -> Some ((fst p.value).name, p.value) | _ -> None ) schema_struct.body in
+        | {value=Inport p} -> Some ((fst p.value).name, p.value) | _ -> None ) schema_struct.body in
         let intercepted_ports = List.filter Option.is_some intercepted_ports in
         let intercepted_ports = List.map Option.get intercepted_ports in
 
@@ -314,7 +314,7 @@ module Make (Args: TArgs) = struct
 
         let callback_onboard = Atom.fresh "onboard" in
         let port_onboard = Atom.fresh "port_onboard" in
-        let port_onboard_def = auto_fplace (InPort (auto_fplace (
+        let port_onboard_def = auto_fplace (Inport (auto_fplace (
             {
                 name = port_onboard;
                 input = e_this_b_onboard; 
@@ -858,7 +858,7 @@ module Make (Args: TArgs) = struct
         (*** Callback names ***)
         let callback_name = Atom.fresh (Printf.sprintf "callback_%s__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i) in
 
-        (***InPort & Outport generation ***)
+        (***Inport & Outport generation ***)
         let outport_name = Atom.fresh (Printf.sprintf "%s_outport__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i) in
         let outport = auto_fplace (Outport (auto_fplace ({
             name = outport_name;
@@ -866,7 +866,7 @@ module Make (Args: TArgs) = struct
         }, auto_fplace EmptyMainType))) in
 
         let inport_name = Atom.fresh (Printf.sprintf "%s_inport__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i) in
-        let inport = auto_fplace (InPort (auto_fplace ({
+        let inport = auto_fplace (Inport (auto_fplace ({
             name = inport_name;
             input = e_this_b_int;
             expecting_st = mtype_of_st st_stage;
@@ -1340,7 +1340,7 @@ module Make (Args: TArgs) = struct
 
     let postcondition program = 
         (* Check: no MakeInterceptor *)
-        ignore (collect_term_program true makeinterceptor_selector (failwith "MakeInterceptor remains in IR") program);
+        ignore (collect_term_program true makeinterceptor_selector (function place -> raise (Error.PlacedDeadbranchError (place, "InterceptionElimination: MakeInterceptor remains in IR"))) program);
 
         program 
     let apply_program = intercept_elim_program

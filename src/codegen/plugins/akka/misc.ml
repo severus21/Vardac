@@ -254,7 +254,7 @@ let e_get_self_activation place context : Ast.expr =
 let e_outport_of place bridge = 
     let auto_place smth = {place; value=smth} in
     auto_place ( Ast.NewExpr (
-        auto_place ( Ast.VarExpr (Atom.builtin "OutPort"), auto_place Ast.TUnknown),
+        auto_place ( Ast.VarExpr (Atom.builtin "Outport"), auto_place Ast.TUnknown),
         [
             bridge
         ]

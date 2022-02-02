@@ -53,7 +53,7 @@ module Make (Args : Params ) : Sig = struct
     | State _ as citem -> citem
     | Contract _ as citem -> citem 
     | Method m as citem -> citem
-    |InPort _ as citem -> citem
+    |Inport _ as citem -> citem
     | Outport _ as citem -> citem
     | Term t -> Term (rterm t)
     | Include _ as citem -> citem

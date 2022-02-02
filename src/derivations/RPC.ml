@@ -159,12 +159,12 @@ module Make(Args:Args) : Sig = struct
                 let callback_sign = mtype_of_fun m.value.args m.value.ret_type in
 
                 (* One port per method*)
-                let mt_port = mtype_of_ct (TInPort (
+                let mt_port = mtype_of_ct (TInport (
                     mtype_of_st _expecting_st.value,
                     mt_rpc_bridge
                 )) in
                 let a_port = Atom.fresh (prefix^"port") in
-                let port = auto_fplace (InPort(auto_fplace ({
+                let port = auto_fplace (Inport(auto_fplace ({
                         name = a_port;
                         input = auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge);
                         expecting_st = mtype_of_st (dual _expecting_st).value;

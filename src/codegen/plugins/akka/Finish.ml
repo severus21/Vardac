@@ -122,7 +122,7 @@ module Make () = struct
             | S.Include _ -> Core.Error.error citem.place "Include is not yet supported in Akka plg"
             | S.Method  m-> {grp with methods=m::grp.methods}
             | S.State f-> {grp with states=f::grp.states}
-            | S.InPort p -> {grp with ports=p::grp.ports}
+            | S.Inport p -> {grp with ports=p::grp.ports}
             | S.Outport p -> {grp with outports=p::grp.outports}
             (* Shallow search of Typealias, FIXME do we need deep search ?*)
             | S.Term {place; value=S.Component cdcl} -> {grp with nested=cdcl::grp.nested}
@@ -961,7 +961,7 @@ module Make () = struct
         ] @ states in
 
         (*** Outports ***)
-        (* outport p on bridge => state of type outport => OutPort<P> p = OutPort(bridge);
+        (* outport p on bridge => state of type outport => Outport<P> p = Outport(bridge);
         *)
         let states = 
             List.map (function p -> 
@@ -969,7 +969,7 @@ module Make () = struct
                 auto_place {   
                     T.persistent = false; (*TODO persistence True ??*)
                     stmts = [ auto_place(T.LetStmt (
-                        auto_place( T.Atomic "OutPort"),
+                        auto_place( T.Atomic "Outport"),
                         _p.name,
                         Some (e_outport_of p.place (fexpr _p.input))
                     ))]

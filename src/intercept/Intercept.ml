@@ -37,7 +37,7 @@ let postcondition program =
     ignore (collect_expr_program Atom.Set.empty interception_selector (failure_collector_e "InterceptedActivationRef remains in IR") program);
 
     (* Check: no MakeInterceptor*)
-    ignore (collect_cexpr_program functor_selector (failure_collector_ce "MakeInterceptor remains in IR") program);
+    ignore (collect_cexpr_program functor_selector (failure_collector_ce "Intercept: MakeInterceptor remains in IR") program);
     
     program
 

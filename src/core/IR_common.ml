@@ -52,7 +52,7 @@ module type TIRC = sig
 
         (** Message-passing *)
         | TBridge of tbridge
-        | TInPort of main_type * main_type (* session_type * bridge type *)
+        | TInport of main_type * main_type (* session_type * bridge type *)
         | TOutport of main_type (* bridge type *)
 
         | TRaw of Impl_common.blackbox_term (*TODO move it to IRI by doing so composed type should not be any more in common *)
@@ -370,7 +370,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
         (** Message-passing *)
         | TBridge of tbridge
-        | TInPort of main_type * main_type (* session_type * bridge type *)
+        | TInport of main_type * main_type (* session_type * bridge type *)
         | TOutport of main_type (* bridge type *)
 
         | TRaw of Impl_common.blackbox_term (*TODO move it to IRI by doing so composed type should not be any more in common *)
@@ -816,7 +816,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     function
     | TFlatType _ -> already_binded, [], []
     | TActivationRef mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt -> collect_mtype mt
-    | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) | TInPort (mt1, mt2) -> 
+    | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) | TInport (mt1, mt2) -> 
         let _, collected_elts1, ftvars1 = collect_mtype mt1 in
         let _, collected_elts2, ftvars2 = collect_mtype mt2 in
         already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
@@ -1345,7 +1345,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             out_type = rewrite_mtype tb.out_type;
             protocol = rewrite_mtype tb.protocol;
         }
-        | TInPort (mt1, mt2) -> TInPort (rewrite_mtype mt1, rewrite_mtype mt2) 
+        | TInport (mt1, mt2) -> TInport (rewrite_mtype mt1, rewrite_mtype mt2) 
 
         | TRaw x -> TRaw x
         | TPolyVar x -> TPolyVar x

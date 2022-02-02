@@ -319,7 +319,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         *)
         match value with
         | S.Term t -> cartography_term entry t
-        | S.Method {value={name}} | S.InPort {value={name;}} | S.Outport {value={name;}} | S.State {value=StateDcl{name;}} | S.State {value=StateAlias{name;}}  -> begin
+        | S.Method {value={name}} | S.Inport {value={name;}} | S.Outport {value={name;}} | S.State {value=StateDcl{name;}} | S.State {value=StateAlias{name;}}  -> begin
             match Env.find_opt name entry.inner with 
             | None -> { entry with
                 inner = Env.add name {place; value=register_this place name} entry.inner
@@ -959,9 +959,9 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         new_env, [T.Method new_m]
     | S.Contract c -> 
         env, [T.Contract (snd( ccontract env c))]
-    | S.InPort p ->
+    | S.Inport p ->
         let new_env, new_p = cport env p in
-        new_env, [T.InPort new_p]
+        new_env, [T.Inport new_p]
     | S.Outport p ->
         let new_env, new_p = coutport env p in
         new_env, [T.Outport new_p]

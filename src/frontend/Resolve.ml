@@ -84,7 +84,7 @@ and resolve_component_item place : S._component_item -> T._component_item list =
 | S.State s -> [ T.State (map_place resolve_state s) ]
 | S.Method m -> [ T.Method (map_place resolve_method m) ]
 | S.Contract c -> [ T.Contract (map_place resolve_contract c) ]
-| S.InPort p -> [ T.InPort (map_place resolve_port p) ]
+| S.Inport p -> [ T.Inport (map_place resolve_port p) ]
 | S.Outport p -> [ T.Outport (map_place resolve_outport p) ]
 | S.Term t -> List.map (function x -> T.Term x) (resolve_term t)
 | S.Include cexpr -> [ T.Include (rcexpr cexpr) ]

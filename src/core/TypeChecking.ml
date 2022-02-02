@@ -287,7 +287,7 @@ and _tcheck_port place ((p, mt_p): _port * main_type) =
     tcheck_expr p.input; 
     tcheck_expr p.callback;
     (match mt_p.value with 
-    | CType{value=TInPort (mt_bridge, mt_st)} -> begin 
+    | CType{value=TInport (mt_bridge, mt_st)} -> begin 
         (* Just checking that the Type reconstruction is correct *)
         assert(equal_mtype mt_bridge (snd p.input.value) &&
         equal_mtype mt_st p.expecting_st);
@@ -322,7 +322,7 @@ and _tcheck_outport place (p, mt_p) =
 
     tcheck_expr p.input; 
     (match mt_p.value with 
-    | CType{value=TInPort (mt_bridge, mt_st)} -> begin 
+    | CType{value=TInport (mt_bridge, mt_st)} -> begin 
         (* Just checking that the Type reconstruction is correct *)
         assert(equal_mtype mt_bridge (snd p.input.value));
 
@@ -378,7 +378,7 @@ and _tcheck_component_item place = function
 | Contract s -> tcheck_contract s
 | Include ce -> tcheck_component_expr ce
 | Method m -> tcheck_method m
-|InPort p -> tcheck_port p
+|Inport p -> tcheck_port p
 | State s -> tcheck_state s
 | Term t -> tcheck_term t
 and tcheck_component_item citem= map0_place _tcheck_component_item citem

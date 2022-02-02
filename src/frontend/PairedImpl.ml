@@ -138,7 +138,7 @@ and paired_component_item parents place : S2._component_item -> T._component_ite
 | S2.Contract c -> T.Contract c
 | S2.Include _ -> failwith "paired: component include not suported yet"
 | S2.Method m -> T.Method (umethod0 parents m)
-| S2.InPort p -> T.InPort p
+| S2.Inport p -> T.Inport p
 | S2.Outport p -> T.Outport p
 | S2.State s -> T.State (ustate parents s)
 | S2.Term t -> T.Term (uterm parents t)

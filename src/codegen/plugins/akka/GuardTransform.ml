@@ -486,7 +486,7 @@ and gtransform_citem_ place = function
 | State s -> State s
 | Method s -> Method s
 | Contract c -> Contract c
-|InPort p ->InPort p
+|Inport p ->Inport p
 | Outport p -> Outport p
 | Include _ -> raise (Error.DeadbranchError "gtransform_citem: Include not supported, include should have been resolved")
 and gtransform_citem citem = map_place gtransform_citem_ citem 

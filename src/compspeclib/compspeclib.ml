@@ -80,7 +80,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         |> RecvElimination.apply (* Transform receive to async + ports *) 
 
         (* Every pass that change ports and components should be performed before runngin the Intercept transformation *)
-        (*|> Intercept.apply*)
+        |> Intercept.apply
         |> Clean.apply
     in
 

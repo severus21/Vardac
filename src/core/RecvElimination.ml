@@ -424,11 +424,11 @@ module Make (Args : Params ) : Sig = struct
             [], [auto_place citem]
         else 
             List.map (function | {value=StateDcl s} -> s.name) intermediate_states
-            , (List.map (function p-> auto_fplace (InPort p)) intermediate_ports) @ 
+            , (List.map (function p-> auto_fplace (Inport p)) intermediate_ports) @ 
             (List.map (function s-> auto_fplace (State s)) intermediate_states)
             @
             (List.map (function m-> auto_fplace (Method m)) intermediate_methods)
-    | (InPort _ as citem) | (Outport _ as citem) -> [], [auto_place citem]
+    | (Inport _ as citem) | (Outport _ as citem) -> [], [auto_place citem]
     | Term t -> [], [auto_place (Term (rterm t))]
     | Include _ as citem -> [], [auto_place citem]
     and rcitem citem : expr_variable list * component_item list = rewrite_component_item citem.place citem.value 

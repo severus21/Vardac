@@ -552,7 +552,7 @@ any_component_item_:
 | c = any_contract
     { Contract c }
 | p = any_inport SEMICOLON
-    { InPort p}
+    { Inport p}
 | p = any_outport SEMICOLON
     { Outport p}
 | t = any_term
