@@ -404,7 +404,11 @@ let is_builtin_type x = try let _ = BuiltinSet.find x builtin_type_env in true w
 let is_builtin_derivation x = try let _ = BuiltinSet.find x builtin_derivation_env in true with Not_found -> false                   
 
 let type_of x : IR.main_type = 
-    let (_, _, make_mt) = Hashtbl.find builtin_htbl x in
+    let (_, _, make_mt) = 
+        try
+            Hashtbl.find builtin_htbl x 
+        with Not_found -> raise (Error.DeadbranchError (Printf.sprintf "Builtin function [%s] has not a builtin signature" x))
+    in
     (* TODO type are incorrect or forall is incorectly used because
     the builtin types introduce free type variable that are outside the scope of their forall quantifier
     
@@ -414,7 +418,11 @@ let type_of x : IR.main_type =
     make_mt ()
 
 let desc_of x : string = 
-  let (_, desc,_) = Hashtbl.find builtin_htbl x in
-  desc 
+    let (_, desc,_) = 
+        try
+            Hashtbl.find builtin_htbl x 
+        with Not_found -> raise (Error.DeadbranchError (Printf.sprintf "Builtin function [%s] has no attached docstring" x))
+    in
+    desc 
 
 let is_builtin_component _ = false

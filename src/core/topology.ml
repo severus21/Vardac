@@ -83,7 +83,12 @@ module Make (Args:Params) : Sig = struct
             tODO Maybe one  subgraph per isolation context
         *)
         let get_subgraph v :  Graphviz.DotAttributes.subgraph option = 
-            let target = Hashtbl.find component2target v in
+            let target = 
+                try
+                    Hashtbl.find component2target v 
+                with Not_found -> raise (Error.DeadbranchError (Printf.sprintf "component [%s] not found in component2target" (Atom.to_string v)))
+            in
+
             Some {
                 sg_name = target;
                 sg_attributes = [

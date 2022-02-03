@@ -148,7 +148,12 @@ module Make (Args : Params ) : Sig = struct
         openkeuys= empty
         *)
         let update k =
-            let spawns = try Hashtbl.find inner_spawns k with Not_found -> (logger#error "pass1.5: %s not found in inner_spawns" (Atom.to_string k); raise Not_found) in
+            let spawns = 
+                try 
+                    Hashtbl.find inner_spawns k 
+                with Not_found -> (logger#error "pass1.5: %s not found in inner_spawns" (Atom.to_string k); raise Not_found) 
+            in
+
             if spawns = [] then 
                 openkeys := Atom.Set.remove k !openkeys (* NB. Env compare method only take atom into account, main type is ignored *)
             else
@@ -163,7 +168,12 @@ module Make (Args : Params ) : Sig = struct
                     (*Format.fprintf Format.std_formatter "Round for %s [spawn %s]\n" (Atom.to_string k) (Atom.to_string c);
                     print_env env;*)
                     let discovered_implicits = Env.diff implicit_args env in
-                    let new_implicits = try Env.diff discovered_implicits (Hashtbl.find implicits k) with Not_found -> (logger#error "%s not found in implicits" (Atom.to_string k); raise Not_found)in
+                    let new_implicits = 
+                        try 
+                            Env.diff discovered_implicits (Hashtbl.find implicits k) 
+                        with Not_found -> (logger#error "%s not found in implicits" (Atom.to_string k); raise Not_found)
+                    in
+
                     if new_implicits <> Env.empty then( 
                         Format.fprintf Format.std_formatter "%s find implicit %a \n" 
                             (Atom.to_string k) 
@@ -172,7 +182,11 @@ module Make (Args : Params ) : Sig = struct
                                 (fun out (_, x) -> Format.fprintf out "%s" (Atom.to_string x))
                             ) 
                             (List.of_seq (Env.to_seq new_implicits));
-                        let tmp = Hashtbl.find implicits k in
+                        let tmp = 
+                            try 
+                                Hashtbl.find implicits k 
+                            with Not_found -> raise (Error.DeadbranchError (Printf.sprintf "%s not found in implicit" (Atom.to_string k) ))
+                        in
                         Hashtbl.add implicits k (Env.union tmp new_implicits); 
 
                         (* Keep key open*)
@@ -210,7 +224,11 @@ module Make (Args : Params ) : Sig = struct
 
         (* Make implicit constructor variables explicit *)
         compute_hidden_implicit_vars ();
-        let implicit_vars = try Hashtbl.find implicits cdcl.name with Not_found -> (logger#error "pass2: %s not found in implicits" (Atom.to_string cdcl.name); raise Not_found)in 
+        let implicit_vars = 
+            try 
+                Hashtbl.find implicits cdcl.name 
+            with Not_found -> (logger#error "pass2: %s not found in implicits" (Atom.to_string cdcl.name); raise Not_found)
+        in 
         let implicit_vars = List.of_seq (Env.to_seq implicit_vars) in
         (*let _, implicit_vars = free_vars_component_dcl (List.fold_left (fun set {value=mt,x} -> Atom.Set.add x set ) Atom.Set.empty cdcl.args)  {place; value=ComponentStructure cdcl} in (* Variable coming from outside the component, that have not been reduced to value during partial evaluation*)*)
 
