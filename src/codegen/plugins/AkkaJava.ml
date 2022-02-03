@@ -1127,7 +1127,7 @@ end) = struct
             
             let stmts = match is_actor_method with
             | true -> begin
-                let l_event_name : Atom.atom = (Atom.builtin "e") in
+                let l_event_name : Atom.atom = (Atom.fresh "e") in
                 let l_event : S.expr = auto_place (S.VarExpr l_event_name, auto_place S.TUnknown) in
                 let generate_case_for_timer (event_name, handler_name) = 
                     (* 

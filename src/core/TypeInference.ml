@@ -176,6 +176,24 @@ let rec _tannot_session_type (ctx:context) place : _session_type -> context * _s
 | STDual st -> 
     let ctx , st = tannot_full_session_type ctx st in
     ctx, STDual st
+| (STBranch branches as st) | (STSelect branches as st) -> 
+    let tannot_full_branch ctx (label, st, guard_opt) =  
+        let ctx , st = tannot_full_session_type ctx st in
+        (*
+        TODO need to write tannot_full_guard
+        let ctx , guard_opt = match guard_opt with
+            | None -> ctx, None
+            | Some guard -> 
+                let ctx, guard = tannot_full_guard ctx guard in
+                ctx, Some guard
+        in*)
+        ctx, (label, st, guard_opt)
+    in
+    let ctx, branches = List.fold_left_map tannot_full_branch ctx branches in
+
+    ctx, match st with
+    | STBranch _ -> STBranch branches
+    | STSelect _ -> STSelect branches
 and tannot_full_session_type ctx st : context * session_type = 
     let ctx, _st = _tannot_session_type ctx st.place st.value in
     ctx, {place = st.place; value = _st}
@@ -215,14 +233,11 @@ and _tannot_composed_type ctx place = function
     protocol = tannot_main_type ctx b.protocol;
 }
 | TRaw bt -> TRaw bt
-and tannot_composed_type ctx ct : composed_type = {
-    place = ct.place; 
-    value = _tannot_composed_type ctx ct.place ct.value
-}
+and tannot_composed_type ctx = map_place (_tannot_composed_type ctx)
 
 and _tannot_component_type ctx place = function
 | CompTUid x -> CompTUid x
-and tannot_component_type ctx ct = failwith "" (*map_place _tannot_component_type ctx ct*) 
+and tannot_component_type ctx = map_place (_tannot_component_type ctx)
 
 and _tannot_main_type ctx place = function
 | CType ct -> ctx, CType (tannot_composed_type ctx ct)
@@ -238,12 +253,7 @@ and _tannot_main_type ctx place = function
         tannot_main_type ctx mt, 
         guard
     )
-and tannot_full_main_type ctx mt = 
-    let ctx, _mt =  _tannot_main_type ctx mt.place mt.value in
-    ctx, {
-        place = mt.place;
-        value = _mt
-    }
+and tannot_full_main_type ctx = map2_place (_tannot_main_type ctx) 
 and tannot_main_type ctx mt : main_type = snd (tannot_full_main_type ctx mt)
 
 (******************************** Constraints ********************************)
@@ -356,6 +366,10 @@ and _tannot_expr ctx place (e, mt_e) =
                 let e1 = tannot_expr ctx e1 in
                 let e2 = tannot_expr ctx e2 in
                 BinopExpr (e1, op, e2), typeof_binop op (snd e1.value) (snd e2.value)
+            | InterceptedActivationRef (e1, e2_opt) ->
+                let e1 = tannot_expr ctx e1 in
+                let e2_opt = Option.map (tannot_expr ctx) e2_opt in
+                InterceptedActivationRef(e1, e2_opt), snd e1.value 
             | LambdaExpr (x, mt, e) -> 
                 let ctx = register_expr_type ctx x mt in
                 let e = tannot_expr ctx e in
@@ -371,7 +385,7 @@ and _tannot_expr ctx place (e, mt_e) =
                     | _ when depth = 0 -> mt
                     | CType{value=TArrow (_, mt2)} -> ret_typeof (depth-1) mt2 
                     | CType{value=TForall(_, mt)} -> ret_typeof depth mt
-                    | _ -> Error.error place "Function expect %d args, not %d" ((List.length es)-depth) (List.length es)
+                    | _ -> Error.error place "Function [%s] expect %d args, not %d" (show_expr e) ((List.length es)-depth) (List.length es)
                 in
 
                 CallExpr(e, es), ret_typeof (List.length es) (snd e.value) 
@@ -398,6 +412,11 @@ and _tannot_expr ctx place (e, mt_e) =
                 args = List.map (tannot_expr ctx) spawn.args;
                 at = Option.map (tannot_expr ctx) spawn.at;
             }, ctypeof(TActivationRef(snd c.value))
+            | TernaryExpr (e1, e2, e3) ->
+                let e1 = tannot_expr ctx e1 in
+                let e2 = tannot_expr ctx e2 in
+                let e3 = tannot_expr ctx e3 in
+                TernaryExpr(e1, e2, e3), snd e2.value
             | BridgeCall b -> failwith "How to infer type of Bridge" 
             | BoxCExpr ce -> failwith "BoxCExpr Typeinference"
             | OptionExpr e_opt ->  

@@ -995,7 +995,7 @@ module Make () = struct
 
         (*** Building receiver ***)
         (* Step0 - name of receiver param (event) *)
-        let l_event_name : Atom.atom = (Atom.builtin "e") in
+        let l_event_name : Atom.atom = (Atom.fresh "e") in
         let l_event : T.expr = auto_place (T.VarExpr l_event_name, auto_place T.TUnknown) in
 
         (* Step1 - create {event_name: {(bridge_expr, st, remaining_step i.e st) ->  callbak}} *)

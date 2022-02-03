@@ -580,17 +580,21 @@ module Make () = struct
                             end;
 
                             stmt_headers := !stmt_headers @  
+                            [
                                 (* Store a copy of p_of_a is any *)
-                                (if spawn.at <> None then
-                                    [LetStmt(
-                                        mtype_of_ft TPlace,
-                                        p_of_a,
-                                        Option.get spawn.at
-                                    )]
-                                else []) 
-
+                                LetStmt(
+                                    mtype_of_ft TPlace,
+                                    p_of_a,
+                                    match spawn.at with
+                                    | Some at -> Option.get spawn.at
+                                    | None ->
+                                        e2_e (CallExpr (
+                                            e2var (Atom.builtin "current_place"),
+                                            []
+                                        ))
+                                );
                                 (* Get the interceptor in charge of a *)
-                                @ [ LetStmt(
+                                LetStmt(
                                     mtype_of_ct (TActivationRef (mtype_of_cvar interceptor_name)),
                                     i_a,
                                     e2_e (CallExpr(
@@ -602,7 +606,8 @@ module Make () = struct
                                             e2var p_of_a
                                         ]
                                     ))
-                                ) ]; 
+                                ) 
+                            ]; 
                             
                             (* Need to replace at if exists, in case at expr is not idempotent or costly *)
                             Spawn { spawn with
@@ -614,7 +619,7 @@ module Make () = struct
                 in
 
                 (* TODO logic duplicated with exposed_activation*)
-                match stmt with 
+                !stmt_headers @ match stmt with 
                 (* Exposed activations must be identified to hydrate corretly the exposed_activations_info *)
                 | LetStmt (mt, a, ({value=Spawn spawn, _} as spawn_e)) ->
                     (* Replace a by a' to ensure that this pass guarantee `` a binder create a unique named variable`` even if we reintroduce a binder for [a] in ctx footer *)
@@ -629,7 +634,7 @@ module Make () = struct
                     (* Exposed_activation *) 
                     let e = {place = spawn_e.place @ fplace; value = spawn_rewriter (Some (a, a')) (fst spawn_e.value), (snd spawn_e.value)} in
 
-                    !stmt_headers @ [ LetStmt(mt, a', e)]
+                    [ LetStmt(mt, a', e)]
 
                 (* Non-exposed activations *)
                 | _ -> [ (rewrite_expr_stmt spawn_selector (spawn_rewriter None) (auto_fplace stmt)).value ]
@@ -717,7 +722,7 @@ module Make () = struct
                     sessions_info = None;
                 };
 
-            let stmts = stmts @ (List.rev footer_binders) in
+            let stmts = headers @ stmts @ (List.rev footer_binders) in
             List.map (function stmt -> stmt.value) stmts
         end
 

@@ -277,7 +277,7 @@ let encode_builtin_fct_as_stmt place name (args:T.expr list) =
         logger#warning "using sleep in Akka will block a thread - not only the actor";
         match args with
         | [ duration ] -> 
-            let e = Atom.builtin "e" in
+            let e = Atom.fresh "e" in
             T.TryStmt(
                 auto_place(T.ExpressionStmt(
                     auto_place(T.CallExpr (

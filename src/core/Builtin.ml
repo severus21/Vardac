@@ -304,7 +304,10 @@ let t_dict () =
 let t_nth () = (* TODO can not work - number of elmt not knwon*)
     mtype_of_ct(TArrow(
         mtype_of_ct (TTuple [mtype_of_ft TWildcard]),
-        mtype_of_ft TWildcard
+        mtype_of_ct(TArrow(
+            mtype_of_ft TInt,
+            mtype_of_ft TWildcard
+        ))
     ))
 
 let t_string_of_bridge () = 

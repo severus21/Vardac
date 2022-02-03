@@ -671,6 +671,11 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
                 | Some e2 -> collect_expr_expr parent_opt already_binded selector collector e2 
             in
             already_binded, collected_elts1@collected_elts2, fvars1@fvars2
+        | TernaryExpr (e1, e2, e3) ->
+            let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e1 in
+            let _, collected_elts2, fvars2 = collect_expr_expr parent_opt already_binded selector collector e2 in
+            let _, collected_elts3, fvars3 = collect_expr_expr parent_opt already_binded selector collector e3 in
+            already_binded, collected_elts1@collected_elts2@collected_elts3, fvars1@fvars2@fvars3
     and collect_expr_expr (parent_opt:Atom.atom option) (already_binded:Variable.Set.t) (selector:_expr->bool) (collector:Atom.atom option -> Variable.Set.t -> expr -> 'a list) (expr:expr) = 
         map0_place (collect_expr_expr_ parent_opt already_binded selector collector) expr
     and free_vars_expr already_binded e = 

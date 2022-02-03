@@ -69,7 +69,7 @@ module Make (Args : Params ) : Sig = struct
         (*
             N.B. We use exatcly one [s] in the final AST when storing the intermediate arguments
         *)
-            logger#error "acc_method with %d stmts" (List.length acc_method.body);
+            logger#error "[%s]: acc_method with %d stmts" (Atom.to_string m.name) (List.length acc_method.body);
             let intermediate_method_name = Atom.fresh ((Atom.hint m.name)^"_intermediate") in
             let intermediate_port_name = Atom.fresh ((Atom.hint m.name)^"_intermediate_port") in
             (*let intermediate_state_name = Areceivetom.fresh ((Atom.hint m.name)^"_intermediate_state") in*)
@@ -85,17 +85,17 @@ module Make (Args : Params ) : Sig = struct
                 ));
             }, auto_fplace EmptyMainType) in
             
-            let tmp_event = Atom.builtin "e" in
-            let tmp_session = Atom.builtin "session" in
-            (*let tmp_args = Atom.builtin "tmp_args" in*)
+            let param_event = Atom.fresh "e" in
+            let param_session = Atom.fresh "session" in
+
             let intermediate_method = {
                 annotations = m.annotations;
                 ghost = false;
                 ret_type = m.ret_type; (* Will be updated lated if needed *) 
                 name = intermediate_method_name;
                 args = [
-                    auto_fplace ( msg_t, tmp_event);
-                    auto_fplace ( auto_fplace (SType continuation_st), tmp_session);
+                    auto_fplace ( msg_t, param_event);
+                    auto_fplace ( auto_fplace (SType continuation_st), param_session);
                 ]; 
                 body = []; (*Will be update later*)
                 contract_opt = None;
@@ -206,8 +206,8 @@ module Make (Args : Params ) : Sig = struct
         (* let res = receive ()
             build res variable in 2th method
         *)
-        let tmp_event = Atom.builtin "e" in
-        let tmp_session = Atom.builtin "session" in
+        let param_event, param_session = match m2.args with
+        | [ {value=_,param_event}; {value=_,param_session} ] -> param_event, param_session in 
         let load_recv_result : stmt list = match x1_opt with
             | None -> []
             | Some (x1, msg_t, continuation_st) -> begin
@@ -219,8 +219,8 @@ module Make (Args : Params ) : Sig = struct
                         e2_e (BlockExpr(
                             Tuple,
                             [
-                                e2var tmp_event;
-                                e2var tmp_session
+                                e2var param_event;
+                                e2var param_session
                             ]
                         ))
                     ))
@@ -236,7 +236,7 @@ module Make (Args : Params ) : Sig = struct
             let _states, _methods = rewrite_intermediate place m ((x2_opt, s2_opt,m2, intermediate_args2)::ms) in
             _states, m1::_methods
         | _ -> begin
-            let tmp_args = Atom.builtin "tmp_args" in
+            let tmp_args = Atom.fresh "tmp_args" in
 
             let intermediate_state_name = Atom.fresh ((Atom.hint m.name)^"_intermediate_state") in
             (* use to store args between acc_methd and intermediate_method*)
@@ -274,7 +274,7 @@ module Make (Args : Params ) : Sig = struct
                                 e2var (Atom.builtin "sessionid"),
                                 [ match s1_opt with
                                     | Some session -> session (* when we are in the first method of the list*)
-                                    | None -> e2var tmp_session (* for all the intermediate (and last) methods *) 
+                                    | None -> e2var param_session (* for all the intermediate (and last) methods *) 
                                 ]
                             ));
                             tuple_intermediate_args;
@@ -297,7 +297,7 @@ module Make (Args : Params ) : Sig = struct
                             ));
                             e2_e (CallExpr(
                                 e2var (Atom.builtin "sessionid"),
-                                [ e2var tmp_session ]
+                                [ e2var param_session ]
                             ));
                         ]
                     )))));
@@ -323,7 +323,7 @@ module Make (Args : Params ) : Sig = struct
         end
     end
 
-    (* rcev -> toplevel let or toplevel expression statement (return etc ...)*)
+    (* rcev -> toplevel let or toplevel expression statement (return etc ...) or nested let .. =recv in block (if, ..)*)
     let rec to_X_form place stmt : stmt list =
         let fplace = (Error.forge_place "Core.Rewrite.to_X_form" 0 0) in
         let auto_place smth = {place = place; value=smth} in
@@ -386,7 +386,7 @@ module Make (Args : Params ) : Sig = struct
         let stmts = List.flatten (List.map (function stmt -> to_X_form stmt.place stmt.value) m.body) in
 
         (* Debug *)
-        let m = {m with body = []} in
+        (*let m = {m with body = []} in
         let blblbl = function
         | LetStmt (_, _, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e}) as stmt  when Atom.is_builtin x && Atom.hint x = "receive" ->
             incr troloc;
@@ -394,7 +394,7 @@ module Make (Args : Params ) : Sig = struct
             true 
         | _ -> false 
         in
-        List.map (rewrite_stmt_stmt false blblbl (fun place stmt -> [stmt])) stmts;
+        List.map (rewrite_stmt_stmt false blblbl (fun place stmt -> [stmt])) stmts;*)
         (* End debug *)
 
 
@@ -490,6 +490,7 @@ module Make (Args : Params ) : Sig = struct
     let receive_selector = function 
         | (CallExpr ({value=(VarExpr x, _)}, [s; bridge])as e) when Atom.is_builtin x && Atom.hint x = "receive" -> true
         | _ -> false
+
     let receive_collector msg parent_opt env e = 
         let parent = match parent_opt with | None -> "Toplevel" | Some p -> Atom.to_string p in
         Error.error e.place "%s. Parent = %s" msg parent
