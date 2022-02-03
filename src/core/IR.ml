@@ -968,6 +968,15 @@ let rec rewrite_exprstmts_expr_ parent_opt selector rewriter place (e, mt_e) : s
     TODO check as a precondition
     *)
         [], (e, mt_e)
+    | InterceptedActivationRef (e1, e2_opt) ->
+        let stmts1, e1 = rewrite_exprstmts_expr e1 in
+        let stmts2, e2_opt = match e2_opt with
+            | None -> [], None
+            | Some e2 -> 
+                let stmts2, e2 = rewrite_exprstmts_expr e2 in
+                stmts2, Some e2
+        in
+        stmts1@stmts2, (InterceptedActivationRef (e1, e2_opt), mt_e)
     | UnopExpr (op, e) -> 
         let stmts, e = rewrite_exprstmts_expr e in
         stmts, (UnopExpr(op, e), mt_e)

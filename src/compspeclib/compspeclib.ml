@@ -81,6 +81,8 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
         (* Every pass that change ports and components should be performed before runngin the Intercept transformation *)
         |> Intercept.apply
+        |> TypeInference.apply (*Needed since we introduce new constructions *)
+        (*|> TypeChecking.apply*)
         |> RecvElimination.apply (* Intercept introduce recv for onboarding *) 
         |> Clean.apply
     in

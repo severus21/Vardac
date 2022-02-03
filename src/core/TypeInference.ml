@@ -440,8 +440,10 @@ and _tannot_expr ctx place (e, mt_e) =
                 in
                 (fst e.value, apply (mt, mts))
     end
-    | CType{value=TVPlace _ } -> e, mt_e
-    | other -> Error.error (place@mt_e.place) "Should not be hydrated %s\n%s" (show__expr e) (show__main_type other)
+    | _ -> e, mt_e 
+    (* TODO remove
+    Debug case | other -> Error.error (place@mt_e.place) "Should not be hydrated %s\n%s" (show__expr e) (show__main_type other)
+    *)
     );
 
 
