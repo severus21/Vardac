@@ -891,6 +891,25 @@ and rewrite_term_term selector rewriter = map_places (rewrite_term_term_ selecto
 
 and rewrite_term_program (selector : _term -> bool) (rewriter : Error.place -> _term -> _term list) program = List.flatten (List.map (rewrite_term_term selector rewriter) program )
 
+(******************************************)
+let rec rewrite_citem_component_item_  selector rewriter place = function 
+| t when selector t -> rewriter place t
+| Term t -> List.map (function x -> Term x) (rewrite_citem_term selector rewriter t)
+| citem -> [citem]
+and rewrite_citem_component_item selector rewriter = map_places (rewrite_citem_component_item_ selector rewriter) 
+
+and rewrite_citem_component_dcl_  selector rewriter place = function 
+| ComponentStructure cdcl -> ComponentStructure { cdcl with body = List.flatten (List.map (rewrite_citem_component_item selector rewriter) cdcl.body)}
+| x -> x
+and rewrite_citem_component_dcl selector rewriter = map_place (rewrite_citem_component_dcl_ selector rewriter) 
+
+and rewrite_citem_term_ selector rewriter place = function 
+| Component cdcl -> [Component (rewrite_citem_component_dcl selector rewriter cdcl)]
+| t -> [ t ]
+and rewrite_citem_term selector rewriter = map_places (rewrite_citem_term_ selector rewriter) 
+
+and rewrite_citem_program (selector : _component_item -> bool) (rewriter : Error.place -> _component_item -> _component_item list) program = List.flatten (List.map (rewrite_citem_term selector rewriter) program )
+
 let rewrite_component_program (selector : component_structure -> bool) (rewriter : Error.place -> component_structure -> component_structure list) program : term list = 
     let selector_t = function
     | Component {value=ComponentStructure cdcl} when selector cdcl -> true

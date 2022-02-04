@@ -66,6 +66,10 @@ let mt2event mt =
         let event = Atom.fresh "auto_boxed_type" in
         MTHashtbl.add hashtbl_mt2event mt (mt, event);
         event
+    
+let needs_autoboxing = function
+    | {value=CType {value = TVar x }} -> Hashtbl.find_opt events x = None
+    | _ -> true
 
 let rec _autobox_st _ st = 
 match st with
@@ -73,15 +77,10 @@ match st with
 | STSend (t_msg, st_continuation) | STRecv (t_msg, st_continuation) -> begin
     let st_continuation = autobox_st st_continuation in
     let t_msg = 
-        mtype_of_var
-        (match t_msg.value with
-        (* event *)
-        | CType {value = TVar x } when Hashtbl.find_opt events x <> None -> x
-        (* Not an event *)
-        | _ -> 
+        if needs_autoboxing t_msg then begin
             logger#debug "auto_boxing %s" (show__main_type t_msg.value);
-            mt2event t_msg
-        )
+            mtype_of_var (mt2event t_msg)
+        end else t_msg
     in
 
     match st with
@@ -119,6 +118,80 @@ let autobox_program program : IR.program =
     | _ -> false
     in
     collect_term_program false event_selector (function _ -> failwith "") program;
+    
+    (*** Need to recompute all types ***)
+    let program = TypeInference.apply program in
+
+    (*** Auto-box expr (event creation/destruction) ***)
+    (* sending -> fire | incomming receive and inport callback *)
+    let expr_selector : _expr -> bool = function
+        | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "fire" && Atom.is_builtin x -> true
+        | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "receive" && Atom.is_builtin x -> failwith "receive not yet supported by event autobxoing" 
+        | _ -> false
+    in
+    let expr_rewritor e =
+        match e with
+        | CallExpr ({place; value= (VarExpr x, _)}, args) when Atom.hint x = "fire" && Atom.is_builtin x -> 
+            logger#debug "fire auto-boxing";
+            let [s; msg] = args in
+
+            let e_msg, t_msg = msg.value in
+            if needs_autoboxing t_msg then 
+                let event = mt2event t_msg in
+                CallExpr ( e2var x, [
+                    s;
+                    e2_e (NewExpr(
+                        e2var event,
+                        [ e2_e e_msg ]
+                    ))
+                ])
+            else e
+    in
+
+    let program = rewrite_expr_program expr_selector expr_rewritor program in
+
+    let inport_selector = function
+    | Inport _ -> true
+    in
+    let inport_rewritor _ = function
+    | Inport p as t -> 
+        logger#debug "port auto-boxing";
+        let t_msg, st_continuation = IRMisc.msgcont_of_st (match (fst p.value).expecting_st.value with | SType st -> st) in
+
+        [
+            if needs_autoboxing t_msg then
+                let event = mt2event t_msg in
+
+                let param_msg = Atom.fresh "msg" in
+                let param_session = Atom.fresh "session" in
+
+                Inport (auto_fplace ({ (fst p.value) with
+                    (* St type of p will be rewritten afterwards by the type rewritten pass *)
+                    callback = 
+                        e2_e(LambdaExpr (
+                            param_msg,
+                            mtype_of_var event,
+                            e2_e(LambdaExpr (
+                                param_session,
+                                mtype_of_st st_continuation.value,
+                                e2_e(CallExpr(
+                                    (fst p.value).callback,
+                                    [
+                                        e2_e (AccessExpr (
+                                                e2var param_msg,
+                                                e2var (Atom.builtin "_0_")
+                                        ));
+                                    e2var param_session 
+                                    ]
+                                ))
+                            ))
+                        ))
+                }, auto_fplace EmptyMainType))
+            else t
+        ]
+    in
+
+    let program = rewrite_citem_program inport_selector inport_rewritor program in
 
     (*** Update st types everywhere ***)
     let selector = function 
@@ -133,10 +206,6 @@ let autobox_program program : IR.program =
 
     (*** Need to recompute all types ***)
     let program = TypeInference.apply program in
-
-    (*** Auto-box expr (event creation/destruction) ***)
-    (* TODO *)
-
 
     (*** Add events def ***)
     (* TODO
