@@ -75,6 +75,7 @@ and _expr =
     | UnaryExpr of unop * expr
     | VarExpr of variable
     | RawExpr of string
+    | TernaryExpr of expr * expr * expr
 and expr = (_expr * jtype) placed
 
 and _jmodule = 

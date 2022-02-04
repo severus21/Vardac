@@ -66,6 +66,8 @@ and _expr =
     | BlockExpr of IR.block * expr list
     | Block2Expr of IR.block2 * (expr * expr) list
 
+    | TernaryExpr of expr * expr * expr
+
     (** Akka scheduler *)
     | Spawn of { context: expr; actor_expr: expr }
     | CurrentContext

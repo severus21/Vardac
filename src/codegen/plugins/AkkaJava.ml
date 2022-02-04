@@ -888,6 +888,7 @@ end) = struct
             )
         | S.LitExpr lit -> LiteralExpr (fliteral lit)
         | S.Spawn {context; actor_expr} -> T.AccessExpr (fexpr context, fexpr actor_expr)
+        | S.TernaryExpr (e1, e2, e3) -> T.TernaryExpr (fexpr e1, fexpr e2, fexpr e3)
         | S.This -> T.ThisExpr
         | S.BlockExpr (b, es) -> begin
             match b with

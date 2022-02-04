@@ -17,6 +17,7 @@ module PartialEval = IRCompilationPass.Make(Core.PartialEval)
 module Reduce = IRCompilationPass.Make(Core.Reduce)
 module TypeChecking = IRCompilationPass.Make(Core.TypeChecking)
 module TypeInference = IRCompilationPass.Make(Core.TypeInference)
+module EventAutoBoxing = IRCompilationPass.Make(Core.EventAutoBoxing)
 
 let process_check build_dir places_file filename = 
     let build_dir = Utils.refresh_or_create_build_dir build_dir in
@@ -83,8 +84,12 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         |> Intercept.apply
         |> TypeInference.apply (*Needed since we introduce new constructions *)
         (*|> TypeChecking.apply*)
+        |> PartialEval.apply
         |> RecvElimination.apply (* Intercept introduce recv for onboarding *) 
         |> Clean.apply
+
+
+        |> EventAutoBoxing.apply
     in
 
     ir3

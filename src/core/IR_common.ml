@@ -836,8 +836,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         
     function
     | TFlatType _ -> already_binded, [], []
-    | TActivationRef mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt -> collect_mtype mt
-    | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) | TInport (mt1, mt2) -> 
+    | TActivationRef mt | TArray mt | TList mt | TOption mt | TOutport mt | TSet mt | TVPlace mt -> collect_mtype mt
+    | TArrow (mt1, mt2) | TDict (mt1, mt2) | TInport (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) -> 
         let _, collected_elts1, ftvars1 = collect_mtype mt1 in
         let _, collected_elts2, ftvars2 = collect_mtype mt2 in
         already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
@@ -992,6 +992,10 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             collected_elts, ftvars
         | AccessExpr (e1, e2) | BinopExpr (e1, _, e2) -> 
             collect_exprs [e1; e2]
+        | InterceptedActivationRef (actor_ref, interceptec_actor_ref) -> 
+            let _, collected_elts1, ftvars1 = collect_expr actor_ref in
+            let _, collected_elts2, ftvars2 = collect_expropt interceptec_actor_ref in
+            collected_elts1@collected_elts2, ftvars1@ftvars2
         | LambdaExpr (_, mt, e) ->
             let _, collected_elts1, ftvars1 =  collect_mtype mt in
             let _, collected_elts2, ftvars2 =  collect_expr e in
@@ -1018,6 +1022,11 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             let collected_elts1, ftvars1 = collect_exprs  es1 in
             let collected_elts2, ftvars2 = collect_exprs  es2 in
             collected_elts1@collected_elts2, ftvars1@ftvars2
+        | TernaryExpr (e1, e2, e3) -> 
+            let _, collected_elts1, ftvars1 = collect_expr e1 in
+            let _, collected_elts2, ftvars2 = collect_expr e2 in
+            let _, collected_elts3, ftvars3 = collect_expr e3 in
+            collected_elts1@collected_elts2@collected_elts3, ftvars1@ftvars2@ftvars3
         in
         already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2 
 
@@ -1367,6 +1376,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             protocol = rewrite_mtype tb.protocol;
         }
         | TInport (mt1, mt2) -> TInport (rewrite_mtype mt1, rewrite_mtype mt2) 
+        | TOutport (mt) -> TOutport (rewrite_mtype mt) 
 
         | TRaw x -> TRaw x
         | TPolyVar x -> TPolyVar x
@@ -1419,10 +1429,11 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let rewrite_expr = rewrite_type_expr selector rewriter in    
 
         let e = match e with
-            | (VarExpr _ as e) | (ImplicitVarExpr _ as e) | (LitExpr _ as e) | (This as e) -> e
+            | (VarExpr _ as e) | (ImplicitVarExpr _ as e) | (LitExpr _ as e) | (This as e) | (BridgeCall _ as e) -> e
             | ActivationAccessExpr (x, e, y) -> ActivationAccessExpr (x, e, y)
             | AccessExpr (e1, e2) -> AccessExpr (rewrite_expr e1, rewrite_expr e2)
             | BinopExpr (e1, op, e2) -> BinopExpr (rewrite_expr e1, op, rewrite_expr e2)
+            | TernaryExpr (e1, e2, e3) -> TernaryExpr (rewrite_expr e1,  rewrite_expr e2, rewrite_expr e3)
             | LambdaExpr (x, mt, e) -> LambdaExpr (x, rewrite_mtype mt, rewrite_expr e)
             | UnopExpr (op, e) -> UnopExpr (op, rewrite_expr e)
             | CallExpr (e, es) -> CallExpr (rewrite_expr e, List.map rewrite_expr es)
@@ -1435,6 +1446,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             } 
             | BoxCExpr ce -> BoxCExpr (rewrite_type_cexpr selector rewriter ce)
             | OptionExpr e_opt -> OptionExpr (Option.map rewrite_expr e_opt)
+            | InterceptedActivationRef (e1, e2_opt) -> InterceptedActivationRef (rewrite_expr e1, Option.map rewrite_expr e2_opt)
             | ResultExpr (e1_opt, e2_opt) -> ResultExpr (Option.map rewrite_expr e1_opt, Option.map rewrite_expr e2_opt)
             | BlockExpr (b, es) -> BlockExpr (b, List.map rewrite_expr es)
             | Block2Expr (b, ees) -> Block2Expr (b,

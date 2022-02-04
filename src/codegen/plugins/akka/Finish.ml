@@ -575,6 +575,8 @@ module Make () = struct
                 actor_ref = fexpr e1;
                 intercepted_actor_ref = Option.map fexpr e2_opt
             }
+
+        | S.TernaryExpr (e1, e2, e3) -> T.TernaryExpr (fexpr e1, fexpr e2, fexpr e3) 
     ), fmtype mt
     and fexpr e : T.expr = map_place finish_expr e
 
@@ -1008,13 +1010,14 @@ module Make () = struct
                 (* Convert to event *)
                 let event_name = match t_msg.value with
                     | S.CType {value=S.TVar event_name;} -> event_name
-                    | S.CType {value=S.TFlatType AstUtils.TBLabel} -> Atom.builtin "BLabel" 
                 in
 
                 (
                     match (IRMisc.unfold_st_star st).value with
                     | S.STBranch _ | S.STRecv _ -> () 
-                    | _ -> Core.Error.error (fst p.value).expecting_st.place "%s plugin: expecting type can only start by the reception of a message or of a label" plg_name
+                    | st -> 
+                        logger#error "%s" (S.show__session_type st);
+                        Core.Error.error (fst p.value).expecting_st.place "%s plugin: expecting type can only start by the reception of a message or of a label" plg_name
                 );
 
                 st, (event_name, st_continuation)

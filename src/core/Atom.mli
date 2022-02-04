@@ -37,6 +37,7 @@ module Set : sig
   include Set.S with type elt = atom
 
   val to_list: t -> elt list
+  val of_list: elt list -> t
 
 (* TODO NOT yet included in TVariable
   val disjoint: t -> t -> bool

@@ -260,6 +260,18 @@ let encode_builtin_fct place name (args:T.expr list) =
             )
         | _ -> Error.error place "pick must take one argument"
     end
+    | "option_get" -> begin
+        match args with 
+        | [ opt ] ->
+            T.CallExpr(
+                auto_place (T.AccessExpr( 
+                    opt,
+                    auto_place (T.VarExpr (Atom.builtin "get"), auto_place T.TUnknown)
+                ), auto_place T.TUnknown),
+                [ ]
+            )
+        | _ -> Error.error place "option_get must take one argument"
+    end
     | "sleep" -> Error.error place "In Akka, sleep must be convertible to a statement"
     | _ -> 
         Error.error place "Akka.Finish do not yet support builtin function %s" name

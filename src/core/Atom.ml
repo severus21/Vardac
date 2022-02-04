@@ -150,6 +150,7 @@ module Set = struct
   include Set.Make(Order)
 
   let to_list x = List.of_seq (to_seq x)
+  let of_list xs = of_seq (List.to_seq xs)
 
   (* A disjointness test. *)
 
