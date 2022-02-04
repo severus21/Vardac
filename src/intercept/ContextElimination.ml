@@ -243,6 +243,7 @@ module Make () = struct
 
     let generate_onboard_typedef place interceptor_name intercepted_schemas = 
         let st_onboard = st_onboard_of intercepted_schemas in
+
         let p_onboard = Atom.fresh ("p_onboard_"^(Atom.value interceptor_name)) in 
         let p_def_onboard = ProtocolDef (p_onboard, mtype_of_st st_onboard.value) in
         (p_onboard, st_onboard, Typedef (auto_fplace p_def_onboard))
@@ -298,7 +299,7 @@ module Make () = struct
     (*  Per context and not (per interceptor schema or per interceptor activation) 
         - p_onboard/intercepted_bridges are defined in a per interceptor schema base
     *)
-    let generate_bridges place interceptor_name intercepted_schemas st_onboard intercepted_bridges =
+    let generate_bridges place interceptor_name intercepted_schemas p_onboard st_onboard intercepted_bridges =
         assert(Bool.not (InterceptedBridgeSet.is_empty intercepted_bridges));
         let intercepted_schemas = (List.of_seq (Atom.Set.to_seq intercepted_schemas)) in
 
@@ -331,7 +332,9 @@ module Make () = struct
             b_onboard,
             e2_e (CallExpr(
                 e2var (Atom.builtin "bridge"),
-                []
+                [
+                    e2var p_onboard
+                ]
             ))
         )) in
         
@@ -486,7 +489,7 @@ module Make () = struct
             if Atom.Set.is_empty intercepted_schemas then Error.error place "Interception context intercepts no component schema !!";
 
             (*** Step b - Forge ctx headers ***)
-            let (generated_bridges, (b_onboard, b_onboard_mt, b_onboard_let)) = generate_bridges place interceptor_name intercepted_schemas (mtype_of_st st_onboard.value) intercepted_bridges in
+            let (generated_bridges, (b_onboard, b_onboard_mt, b_onboard_let)) = generate_bridges place interceptor_name intercepted_schemas p_onboard (mtype_of_st st_onboard.value) intercepted_bridges in
             let factory, factory_let = generate_interceptor_factory place interceptor_name base_interceptor_constructor_params (generated_bridges, (b_onboard, b_onboard_mt, b_onboard_let)) in 
 
             let headers : stmt list = 
