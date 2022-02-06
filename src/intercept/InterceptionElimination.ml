@@ -333,7 +333,7 @@ module Make (Args: TArgs) = struct
             annotations = [];
             ghost = false;
             ret_type = mtype_of_ft TBool;
-            name = callback_onboard;
+            name = default_onboard;
             args = [
                 auto_fplace (mtype_of_ct (TActivationRef (mtype_of_ft TWildcard)), Atom.fresh "a");
                 auto_fplace (mtype_of_ft TPlace, Atom.fresh "p_of_a")
@@ -382,6 +382,9 @@ module Make (Args: TArgs) = struct
 
     (*************** Step 2 - Onstartup and inline other base component citems ******************)
 
+    let rename = 
+
+
     (*
         return an hydrated copy of interceptor_info
     *)
@@ -389,6 +392,30 @@ module Make (Args: TArgs) = struct
         (*** Collect intells ***)
         let base_onstartup_opt = get_onstartup base_interceptor in
         let citems_wo_onstartup = List.filter (function | {value=Method m} -> Bool.not m.value.on_startup | _ -> true) base_interceptor.body in 
+        failwith "refresh all binders";
+
+        (*** Rename citems (refreshing all identity of bindings) ***)
+        
+        let freevars = List.map (free_vars_component_item Atom.Set.empty) citems in
+        let freevars = Atom.Set.of_list (List.flatten freevars) in
+
+        let renaming = 
+            let state = Hashtbl.create 256 in
+            function x -> 
+            match Hashtbl.find_opt state x with
+            | None -> 
+                (* x should not be a variable binded outside the included citems *)
+                if Atom.Set.find_opt x freevars = None then 
+                begin
+                    let y = Atom.fresh (Atom.hint x) in 
+                    Hashtbl.add state x y;
+                    y
+                end
+                else x
+            | Some y -> y
+        in
+        let citems_wo_onstartup = List.map (rename_program renaming) citems_wo_onstartup in
+    
 
         (*** Add states to store in/out bridges and onboarding bridge ***)
         
