@@ -156,7 +156,7 @@ module Make (Args:Params) : Sig = struct
         List.iter generate_slt_stmt body
 
     and generate_slt_state { AstUtils.place ; AstUtils.value}= match value with
-    | StateAlias {type0} | StateDcl {type0;body=None} ->
+    | StateDcl {type0;body=None} ->
         generate_slt_mtype type0
     | StateDcl {type0;body=Some _} -> generate_slt_mtype type0
     and generate_slt_citem { AstUtils.place ; AstUtils.value}= match value with

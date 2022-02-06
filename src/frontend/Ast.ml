@@ -190,13 +190,6 @@ and _state =
         type0: main_type; 
         name: variable; 
         init_opt: expr option}
-
-    (*use global x as y;*)
-    | StateAlias of  {
-        ghost: bool; 
-        type0: main_type; 
-        name: variable
-    }
 and state = _state placed
 
 and _param = main_type * variable

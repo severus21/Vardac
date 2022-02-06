@@ -684,7 +684,6 @@ module Make () = struct
         (*use global x as y;*)
         | S.StateDcl { ghost; type0; name; body = S.NoInit} ->
             T.LetStmt (fmtype type0, name, None)
-        | S.StateAlias {ghost; type0; name} -> failwith "finish_state StateAlias is not yet supported" 
     and fstate s : T.stmt = map_place finish_state s
 
 

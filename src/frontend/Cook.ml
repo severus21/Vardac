@@ -319,7 +319,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         *)
         match value with
         | S.Term t -> cartography_term entry t
-        | S.Method {value={name}} | S.Inport {value={name;}} | S.Outport {value={name;}} | S.State {value=StateDcl{name;}} | S.State {value=StateAlias{name;}}  -> begin
+        | S.Method {value={name}} | S.Inport {value={name;}} | S.Outport {value={name;}} | S.State {value=StateDcl{name;}} -> begin
             match Env.find_opt name entry.inner with 
             | None -> { entry with
                 inner = Env.add name {place; value=register_this place name} entry.inner
@@ -819,7 +819,6 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
                     type0   = type0;
                     name    = y;
                     body = body}
-    | S.StateAlias _ -> failwith "cook: state alias not yet supported" (*TODO*)
     and cstate env: S.state -> env * T.state = map2_place (cook_state env)
 
 
@@ -1124,7 +1123,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         
         try
             new_env2, [
-                T.Typedef {place; value=T.ClassicalDef (y, [], ())};
+                T.Typedef {place; value=T.VPlaceDef y};
                 T.Stmt(auto_place(T.LetStmt(
                         mt,  
                         y,

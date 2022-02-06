@@ -576,7 +576,6 @@ and peval_state env place = function
     type0 = snd(pe_mtype env s.type0);
     body = Option.map (function e -> snd(pe_expr env e)) s.body
 } 
-| StateAlias _ -> failwith "partial-evaluation does not support yet StateAlias" 
 and pe_state env: state -> env * state = map2_place (peval_state env)
 
 and peval_component_item env place : _component_item -> env * _component_item = function 
@@ -646,6 +645,14 @@ end
 
     new_env, Typedef ({ place; value = 
     ProtocolDef (x, mt) })
+end
+| Typedef {value= VPlaceDef x; place} -> begin
+    logger#debug "bind type %s" (Atom.to_string x);
+    let new_env = bind_named_types env x None in
+    logger#debug "bind type %s" (Atom.hint x);
+
+    new_env, Typedef ({ place; value = 
+    VPlaceDef x})
 end
 | Typedef {value= ClassicalDef (x, args, ()) as tdef; place} | Typedef {value= EventDef (x, args, ()) as tdef; place} ->begin 
     logger#debug "bind type %s" (Atom.to_string x);

@@ -16,7 +16,9 @@ module Intercept = IRCompilationPass.Make(Intercept)
 module PartialEval = IRCompilationPass.Make(Core.PartialEval)
 module Reduce = IRCompilationPass.Make(Core.Reduce)
 module TypeChecking = IRCompilationPass.Make(Core.TypeChecking)
-module TypeInference = IRCompilationPass.Make(Core.TypeInference)
+module TypeInference1 = IRCompilationPass.Make(Core.TypeInference.Make())
+module TypeInference2 = IRCompilationPass.Make(Core.TypeInference.Make())
+module TypeInference3 = IRCompilationPass.Make(Core.TypeInference.Make())
 module EventAutoBoxing = IRCompilationPass.Make(Core.EventAutoBoxing)
 
 let process_check build_dir places_file filename = 
@@ -45,7 +47,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     let ir1 =
         ir
         |> Reduce.apply
-        |> TypeInference.apply
+        |> TypeInference1.apply
         (*|> TypeChecking.apply*)
         |> PartialEval.apply
     in
@@ -70,7 +72,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         (* TODO FIXME 
             0. Annots derived expression with types (and not just EmptyMainType)
             1. Check that derivation to not introduced bugs that can be detected by type-checking
-        |> TypeInference.apply
+        |> TypeInference2.apply
         |> TypeChecking.apply
         *)
 
@@ -82,7 +84,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
         (* Every pass that change ports and components should be performed before runngin the Intercept transformation *)
         |> Intercept.apply
-        |> TypeInference.apply (*Needed since we introduce new constructions *)
+        |> TypeInference3.apply (*Needed since we introduce new constructions *)
         (*|> TypeChecking.apply*)
         |> PartialEval.apply
         |> RecvElimination.apply (* Intercept introduce recv for onboarding *) 

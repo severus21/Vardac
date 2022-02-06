@@ -169,7 +169,6 @@ and collect_expr_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector 
             | State s -> 
                 Atom.Set.add(match s.value with 
                 | StateDcl s -> s.name
-                | StateAlias s -> s.name
             ) already_binded
             |Inport p -> Atom.Set.add (fst p.value).name already_binded
             | Outport p -> Atom.Set.add (fst p.value).name already_binded
@@ -195,6 +194,7 @@ and collect_expr_typedef_ parent_opt (already_binded:Atom.Set.t) selector collec
 | ClassicalDef  (x, targs, body) -> already_binded, [], []
 | EventDef (x, targs, body) -> already_binded, [], []
 | ProtocolDef (x, mt) -> collect_expr_mtype parent_opt already_binded selector collector mt
+| VPlaceDef x -> already_binded, [], []
 and collect_expr_typedef parent_opt (already_binded:Atom.Set.t) selector collector tdef= 
     map0_place (collect_expr_typedef_ parent_opt already_binded selector collector) tdef
 
@@ -328,6 +328,7 @@ and collect_cexpr_typedef_ parent_opt selector collector place = function
 | ClassicalDef  (x, targs, body) -> []
 | EventDef (x, targs, body) -> []
 | ProtocolDef (x, mt) -> []
+| VPlaceDef x -> []
 and collect_cexpr_typedef parent_opt selector collector tdef= 
     map0_place (collect_cexpr_typedef_ parent_opt  selector collector) tdef
 
@@ -412,6 +413,7 @@ and collect_stmt_typedef_ parent_opt selector collector place = function
 | ClassicalDef  (x, targs, body) -> []
 | EventDef (x, targs, body) -> []
 | ProtocolDef (x, mt) -> []
+| VPlaceDef x -> []
 and collect_stmt_typedef parent_opt selector collector tdef= 
     map0_place (collect_stmt_typedef_ parent_opt  selector collector) tdef
 
@@ -593,6 +595,8 @@ and collect_type_typedef_ parent_opt (already_binded:Atom.Set.t) selector collec
     | ProtocolDef (x, mt) -> 
         let _, collected_elts, ftvars = collect_type_mtype parent_opt already_binded selector collector mt in
         Atom.Set.add x already_binded, collected_elts, ftvars
+    | VPlaceDef x ->
+        Atom.Set.add x already_binded, [], []
 and collect_type_typedef parent_opt (already_binded:Atom.Set.t) selector collector tdef= 
     map0_place (collect_type_typedef_ parent_opt already_binded selector collector) tdef
 
@@ -1208,3 +1212,284 @@ and rewrite_stmt_term recurse selector rewriter = map_places (rewrite_stmt_term_
 
 and rewrite_stmt_program recurse selector rewriter program =
     List.flatten (List.map (rewrite_stmt_term recurse selector rewriter) program)
+
+(********************************************************************************************)
+let rec _rename_composed_type renaming = 
+    let rmt = rename_main_type renaming in   
+function  
+| TActivationRef mt -> TActivationRef (rmt mt)
+| TArrow (mt1, mt2) -> TArrow (rmt mt1, rmt mt2)
+| TVar x -> TVar (renaming x)
+| TFlatType _ as ct -> ct
+| TArray mt -> TArray (rmt mt)
+| TDict (mt1, mt2) -> TDict (rmt mt1, rmt mt2)
+| TList mt -> TList (rmt mt)
+| TOption mt -> TOption (rmt mt)
+| TResult (mt1, mt2) -> TResult (rmt mt1, rmt mt2)
+| TSet mt -> TSet (rmt mt)
+| TTuple (mts) -> TTuple (List.map rmt mts)
+| TVPlace mt -> TVPlace (rmt mt)
+| TUnion (mt1, mt2) -> TUnion (rmt mt1, rmt mt2)
+| TBridge tb -> TBridge {
+    in_type = rmt tb.in_type;
+    out_type = rmt tb.out_type;
+    protocol = rmt tb.protocol;
+}
+| TInport (mt1, mt2) -> TInport (rmt mt1, rmt mt2)
+| TOutport (mt1, mt2) -> TOutport (rmt mt1, rmt mt2)
+| TRaw _ as ct -> ct
+| TForall (x, mt) -> TForall (renaming x, rmt mt)
+| TPolyVar x -> TPolyVar (renaming x)
+and rename_composed_type renaming = map_place (_rename_composed_type renaming)
+
+and _rename_session_type renaming = 
+    let rmt = rename_main_type renaming in   
+    let rst = rename_session_type renaming in   
+    let rb (x, st, ac_opt) = (renaming x, rst st, Option.map (rename_applied_constraint renaming) ac_opt) in
+function  
+| STEnd -> STEnd
+| STVar x -> STVar (renaming x)
+| STSend (mt, st) -> STSend (rmt mt, rst mt)
+| STRecv (mt, st) -> STRecv (rmt mt, rst mt)
+| STBranch branches -> STBranches (List.map rb branches)
+| STSelect branches -> STSelectes (List.map rb branches)
+| STRec (x, st) -> STRec (renaming x, rst st)
+| STInline x -> STInline (renaming x)
+| STPolyVar x -> STPolyVar (renaming x)
+| STDual st -> STDual (rst st)
+and rename_session_type renaming = map_place (_rename_session_type renaming)
+
+and _rename_component_type renaming = 
+    let rmt = rename_main_type renaming in   
+function  
+| CompTUid x -> CompTUid (renaming x)
+| TStruct set -> TStruct (Atom.VMap.map (fun x mt -> (renaming x, rmt mt)))
+| TPolyCVar x -> TPolyCVar (renaming x)
+and rename_component_type renaming = map_place (_rename_component_type renaming)
+
+and _rename_main_type renaming = 
+    let rmt = rename_main_type renaming in   
+function  
+| EmptyMainType -> EmptyMainType
+| CType ct -> CType (rename_composed_type renaming ct)
+| SType st -> SType (rename_session_type st)
+| CompType cmt - CompType (rename_component_type renaming cmt)
+| ConstrainedType (mt, ac) -> ConstrainedType (rmt mt, rename_applied_constraint renaming ac)
+and rename_main_type renaming = map_place (_rename_main_type renaming)
+
+and _rename_constraint_header renaming = function
+| UseMetadata (mt, x) -> UseMetadata (rename_main_type renaming mt, renaming x)
+| SetTimer x -> SetTimer (renaming x)
+| SetFireTimer (x,i) -> SetFireTimer (renaming x, i)
+| and rename_constraint_header renaming = map_place (_rename_constraint_header renaming)
+
+and rename_applied_constraint renaming (headers,e_opt) = 
+    List.map (rename_constraint_header renaming) headers, Option.map (rename_expr renaming) e_opt
+
+and _rename_literal renaming lit = 
+match lit with
+| VoidLit | BoolLit _ |FloatLit _ | IntLit _ | LabelLit _ | StringLit _ | ActivationRef _ | Place _  -> lit
+| VPlace vp ->
+    let rec rename_vp vp =  {
+        name = renaming vp.name;
+        nbr_instances = rename_expr renaming vp.nbr_instances;
+        features = vp.features,
+        children = List.map rename_vp vp.children
+    } in
+    VPlace (rename_vp vp)
+| StaticBridge b -> StaticBridge {
+    id = renaming b.id;
+    protocol_name = renaming b.protocol_name
+}
+and rename_literal renaming = map_place (_rename_literal renaming) 
+
+and _rename_expr renaming = 
+    let re = rename_expr renaming in
+    let rmt = rename_main_type renaming in
+function
+| EmptyExpr -> EmptyExpr
+| VarExpr x -> VarExpr (renaming x)
+| ImplicitVarExpr x -> ImplicitVarExpr (renaming x)
+| IntercetedActivationRef (e1, e2_opt) -> InterceptedActivationRef (re e1, Option.map re e2_opt) 
+| ActivationAccessExpr (x, e, y) -> ActivationAccessExpr (renaming x, re e, renaming y)
+| AccessExpr (e1, e2) -> AccessExpr (re e1 re e2)
+| BinopExpr (e&, op, e2) -> BinopExpr (re e1, op, re e2)
+| LambdaExpr (x, mt, e) -> LambdaExpr (renaming x, rmt mt, re e) 
+| LitExpr l -> LitExpr (rename_literal renaming l)
+| UnopExpr (op, e) -> UnopExpr (o, re e)
+| CallExpr (e, es) -> CallExpr (re e, List.map re es)
+| NewExpr (e, es) -> NewExpr (re e, List.map re es)
+| PolyApp (e, mts) -> PolyApp (re, List.map rmt mts)
+| BridgeCall{protocol_name} -> BridgeCall{
+    protocol_name = renaming protocol_name;
+}
+| TernaryExpr (e1, e2, e3) -> TernaryExpr (re e1, re e2, re3)
+| This -> This
+| Spawn spawn -> Spawn {
+    c = renameing_component_expr renaming spawn.c;
+    args = List.map re spawn.args;
+    at = Option.map re spawn.at;
+}
+| BloxCExpr ce -> BoxCExpr (rename_component_expr renaming ce)
+| OptionExpr e_opt -> OptionExpr (Option.map re e_opt)
+| ResultExpr (e1_opt, e2_opt) -> ResultExpr (Option.map re e1_opt, Option.map re e2_opt)
+| BlockExpr (b, es) -> BlockExpr (b, List.map re es)
+| Block2Expr (b, ees) -> BlockExpr (b,
+    List.map (function (e1, e2) -> (re e1, re e2)) ees
+)
+and rename_expr renaming = map_place (_rename_expr renaming)
+
+and _rename_stmt renaming = 
+    let re = rename_expr renaming in
+    let rmt = rename_main_type renaming in
+    let rsmt = rename_stmt renaming in
+function
+| EmptyStmt -> EmptyStmt
+| AssignExpr (x, e) -> AssignExpr (renaming x, re e)
+| AssignThisExpr (x, e) -> AssignThisExpr (renaming x, re e)
+| LetStmt (mt, x, e) -> LetStmt (rmt mt, renaming x, re e)
+| CommentsStmt _ as stmt -> stmt
+| BreakStmt -> BreakStmt
+| ContinueStmt -> ContinueStmt
+| ExistStmt i -> ExitStmt i
+| ForStmt (mt, x, e, stmt) -> ForStmt (rmt mt, renaming x, re e, rstmt stmt)
+| IfStmt (e, stmt1, stmt2_opt) -> IfStmt (re en rstmt stmt1, Option.map rstmt stmt2_opt)
+| MatchStmt (e, branches) -> MatchExpr (re e, List.map (function (e, stmt) -> (re e, rstmt stmt)) branches) 
+| ReturnStmt e -> ReturnStmt (re e)
+| ExpressionStmt e -> ExpressionStmt (re e)
+| BlockStmt stmts -> BlockStmt (List.map rstmt stmts)
+| GhostStmt stmt -> GhostStmt (rstmt stmt)
+| WithContextStmt (flag, x, e, stmts) -> WithContextStmt (flag, renaming x, re e, List.map rsmt stmts)
+and rename_stmt renaming = map_place (_rename_stmt renaming)
+
+and _rename_param renaming (mt, x) = (rename_main_type renaming mt, renaming x)
+and rename_param renaming = map_place (_rename_param renaming)
+
+
+and _rename_port renaming p = {
+    name = renaming p.name;
+    input = rename_expr renaming p.input;
+    expecting_st = rename_main_type renaming p.expecting_st;
+    callback = rename_expr renaming p.callback;
+} 
+and rename_port renaming = map_place (_rename_port renaming)
+
+and _rename_outport renaming p = {
+    name = renaming p.name;
+    input = rename_expr renaming p.input
+} 
+and rename_outport renaming = map_place (_rename_outport renaming)
+
+and rename_method_annotation renaming = function
+| MsgInterceptor _ as a -> a
+| SessionInterceptor _ as a -> a
+| Onboard xs -> Onbard (List.map renaming xs)
+
+and rename_component_annotation renaming = function
+| Capturable {allowed_interceptors} -> Capturable {allowed_interceptors = List.map renaming allowed_interceptors}
+
+and _rename_contract renaming c = {
+    method_name = renaming c.contract_name;
+    pre_binders = List.map (function (mt, x, e) -> (rename_main_type renaming mt, renaming x, rename_expr renaming e)) c.pre_binders;
+    ensures = Option.map (rename_expr renaming) c.ensures; 
+    returns = Option.map (rename_expr renaming) c.returns;
+}
+and rename_contract renaming = map_place (_rename_contract renaming)
+
+and _rename_component_expr renaming = 
+    let rce = rename_component_expr renaming in
+    let re _rename_expr renaming in
+function
+| VarCExpr x -> VarCExpr (renaming x)
+| AppCExpr (ce, ces) -> AppCExpr (rce ce, List.map rce ces)
+| UnboxCExpr e -> UnboxCExpr (re e)
+| AnyExpr e -> AnyExpr (re e)
+and rename_component_expr renaming = map_place (rename_component_expr renaming)
+
+
+
+let _rename_state renaming = function
+| StateDcl s -> StateDcl {
+    ghost = s.ghost;
+    type0 = rename_main_type renaming s.type0;
+    name = renaming s.name;
+    body = Option.map (rename_expr renaming) s.body;
+}
+and rename_state renaming = map_place (_rename_state renaming)
+
+and _rename_method renaming m = {
+    annotations = rename_method_annotation renaming m.annotations;
+    ghost = m.ghost;
+    ret_type = rename_main_type renaming m.ret_type;
+    name = renaming m.name;
+    args = List.map (rename_param renaming) m.args;
+    body = List.map (rename_stmt renaming) m.body;
+    contract_opt  = Option.map (rename_contract renaming) m.contract_opt;
+    on_destroy = m.on_destroy;
+    on_startup = m.on_startup;
+}
+and rename_method renaming = map_place (_rename_method renaming)
+
+and _rename_component_item renaming = function
+| Contract c -> Contract (rename_cotnract renaming c)
+| Method m -> Method (rename_method renaming m)
+| State s -> Staate (rename_state renaming s)
+| Inport p -> Inport (rename_port renaming p)
+| Ouport p -> Outport (rename_outport renaming p)
+| Term t -> Term (rename_term renaming t)
+| Include ce -> Include (rename_component_expr renaming ce)
+and rename_component_item renaming = map_place (_rename_component_item renaming)
+
+and _rename_componend_dcl renaming = 
+| ComponentAssign {name; value} -> ComponentAssign {
+    name = renaming name;
+    value =rename_component_expr renaming value;
+}
+| ComponentStrucuture {target_name, annotations, name, args, body} -> ComponentStructure {
+    target_name = target_name;
+    annotations = List.map (rename_component_annotation renaming) annotations;
+    name = renaming name;
+    args = List.map (rename_param renaming) args;
+    body = List.map (rename_component_item renaming) body
+}
+and rename_component_dcl renaming = map_place (_rename_component_dcl renaming)
+
+and _rename_function_dcl renaming fdcl = {
+    name = renaming fdcl.name;
+    targs = List.map renaming fdcl.targs;
+    ret_type = rename_main_type renaming fdcl.ret_type;
+    args = List.map rename_param fdcl.args;
+    body = List.map (rename_stmt renaming) fdcl.body
+}
+and rename_function_dcl renaming = map_place (_rename_function_dcl renaming)
+
+and _rename_typedef renaming = 
+    let rmt = rename_main_type renaming in
+function
+| ClassicalDef (x, mts, ()) -> ClassicalDef (renaming x, List.map rmt mts, ())
+| EventDef (x, mts, ()) -> EventDef (renaming x, List.map rmt mts, ())
+| ProtocolDef (x, mt) -> ProtocolDef (renaming x, rmt mt)
+| VPlaceDef x -> VPlaceDef (renaming x)
+and rename_typedef renaming = map_place (_rename_typedef renaming)
+
+and rename_derivation renaming d = {
+    name = renaming d.name;
+    cargs = List.map (rename_component_expr renaming) d.cargs;
+    targs = List.map (rename_main_type renaming) d.targs;
+    eargs = List.map (rename_expr renaming) d.eargs
+}
+
+and _rename_term renaming = function
+| EmptyTerm -> EmptyTerm
+| Comments _ as t -> t
+| Stmt stmt -> Stmt (rename_stmt renaming stmt)
+| Component c -> Component (rename_component_dcl renaming c)
+| Function fdcl -> Function (rename_function renaming fdcl)
+| TypeAlias (x, mt_opt) -> TypeAlias (renaming x, Option.map (rename_main_type renaming) mt_opt)
+| Typedef tdef -> Typedef (rename_typedef renaming tdef)
+| Derive d -> Derive (rename_derivation renaming d)
+and rename_term renaming = map_place (_rename_term renaming)
+
+let rename_program = List.map (rename_term renaming)
+
+(********************************************************************************************)

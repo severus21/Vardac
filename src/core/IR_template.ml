@@ -56,13 +56,6 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
             name: component_variable; 
             body: _state_dcl_body
         }
-
-        (* TODO to be removed *)
-        | StateAlias of  {
-            ghost: bool; 
-            type0: main_type; 
-            name: component_variable
-        }
     and state = _state placed
 
 
@@ -87,7 +80,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
         | State of state 
 
         (** Inter-component composition*)
-        |Inport of port 
+        | Inport of port 
         | Outport of outport 
 
         (** Sub-components *)
@@ -157,6 +150,7 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
     | ClassicalDef of type_variable * main_type list * _typedef_body
     | EventDef of type_variable * main_type list * _typedef_body
     | ProtocolDef of type_variable * main_type
+    | VPlaceDef of type_variable
     and typedef = _typedef placed
 
     and derivation = { (* Used to rewrite the ast *)

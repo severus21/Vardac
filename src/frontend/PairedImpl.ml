@@ -106,7 +106,6 @@ end
         Error.error (place@bb_impl.place) "State has two implementations : one abstract and one blackbox"
     with Not_found -> T.StateDcl { ghost; type0; name; body= T.InitExpr body } 
 end
-| S2.StateAlias _ -> failwith "paired: state alias not yet supported" (*TODO*)
 and ustate parents : IR.state -> T.state = map_place (paired_state parents)
 
 and paired_method0 parents place : S2._method0 -> T._method0 = function

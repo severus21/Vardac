@@ -173,7 +173,6 @@ and _type_replace_state to_be_replaced by = function
     type0 = type_replace_main_type to_be_replaced by sdcl.type0;
     body = type_replace__state_dcl_body to_be_replaced by sdcl.body 
 }
-| StateAlias _ -> failwith "not support in IRI replace"
 and type_replace_state to_be_replaced by = replace_place (_type_replace_state to_be_replaced by)
 
 and _type_replace_method to_be_replaced by (m:_method0)= 
