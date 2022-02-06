@@ -8,7 +8,8 @@ let fplace = (Error.forge_place "EventAutoBoxing" 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
-module TypeInference = IRCompilationPass.Make(TypeInference)
+module TypeInference1 = IRCompilationPass.Make(TypeInference.Make())
+module TypeInference2 = IRCompilationPass.Make(TypeInference.Make())
 
 (* TODO define it outside *)
 module MTHashtbl = Hashtbl.Make(
@@ -120,7 +121,7 @@ let autobox_program program : IR.program =
     collect_term_program false event_selector (function _ -> failwith "") program;
     
     (*** Need to recompute all types ***)
-    let program = TypeInference.apply program in
+    let program = TypeInference1.apply program in
 
     (*** Auto-box expr (event creation/destruction) ***)
     (* sending -> fire | incomming receive and inport callback *)
@@ -205,7 +206,7 @@ let autobox_program program : IR.program =
     let program = rewrite_type_program selector rewritor program in
 
     (*** Need to recompute all types ***)
-    let program = TypeInference.apply program in
+    let program = TypeInference2.apply program in
 
     (*** Add events def ***)
     (* TODO

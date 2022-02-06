@@ -1,9 +1,11 @@
 open IR
 open TypingUtils
 
-(* _e, EmptyMainType -> _e, typeof_expr e *)
-val tannot_expr : context -> expr -> expr
-val tannot_program : program -> program
-(* TODO same for CEXPR *)
+module Make : functor () -> sig
+    (* _e, EmptyMainType -> _e, typeof_expr e *)
+    val tannot_expr : Atom.atom option -> expr -> expr
+    val tannot_program : program -> program
+    (* TODO same for CEXPR *)
 
-include IRCompilationPass.Pass
+    include IRCompilationPass.Pass
+end

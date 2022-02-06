@@ -5,62 +5,6 @@ open AstUtils
 let fplace = (Error.forge_place "TypeUtils" 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
 
-(* Dans type inference*)
-(*context already gamma do we need more yes*)
-type context = {
-    ectx : main_type Atom.VMap.t; (* Typing context for expressions *) 
-    tctx : main_type Atom.VMap.t; (* Contexts of types*)
-    cctx : main_type Atom.VMap.t; (* Typing context for components *)
-    self : component_variable option;
-}
-
-let print_context ctx = 
-    Format.fprintf Format.std_formatter "Typing cctx context\n";
-    Error.pp_list 
-        "@;" 
-        (fun out (x,entry) -> 
-            Format.fprintf out "%s -> %s" (Atom.to_string x) (show_main_type entry)
-        )
-        Format.std_formatter
-        (List.of_seq(Atom.VMap.to_seq ctx.cctx)); 
-    Format.fprintf Format.std_formatter "\n\n"
-
-let fresh_context () =
-    {
-        ectx = Atom.VMap.empty;
-        tctx = Atom.VMap.empty;
-        cctx = Atom.VMap.empty;
-        self = None 
-    }
-let typeof_var_expr ctx x : main_type =
-    if Atom.is_builtin x then
-        Builtin.type_of (Atom.hint x)
-    else
-        try
-            Atom.VMap.find x ctx.ectx
-        with Not_found -> failwith (Printf.sprintf "notfound type of expr %s" (Atom.to_string x))
-
-let typeof_var_cexpr ctx x : main_type =
-    try
-        Atom.VMap.find x ctx.cctx
-    with Not_found -> failwith (Printf.sprintf "notfound type of cexpr %s" (Atom.to_string x))
-
-let defof_tvar ctx x : main_type = 
-    try 
-        Atom.VMap.find x ctx.tctx
-    with Not_found -> failwith (Printf.sprintf "notfound def of tvar %s" (Atom.to_string x))
-
-
-let register_expr_type ctx x mt = {
-    ctx with 
-        ectx = Atom.VMap.add x mt ctx.ectx 
-}
-
-let register_cexpr_type ctx x mt = {
-    ctx with 
-        cctx = Atom.VMap.add x mt ctx.cctx 
-}
-
 (*let typeof_constructor = 
     let fplace = (Error.forge_place "TypeUtils.typeof_constructor" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
@@ -70,7 +14,7 @@ let register_cexpr_type ctx x mt = {
 | mt1::mts -> TArrow (mt1, typeof_constructor mts)*)
 
 
-
+(* TODO dedup this fct exists somewhere else*)
 let fct_sign argmts ret_type = 
     let fplace = (Error.forge_place "TypeUtils.fct_sign" 0 0) in
     let auto_fplace smth = {place = fplace; value=smth} in
@@ -78,29 +22,6 @@ let fct_sign argmts ret_type =
     List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) argmts ret_type 
 
 
-let register_def_type ctx = 
-    let fplace = (Error.forge_place "TypeUtils.register_def_type" 0 0) in
-    let auto_fplace smth = {place = fplace; value=smth} in
-    let ctypeof x = auto_fplace (CType(auto_fplace x)) in
-    
-function
-| ClassicalDef (x, mts, ()) | EventDef (x, mts, ()) ->
-    {
-        ctx with
-        tctx = Atom.VMap.add x (ctypeof(TTuple mts)) ctx.tctx; (*FIXME support other things than tuple*)
-        ectx = Atom.VMap.add x (fct_sign mts (ctypeof (TVar x))) ctx.ectx (* register constructor *)
-    }
-| ProtocolDef (x, mt) -> 
-    {
-        ctx with
-        tctx = Atom.VMap.add x mt ctx.tctx; (*FIXME*)
-        ectx = Atom.VMap.add x mt ctx.ectx (* register protocol object *)
-    }
-
-let register_self ctx x = { ctx with self = Some x }
-let register_type ctx x mt = {
-    ctx with tctx = Atom.VMap.add x mt ctx.tctx
-}
 
 let rec _is_subtype_ct place1 place2 ct1 ct2 =  
     match (ct1, ct2) with
