@@ -1249,8 +1249,8 @@ and _rename_session_type renaming place =
 function  
 | STEnd -> STEnd
 | STVar x -> STVar (renaming x)
-| STSend (mt, st) -> STSend (rmt mt, rst mt)
-| STRecv (mt, st) -> STRecv (rmt mt, rst mt)
+| STSend (mt, st) -> STSend (rmt mt, rst st)
+| STRecv (mt, st) -> STRecv (rmt mt, rst st)
 | STBranch branches -> STBranch (List.map rb branches)
 | STSelect branches -> STSelect (List.map rb branches)
 | STRec (x, st) -> STRec (renaming x, rst st)
@@ -1263,7 +1263,8 @@ and _rename_component_type renaming place =
     let rmt = rename_main_type renaming in   
 function  
 | CompTUid x -> CompTUid (renaming x)
-| TStruct set -> TStruct (Atom.VMap.map (fun x mt -> (renaming x, rmt mt)))
+| TStruct set -> TStruct 
+    (Atom.VMap.fold (fun x mt acc -> Atom.VMap.add (renaming x) (rmt mt) acc) set Atom.VMap.empty)
 | TPolyCVar x -> TPolyCVar (renaming x)
 and rename_component_type renaming = map_place (_rename_component_type renaming)
 
@@ -1272,7 +1273,7 @@ and _rename_main_type renaming place =
 function  
 | EmptyMainType -> EmptyMainType
 | CType ct -> CType (rename_composed_type renaming ct)
-| SType st -> SType (rename_session_type st)
+| SType st -> SType (rename_session_type renaming st)
 | CompType cmt -> CompType (rename_component_type renaming cmt)
 | ConstrainedType (mt, ac) -> ConstrainedType (rmt mt, rename_applied_constraint renaming ac)
 and rename_main_type renaming = map_place (_rename_main_type renaming)
@@ -1286,14 +1287,14 @@ and rename_constraint_header renaming = map_place (_rename_constraint_header ren
 and rename_applied_constraint renaming (headers,e_opt) = 
     List.map (rename_constraint_header renaming) headers, Option.map (rename_expr renaming) e_opt
 
-and _rename_literal renaming lit place = 
+and _rename_literal renaming place lit = 
 match lit with
 | VoidLit | BoolLit _ | FloatLit _ | IntLit _ | LabelLit _ | StringLit _ | ActivationRef _ | Place _  -> lit
 | VPlace vp ->
-    let rec rename_vp vp =  {
+    let rec rename_vp (vp:vplace) =  {
         name = renaming vp.name;
         nbr_instances = rename_expr renaming vp.nbr_instances;
-        features = vp.features,
+        features = vp.features;
         children = List.map rename_vp vp.children
     } in
     VPlace (rename_vp vp)
@@ -1303,46 +1304,49 @@ match lit with
 }
 and rename_literal renaming = map_place (_rename_literal renaming) 
 
-and _rename_expr renaming place = 
+and _rename_expr renaming place (e, mt_e) = 
     let re = rename_expr renaming in
     let rmt = rename_main_type renaming in
-function
-| EmptyExpr -> EmptyExpr
-| VarExpr x -> VarExpr (renaming x)
-| ImplicitVarExpr x -> ImplicitVarExpr (renaming x)
-| IntercetedActivationRef (e1, e2_opt) -> InterceptedActivationRef (re e1, Option.map re e2_opt) 
-| ActivationAccessExpr (x, e, y) -> ActivationAccessExpr (renaming x, re e, renaming y)
-| AccessExpr (e1, e2) -> AccessExpr (re e1 re e2)
-| BinopExpr (e1, op, e2) -> BinopExpr (re e1, op, re e2)
-| LambdaExpr (x, mt, e) -> LambdaExpr (renaming x, rmt mt, re e) 
-| LitExpr l -> LitExpr (rename_literal renaming l)
-| UnopExpr (op, e) -> UnopExpr (o, re e)
-| CallExpr (e, es) -> CallExpr (re e, List.map re es)
-| NewExpr (e, es) -> NewExpr (re e, List.map re es)
-| PolyApp (e, mts) -> PolyApp (re, List.map rmt mts)
-| BridgeCall{protocol_name} -> BridgeCall{
-    protocol_name = renaming protocol_name;
-}
-| TernaryExpr (e1, e2, e3) -> TernaryExpr (re e1, re e2, re3)
-| This -> This
-| Spawn spawn -> Spawn {
-    c = renameing_component_expr renaming spawn.c;
-    args = List.map re spawn.args;
-    at = Option.map re spawn.at;
-}
-| BloxCExpr ce -> BoxCExpr (rename_component_expr renaming ce)
-| OptionExpr e_opt -> OptionExpr (Option.map re e_opt)
-| ResultExpr (e1_opt, e2_opt) -> ResultExpr (Option.map re e1_opt, Option.map re e2_opt)
-| BlockExpr (b, es) -> BlockExpr (b, List.map re es)
-| Block2Expr (b, ees) -> BlockExpr (b,
-    List.map (function (e1, e2) -> (re e1, re e2)) ees
-)
-and rename_expr renaming = map_place (_rename_expr renaming)
+
+    let e = match e with 
+    | EmptyExpr -> EmptyExpr
+    | VarExpr x -> VarExpr (renaming x)
+    | ImplicitVarExpr x -> ImplicitVarExpr (renaming x)
+    | InterceptedActivationRef (e1, e2_opt) -> InterceptedActivationRef (re e1, Option.map re e2_opt) 
+    | ActivationAccessExpr (x, e, y) -> ActivationAccessExpr (renaming x, re e, renaming y)
+    | AccessExpr (e1, e2) -> AccessExpr (re e1, re e2)
+    | BinopExpr (e1, op, e2) -> BinopExpr (re e1, op, re e2)
+    | LambdaExpr (x, mt, e) -> LambdaExpr (renaming x, rmt mt, re e) 
+    | LitExpr l -> LitExpr (rename_literal renaming l)
+    | UnopExpr (op, e) -> UnopExpr (op, re e)
+    | CallExpr (e, es) -> CallExpr (re e, List.map re es)
+    | NewExpr (e, es) -> NewExpr (re e, List.map re es)
+    | PolyApp (e, mts) -> PolyApp (re e, List.map rmt mts)
+    | BridgeCall{protocol_name} -> BridgeCall{
+        protocol_name = renaming protocol_name;
+    }
+    | TernaryExpr (e1, e2, e3) -> TernaryExpr (re e1, re e2, re e3)
+    | This -> This
+    | Spawn spawn -> Spawn {
+        c = rename_component_expr renaming spawn.c;
+        args = List.map re spawn.args;
+        at = Option.map re spawn.at;
+    }
+    | BoxCExpr ce -> BoxCExpr (rename_component_expr renaming ce)
+    | OptionExpr e_opt -> OptionExpr (Option.map re e_opt)
+    | ResultExpr (e1_opt, e2_opt) -> ResultExpr (Option.map re e1_opt, Option.map re e2_opt)
+    | BlockExpr (b, es) -> BlockExpr (b, List.map re es)
+    | Block2Expr (b, ees) -> Block2Expr (b,
+        List.map (function (e1, e2) -> (re e1, re e2)) ees
+    )
+    in
+    (e, rmt mt_e)
+and rename_expr renaming : expr -> expr = map_place (_rename_expr renaming)
 
 and _rename_stmt renaming place = 
     let re = rename_expr renaming in
     let rmt = rename_main_type renaming in
-    let rsmt = rename_stmt renaming in
+    let rstmt = rename_stmt renaming in
 function
 | EmptyStmt -> EmptyStmt
 | AssignExpr (x, e) -> AssignExpr (renaming x, re e)
@@ -1351,64 +1355,66 @@ function
 | CommentsStmt _ as stmt -> stmt
 | BreakStmt -> BreakStmt
 | ContinueStmt -> ContinueStmt
-| ExistStmt i -> ExitStmt i
+| ExitStmt i -> ExitStmt i
 | ForStmt (mt, x, e, stmt) -> ForStmt (rmt mt, renaming x, re e, rstmt stmt)
-| IfStmt (e, stmt1, stmt2_opt) -> IfStmt (re en rstmt stmt1, Option.map rstmt stmt2_opt)
-| MatchStmt (e, branches) -> MatchExpr (re e, List.map (function (e, stmt) -> (re e, rstmt stmt)) branches) 
+| IfStmt (e, stmt1, stmt2_opt) -> IfStmt (re e, rstmt stmt1, Option.map rstmt stmt2_opt)
+| MatchStmt (e, branches) -> MatchStmt (re e, List.map (function (e, stmt) -> (re e, rstmt stmt)) branches) 
 | ReturnStmt e -> ReturnStmt (re e)
 | ExpressionStmt e -> ExpressionStmt (re e)
 | BlockStmt stmts -> BlockStmt (List.map rstmt stmts)
 | GhostStmt stmt -> GhostStmt (rstmt stmt)
-| WithContextStmt (flag, x, e, stmts) -> WithContextStmt (flag, renaming x, re e, List.map rsmt stmts)
+| WithContextStmt (flag, x, e, stmts) -> WithContextStmt (flag, renaming x, re e, List.map rstmt stmts)
 and rename_stmt renaming = map_place (_rename_stmt renaming)
 
 and _rename_param renaming place (mt, x) = (rename_main_type renaming mt, renaming x)
 and rename_param renaming = map_place (_rename_param renaming)
 
 
-and _rename_port renaming place p = {
+and _rename_port renaming place ((p, mt_p): _port * main_type) = ({
     name = renaming p.name;
     input = rename_expr renaming p.input;
     expecting_st = rename_main_type renaming p.expecting_st;
     callback = rename_expr renaming p.callback;
-} 
+}, rename_main_type renaming mt_p)
 and rename_port renaming = map_place (_rename_port renaming)
 
-and _rename_outport renaming place p = {
+and _rename_outport renaming place ((p, mt_p): _outport * main_type) = ({
     name = renaming p.name;
     input = rename_expr renaming p.input
-} 
+}, rename_main_type renaming mt_p)
 and rename_outport renaming = map_place (_rename_outport renaming)
 
-and rename_method_annotation renaming = function
+and rename_method_annotation renaming : method_annotation -> method_annotation = function
 | MsgInterceptor _ as a -> a
 | SessionInterceptor _ as a -> a
-| Onboard xs -> Onbard (List.map renaming xs)
+| Onboard xs -> Onboard (List.map renaming xs)
 
 and rename_component_annotation renaming = function
 | Capturable {allowed_interceptors} -> Capturable {allowed_interceptors = List.map renaming allowed_interceptors}
 
 and _rename_contract renaming place c = {
-    method_name = renaming c.contract_name;
+    method_name = renaming c.method_name;
     pre_binders = List.map (function (mt, x, e) -> (rename_main_type renaming mt, renaming x, rename_expr renaming e)) c.pre_binders;
     ensures = Option.map (rename_expr renaming) c.ensures; 
     returns = Option.map (rename_expr renaming) c.returns;
 }
 and rename_contract renaming = map_place (_rename_contract renaming)
 
-and _rename_component_expr renaming place = 
+and _rename_component_expr renaming place (ce, mt_ce) = 
     let rce = rename_component_expr renaming in
     let re = rename_expr renaming in
-function
-| VarCExpr x -> VarCExpr (renaming x)
-| AppCExpr (ce, ces) -> AppCExpr (rce ce, List.map rce ces)
-| UnboxCExpr e -> UnboxCExpr (re e)
-| AnyExpr e -> AnyExpr (re e)
-and rename_component_expr renaming = map_place (rename_component_expr renaming)
+    let ce = match ce with
+    | VarCExpr x -> VarCExpr (renaming x)
+    | AppCExpr (ce, ces) -> AppCExpr (rce ce, List.map rce ces)
+    | UnboxCExpr e -> UnboxCExpr (re e)
+    | AnyExpr e -> AnyExpr (re e)
+    in 
+    (ce, rename_main_type renaming mt_ce)
+and rename_component_expr renaming = map_place (_rename_component_expr renaming)
 
 
 
-let _rename_state renaming place = function
+let rec _rename_state renaming place = function
 | StateDcl s -> StateDcl {
     ghost = s.ghost;
     type0 = rename_main_type renaming s.type0;
@@ -1417,8 +1423,8 @@ let _rename_state renaming place = function
 }
 and rename_state renaming = map_place (_rename_state renaming)
 
-and _rename_method renaming place m = {
-    annotations = rename_method_annotation renaming m.annotations;
+and _rename_method renaming place (m:_method0) = {
+    annotations = List.map (rename_method_annotation renaming) m.annotations;
     ghost = m.ghost;
     ret_type = rename_main_type renaming m.ret_type;
     name = renaming m.name;
@@ -1431,21 +1437,21 @@ and _rename_method renaming place m = {
 and rename_method renaming = map_place (_rename_method renaming)
 
 and _rename_component_item renaming place = function
-| Contract c -> Contract (rename_cotnract renaming c)
+| Contract c -> Contract (rename_contract renaming c)
 | Method m -> Method (rename_method renaming m)
-| State s -> Staate (rename_state renaming s)
+| State s -> State (rename_state renaming s)
 | Inport p -> Inport (rename_port renaming p)
-| Ouport p -> Outport (rename_outport renaming p)
+| Outport p -> Outport (rename_outport renaming p)
 | Term t -> Term (rename_term renaming t)
 | Include ce -> Include (rename_component_expr renaming ce)
 and rename_component_item renaming = map_place (_rename_component_item renaming)
 
-and _rename_componend_dcl renaming place = function
+and _rename_component_dcl renaming place = function
 | ComponentAssign {name; value} -> ComponentAssign {
     name = renaming name;
     value =rename_component_expr renaming value;
 }
-| ComponentStrucuture {target_name; annotations; name; args; body} -> ComponentStructure {
+| ComponentStructure {target_name; annotations; name; args; body} -> ComponentStructure {
     target_name = target_name;
     annotations = List.map (rename_component_annotation renaming) annotations;
     name = renaming name;
@@ -1454,11 +1460,11 @@ and _rename_componend_dcl renaming place = function
 }
 and rename_component_dcl renaming = map_place (_rename_component_dcl renaming)
 
-and _rename_function_dcl renaming place fdcl = {
+and _rename_function_dcl renaming place (fdcl: _function_dcl) = {
     name = renaming fdcl.name;
     targs = List.map renaming fdcl.targs;
     ret_type = rename_main_type renaming fdcl.ret_type;
-    args = List.map rename_param fdcl.args;
+    args = List.map (rename_param renaming) fdcl.args;
     body = List.map (rename_stmt renaming) fdcl.body
 }
 and rename_function_dcl renaming = map_place (_rename_function_dcl renaming)
@@ -1484,12 +1490,12 @@ and _rename_term renaming place = function
 | Comments _ as t -> t
 | Stmt stmt -> Stmt (rename_stmt renaming stmt)
 | Component c -> Component (rename_component_dcl renaming c)
-| Function fdcl -> Function (rename_function renaming fdcl)
-| TypeAlias (x, mt_opt) -> TypeAlias (renaming x, Option.map (rename_main_type renaming) mt_opt)
+| Function fdcl -> Function (rename_function_dcl renaming fdcl)
+| Typealias (x, mt_opt) -> Typealias (renaming x, Option.map (rename_main_type renaming) mt_opt)
 | Typedef tdef -> Typedef (rename_typedef renaming tdef)
 | Derive d -> Derive (rename_derivation renaming d)
 and rename_term renaming = map_place (_rename_term renaming)
 
-let rename_program = List.map (rename_term renaming)
+let rename_program renaming = List.map (rename_term renaming)
 
 (********************************************************************************************)
