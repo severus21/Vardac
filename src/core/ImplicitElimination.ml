@@ -237,23 +237,27 @@ module Make (Args : Params ) : Sig = struct
             Error.error place "Guardian component can not have implicit variables - since there is no shared memory between instances of guardians\n@[<hov>%a@]" (Error.pp_list "\n" (fun out (mt, x) -> Format.fprintf out "- %s" (Atom.to_string x))) implicit_vars;
 
         (* [(mt, implicit_x, explicit_x)]*)
-        let implicit_vars = List.map (function (mt, x) -> (mt, x, (Atom.fresh ("explicit_"^(Atom.hint x))) )) implicit_vars in
+        let implicit_vars = List.map (function (mt, x) -> (mt, x, (Atom.fresh ("local_"^(Atom.hint x))), (Atom.fresh ("explicit_"^(Atom.hint x))) )) implicit_vars in
 
+        (*
+        (*** Debug ***)
         Printf.fprintf stdout  "Implicit vars for %s\n" (Atom.to_string cdcl.name);
         print_string "> implict -> explicit\n";
         List.iter (function (mt, x, y) -> 
            Printf.fprintf stdout "> %s -> %s\n" (Atom.to_string x) (Atom.to_string y)
         ) implicit_vars;
         print_string "\n\n";
+        (*** ***)
+        *)
 
         (* Add fields to store implicit_vars *) 
         let body = 
             (List.map (
-                function (mt, _, x) -> 
+                function (mt, _, _, y) -> 
                 auto_fplace (State (auto_fplace (StateDcl {
                     ghost = false;
                     type0 = mt;
-                    name = x;
+                    name = y;
                     body = None;
                 })))
             ) implicit_vars)
@@ -268,8 +272,8 @@ module Make (Args : Params ) : Sig = struct
             {
                 place;
                 value=Method {m with value = {m.value with 
-                    args = (List.map (function (mt, _, x) -> auto_fplace (mt,x)) implicit_vars) @ m.value.args;
-                    body = (List.map (function (mt, x, y) -> auto_fplace(AssignThisExpr (y, auto_fplace (VarExpr x, mt))) ) implicit_vars) @ m.value.body
+                    args = (List.map (function (mt, _, local_x, _) -> auto_fplace (mt,local_x)) implicit_vars) @ m.value.args;
+                    body = (List.map (function (mt, _, local_x, y) -> auto_fplace(AssignThisExpr (y, auto_fplace (VarExpr local_x, mt))) ) implicit_vars) @ m.value.body
                 }}
             }::(update_constructor citems) 
         | citem::citems ->  citem::(update_constructor citems) in
@@ -279,8 +283,8 @@ module Make (Args : Params ) : Sig = struct
                 ghost = false;
                 ret_type = auto_fplace (CType (auto_fplace (TFlatType TVoid)));
                 name = Atom.fresh "implicit2explicit_constructor";
-                args = List.map (function (mt, _, x) -> auto_fplace (mt,x)) implicit_vars;
-                body = List.map (function (mt, x, y) -> auto_fplace(AssignThisExpr (y, auto_fplace (VarExpr x, mt))) ) implicit_vars;
+                args = List.map (function (mt, _, local_x, _) -> auto_fplace (mt,local_x)) implicit_vars;
+                body = List.map (function (mt, _, local_x, y) -> auto_fplace(AssignThisExpr (y, auto_fplace (VarExpr local_x, mt))) ) implicit_vars;
                 contract_opt = None;
                 on_destroy = false;
                 on_startup = true;
@@ -296,7 +300,7 @@ module Make (Args : Params ) : Sig = struct
             (function | (VarExpr z) | (ImplicitVarExpr z) when z = x -> true | _ -> false)
             (function _ -> VarExpr y)
         ) stmts in 
-        let body = List.fold_left (fun body (mt, x, y) -> replace_implict_var (mt, x, y) body) body implicit_vars in
+        let body = List.fold_left (fun body (mt, x, _, y) -> replace_implict_var (mt, x, y) body) body implicit_vars in
         ComponentStructure {cdcl with body = body }
     and rcdcl2 cdcl = map_place rewrite_component_dcl2 cdcl 
 
