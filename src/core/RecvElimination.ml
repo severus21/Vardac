@@ -350,27 +350,33 @@ module Make () : Sig = struct
         
         (* If case - conditional branching is painfull *)
         | ({place; value = IfStmt (e, stmt1, stmt2_opt)} as stmt) :: stmts -> 
-            let intermediate_states1, intermediate_ports1, intermediate_methods1 =
-                let intermediate_states1, intermediate_ports1, intermediate_methods1 = 
-                    split_body (main_name, main_annotations) [] {next_method with body = []} [stmt1] in
-                intermediate_states1, intermediate_ports1, intermediate_methods1
-            in
-            
-            let intermediate_states2, intermediate_ports2, intermediate_methods2 =
-                match stmt2_opt with
-                | None -> [], [], []
-                | Some stmt2 ->
-                    let intermediate_states2, intermediate_ports2, intermediate_methods2 = 
-                        split_body (main_name, main_annotations) [] {next_method with body = []} [stmt2] in
-                    intermediate_states2, intermediate_ports2, intermediate_methods2
-            in
+            let _,_,flag1 = collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> [true]) stmt1 in
+            let flag1 = flag1 <> [] in
+
+            let flag2 = Option.map (collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> [true])) stmt2_opt in
+            let flag2 = Option.map (function (_, elts, _) -> elts) flag2 in
+            let flag2 = match flag2 with | None -> false | Some flag2 -> flag2 <> [] in
 
             (*** Returns and rec call***)
-            if intermediate_methods1 <> [] || intermediate_methods2 <> [] then
+            if flag1 then
             begin
-                logger#debug "Detect receive in If block";
+                logger#debug "Detect receive in If block in %s" (Atom.to_string main_name);
                 (* There is at least one receive inside stmt1 or stmt2_opt *)
 
+                let intermediate_states1, intermediate_ports1, intermediate_methods1 =
+                    let intermediate_states1, intermediate_ports1, intermediate_methods1 = 
+                        split_body (main_name, main_annotations) [] {next_method with body = []} [stmt1] in
+                    intermediate_states1, intermediate_ports1, intermediate_methods1
+                in
+                
+                let intermediate_states2, intermediate_ports2, intermediate_methods2 =
+                    match stmt2_opt with
+                    | None -> [], [], []
+                    | Some stmt2 ->
+                        let intermediate_states2, intermediate_ports2, intermediate_methods2 = 
+                            split_body (main_name, main_annotations) [] {next_method with body = []} [stmt2] in
+                        intermediate_states2, intermediate_ports2, intermediate_methods2
+                in
 
                 (*** 
                     stmts should be add to branches with receive 
@@ -418,21 +424,20 @@ module Make () : Sig = struct
 
                 let stmt = auto_fplace (IfStmt(
                     e,
-                    (match intermediate_ports1 with 
-                    | [] -> 
+                    (if Bool.not flag1 then 
                         stmt1 (* no receive in stmt1 *)
-                    | _ -> begin
+                    else (
                         logger#debug "Detect receive in If block1";
                         (* at least a receive somewhere in stmt1 *) 
                         auto_fplace (BlockStmt m1_0.body)
-                    end),
-                    (match intermediate_ports2 with 
-                    | [ _ ] -> stmt2_opt (* no receive in stmt2 *)
-                    | _ -> begin
+                    )),
+                    (if Bool.not flag2 then 
+                         stmt2_opt (* no receive in stmt2 *)
+                    else(
                         logger#debug "Detect receive in If block2";
                         (* at least a receive somewhere in stmt2 *) 
                         Some (auto_fplace (BlockStmt m2_0.body))
-                    end)
+                    ))
                 )) in
 
                 (* Sanity check *)
@@ -452,11 +457,15 @@ module Make () : Sig = struct
                 (* If has no receive inside *)
                 split_body (main_name, main_annotations) (stmt::acc_stmts) next_method stmts
         | ({value = BlockStmt stmts1} as stmt)::stmts2 ->
-            let intermediate_states1, intermediate_ports1, intermediate_methods1 = split_body (main_name, main_annotations) [] next_method stmts1 in
+            let flag = List.map (collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> [true])) stmts1 in
+            let flag = List.flatten (List.map (function (_, elts, _) -> elts) flag) in
 
 
-            if intermediate_ports1 <> [] then
+
+            if flag <> [] then
             begin (* receive in stmts1 *)
+                let intermediate_states1, intermediate_ports1, intermediate_methods1 = split_body (main_name, main_annotations) [] next_method stmts1 in
+
                 let intermediate_states2, intermediate_ports2, intermediate_methods2 = split_body (main_name, main_annotations) (stmt::acc_stmts) next_method stmts2 in
                 let m0::intermediate_methods2 = intermediate_methods2 in
 

@@ -1239,7 +1239,6 @@ module Make (Args: TArgs) = struct
         let ingress_block = generate_ingress_block interceptor_info base_interceptor in
         let egress_block = generate_egress_block interceptor_info base_interceptor in
 
-
         Component (auto_fplace (ComponentStructure {
             target_name = SameAs base_interceptor.name; 
             annotations = base_interceptor.annotations;
