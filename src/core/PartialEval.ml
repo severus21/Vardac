@@ -210,7 +210,7 @@ and peval_mtype env place : _main_type -> env * _main_type = function
             | Some {value=CType {value=TVar y; _}; _} -> 
                 aux already_seen y (* keep searching the root *)
             | Some mt1 -> mt1.value (* NB: we use the place of the alias and not the place of the definition here *)
-        with Not_found -> logger#error "Unbound type variable %s" (Atom.to_string x); raise (Error.PlacedDeadbranchError (place, "Unbounded type variable, this should have been checked by the cook pass."))
+        with Not_found -> logger#error "Unbound type variable %s" (Atom.to_string x); raise (Error.PlacedDeadbranchError (place, Printf.sprintf "Unbounded type variable [%s], this should have been checked by the cook pass." (Atom.to_string x)))
     in
     env, aux Atom.Set.empty x 
 | CType ct -> env, CType (snd (pe_ctype env ct))

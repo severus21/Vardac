@@ -443,7 +443,6 @@ any_state_:
 | GHOST s=any_state_
     { match s with
         | StateDcl s -> StateDcl {s with ghost=true}
-        | StateAlias s -> StateAlias {s with ghost=true}
     }
 %inline any_state:
   t = placed(any_state_)

@@ -79,6 +79,9 @@ module VMap : sig
   val pp : ('a->'c) -> Ppx_deriving_runtime.Format.formatter -> 'b t -> unit (*Ppx_deriving_runtime.Format.formatter -> 'a t -> Ppx_deriving_runtime.unit*)
   val show : 'a t -> Ppx_deriving_runtime.string
 
+  val to_list: 'a t -> (key * 'a) list
+  val of_list: (key * 'a) list -> 'a t
+
 end
 
 module AtomsMap : sig

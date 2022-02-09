@@ -127,7 +127,7 @@ let autobox_program program : IR.program =
     (* sending -> fire | incomming receive and inport callback *)
     let expr_selector : _expr -> bool = function
         | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "fire" && Atom.is_builtin x -> true
-        | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "receive" && Atom.is_builtin x -> failwith "receive not yet supported by event autobxoing" 
+        | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "receive" && Atom.is_builtin x -> failwith "receive not yet supported by event autoboxing" 
         | _ -> false
     in
     let expr_rewritor e =
@@ -153,6 +153,7 @@ let autobox_program program : IR.program =
 
     let inport_selector = function
     | Inport _ -> true
+    | _ -> false
     in
     let inport_rewritor _ = function
     | Inport p as t -> 
@@ -182,7 +183,7 @@ let autobox_program program : IR.program =
                                                 e2var param_msg,
                                                 e2var (Atom.builtin "_0_")
                                         ));
-                                    e2var param_session 
+                                        e2var param_session 
                                     ]
                                 ))
                             ))

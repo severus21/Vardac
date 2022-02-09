@@ -241,6 +241,9 @@ module VMap = struct
 
   include Map.Make(Order)
 
+  let to_list x = List.of_seq (to_seq x)
+  let of_list xs = of_seq (List.to_seq xs)
+
   (* This is O(nlog n), whereas in principle O(n) is possible.
      The abstraction barrier in OCaml's [Set] module hinders us. *)
   let domain m =

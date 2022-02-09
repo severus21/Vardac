@@ -55,7 +55,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     (* extract targets definitions from file *)
     let targets = Frontend.process_target ir targets_file in
 
-    let module RecvElimination = ((Core.RecvElimination.Make((struct let gamma = gamma let targets = targets end))):Core.RecvElimination.Sig) in
+    let module RecvElimination = ((Core.RecvElimination.Make()):Core.RecvElimination.Sig) in
     let module RecvElimination = Core.IRCompilationPass.Make(RecvElimination) in
 
     let module ImplicitElimination = ((Core.ImplicitElimination.Make((struct let gamma = gamma let targets = targets end))):Core.ImplicitElimination.Sig) in

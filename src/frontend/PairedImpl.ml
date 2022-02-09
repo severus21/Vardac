@@ -242,6 +242,17 @@ end
         value = ProtocolDef (x, mt) 
     }  (* Implict constructor *)
 end
+| S2.Typedef {value=VPlaceDef x; place} -> begin
+    try 
+        let key = List.rev ((Atom.hint x)::parents) in
+        let bb_impl = Hashtbl.find type_impls key in
+        mark_type key;
+        Error.error (place@bb_impl.place) "a vplace can not have a blackbox implementation yet"
+    with Not_found -> T.Typedef { 
+        place; 
+        value = VPlaceDef x 
+    }  (* Implict constructor *)
+end
 | S2.Derive {name; cargs; targs; eargs; } -> T.Derive {name; cargs; targs; eargs}
 and uterm parents: S2.term -> T.term = map_place (paired_term parents)
 

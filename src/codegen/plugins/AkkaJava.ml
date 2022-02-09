@@ -917,6 +917,19 @@ end) = struct
                 List.map fexpr es
             )
         end
+        | S.Block2Expr (b, ees) -> begin
+            match b with
+            | Dict when ees = [] -> T.NewExpr(
+                auto_place(T.VarExpr(Atom.builtin "Map"), auto_place T.TUnknown),
+                []
+            ) 
+            | Dict when ees <> []  -> 
+                let es = List.map (function (e1, e2) -> auto_place (S.BlockExpr(AstUtils.Tuple, [e1; e2]), auto_place S.TUnknown) ) ees in
+                T.AccessExpr(
+                    fexpr (auto_place(S.BlockExpr (AstUtils.List, es),  auto_place S.TUnknown)),
+                    auto_place (T.RawExpr "stream().collect(Collectors.toMap(t -> t.0, t -> t.1));", auto_place T.TUnknown)
+                )
+        end
         | S.UnopExpr (AstUtils.UnpackResult, e) -> 
             (*  Encoding
                 e.getOrElseThrow(t -> new RuntimeException("The result is failure, can access the success."))

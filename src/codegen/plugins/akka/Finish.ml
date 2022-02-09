@@ -179,6 +179,8 @@ module Make () = struct
         | S.TUnion _-> T.TRaw "Object" (* TODO maybe a better solution*)
         | S.TForall _ -> T.TUnknown (* TODO maybe encode it as class <T> ... { <T> } *)
         | S.TPolyVar _ -> T.TUnknown (* TODO maybe encode it as class <T> ... { <T> } *)
+        | S.TOutport _ -> T.TUnknown (* as long as port are static we do not care of this inside Akka plg*) 
+        | S.TInport _ -> T.TUnknown (* as long as port are static we do not care of this inside Akka plg*) 
     and fctype ct :  T.ctype = map_place finish_ctype ct
 
     (* Represent an ST object in Java type *)
@@ -1642,6 +1644,25 @@ module Make () = struct
             }
         }]
     | S.Typedef {value = EventDef (v, _, Some body); _} -> Error.error place "eventdef with body is not yet supported by the akka.finish"
+    | S.Typedef {value = VPlaceDef x;} -> 
+        (* Registration *)
+        Hashtbl.add to_capitalize_variables x ();
+        [{
+            place; 
+            value = {
+                T.annotations = [];
+                T.decorators = [];
+                v = begin
+                   T.ClassOrInterfaceDeclaration {
+                       isInterface = false;
+                       name = x;
+                       extended_types = [];
+                       implemented_types = []; (* TODO inherit ??*)
+                       body = [] (* TODO add x as identity ?? *)
+                   } 
+                end
+            }
+        }]
 
     and fterm : S.term -> T.term list = function t -> finish_term t.place t.value
 

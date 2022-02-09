@@ -31,24 +31,17 @@ let split_last =
 
 (***************************************************)
 
-module type Params = sig
-    (* Gamma is not used anymore - since IR is annotated with types
-    TODO refactor can be removed *)
-    val gamma : (IR.expr_variable, IR.main_type) Hashtbl.t
-end
-
 module type Sig = sig
     include IRCompilationPass.Pass
 end
 let troloc = ref 0 (* TODO remove *)
 
-module Make (Args : Params ) : Sig = struct
+module Make () : Sig = struct
     (*
         Architecture remains unchanged - rewriting architecture is done in an other module (to be written)
         - get ride of session.receive only use ports
             TODO FIXME only scan component method at this point
     *)
-    include Args
 
 
     (*******************************************************)
@@ -314,6 +307,7 @@ module Make (Args : Params ) : Sig = struct
 
             (*** Gathering intells ***)
             let intermediate_args = compute_intermediate_args stmts (Some let_x) in
+
             
             (*** Creating link between current_method and next_method, before shifting ***)
             let intermediate_states, current_method, next_method = rewrite_methodint current_method next_method (Some s) intermediate_args (let_x, t_msg, st_continuation) in
@@ -329,6 +323,17 @@ module Make (Args : Params ) : Sig = struct
                 expecting_st = mtype_of_st (STRecv (t_msg, st_continuation));
             }, auto_fplace EmptyMainType) in
             let intermediate_ports = [intermediate_port] in
+
+            (*** Since we introduce intermediate let (even for same variable) we need to attribute fresh identities ***)
+            let to_rename = Atom.VMap.of_list (List.map (function (_,x) -> x, Atom.fresh (Atom.hint x)) intermediate_args) in
+            let renaming x = match Atom.VMap.find_opt x to_rename with 
+                | Some y -> y  
+                | None -> x
+            in
+            (* rename remaining stmts*)
+            let stmts = List.map (rename_stmt renaming) stmts in 
+            (* renaming let i = nth(res, ...)*)
+            let next_method = {next_method with body = List.map (rename_stmt renaming) next_method.body } in
 
             (*** Returns and rec call***)
             (*  NB. Initial param_current_method is unused 
@@ -562,7 +567,7 @@ module Make (Args : Params ) : Sig = struct
         let body = List.flatten body in
 
         (*List<Map<UUID, ?>> this.intermediate_states = new ArrayList(); [this. ....]; registration at each creation*)
-        let a_intermediate_states = Atom.builtin "intermediate_states" in
+        let a_intermediate_states = Atom.fresh "intermediate_states" in
         let intermediate_states_index = auto_place(State( auto_place(StateDcl { 
             ghost = false;
             type0 = auto_fplace(CType(auto_fplace (TList(

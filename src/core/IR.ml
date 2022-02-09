@@ -1214,6 +1214,10 @@ and rewrite_stmt_program recurse selector rewriter program =
     List.flatten (List.map (rewrite_stmt_term recurse selector rewriter) program)
 
 (********************************************************************************************)
+let make_renaming renaming = function x ->
+    if Atom.is_builtin x then x 
+    else renaming x
+
 let rec _rename_composed_type renaming place = 
     let rmt = rename_main_type renaming in   
 function  

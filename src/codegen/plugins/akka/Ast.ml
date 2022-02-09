@@ -306,6 +306,13 @@ and _apply_rename_expr rename_binders (renaming : Atom.atom -> Atom.atom) place 
         b,
         List.map (apply_rename_expr rename_binders renaming) es
     ) 
+    | Block2Expr (b, ees) -> Block2Expr (
+        b,
+        List.map (function (e1, e2) -> 
+            apply_rename_expr rename_binders renaming e1,
+            apply_rename_expr rename_binders renaming e2
+        ) ees
+    ) 
     | Spawn s -> Spawn {
         context = apply_rename_expr rename_binders renaming s.context;
         actor_expr = apply_rename_expr rename_binders renaming s.actor_expr }
