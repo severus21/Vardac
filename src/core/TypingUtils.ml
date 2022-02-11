@@ -95,7 +95,9 @@ and is_subtype_st ?known_subtypes:(known_subtypes=[]) st1 st2 =
 and _is_subtype_cmt place1 place2 cmt1 cmt2 =  
     match (cmt1, cmt2) with
     | CompTUid x, CompTUid y -> x = y
-    | TStruct mts1, TStruct mts2 -> failwith "TODO subtyping relation between components"
+    | TStruct (_, sign1), TStruct (_, sign2) -> 
+        (* NB schema name does not account for equality nor subtyping - just used when compiling down to named type system *)
+        failwith "TODO subtyping relation between components"
     | TPolyCVar x, TPolyCVar y -> x = y
     | _ -> false 
 and is_subtype_cmt cmt1 cmt2 = 
@@ -249,7 +251,7 @@ and is_instance_st cvars constraints ?known_instances:(known_instances=[]) st1 s
 and _is_instance_cmt cvars constraints place1 place2 cmt1 cmt2 =  
     match (cmt1, cmt2) with
     | CompTUid x, CompTUid y -> constraints, x = y
-    | TStruct mts1, TStruct mts2 -> failwith "TODO instance relation between components"
+    | TStruct (_, sign1), TStruct (_, sign2) -> failwith "TODO instance relation between components"
     | TPolyCVar x, TPolyCVar y -> constraints, x = y
     | _ -> constraints, false 
 and is_instance_cmt cvars constraints cmt1 cmt2 = 

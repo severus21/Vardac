@@ -80,7 +80,10 @@ module type TIRC = sig
 
     and _component_type =
         | CompTUid of component_variable 
-        | TStruct of main_type Atom.VMap.t (*types of states, methods, ports, ... and subcomponents *)
+        | TStruct of component_variable * main_type Atom.VMap.t (*
+            component schema name = not used for type checking  but needed when compiling down to target using named type (e.g. Java)
+            signature = types of states, methods, ports, ... and subcomponents *)
+
         (* Polymorphsim*)
         | TPolyCVar of component_variable
     and component_type = _component_type placed
@@ -397,7 +400,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     and _component_type =
         | CompTUid of component_variable 
-        | TStruct of main_type Atom.VMap.t (*types of states, methods, ports, ... and subcomponents *)
+        | TStruct of component_variable * main_type Atom.VMap.t (*types of states, methods, ports, ... and subcomponents *)
         (* Polymorphsim*)
         | TPolyCVar of component_variable
     and component_type = _component_type placed
@@ -933,7 +936,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     and collect_type_cmtype_ parent_opt already_binded selector collector place= function
     | CompTUid _ | TPolyCVar _ -> already_binded, [], [] (*Not a type variable but a component variable *)
-    | TStruct sign -> 
+    | TStruct (_, sign) -> 
         let collected_elts, ftvars = collect_type_mtypes parent_opt already_binded selector collector (List.map snd (List.of_seq (Atom.VMap.to_seq sign))) in
         already_binded, collected_elts, ftvars
     and collect_type_cmtype parent_opt already_binded selector collector cmt =       
@@ -1416,8 +1419,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     and _rewrite_type_cmtype selector rewriter place = function
     | CompTUid x -> CompTUid x
-    | TStruct sign -> TStruct
-    (Atom.VMap.map (rewrite_type_mtype selector rewriter) sign)
+    | TStruct (x, sign) -> TStruct
+    (x, Atom.VMap.map (rewrite_type_mtype selector rewriter) sign)
     | TPolyCVar x -> TPolyCVar x
     and rewrite_type_cmtype selector rewriter = map_place (_rewrite_type_cmtype selector rewriter)
 
@@ -1619,7 +1622,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     and _equal_cmtype = function
     | CompTUid x1, CompTUid x2 -> x1 = x2
-    | TStruct struct1, TStruct struct2 -> failwith "FIXME TODO equality for TStruct i.e. replace list by hashtbl"
+    | TStruct (_, struct1), TStruct (_, struct2) -> 
+        (* N.B names of schema does not account for equality nor subtyping *)
+        failwith "FIXME TODO equality for TStruct i.e. replace list by hashtbl"
     | TPolyCVar x1, TPolyCVar x2 -> x1 = x2
     | _ -> false
     and equal_cmtype cmt1 cmt2 =

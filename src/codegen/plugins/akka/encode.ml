@@ -40,6 +40,16 @@ let encode_builtin_fct place name (args:T.expr list) =
     let auto_place t = {place; value=t} in 
     match name with
     (* TODO Remove string and used typed constructor in order to ensure that this file is uptodate with the Core.Builtin.builtin_fcts*)
+    | "activationid" -> begin
+        match args with
+        | [a] -> T.CallExpr(
+                auto_place (T.AccessExpr(
+                    a,
+                    auto_place(T.VarExpr (Atom.builtin "activationId"), auto_place T.TUnknown)
+            ), auto_place T.TUnknown),
+            []
+        )
+    end
     | "add2dict" -> begin 
         (* empty dict *)
         match args with
@@ -139,7 +149,7 @@ let encode_builtin_fct place name (args:T.expr list) =
     | "nth" -> begin
         (* Vavr state at _1 and not _0 *)
         match args with
-        | [ {value=LitExpr{value=IntLit i},_}; tuple ]->  
+        | [ tuple; {value=LitExpr{value=IntLit i},_}]->  
             T.AccessExpr (
                 tuple, 
                 auto_place (T.VarExpr (Atom.builtin (Printf.sprintf "_%d"(i+1))), auto_place T.TUnknown)

@@ -19,7 +19,7 @@ module TypeChecking = IRCompilationPass.Make(Core.TypeChecking)
 module TypeInference1 = IRCompilationPass.Make(Core.TypeInference.Make())
 module TypeInference2 = IRCompilationPass.Make(Core.TypeInference.Make())
 module TypeInference3 = IRCompilationPass.Make(Core.TypeInference.Make())
-module EventAutoBoxing = IRCompilationPass.Make(Core.EventAutoBoxing)
+module EventAutoBoxing = IRCompilationPass.Make(Core.EventAutoBoxing.Make())
 
 let process_check build_dir places_file filename = 
     let build_dir = Utils.refresh_or_create_build_dir build_dir in

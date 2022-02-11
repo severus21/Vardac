@@ -202,6 +202,12 @@ let e_none place =
         auto_place (Ast.VarExpr (Atom.builtin "Optional.empty"), auto_place Ast.TUnknown),
         []
     ), auto_place Ast.TUnknown)  
+let e_some place e = 
+    let auto_place smth = {place; value=smth} in
+    auto_place (Ast.CallExpr (
+        auto_place (Ast.VarExpr (Atom.builtin "Optional.of"), auto_place Ast.TUnknown),
+        [ e ]
+    ), auto_place Ast.TUnknown)  
 
 let e_id_of_session place session = 
     let auto_place smth = {place; value=smth} in

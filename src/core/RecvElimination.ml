@@ -277,8 +277,8 @@ module Make () : Sig = struct
                             e2_e( CallExpr(
                                 e2var (Atom.builtin "nth"),
                                 [ 
+                                    e2var local_tmp_args;
                                     e2_lit (IntLit i);
-                                    e2var local_tmp_args 
                                 ]
                             ))
                         )) 

@@ -164,7 +164,7 @@ module Make () = struct
             | AstUtils.TUUID -> T.Atomic "UUID" 
             | AstUtils.TWildcard -> T.Atomic "?"
             | AstUtils.TPlace -> (t_lg4dc_place place).value
-            | _ -> Core.Error.error place "TActivationRef/Place/VPlace/Label type not yey supported."
+            | AstUtils.TBLabel -> T.Atomic "LabelEvent"
         end
         | S.TArray mt -> T.TArray (fmtype mt)
         | S.TDict (m1, m2) -> T.TMap (fmtype m1, fmtype m2)
@@ -355,7 +355,9 @@ module Make () = struct
 
     and finish_component_type place : S._component_type -> T._ctype = function
     | S.CompTUid x -> T.TVar x 
-    | S.TStruct x -> T.TUnknown (* Structural types can not be encoded in Java*) 
+    | S.TStruct (x, _) -> 
+        (* Structural types can not be encoded easily in Java *)
+        T.TVar x
     | S.TPolyCVar x -> Error.error place "TPolyCVar should have been reduce before reaching Akka ???"
     and fcctype ct : T.ctype = map_place finish_component_type ct
 
@@ -491,7 +493,10 @@ module Make () = struct
                                         t_context place,
                                         [
                                             match (fmtype mt).value with
-                                            | T.TActivationRef ct -> t_command_of place ct
+                                            | T.TActivationRef ct -> 
+                                                (* NB a TUnknwon here can come from a CompType {TStruct} (see fcctype) or EmptyMainType*)
+                                                assert( ct.value <> T.TUnknown);
+                                                t_command_of place ct
                                         ]
                                     )
                                 ),
@@ -1011,6 +1016,7 @@ module Make () = struct
                 (* Convert to event *)
                 let event_name = match t_msg.value with
                     | S.CType {value=S.TVar event_name;} -> event_name
+                    | S.CType {value=S.TFlatType AstUtils.TBLabel} -> Atom.builtin "LabelEvent"
                 in
 
                 (

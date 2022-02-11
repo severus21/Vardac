@@ -54,173 +54,175 @@ module MTHashtbl = Hashtbl.Make(
 
             
 
+module Make () = struct 
+    let hashtbl_mt2event = MTHashtbl.create 16 
+    let events = Hashtbl.create 16
 
-(************************************ Program *****************************)
+    let mt2event mt = 
+        match MTHashtbl.find_opt hashtbl_mt2event mt with
+        | Some (_, e) -> e 
+        | None -> 
+            let event = Atom.fresh "auto_boxed_type" in
+            MTHashtbl.add hashtbl_mt2event mt (mt, event);
+            event
+        
+    let needs_autoboxing = function
+        | {value=CType {value = TVar x }} -> Hashtbl.find_opt events x = None
+        | _ -> true
 
-let hashtbl_mt2event = MTHashtbl.create 16 
-let events = Hashtbl.create 16
-
-let mt2event mt = 
-    match MTHashtbl.find_opt hashtbl_mt2event mt with
-    | Some (_, e) -> e 
-    | None -> 
-        let event = Atom.fresh "auto_boxed_type" in
-        MTHashtbl.add hashtbl_mt2event mt (mt, event);
-        event
-    
-let needs_autoboxing = function
-    | {value=CType {value = TVar x }} -> Hashtbl.find_opt events x = None
-    | _ -> true
-
-let rec _autobox_st _ st = 
-match st with
-| STEnd | STVar _ | STInline _ -> st
-| STSend (t_msg, st_continuation) | STRecv (t_msg, st_continuation) -> begin
-    let st_continuation = autobox_st st_continuation in
-    let t_msg = 
-        if needs_autoboxing t_msg then begin
-            logger#debug "auto_boxing %s" (show__main_type t_msg.value);
-            mtype_of_var (mt2event t_msg)
-        end else t_msg
-    in
-
+    let rec _autobox_st _ st = 
     match st with
-    | STSend _ -> STSend (t_msg, st_continuation)
-    | STRecv _ -> STRecv (t_msg, st_continuation)
-end
-| STBranch branches | STSelect branches -> begin
-    let branches = 
-        List.map 
-            (function (label, st_branch, opt) -> (label, autobox_st st_branch, opt))
-            branches
-    in
+    | STEnd | STVar _ | STInline _ -> st
+    | STSend (t_msg, st_continuation) | STRecv (t_msg, st_continuation) -> begin
+        let st_continuation = autobox_st st_continuation in
+        let t_msg = 
+            if needs_autoboxing t_msg then begin
+                logger#debug "auto_boxing %s" (show__main_type t_msg.value);
+                mtype_of_var (mt2event t_msg)
+            end else t_msg
+        in
 
-    match st with
-    | STBranch _ -> STBranch branches
-    | STSelect _ -> STSelect branches
-end
-| STRec (x, st) -> STRec (x, autobox_st st)
-| STDual st -> STDual (autobox_st st)
-and autobox_st st = map_place _autobox_st st
+        match st with
+        | STSend _ -> STSend (t_msg, st_continuation)
+        | STRecv _ -> STRecv (t_msg, st_continuation)
+    end
+    | STBranch branches | STSelect branches -> begin
+        let branches = 
+            List.map 
+                (function (label, st_branch, opt) -> (label, autobox_st st_branch, opt))
+                branches
+        in
 
-let generate_eventdefs () : term list = 
-    List.of_seq (
-        Seq.map 
-            (function  (mt, e) -> 
-                auto_fplace (Typedef (auto_fplace (EventDef (e, [mt], ()))))
-            )
-            (MTHashtbl.to_seq_values hashtbl_mt2event)
-    )
+        match st with
+        | STBranch _ -> STBranch branches
+        | STSelect _ -> STSelect branches
+    end
+    | STRec (x, st) -> STRec (x, autobox_st st)
+    | STDual st -> STDual (autobox_st st)
+    and autobox_st st = map_place _autobox_st st
 
-let autobox_program program : IR.program = 
-    (*** Hydrates events ***)
-    let event_selector = function
-    | Typedef {value = EventDef (e, _, _)} -> Hashtbl.add events e (); false
-    | _ -> false
-    in
-    collect_term_program false event_selector (function _ -> failwith "") program;
-    
-    (*** Need to recompute all types ***)
-    let program = TypeInference1.apply program in
+    let generate_eventdefs () : term list = 
+        List.of_seq (
+            Seq.map 
+                (function  (mt, e) -> 
+                    auto_fplace (Typedef (auto_fplace (EventDef (e, [mt], ()))))
+                )
+                (MTHashtbl.to_seq_values hashtbl_mt2event)
+        )
 
-    (*** Auto-box expr (event creation/destruction) ***)
-    (* sending -> fire | incomming receive and inport callback *)
-    let expr_selector : _expr -> bool = function
-        | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "fire" && Atom.is_builtin x -> true
-        | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "receive" && Atom.is_builtin x -> failwith "receive not yet supported by event autoboxing" 
+    let autobox_program program : IR.program = 
+        (*** Hydrates events ***)
+        let event_selector = function
+        | Typedef {value = EventDef (e, _, _)} -> Hashtbl.add events e (); false
         | _ -> false
-    in
-    let expr_rewritor e =
-        match e with
-        | CallExpr ({place; value= (VarExpr x, _)}, args) when Atom.hint x = "fire" && Atom.is_builtin x -> 
-            logger#debug "fire auto-boxing";
-            let [s; msg] = args in
+        in
 
-            let e_msg, t_msg = msg.value in
-            if needs_autoboxing t_msg then 
-                let event = mt2event t_msg in
-                CallExpr ( e2var x, [
-                    s;
-                    e2_e (NewExpr(
-                        e2var event,
-                        [ e2_e e_msg ]
-                    ))
-                ])
-            else e
-    in
+        collect_term_program false event_selector (function _ -> failwith "why a failwith") program;
+        
+        (*** Need to recompute all types ***)
+        let program = TypeInference1.apply program in
 
-    let program = rewrite_expr_program expr_selector expr_rewritor program in
+        (*** Auto-box expr (event creation/destruction) ***)
+        (* sending -> fire | incomming receive and inport callback *)
+        let expr_selector : _expr -> bool = function
+            | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "fire" && Atom.is_builtin x -> true
+            | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "receive" && Atom.is_builtin x -> failwith "receive not yet supported by event autoboxing" 
+            | _ -> false
+        in
+        let expr_rewritor e =
+            match e with
+            | CallExpr ({place; value= (VarExpr x, _)}, args) when Atom.hint x = "fire" && Atom.is_builtin x -> 
+                logger#debug "fire auto-boxing";
+                let [s; msg] = args in
 
-    let inport_selector = function
-    | Inport _ -> true
-    | _ -> false
-    in
-    let inport_rewritor _ = function
-    | Inport p as t -> 
-        logger#debug "port auto-boxing";
-        let t_msg, st_continuation = IRMisc.msgcont_of_st (match (fst p.value).expecting_st.value with | SType st -> st) in
+                let e_msg, t_msg = msg.value in
+                if needs_autoboxing t_msg then 
+                    let event = mt2event t_msg in
+                    CallExpr ( e2var x, [
+                        s;
+                        e2_e (NewExpr(
+                            e2var event,
+                            [ e2_e e_msg ]
+                        ))
+                    ])
+                else e
+        in
 
-        [
-            if needs_autoboxing t_msg then
-                let event = mt2event t_msg in
+        let program = rewrite_expr_program expr_selector expr_rewritor program in
 
-                let param_msg = Atom.fresh "msg" in
-                let param_session = Atom.fresh "session" in
+        let inport_selector = function
+        | Inport _ -> true
+        | _ -> false
+        in
+        let inport_rewritor _ = function
+        | Inport p as t -> 
+            logger#debug "port auto-boxing";
+            let t_msg, st_continuation = IRMisc.msgcont_of_st (match (fst p.value).expecting_st.value with | SType st -> st) in
 
-                Inport (auto_fplace ({ (fst p.value) with
-                    (* St type of p will be rewritten afterwards by the type rewritten pass *)
-                    callback = 
-                        e2_e(LambdaExpr (
-                            param_msg,
-                            mtype_of_var event,
+            [
+                if needs_autoboxing t_msg then
+                    let event = mt2event t_msg in
+
+                    let param_msg = Atom.fresh "msg" in
+                    let param_session = Atom.fresh "session" in
+
+                    Inport (auto_fplace ({ (fst p.value) with
+                        (* St type of p will be rewritten afterwards by the type rewritten pass *)
+                        callback = 
                             e2_e(LambdaExpr (
-                                param_session,
-                                mtype_of_st st_continuation.value,
-                                e2_e(CallExpr(
-                                    (fst p.value).callback,
-                                    [
-                                        e2_e (AccessExpr (
-                                                e2var param_msg,
-                                                e2var (Atom.builtin "_0_")
-                                        ));
-                                        e2var param_session 
-                                    ]
+                                param_msg,
+                                mtype_of_var event,
+                                e2_e(LambdaExpr (
+                                    param_session,
+                                    mtype_of_st st_continuation.value,
+                                    e2_e(CallExpr(
+                                        (fst p.value).callback,
+                                        [
+                                            e2_e (AccessExpr (
+                                                    e2var param_msg,
+                                                    e2var (Atom.builtin "_0_")
+                                            ));
+                                            e2var param_session 
+                                        ]
+                                    ))
                                 ))
                             ))
-                        ))
-                }, auto_fplace EmptyMainType))
-            else t
-        ]
-    in
+                    }, auto_fplace EmptyMainType))
+                else t
+            ]
+        in
 
-    let program = rewrite_citem_program inport_selector inport_rewritor program in
+        let program = rewrite_citem_program inport_selector inport_rewritor program in
 
-    (*** Update st types everywhere ***)
-    let selector = function 
-        | SType st -> true
-        | _ -> false
-    in
-    let rewritor = function 
-        | SType st -> SType (autobox_st st) 
-    in
+        (*** Update st types everywhere ***)
+        let selector = function 
+            | SType st -> true
+            | _ -> false
+        in
+        let rewritor = function 
+            | SType st -> SType (autobox_st st) 
+        in
 
-    let program = rewrite_type_program selector rewritor program in
+        let program = rewrite_type_program selector rewritor program in
 
-    (*** Need to recompute all types ***)
-    let program = TypeInference2.apply program in
+        (*** Add events def ***)
+        (* TODO
+            auto boxing can not works for user-defined types since we insert generate_eventdefs before definitions of those types 
+        *)
+        let program = generate_eventdefs () @ program in
 
-    (*** Add events def ***)
-    (* TODO
-        auto boxing can works for user-defined types since we insert generate_eventdefs before definitions of those types 
-    *)
-    generate_eventdefs () @ program
+        (*** Need to recompute all types ***)
+        let program = TypeInference2.apply program in
+
+        program
 
 
-(**********************************************************)
-let displayed_pass_shortdescription = "non event msg have been boxed into events"
-let displayed_ast_name = "autto-boxed IR"
-let show_ast = true
-let precondition program = program
-let postcondition program = program
-let apply_program = autobox_program
 
+    (**********************************************************)
+    let displayed_pass_shortdescription = "non event msg have been boxed into events"
+    let displayed_ast_name = "auto-boxed IR"
+    let show_ast = true
+    let precondition program = program
+    let postcondition program = program
+    let apply_program = autobox_program
+end

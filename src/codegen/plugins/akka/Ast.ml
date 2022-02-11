@@ -319,6 +319,11 @@ and _apply_rename_expr rename_binders (renaming : Atom.atom -> Atom.atom) place 
     | CurrentContext -> CurrentContext
     | CurrentSystem -> CurrentSystem
     | RawExpr s -> RawExpr s 
+    | TernaryExpr (e1, e2, e3) -> TernaryExpr (
+            apply_rename_expr rename_binders renaming e1,
+            apply_rename_expr rename_binders renaming e2,
+            apply_rename_expr rename_binders renaming e3
+    )
 ), apply_rename_ctype renaming mt
 and apply_rename_expr rename_binders renaming e = apply_rename_place (_apply_rename_expr rename_binders renaming) e
 

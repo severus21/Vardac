@@ -56,7 +56,7 @@ and tcheck_session_type st = map0_place _tcheck_session_type st
 
 and _tcheck_component_type place = function
 | CompTUid _ -> () 
-| TStruct mts -> Atom.VMap.iter (function _ -> tcheck_main_type) mts
+| TStruct (_, sign) -> Atom.VMap.iter (function _ -> tcheck_main_type) sign 
 | TPolyCVar _ -> () 
 and tcheck_component_type ct = map0_place _tcheck_component_type ct 
 

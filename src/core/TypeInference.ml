@@ -215,7 +215,7 @@ module Make () = struct
         let cstruct = List.map (scan_component_item (Some cdcl.name)) cdcl.body in 
         let cstruct = Atom.VMap.of_seq (List.to_seq (List.flatten cstruct)) in
 
-        let signature = auto_fplace(CompType(auto_fplace(TStruct cstruct))) in
+        let signature = auto_fplace(CompType(auto_fplace(TStruct (cdcl.name, cstruct)))) in
         register_cexpr_type cdcl.name signature;
         [cdcl.name, signature]
     end
@@ -276,7 +276,9 @@ module Make () = struct
 
     (* Searching for constraints *)
     and _tannot_composed_type parent_opt place = function 
-    | TActivationRef mt -> TActivationRef (tannot_main_type parent_opt mt)
+    | TActivationRef mt -> 
+        assert( mt.value <> EmptyMainType);
+        TActivationRef (tannot_main_type parent_opt mt)
     | TArrow (mt1, mt2) -> TArrow (
         tannot_main_type parent_opt mt1,
         tannot_main_type parent_opt mt2
@@ -375,10 +377,10 @@ module Make () = struct
 
     and mt_of_citem parent_opt place mt_component mname = 
         let c_sign = match mt_component.value with
-            | CompType {value=TStruct sign} -> sign
+            | CompType {value=TStruct (_,sign)} -> sign
             | CompType {value=CompTUid name} -> begin 
                 match (typeof_var_cexpr name).value with 
-                |  CompType {value=TStruct sign} -> sign
+                |  CompType {value=TStruct (_, sign)} -> sign
                 | _ -> Error.error place "internal error when fetching structural type of component"
             end
             | _ -> Error.error place "This expr has no attributes" 
@@ -480,6 +482,10 @@ module Make () = struct
             end
             | Spawn spawn -> 
                 let c = tannot_component_expr parent_opt spawn.c in
+
+                (* Component type of a spawn must be knwon staticaly *)
+                assert( (snd c.value).value <> EmptyMainType );
+
                 Spawn {
                 c = c;
                 args = List.map (tannot_expr parent_opt) spawn.args;
@@ -540,10 +546,7 @@ module Make () = struct
                 (fst e.value, apply (mt, mts))
 
 
-    and tannot_expr parent_opt e = {
-        place = e.place;
-        value = _tannot_expr parent_opt e.place e.value
-    }
+    and tannot_expr parent_opt = map_place (_tannot_expr parent_opt)
 
     and _tannot_stmt parent_opt place = function
     | EmptyStmt -> EmptyStmt

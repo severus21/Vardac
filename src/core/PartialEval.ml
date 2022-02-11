@@ -185,8 +185,8 @@ and pe_stype env: session_type -> env * session_type = map2_place (peval_stype e
 
 and peval_cmtype env place = function 
 | CompTUid x -> env, CompTUid x (* can not inlined since rec type are allowed for component *) 
-| TStruct sign -> 
-    env, TStruct (Atom.VMap.map (snd <-> pe_mtype env) sign)
+| TStruct (name, sign) -> 
+    env, TStruct (name, (Atom.VMap.map (snd <-> pe_mtype env) sign))
 | TPolyCVar x -> env, TPolyCVar x
 and pe_cmtype env = map2_place (peval_cmtype env)
 

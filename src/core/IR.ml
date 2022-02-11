@@ -1267,8 +1267,8 @@ and _rename_component_type renaming place =
     let rmt = rename_main_type renaming in   
 function  
 | CompTUid x -> CompTUid (renaming x)
-| TStruct set -> TStruct 
-    (Atom.VMap.fold (fun x mt acc -> Atom.VMap.add (renaming x) (rmt mt) acc) set Atom.VMap.empty)
+| TStruct (x, sign) -> TStruct 
+    (renaming x, Atom.VMap.fold (fun x mt acc -> Atom.VMap.add (renaming x) (rmt mt) acc) sign Atom.VMap.empty)
 | TPolyCVar x -> TPolyCVar (renaming x)
 and rename_component_type renaming = map_place (_rename_component_type renaming)
 

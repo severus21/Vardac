@@ -850,6 +850,16 @@ end) = struct
                     fexpr (Rt.Misc.e_none fplace);
                 ]
             )              
+        | S.InterceptedActivationRef {actor_ref; intercepted_actor_ref} -> 
+            T.NewExpr(
+                auto_place(T.VarExpr(Atom.builtin "ActivationRef"), auto_place T.TUnknown),
+                [
+                    fexpr actor_ref;
+                    match intercepted_actor_ref with
+                    | None -> fexpr (Rt.Misc.e_none fplace)
+                    | Some e2 -> fexpr (Rt.Misc.e_some fplace e2) 
+                ]
+            )              
         | S.AssertExpr e -> T.AssertExpr (fexpr e)                   
         | S.BinopExpr (e1, op, e2) -> 
             T.BinaryExpr ( fexpr e1, op, fexpr e2) 
@@ -965,6 +975,7 @@ end) = struct
         | S.VarExpr x -> T.VarExpr x             
         | S.NewExpr (e, es) -> T.NewExpr (fexpr e, List.map fexpr es)             
         | S.RawExpr str -> T.RawExpr str
+        | e -> failwith(S.show__expr e)
     ), fctype ct
     and fexpr expr : T.expr = map_place finish_expr expr
 

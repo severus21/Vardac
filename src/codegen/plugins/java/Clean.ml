@@ -66,6 +66,7 @@ let auto_place smth = {place = fplace; value=smth} in
     | UnaryExpr (op, e) -> UnaryExpr (op, cexpr e)
     | VarExpr x -> VarExpr x
     | RawExpr s -> RawExpr s
+    | TernaryExpr (e1, e2, e3) -> TernaryExpr(cexpr e1, cexpr e2, cexpr e3)
 ), jtype
 and cexpr e = map_place clean_expr e 
 

@@ -122,9 +122,15 @@ and output_stmt out : _stmt -> unit = function
     | ExpressionStmt e -> fprintf out "%a;" oexpr e 
     | IfStmt (e, stmt1, None) -> fprintf out "if(@[<hv 3>%a@]){@;@[<v 3>@;%a@]@;}" oexpr e ostmt stmt1
     | IfStmt (e, stmt1, Some stmt2) -> fprintf out "if(@[<hv 3>%a@]){@;@[<v 3>@;%a@]@;}else{@;@[<v 3>@;%a@]@;}" oexpr e ostmt stmt1 ostmt stmt2
-    | ForStmt (jt, x, e, stmt) -> fprintf out "for(@[<hv 3>%a %a : %a @]){@;@[<v 3>@;%a@]@;}" ojtype jt output_var x oexpr e ostmt stmt
-    | NamedExpr (jt, x, Some e) -> fprintf out "%a %a = @[<hv>%a@];" ojtype jt output_var x oexpr e
-    | NamedExpr (jt, x, None) -> fprintf out "%a %a;" ojtype jt output_var x 
+    | ForStmt (jt, x, e, stmt) -> 
+        assert(jt.value <> TUnknown);
+        fprintf out "for(@[<hv 3>%a %a : %a @]){@;@[<v 3>@;%a@]@;}" ojtype jt output_var x oexpr e ostmt stmt
+    | NamedExpr (jt, x, Some e) -> 
+        assert(jt.value <> TUnknown);
+        fprintf out "%a %a = @[<hv>%a@];" ojtype jt output_var x oexpr e
+    | NamedExpr (jt, x, None) -> 
+        assert(jt.value <> TUnknown);
+        fprintf out "%a %a;" ojtype jt output_var x 
     | ReturnStmt e -> fprintf out "return %a;" oexpr e
     | RawStmt str -> pp_print_string out str
     | TryStmt  (stmt, branches) -> 
@@ -193,11 +199,14 @@ and output_body_v out : _body -> unit = function
             output_cl_implements cl.implemented_types
             output_items cl.body
     | FieldDeclaration f -> 
+        assert(f.type0.value <> TUnknown);
         fprintf out "%a %a%a;@;"
             ojtype f.type0
             output_var f.name
             (fun out opt-> ignore (Option.map (fprintf out " = %a" oexpr) opt)) f.body
     | MethodDeclaration m ->
+        Option.map (function (jt:jtype) -> assert(jt.value <> TUnknown)) m.ret_type;
+        List.iter (function ((_,jt,_):'a * jtype * 'b) -> assert(jt.value <> TUnknown)) m.parameters;
         fprintf out 
             "%a%a(@[<hv 3>%a@]) {@;@[<v 3>@;%a@]@;}"
             (fun out opt-> ignore (Option.map (fprintf out "%a " ojtype) opt)) m.ret_type 
@@ -232,7 +241,10 @@ and output_jtype place out : _jtype -> unit = function
     | TAtomic str -> pp_print_string out str
     | TVar x -> output_var out x 
     | TAccess (t1, t2) -> fprintf out "%a.%a" ojtype t1 ojtype t2
-    | TUnknown -> raise (Error.PlacedDeadbranchError (place, "TUnknown can not be translated to Java code - it should have been resolved to a concrete type first or this is a mock type annotation that should not be translated to Java code."))
+    | TUnknown -> fprintf out "ErrorTUnknownRemains" 
+    (* TODO uncomment
+        raise (Error.PlacedDeadbranchError (place, "TUnknown can not be translated to Java code - it should have been resolved to a concrete type first or this is a mock type annotation that should not be translated to Java code."))
+    *)
 and ojtype out : jtype -> unit = function jt ->
     match Config.provenance_lvl () with
     | Config.None | Config.Medium -> output_jtype jt.place out jt.value
