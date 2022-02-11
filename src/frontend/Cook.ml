@@ -760,6 +760,17 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
             transformation will come later on
         *)
         env2, T.WithContextStmt (anonymous_mod, cname, e, stmts)
+    | S.BranchStmt {s; label; branches} -> 
+        let env1, s = cexpr env s in 
+        let env2, label = cexpr env label in
+        let envs, branches = List.split (List.map (function {S.branch_label; branch_s; body} -> 
+            let branch_label = {place; value = T.BLabelLit (Atom.builtin branch_label)} in
+            let env_inner, branch_s = bind_expr env place branch_s in
+            let env2, body = cstmt env_inner body in
+
+            env << [env_inner; env2], {T.branch_label; branch_s; body}    
+        ) branches) in
+        env << (env1 :: env2::envs), T.BranchStmt {s; label; branches}
     and cstmt env : S.stmt -> env * T.stmt = map2_place (cook_stmt env)
 
     and cook_function env place : S._function_dcl -> env * T._function_dcl = 

@@ -26,25 +26,11 @@ end
 
 module Make () : Sig = struct
     let elim_branch mt_st e_local_label e_local_s {branch_label; branch_s; body} = 
-        (* Sanity check *)
-        let blabel = match fst branch_label.value with 
-            | LitExpr {value = BLabelLit l} -> l
-            | _ -> raise (Error.PlacedDeadbranchError (branch_label.place, "must be session type label"))
-        in
-
-        let st_branch = 
-            match mt_st.value with 
-            | SType st -> begin 
-                match st.value with 
-                | STBranch branches -> 
-                    let _, _st, _ = List.find (function (_label, _st, _) -> _label = blabel) branches in
-                    _st
-            end
-        in
+        let st_branch = st_branch_of mt_st branch_label in
 
         (* if label == branch_label => then use this branch *)
         IfStmt(
-            e2_e (BinopExpr(e_local_label, StructuralEqual, branch_label)),
+            e2_e (BinopExpr(e_local_label, StructuralEqual, e2lit branch_label)),
             auto_fplace (BlockStmt ([
 
                 (* localy set to the branch *)

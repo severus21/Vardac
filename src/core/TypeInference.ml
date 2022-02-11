@@ -4,12 +4,13 @@ open Easy_logging
 open Fieldslib
 open AstUtils
 open TypingUtils
+open IRMisc
 
 module S = IR
 module T = IR
 open IR
 
-let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
+let logger = Logging.make_logger "_1_ compspec.TypeInference" Debug [];;
 
 let fplace = (Error.forge_place "TypeInference" 0 0)
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
@@ -84,6 +85,7 @@ module Make () = struct
     | FloatLit _ -> of_tflat TFloat
     | IntLit _ -> of_tflat TInt
     | LabelLit _ -> of_tflat TLabel
+    | BLabelLit _ -> of_tflat TBLabel
     | StringLit _ -> of_tflat TStr
     | ActivationRef _ -> failwith "ActivationRef Typeinference - do we need this literal since it carries no value"
     | Place _ -> failwith "Place do we need this literal since it can not exists statically"
@@ -603,6 +605,42 @@ module Make () = struct
         (* From the outside WithContextStmt is transparent in term of parent_opt *)
         let stmts = List.map (tannot_stmt parent_opt) stmts in
         WithContextStmt (anonymous_mod, cname, tannot_expr parent_opt e, stmts)
+    | BranchStmt {s; label; branches} -> 
+        let s = tannot_expr parent_opt s in
+        let mt_st = snd s.value in
+
+        (* TODO generalised *)
+        let rec _unalias _ = 
+            let already_seen = Hashtbl.create 16 in 
+            function
+            (* TODO rewrite just find TVar *)
+            | CType {value = TVar x} -> 
+                if Hashtbl.find_opt already_seen x <> None then
+                    Error.error place "cyclic type alias detected"
+                else Hashtbl.add already_seen x ();
+
+                let mt = defof_tvar x in
+                (unalias mt).value
+            | mt -> mt
+        and unalias mt = map_place _unalias mt
+        in
+
+        let mt_st = unalias mt_st in 
+
+
+        let tannot_branch {branch_label; branch_s; body} = 
+            register_expr_type branch_s (mtype_of_st(st_branch_of mt_st branch_label).value);
+            {
+                branch_label = branch_label;
+                branch_s = branch_s;
+                body =tannot_stmt parent_opt body;
+            }
+        in
+        BranchStmt {
+            s;
+            label = tannot_expr parent_opt label;
+            branches = List.map tannot_branch branches; 
+        }
     and tannot_stmt parent_opt stmt =  
         let _stmt = _tannot_stmt parent_opt stmt.place stmt.value in
         {place = stmt.place; value = _stmt }

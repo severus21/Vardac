@@ -206,7 +206,7 @@ module type TIRC = sig
     and expr = (_expr * main_type) placed
 
 
-    and branch_stmt = {branch_label: expr (*must be Literal Label*); branch_s: expr_variable; body: stmt}
+    and branch_stmt = {branch_label: literal; branch_s: expr_variable; body: stmt}
     and _stmt = 
         | EmptyStmt
 
@@ -530,7 +530,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | Block2Expr of block2 * (expr * expr) list
     and expr = (_expr * main_type) placed
 
-    and branch_stmt = {branch_label: expr (*must be Literal Label*); branch_s: expr_variable; body: stmt}
+    and branch_stmt = {branch_label: literal; branch_s: expr_variable; body: stmt}
     and _stmt = 
         | EmptyStmt
 
