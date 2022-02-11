@@ -55,8 +55,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     (* extract targets definitions from file *)
     let targets = Frontend.process_target ir targets_file in
 
-    let module RecvElimination = ((Core.RecvElimination.Make()):Core.RecvElimination.Sig) in
-    let module RecvElimination = Core.IRCompilationPass.Make(RecvElimination) in
+    let module CommSimpl = Core.IRCompilationPass.Make(Commsimpl) in
 
     let module ImplicitElimination = ((Core.ImplicitElimination.Make((struct let gamma = gamma let targets = targets end))):Core.ImplicitElimination.Sig) in
     let module ImplicitElimination = Core.IRCompilationPass.Make(ImplicitElimination) in
@@ -80,14 +79,14 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         |> Core.PartialEval.peval_program
         |> ImplicitElimination.apply
         
-        |> RecvElimination.apply (* Transform receive to async + ports *) 
+        |> CommSimpl.apply (* Transform receive to async + ports *) 
 
         (* Every pass that change ports and components should be performed before runngin the Intercept transformation *)
         |> Intercept.apply
         |> TypeInference3.apply (*Needed since we introduce new constructions *)
         (*|> TypeChecking.apply*)
         |> PartialEval.apply
-        |> RecvElimination.apply (* Intercept introduce recv for onboarding *) 
+        |> CommSimpl.apply (* Intercept introduce recv for onboarding *) 
         |> Clean.apply
 
 

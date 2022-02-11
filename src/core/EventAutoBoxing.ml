@@ -2,6 +2,7 @@ open IR
 open Easy_logging
 open Utils
 open AstUtils
+open IRMisc
 
 let logger = Logging.make_logger "_1_ compspec" Debug [];;
 let fplace = (Error.forge_place "EventAutoBoxing" 0 0) 
@@ -126,10 +127,10 @@ module Make () = struct
         (* sending -> fire | incomming receive and inport callback *)
         let expr_selector : _expr -> bool = function
             | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "fire" && Atom.is_builtin x -> true
-            | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "receive" && Atom.is_builtin x -> failwith "receive not yet supported by event autoboxing" 
+            | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "receive" && Atom.is_builtin x -> true 
             | _ -> false
         in
-        let expr_rewritor e =
+        let expr_rewritor mt e =
             match e with
             | CallExpr ({place; value= (VarExpr x, _)}, args) when Atom.hint x = "fire" && Atom.is_builtin x -> 
                 logger#debug "fire auto-boxing";
@@ -145,6 +146,46 @@ module Make () = struct
                             [ e2_e e_msg ]
                         ))
                     ])
+                else e
+            | CallExpr ({place; value= (VarExpr x, _)}, args) when Atom.hint x = "receive" && Atom.is_builtin x -> 
+                logger#debug "receive auto-boxing";
+                let [s] = args in
+                
+                let t_msg, st_continuation = msgcont_of_st (match (snd s.value).value with | SType st -> st) in
+
+                (* tuple<event, s> -> tuple<unboxed, s>*)
+                if needs_autoboxing t_msg then 
+                    let param_res, e_param_res = e_param_of "res" in
+
+                    LambdaExpr(
+                        param_res,
+                        mtype_of_ct (TTuple [t_msg; mtype_of_st st_continuation.value]),
+                        e2_e(BlockExpr(
+                            Tuple,
+                            [
+                                (*unboxed msg*)
+                                e2_e (AccessExpr (
+                                    e2_e(CallExpr(
+                                        e2var (Atom.builtin "nth"),
+                                        [
+                                            e_param_res;
+                                            e2_lit (IntLit 0)
+                                        ]
+                                    )),
+                                    e2var (Atom.builtin "_0_")
+                                ));
+                                (* session preserved *)
+                                e2_e(CallExpr(
+                                    e2var (Atom.builtin "nth"),
+                                    [
+                                        e_param_res;
+                                        e2_lit (IntLit 1)
+                                    ]
+
+                                )) 
+                            ]
+                        ))
+                    )
                 else e
         in
 

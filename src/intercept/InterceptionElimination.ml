@@ -124,9 +124,6 @@ module Make (Args: TArgs) = struct
         | Some m -> m
         | None -> default_onboard 
 
-    let e_param_of str : Atom.atom * expr = 
-        let param = Atom.fresh str in
-        param, e2var param
     
     (* branch: if flag == "Schema" ... *)
     let generate_main_callback_branch interceptor_info default_onboard onboard_index (e_this_b_onboard, e_this_onboarded_activations) ((param_schema, e_param_schema), (param_s, e_param_s)) schema: stmt =

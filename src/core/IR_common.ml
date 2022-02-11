@@ -135,6 +135,7 @@ module type TIRC = sig
         | FloatLit of float 
         | IntLit of int
         | LabelLit of label 
+        | BLabelLit of expr_variable
         | StringLit of string
 
         (** Activations *)
@@ -204,6 +205,8 @@ module type TIRC = sig
         | Block2Expr of block2 * (expr * expr) list
     and expr = (_expr * main_type) placed
 
+
+    and branch_stmt = {branch_label: expr (*must be Literal Label*); branch_s: expr_variable; body: stmt}
     and _stmt = 
         | EmptyStmt
 
@@ -231,6 +234,11 @@ module type TIRC = sig
         | GhostStmt of stmt
 
         | WithContextStmt of bool * component_variable * expr * stmt list
+        | BranchStmt of {
+            s: expr;
+            label: expr;
+            branches: branch_stmt list 
+        }
 
     and stmt = _stmt placed
 
@@ -313,8 +321,8 @@ module type TIRC = sig
     val rewrite_type_mtype : ( _main_type -> bool) -> (_main_type -> _main_type) -> main_type -> main_type
     val rewrite_type_expr : ( _main_type -> bool) -> (_main_type -> _main_type) -> expr -> expr
     val rewrite_type_stmt : (_main_type -> bool) -> (_main_type -> _main_type) -> stmt -> stmt
-    val rewrite_expr_expr : (_expr -> bool) -> (_expr -> _expr) -> expr -> expr
-    val rewrite_expr_stmt : (_expr -> bool) -> (_expr -> _expr) -> stmt -> stmt
+    val rewrite_expr_expr : (_expr -> bool) -> (main_type -> _expr -> _expr) -> expr -> expr
+    val rewrite_expr_stmt : (_expr -> bool) -> (main_type -> _expr -> _expr) -> stmt -> stmt
     val replace_expr_expr : expr_variable -> (expr_variable option * _expr option) -> expr -> expr
     val replace_expr_stmt : expr_variable -> (expr_variable option * _expr option) -> stmt -> stmt
     val rewrite_stmt_stmt : bool -> (_stmt -> bool) -> (Error.place -> _stmt -> _stmt list) -> stmt -> stmt list
@@ -450,6 +458,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | FloatLit of float 
         | IntLit of int
         | LabelLit of label 
+        | BLabelLit of expr_variable
         | StringLit of string
 
         (** Activations *)
@@ -521,6 +530,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | Block2Expr of block2 * (expr * expr) list
     and expr = (_expr * main_type) placed
 
+    and branch_stmt = {branch_label: expr (*must be Literal Label*); branch_s: expr_variable; body: stmt}
     and _stmt = 
         | EmptyStmt
 
@@ -548,6 +558,11 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | GhostStmt of stmt
 
         | WithContextStmt of bool * component_variable * expr * stmt list
+        | BranchStmt of {
+            s: expr;
+            label: expr;
+            branches: branch_stmt list 
+        }
     and stmt = _stmt placed
 
     and _param = main_type * expr_variable
@@ -1248,69 +1263,72 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let _value = rewrite_expr_value place (fst value) in
         {AstUtils.place; AstUtils.value = _value, snd value}
 
-    let rec _rewrite_expr_expr selector rewriter place = function
-    | e when selector e -> rewriter e
-    | (BridgeCall _ as e) | (EmptyExpr as e) | (LitExpr _ as e) | (This as e) | (VarExpr _ as e) | (ImplicitVarExpr _ as e) -> e
-    | ActivationAccessExpr (cname, e, mname) ->
-        ActivationAccessExpr(
-            cname,
-            rewrite_expr_expr selector rewriter e,
-            mname
-        )
-    | AccessExpr (e1, e2) -> AccessExpr (
-        rewrite_expr_expr selector rewriter e1,
-        rewrite_expr_expr selector rewriter e2
-    )
-    | BinopExpr (e1, op, e2) -> BinopExpr (
-        rewrite_expr_expr selector rewriter e1,
-        op,
-        rewrite_expr_expr selector rewriter e2
-    )
-    | LambdaExpr (x, mt, e) -> LambdaExpr (
-        x,
-        mt, (* WARNIN TODO FIXME replace in type predicates *)
-        rewrite_expr_expr selector rewriter e
-    )
-    | UnopExpr (op, e) -> UnopExpr (op, rewrite_expr_expr selector rewriter e)
-    | CallExpr (e, es) -> CallExpr(
-        rewrite_expr_expr selector rewriter e,
-        List.map (rewrite_expr_expr selector rewriter) es
-    )
-    | NewExpr (e, es) -> NewExpr(
-        rewrite_expr_expr selector rewriter e,
-        List.map (rewrite_expr_expr selector rewriter) es
-    )
-    | Spawn sp -> Spawn { sp with 
-        args = List.map (rewrite_expr_expr selector rewriter) sp.args;
-        at = Option.map (rewrite_expr_expr selector rewriter) sp.at
-    }
-    | BoxCExpr _ as e -> e
-    | OptionExpr e_opt -> OptionExpr (
-        Option.map (rewrite_expr_expr selector rewriter) e_opt
-    ) 
-    | ResultExpr (e1_opt, e2_opt) -> ResultExpr (
-        Option.map (rewrite_expr_expr selector rewriter) e1_opt,
-        Option.map (rewrite_expr_expr selector rewriter) e2_opt
-    ) 
-    | BlockExpr(b, es) -> BlockExpr (b,
-        List.map (rewrite_expr_expr selector rewriter) es 
-    )
-    | Block2Expr(b, ees) -> Block2Expr (b,
-        List.map (function (e1,e2) ->
+    let rec _rewrite_expr_expr selector rewriter place (e, mt) = 
+        let e = match e with
+        | e when selector e -> rewriter mt e
+        | (BridgeCall _ as e) | (EmptyExpr as e) | (LitExpr _ as e) | (This as e) | (VarExpr _ as e) | (ImplicitVarExpr _ as e) -> e
+        | ActivationAccessExpr (cname, e, mname) ->
+            ActivationAccessExpr(
+                cname,
+                rewrite_expr_expr selector rewriter e,
+                mname
+            )
+        | AccessExpr (e1, e2) -> AccessExpr (
             rewrite_expr_expr selector rewriter e1,
             rewrite_expr_expr selector rewriter e2
-        ) ees 
-    )
-    | TernaryExpr (e1, e2, e3) -> TernaryExpr(
-        rewrite_expr_expr selector rewriter e1,
-        rewrite_expr_expr selector rewriter e2,
-        rewrite_expr_expr selector rewriter e3
-    )
-    | InterceptedActivationRef (e1, e2_opt) -> InterceptedActivationRef(
-        rewrite_expr_expr selector rewriter e1,
-        Option.map (rewrite_expr_expr selector rewriter) e2_opt
-    )
-    and rewrite_expr_expr selector rewriter = rewrite_expr_place (_rewrite_expr_expr selector rewriter)
+        )
+        | BinopExpr (e1, op, e2) -> BinopExpr (
+            rewrite_expr_expr selector rewriter e1,
+            op,
+            rewrite_expr_expr selector rewriter e2
+        )
+        | LambdaExpr (x, mt, e) -> LambdaExpr (
+            x,
+            mt, (* WARNIN TODO FIXME replace in type predicates *)
+            rewrite_expr_expr selector rewriter e
+        )
+        | UnopExpr (op, e) -> UnopExpr (op, rewrite_expr_expr selector rewriter e)
+        | CallExpr (e, es) -> CallExpr(
+            rewrite_expr_expr selector rewriter e,
+            List.map (rewrite_expr_expr selector rewriter) es
+        )
+        | NewExpr (e, es) -> NewExpr(
+            rewrite_expr_expr selector rewriter e,
+            List.map (rewrite_expr_expr selector rewriter) es
+        )
+        | Spawn sp -> Spawn { sp with 
+            args = List.map (rewrite_expr_expr selector rewriter) sp.args;
+            at = Option.map (rewrite_expr_expr selector rewriter) sp.at
+        }
+        | BoxCExpr _ as e -> e
+        | OptionExpr e_opt -> OptionExpr (
+            Option.map (rewrite_expr_expr selector rewriter) e_opt
+        ) 
+        | ResultExpr (e1_opt, e2_opt) -> ResultExpr (
+            Option.map (rewrite_expr_expr selector rewriter) e1_opt,
+            Option.map (rewrite_expr_expr selector rewriter) e2_opt
+        ) 
+        | BlockExpr(b, es) -> BlockExpr (b,
+            List.map (rewrite_expr_expr selector rewriter) es 
+        )
+        | Block2Expr(b, ees) -> Block2Expr (b,
+            List.map (function (e1,e2) ->
+                rewrite_expr_expr selector rewriter e1,
+                rewrite_expr_expr selector rewriter e2
+            ) ees 
+        )
+        | TernaryExpr (e1, e2, e3) -> TernaryExpr(
+            rewrite_expr_expr selector rewriter e1,
+            rewrite_expr_expr selector rewriter e2,
+            rewrite_expr_expr selector rewriter e3
+        )
+        | InterceptedActivationRef (e1, e2_opt) -> InterceptedActivationRef(
+            rewrite_expr_expr selector rewriter e1,
+            Option.map (rewrite_expr_expr selector rewriter) e2_opt
+        )
+        in 
+        (e, mt)
+    and rewrite_expr_expr selector rewriter = map_place (_rewrite_expr_expr selector rewriter)
 
     and _rewrite_expr_stmt selector rewriter place = function 
         | EmptyStmt -> EmptyStmt
@@ -1355,7 +1373,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     (* Warning do not replace ImplictVar !!! *)
     let make x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) = 
         let selector = function |VarExpr x when x = x_to_replace -> true | _ -> false in
-        let rewriter e = match replaceby_x_opt with | Some x -> VarExpr x | None -> Option.get replaceby_e_opt in
+        let rewriter e _ = match replaceby_x_opt with | Some x -> VarExpr x | None -> Option.get replaceby_e_opt in
         selector, rewriter
     let replace_expr_expr x_to_replace replaceby = 
         let selector, rewriter = make x_to_replace replaceby in

@@ -143,6 +143,7 @@ and _expr =
 
 and expr = _expr placed
 
+and branch_stmt = {branch_label: variable; branch_s: variable; body: stmt}
 and _stmt = 
     | EmptyStmt
 
@@ -168,6 +169,11 @@ and _stmt =
     | BlockStmt of stmt list
 
     | WithContextStmt of bool * variable * expr * stmt list
+    | BranchStmt of {
+        s: expr;
+        label: expr;
+        branches: branch_stmt list 
+    }
 
     | GhostStmt of stmt
 and stmt = _stmt placed
@@ -342,10 +348,16 @@ let rec timers_of_headers = function
 and timers_of_st_ = function
 | STRecv ({value=ConstrainedType (_, (guard_headers, _))}, st) | STSend ({value=ConstrainedType (_, (guard_headers, _))}, st) -> 
     (timers_of_headers guard_headers) @ (timers_of_st st)
+
+| STBranch branches | STSelect branches -> 
+    (* TODO timers/metadata are yet supported for STBranch and STSelect *)
+    List.iter (function (_, _, opt) -> assert( opt = None)) branches;
+    []
+
 (* Just propagate *)
 | STEnd -> []
 | STInline _ | STDual {value=CType{value=TVar _}} -> [] 
 | STRecv (_, st) | STSend (_, st) -> timers_of_st st
 | STDual {value=SType st} -> timers_of_st st
 
-and timers_of_st st = timers_of_st_ st.value
+and timers_of_st st : 'a list = timers_of_st_ st.value

@@ -93,6 +93,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "metadata", METADATA;
     "returns", RETURNS;
     "with", WITH;
+    "branch", BBRANCH;
 
     (* lifetime keywords *)
     "this", THIS;
@@ -101,6 +102,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "ondestroy", ONDESTROY;
 
     (* Primtive types *)
+    "blabel", PTYPE TBLabel;
     "bool", PTYPE TBool;
     "float", PTYPE TFloat;
     "int", PTYPE TInt;

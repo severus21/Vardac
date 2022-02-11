@@ -86,3 +86,7 @@ let rec msgcont_of_st st = map0_place (function place -> function
     | STRecv (_, st2) as st ->
         fst (msgcont_of_st st2), unfold_st_star {place; value=st}
 ) st
+
+let e_param_of str : Atom.atom * expr = 
+    let param = Atom.fresh str in
+    param, e2var param

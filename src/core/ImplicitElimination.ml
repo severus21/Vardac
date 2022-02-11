@@ -95,7 +95,7 @@ module Make (Args : Params ) : Sig = struct
             | Spawn _ -> failwith "Not a VarCExpr in Spawn, should not happen after partial evaluation" 
             | _ -> false
         in
-        let replace_spawn = function
+        let replace_spawn mt = function
             | Spawn {c={value=VarCExpr name, _} as c; args; at} when name = cdcl.name-> 
                 logger#debug "Replacing spawn for %s" (Atom.to_string name);
                 Spawn {
@@ -298,7 +298,7 @@ module Make (Args : Params ) : Sig = struct
         (* Use explicit instead of explicit *)
         let replace_implict_var (mt, x, y) stmts = List.map (rewrite_expr_component_item 
             (function | (VarExpr z) | (ImplicitVarExpr z) when z = x -> true | _ -> false)
-            (function _ -> VarExpr y)
+            (fun _ _ -> VarExpr y)
         ) stmts in 
         let body = List.fold_left (fun body (mt, x, _, y) -> replace_implict_var (mt, x, y) body) body implicit_vars in
         ComponentStructure {cdcl with body = body }

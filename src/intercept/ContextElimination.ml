@@ -560,7 +560,7 @@ module Make () = struct
 
                     exposed_id = some a if let a = spawn 
                 *)
-                let spawn_rewriter (exposed_info: (Atom.atom * Atom.atom) option) = function
+                let spawn_rewriter (exposed_info: (Atom.atom * Atom.atom) option) mt = function
                     | Spawn spawn -> begin 
                         match fst spawn.c.value with
                         | VarCExpr schema_a -> begin 
@@ -635,7 +635,7 @@ module Make () = struct
                     let spawn = { spawn with args } in
 
                     (* Exposed_activation *) 
-                    let e = {place = spawn_e.place @ fplace; value = spawn_rewriter (Some (a, a')) (fst spawn_e.value), (snd spawn_e.value)} in
+                    let e = {place = spawn_e.place @ fplace; value = spawn_rewriter (Some (a, a')) (snd spawn_e.value) (fst spawn_e.value), (snd spawn_e.value)} in
 
                     [ LetStmt(mt, a', e)]
 
@@ -657,7 +657,7 @@ module Make () = struct
                         (function 
                             | VarExpr a -> Hashtbl.find_opt exposed_activations_info a <> None 
                             | _ -> false) 
-                        (function 
+                        (function mt -> function 
                             | VarExpr a -> 
                                 let (_, _, a', _) = 
                                     try

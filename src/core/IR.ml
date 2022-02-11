@@ -838,7 +838,7 @@ and rewrite_expr_program selector rewriter (program : program) : program = List.
 
 let make x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) = 
     let selector = function |VarExpr x when x = x_to_replace -> true | _ -> false in
-    let rewriter e = match replaceby_x_opt with | Some x -> VarExpr x | None -> Option.get replaceby_e_opt in
+    let rewriter e _ = match replaceby_x_opt with | Some x -> VarExpr x | None -> Option.get replaceby_e_opt in
     selector, rewriter
 let replace_expr_component_item x_to_replace replaceby = 
     let selector, rewriter = make x_to_replace replaceby in

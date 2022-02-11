@@ -1,3 +1,4 @@
+open Core
 open IR
 open Easy_logging
 open Utils
@@ -34,7 +35,6 @@ let receive_collector msg parent_opt env e =
 module type Sig = sig
     include IRCompilationPass.Pass
 end
-let troloc = ref 0 (* TODO remove *)
 
 module Make () : Sig = struct
     (*
@@ -524,19 +524,6 @@ module Make () : Sig = struct
         let auto_fplace smth = {place = fplace; value=smth} in
 
         let stmts = List.flatten (List.map (function stmt -> to_X_form stmt.place stmt.value) m.body) in
-
-        (* Debug *)
-        (*let m = {m with body = []} in
-        let blblbl = function
-        | LetStmt (_, _, {value=(CallExpr ({value=(VarExpr x, _)}, [s; bridge]),_) as e}) as stmt  when Atom.is_builtin x && Atom.hint x = "receive" ->
-            incr troloc;
-            logger#warning ">>>> to_X_form -> correct at the end %d" !troloc;
-            true 
-        | _ -> false 
-        in
-        List.map (rewrite_stmt_stmt false blblbl (fun place stmt -> [stmt])) stmts;*)
-        (* End debug *)
-
 
         let intermediate_states, intermediate_ports, intermediate_methods = split_body (m.name, m.annotations) [] {m with body = []} stmts in
         logger#debug "nbr intermediate_methods %d" (List.length intermediate_methods);
