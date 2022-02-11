@@ -1,0 +1,10 @@
+
+target akka;
+
+impl component Client {
+}
+
+impl component KVServer {
+}
+
+impl component TopLevel {}
