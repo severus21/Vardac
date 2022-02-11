@@ -1298,6 +1298,15 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             rewrite_expr_expr selector rewriter e2
         ) ees 
     )
+    | TernaryExpr (e1, e2, e3) -> TernaryExpr(
+        rewrite_expr_expr selector rewriter e1,
+        rewrite_expr_expr selector rewriter e2,
+        rewrite_expr_expr selector rewriter e3
+    )
+    | InterceptedActivationRef (e1, e2_opt) -> InterceptedActivationRef(
+        rewrite_expr_expr selector rewriter e1,
+        Option.map (rewrite_expr_expr selector rewriter) e2_opt
+    )
     and rewrite_expr_expr selector rewriter = rewrite_expr_place (_rewrite_expr_expr selector rewriter)
 
     and _rewrite_expr_stmt selector rewriter place = function 

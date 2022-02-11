@@ -21,14 +21,14 @@ let receive_collector msg parent_opt env e =
     return [x_1; ..; x_n-1], x_n
 *)
 (* TODO move it out *)
-let split_last = 
+(*let split_last : 'a list -> ('a list) * 'a = 
     let rec _split_last acc = function
         | [] -> failwith "splitlast"
         | x::[] -> List.rev acc,  x
         | x::xs -> _split_last (x::acc) xs
     in
     _split_last []
-
+*)
 (***************************************************)
 
 module type Sig = sig
@@ -43,6 +43,28 @@ module Make () : Sig = struct
             TODO FIXME only scan component method at this point
     *)
 
+
+    (************** Utils *****************)
+    let fresh_next_method main_name main_annotations t_msg_cont =
+        {
+            annotations = main_annotations;
+            ghost = false;
+            ret_type = mtype_of_ft TVoid; 
+            name = Atom.fresh ((Atom.hint main_name)^"_intermediate");
+            args = (
+                match t_msg_cont with
+                | None -> []
+                | Some (t_msg, st_continuation) ->
+                    [
+                        auto_fplace (t_msg, Atom.fresh "e");
+                        auto_fplace (mtype_of_st st_continuation.value, Atom.fresh "session");
+                    ]
+            ); 
+            body = [];
+            contract_opt = None;
+            on_destroy = false;
+            on_startup = false;
+        }
 
     (*******************************************************)
     (* rcev -> toplevel let or toplevel expression statement (return etc ...) or nested let .. =recv in block (if, ..)*)
@@ -290,20 +312,7 @@ module Make () : Sig = struct
             (*
                 creating the new_next_method and the current next_method becomes the current method
             *)
-            let next_method = {
-                annotations = main_annotations;
-                ghost = false;
-                ret_type = mtype_of_ft TVoid; 
-                name = Atom.fresh ((Atom.hint main_name)^"_intermediate");
-                args = [
-                    auto_fplace (t_msg, Atom.fresh "e");
-                    auto_fplace (mtype_of_st st_continuation.value, Atom.fresh "session");
-                ]; 
-                body = []; (*Will be update later*)
-                contract_opt = None;
-                on_destroy = false;
-                on_startup = false;
-            } in
+            let next_method = fresh_next_method main_name main_annotations (Some (t_msg, st_continuation)) in
 
             (*** Gathering intells ***)
             let intermediate_args = compute_intermediate_args stmts (Some let_x) in
@@ -350,6 +359,7 @@ module Make () : Sig = struct
         
         (* If case - conditional branching is painfull *)
         | ({place; value = IfStmt (e, stmt1, stmt2_opt)} as stmt) :: stmts -> 
+            (* DEBUG Code split_body (main_name, main_annotations) acc_stmts next_method (stmt1::stmts)*)
             let _,_,flag1 = collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> [true]) stmt1 in
             let flag1 = flag1 <> [] in
 
@@ -357,101 +367,124 @@ module Make () : Sig = struct
             let flag2 = Option.map (function (_, elts, _) -> elts) flag2 in
             let flag2 = match flag2 with | None -> false | Some flag2 -> flag2 <> [] in
 
+
             (*** Returns and rec call***)
-            if flag1 then
+            if flag1 || flag2 then
             begin
                 logger#debug "Detect receive in If block in %s" (Atom.to_string main_name);
                 (* There is at least one receive inside stmt1 or stmt2_opt *)
 
-                let intermediate_states1, intermediate_ports1, intermediate_methods1 =
-                    let intermediate_states1, intermediate_ports1, intermediate_methods1 = 
-                        split_body (main_name, main_annotations) [] {next_method with body = []} [stmt1] in
-                    intermediate_states1, intermediate_ports1, intermediate_methods1
+                (*  next_method is in charge of the whole IfStmt not a branch, 
+                    therefore we create two specialised next_method 
+                *)
+                let t_msg_cont = 
+                    match next_method.args with 
+                    | [{value=t_msg,_}; {value={value=SType st_continuation},_}] -> Some (t_msg, st_continuation)
+                    | _ -> (* IfStmt first stmt of method body *)
+                        None
                 in
+
+                (*** Prepare ***)
+                let stage_stmts = next_method.body @ (List.rev acc_stmts) in
+                let current_method = { next_method with 
+                body = stage_stmts; } in
+
+                (*** Shifting***)
+                (*
+                    creating the new_next_method and the current next_method becomes the current method
+                *)
+                let next_method = fresh_next_method main_name main_annotations t_msg_cont in
                 
-                let intermediate_states2, intermediate_ports2, intermediate_methods2 =
-                    match stmt2_opt with
-                    | None -> [], [], []
-                    | Some stmt2 ->
-                        let intermediate_states2, intermediate_ports2, intermediate_methods2 = 
-                            split_body (main_name, main_annotations) [] {next_method with body = []} [stmt2] in
-                        intermediate_states2, intermediate_ports2, intermediate_methods2
+                let split_branch stmt_branch = 
+                    (*** 
+                        stmts should be add as the continuation of branch
+
+                        can not deduplicate stmts because in each branch it can be bounded differently  
+                        one with msg/session + loading from intermediate state and the other a direct call
+
+                        choice 1: duplicate code - easiest (done here)
+                        choice 2: one method with freevars as args + two wrapper one per branch
+                    ***)
+                    
+                    (* Duplication implies renaming to preserve binder unicity *)
+                    (* TODO create generic duplicate fct *)
+                    let duplicate_stmts stmts = 
+                        let _, fvars = List.split (List.map (free_vars_stmt Atom.Set.empty) stmts) in
+                        let fvars = List.flatten fvars in
+                        let not_to_rename = Atom.Set.of_list (List.map snd fvars) in
+                        let renaming =
+                            let state = Hashtbl.create 16 in
+                            function x -> 
+                                (* Refresh ids only of inner binders i.e. avoid refreshing ids of freevars *)
+                                (* N.B. in stmt we do not need to refresh components nor types (not binder for them) *)
+                                match Atom.Set.find_opt x not_to_rename with 
+                                | Some _ -> x  
+                                | None -> begin 
+                                    match Hashtbl.find_opt state x with 
+                                    | Some y -> y 
+                                    | None -> begin
+                                        let y = Atom.fresh (Atom.hint x) in 
+                                        Hashtbl.add state x y;
+                                        y
+                                    end
+                                end
+                        in
+                        List.map (rename_stmt renaming) stmts
+                    in
+
+                    (* Warning. stmt_branch is in a nested scope 
+                        but since cook introduce unique name we do not need to preserve it a separate BlockStmt
+                    *)
+                    let branch_stmts = stmt_branch :: (duplicate_stmts stmts) in
+
+                    let next_method_branch = fresh_next_method main_name main_annotations t_msg_cont in
+                    let intermediate_states_branch, intermediate_ports_branch, intermediate_methods_branch =
+                        let intermediate_states_branch, intermediate_ports_branch, intermediate_methods_branch = 
+                            split_body (main_name, main_annotations) [] next_method_branch branch_stmts in
+                        intermediate_states_branch, intermediate_ports_branch, intermediate_methods_branch
+                    in
+
+                    (*** Built stmt added to stage_stmts ***)
+                    (* 
+                        m_branch_0.body from the begining of the if branch to the first receiv 
+                        therefore we inline it as the content of the branch
+                    *)
+                    let m_branch_0::intermediate_methods_branch = intermediate_methods_branch in
+
+                    auto_fplace (BlockStmt m_branch_0.body), intermediate_states_branch, intermediate_ports_branch, intermediate_methods_branch
                 in
 
-                (*** 
-                    stmts should be add to branches with receive 
-                    i.e. method creation + call 
-                ***)
-                let intermediate_states3, intermediate_ports3, intermediate_methods3 = split_body (main_name, main_annotations) [] next_method stmts in           
-                
-                let m0, ms = 
-                    match intermediate_methods3 with
-                        | m0::ms -> m0, ms
-                        | _ -> failwith "ERROR in RECVelim if"
-                in
-
-                let stmt_continuation = 
-                    auto_fplace (ExpressionStmt (e2_e (CallExpr (
-                        e2_e (AccessExpr (e2_e This, e2var m0.name)),
-                        List.map (* TODO not sure if args are passed in the correct order *)
-                            (function (_, x) -> e2var x)
-                            (
-                                List.flatten (snd (List.fold_left_map free_vars_stmt (Atom.Set.of_list (List.map (function param -> snd param.value) m0.args)) m0.body))
-                            )
-                    ))))
-                in
-                let ms1, mlast1 = split_last intermediate_methods1 in
-                let mlast1 = 
-                    { mlast1 with
-                        body = mlast1.body @ 
-                        [ stmt_continuation ]
-                    }
-                in
-                let intermediate_methods1 = ms1 @ [mlast1] in
-
-                let ms2, mlast2 = split_last intermediate_methods1 in
-                let mlast2 = 
-                    { mlast2 with
-                        body = mlast2.body @ 
-                        [ stmt_continuation ]
-                    }
-                in
-                let intermediate_methods2 = ms2 @ [mlast2] in
-
-                (*** Built stmt added to stage_stmts ***)
-                let m1_0::intermediate_methods1 = intermediate_methods1 in
-                let m2_0::intermediate_methods2 = intermediate_methods2 in
-
-                let stmt = auto_fplace (IfStmt(
-                    e,
-                    (if Bool.not flag1 then 
-                        stmt1 (* no receive in stmt1 *)
-                    else (
+                let stmt1, intermediate_states1, intermediate_ports1, intermediate_methods1 = 
+                    if flag1 then (
                         logger#debug "Detect receive in If block1";
-                        (* at least a receive somewhere in stmt1 *) 
-                        auto_fplace (BlockStmt m1_0.body)
-                    )),
-                    (if Bool.not flag2 then 
-                         stmt2_opt (* no receive in stmt2 *)
-                    else(
+                        split_branch stmt1
+                    ) else stmt1, [], [], []
+                in
+
+                let stmt2_opt, intermediate_states2, intermediate_ports2, intermediate_methods2 = 
+                    if flag2 then begin
                         logger#debug "Detect receive in If block2";
-                        (* at least a receive somewhere in stmt2 *) 
-                        Some (auto_fplace (BlockStmt m2_0.body))
-                    ))
-                )) in
+                        match stmt2_opt with
+                        | None -> None, [], [], []
+                        | Some stmt2 -> (match split_branch stmt2 with | stmt2, a, b, c -> Some stmt2, a, b, c)
+                    end
+                    else stmt2_opt, [], [], []
+                in
+               
+                let stmt = auto_fplace (IfStmt(e, stmt1, stmt2_opt)) in
 
                 (* Sanity check *)
                 collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> assert false) stmt;
 
                 
                 (*** Finish parent split execution branch since there is conditional branching *)
-                let current_method = { next_method with 
-                    body = next_method.body @ (List.rev (stmt::acc_stmts));
+                let current_method = { current_method with 
+                    body = current_method.body @ [stmt];
                 } in
 
-                intermediate_states1@intermediate_states2@intermediate_states3,
-                intermediate_ports1@intermediate_ports2@intermediate_ports3,
-                current_method::intermediate_methods1@intermediate_methods2@intermediate_methods3
+                intermediate_states1@intermediate_states2,
+                intermediate_ports1@intermediate_ports2,
+                current_method::intermediate_methods1@intermediate_methods2
             end
             else
                 (* If has no receive inside *)
@@ -459,50 +492,24 @@ module Make () : Sig = struct
         | ({value = BlockStmt stmts1} as stmt)::stmts2 ->
             let flag = List.map (collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> [true])) stmts1 in
             let flag = List.flatten (List.map (function (_, elts, _) -> elts) flag) in
+            let flag = flag <> [] in
 
 
 
-            if flag <> [] then
+            if flag then
             begin (* receive in stmts1 *)
-                let intermediate_states1, intermediate_ports1, intermediate_methods1 = split_body (main_name, main_annotations) [] next_method stmts1 in
+                logger#debug "receive in block stmt";
+                
+                (* 
+                    continuation of stmts1 is stmts
+                    cook alieviate us from taking care of syntaxic scoping since it introduce unique variable name for each binder
 
-                let intermediate_states2, intermediate_ports2, intermediate_methods2 = split_body (main_name, main_annotations) (stmt::acc_stmts) next_method stmts2 in
-                let m0::intermediate_methods2 = intermediate_methods2 in
-
-                (*** Add stmts2 as a continuation of Block ***)
-                (* TODO does it works with BlockExpr IfStmt receive ???? *)
-                let ms, mlast = split_last intermediate_methods1 in
-                let mlast = 
-                    { mlast with
-                        body = mlast.body @ 
-                        [
-                            auto_fplace (ExpressionStmt (e2_e (CallExpr (
-                                e2_e (AccessExpr (e2_e This, e2var m0.name)),
-                                List.map (* TODO not sure if args are passed in the correct order *)
-                                    (function (_, x) -> e2var x)
-                                    (
-                                        List.flatten (snd (List.fold_left_map free_vars_stmt (Atom.Set.of_list (List.map (function param -> snd param.value) m0.args)) m0.body))
-                                    )     
-                            ))))
-                        ]
-                    }
-                in
-                let intermediate_methods2 = ms @ [mlast] in
-
-                (*** Compute stmt to be added to ***)
-                let m1_0::intermediate_methods1 = intermediate_methods1 in
-                let stmt = auto_fplace (BlockStmt m1_0.body) 
-                in
-
-                (*** Finish parent split execution branch since there is conditional branching *)
-                let current_method = { next_method with 
-                    body = next_method.body @ (List.rev (stmt::acc_stmts));
-                } in
-
-                intermediate_states1@intermediate_states2,
-                intermediate_ports1@intermediate_ports2,
-                current_method::intermediate_methods1@intermediate_methods2
-
+                    therefore we reason as if there is not block information
+                    TODO do we need to keep blockstmt or inline it in other stmts constructions since nested block are handled by cook -> maybe yes for readability of generated codegen ?????
+                    grouping both stmt list avoid us to painfully interconnect their splits
+                *)
+                let full_stmts = stmts1@stmts2 in
+                split_body (main_name, main_annotations) acc_stmts next_method full_stmts
             end
             else split_body (main_name, main_annotations) (stmt::acc_stmts) next_method stmts2
 
