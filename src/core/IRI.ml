@@ -211,7 +211,6 @@ and type_replace_component_item to_be_replaced by = replace_place (_type_replace
 
 and _type_replace_component_dcl to_be_replaced by = function
 | ComponentStructure cdcl -> ComponentStructure {cdcl with 
-    args = List.map (type_replace_param to_be_replaced by) cdcl.args;
     body = List.map (type_replace_component_item to_be_replaced by) cdcl.body
 }
 | ComponentAssign _ as cdcl -> cdcl

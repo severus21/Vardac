@@ -897,9 +897,7 @@ module Make () = struct
 
 
     and finish_component_dcl place : S._component_dcl -> T.actor list = function
-    | S.ComponentStructure {name; args; body} -> begin 
-        assert( args == []); (* Not supported yet, maybe one day *)
-
+    | S.ComponentStructure {name; body} -> begin 
         (* Registration *)
         Hashtbl.add to_capitalize_variables name ();
         collected_components := Atom.Set.add name !collected_components;

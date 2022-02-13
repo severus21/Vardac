@@ -59,7 +59,7 @@ bridge<A, B, !ping?pong, TLS> b1 = tlsbridge('xxx.cert');*)
     - check that types of endpoints matches
     - check that the protocols hosted by the logical bridge also match
 *)
-component A () {
+component A {
     string _test = "Implicit is working";
     string _testb = "Implicit is working";
     bridge<A, B, inline p_pingpong> _b;
@@ -97,7 +97,7 @@ component A () {
 
         return ok(());
     }*)
-    component C () {
+    component C {
         onstartup void toto () {
             (* Adding an implicit in C - comming from A *)            
             print(implicit::_test);
@@ -120,7 +120,7 @@ component A () {
     }
 }
 
-component B () {
+component B {
     bridge<A, B, inline p_pingpong> _b;
 
     onstartup void toto (bridge<A, B, inline p_pingpong> b0){
@@ -164,7 +164,7 @@ component B () {
     returns (res : result<void, error> -> res? == () )
 }
 
-component Orchestrator () {
+component Orchestrator {
     onstartup void toto () {
         bridge<A, B, inline p_pingpong> b0 = bridge(p_pingpong);
         activation_ref<B> c = (spawn B(b0));
@@ -172,14 +172,14 @@ component Orchestrator () {
     }
 }
 
-component PassivePlayer() {
+component PassivePlayer {
     onstartup void toto () {
         print("Start passive player"); 
     }
 }
 
-component MultiJVMOrchestrator (){
-    component Inner (){ (* FIXME needed since @ place can not be used directly in the guardian *)
+component MultiJVMOrchestrator {
+    component Inner { (* FIXME needed since @ place can not be used directly in the guardian *)
 
         onstartup void toto () {
             bridge<A, B, inline p_pingpong> b0 = bridge(p_pingpong);

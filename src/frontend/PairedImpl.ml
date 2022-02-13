@@ -146,7 +146,7 @@ and paired_component_item parents place : S2._component_item -> T._component_ite
 and ucitem parents: S2.component_item -> T.component_item  = map_place (paired_component_item parents)
 
 and paired_component_dcl parents place : S2._component_dcl -> T._component_dcl = function
-| S2.ComponentStructure {target_name; name; annotations; args; body} -> begin 
+| S2.ComponentStructure {target_name; name; annotations; body} -> begin 
     let key = match target_name with 
         | UserDefined -> Hashtbl.find name2key name 
         | SameAs as_name -> 
@@ -159,7 +159,7 @@ and paired_component_dcl parents place : S2._component_dcl -> T._component_dcl =
     try 
         let target_name = Hashtbl.find component2target key in
         let body = List.map (ucitem ((Atom.hint name)::parents)) body in
-        T.ComponentStructure {target_name; annotations; name; args; body}
+        T.ComponentStructure {target_name; annotations; name; body}
     with | Not_found -> raise (Error.PlacedDeadbranchError (place, Printf.sprintf "A target should have been assign to component [%s]." (List.fold_left (fun x y -> if x <> "" then x^"::"^y else y) "" key)))
 end
 | S2.ComponentAssign {name; value} -> T.ComponentAssign {name; value} 

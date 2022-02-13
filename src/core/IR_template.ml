@@ -99,7 +99,6 @@ module Make (IRC:IR_common.TIRC) (Params : IRParams) = struct
         target_name: target_name; 
         annotations: component_annotation list;
         name: component_variable; 
-        args: param list; (* TODO get ride of this and introduce a functor construct *) 
         body: component_item list}
 
     and _component_dcl = 

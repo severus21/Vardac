@@ -17,7 +17,7 @@ bool ii = tt._1_;
 
 protocol p_protocol = !eincr?value!eincr?value.;
 bridge<A, Counter, inline p_protocol> b0 = bridge(p_protocol);
-component A () {
+component A {
     bridge<A, Counter, inline p_protocol> _b;
     outport p_out on this._b :: bridge<A, Counter, inline p_protocol>;
 
@@ -44,7 +44,7 @@ component A () {
     }
 }
 
-component B () {
+component B {
     onstartup void toto(activation_ref<Counter> c){
         print(">Starting B");
         c.incr();
@@ -53,7 +53,7 @@ component B () {
     }
 }
 
-component Counter () {
+component Counter {
     int counter = 0;
     bridge<A, Counter, inline p_protocol> _b;
 
@@ -90,14 +90,14 @@ component Counter () {
 }
 
 
-component PassivePlayer() {
+component PassivePlayer {
     onstartup void toto () {
         print("Start passive player"); 
     }
 }
 
-component MultiJVMOrchestrator (){
-    component Inner (){ (* FIXME needed since @ place can not be used directly in the guardian *)
+component MultiJVMOrchestrator {
+    component Inner { (* FIXME needed since @ place can not be used directly in the guardian *)
 
         onstartup void toto () {
             bridge<A, Counter, inline p_protocol> b0 = bridge(p_protocol);

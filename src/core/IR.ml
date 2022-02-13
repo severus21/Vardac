@@ -157,7 +157,6 @@ and collect_expr_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector 
     already_binded, [], []
 | ComponentStructure cdcl ->
     let parent_opt = Some cdcl.name in
-    assert(cdcl.args = []);
     (* FIXME TODO do i need to propagate field/method name binding ???*)
 
     (* Shallow scan because fields and methods could be recursive *)
@@ -318,7 +317,6 @@ and collect_cexpr_component_item parent_opt selector collector citem =
 and collect_cexpr_component_dcl_ parent_opt selector collector place = function 
 | ComponentStructure cdcl ->
     let parent_opt = Some cdcl.name in
-    assert(cdcl.args = []);
 
     List.flatten (List.map (collect_cexpr_component_item parent_opt  selector collector) cdcl.body)
 and collect_cexpr_component_dcl parent_opt selector collector cdcl = 
@@ -402,7 +400,6 @@ and collect_stmt_component_item parent_opt selector collector citem =
 and collect_stmt_component_dcl_ parent_opt selector collector place = function 
 | ComponentStructure cdcl ->
     let parent_opt = Some cdcl.name in
-    assert(cdcl.args = []);
 
     List.flatten (List.map (collect_stmt_component_item parent_opt  selector collector) cdcl.body)
 | ComponentAssign _ -> []
@@ -549,7 +546,6 @@ and collect_type_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector 
     already_binded, collected_elts, ftvars 
 | ComponentStructure cdcl ->
     let parent_opt = Some cdcl.name in
-    assert(cdcl.args = []);
     (* FIXME TODO do i need to propagate field/method name binding ???*)
 
     (* Shallow scan because because component type def could be recursive *)
@@ -1455,11 +1451,10 @@ and _rename_component_dcl renaming place = function
     name = renaming name;
     value =rename_component_expr renaming value;
 }
-| ComponentStructure {target_name; annotations; name; args; body} -> ComponentStructure {
+| ComponentStructure {target_name; annotations; name; body} -> ComponentStructure {
     target_name = target_name;
     annotations = List.map (rename_component_annotation renaming) annotations;
     name = renaming name;
-    args = List.map (rename_param renaming) args;
     body = List.map (rename_component_item renaming) body
 }
 and rename_component_dcl renaming = map_place (_rename_component_dcl (protect_renaming renaming))

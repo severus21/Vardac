@@ -253,7 +253,6 @@ and _component_item =
     (* Reusing component architecture *)
     (* Syntaxic sugar/component manipulation 
         include Y;
-        include Y(args); where arg could be statically known or not
         include mylist[0];
     *)
     | Include of component_expr
@@ -263,7 +262,6 @@ and _component_dcl =
     | ComponentStructure of {
         name: variable; 
         annotations: annotation list;
-        args: param list; 
         body: component_item list
     } 
     | ComponentAssign of {

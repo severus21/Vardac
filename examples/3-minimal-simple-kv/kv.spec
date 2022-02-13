@@ -7,7 +7,7 @@ protocol p_kv = &{
 };
 
 
-component KVServer () {
+component KVServer {
     bridge<Client, KVServer, p_kv> b;
 
     onstartup void toto (bridge<Client, KVServer, p_kv> b){
@@ -47,7 +47,7 @@ component KVServer () {
     *)
 }
 
-component Client () {
+component Client {
     bridge<Client, KVServer, p_kv> b;
     activation_ref<KVServer> kv;
 
@@ -76,7 +76,7 @@ component Client () {
         (*assert(nth(receive(s), 0));*) //TODO assert do not exit
     }
 }
-component TopLevel () {
+component TopLevel {
     onstartup void toto (){
         bridge<Client, KVServer, p_kv> b = bridge(p_kv);
 

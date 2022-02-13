@@ -1021,10 +1021,9 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         if List.length destructors > 1 then
             Error.error (List.flatten (List.map (function (item:S.component_item) -> item.place) destructors)) "multiple ondestroy in component %s" cdcl.name;
 
-        let inner_env, args = List.fold_left_map cparam env cdcl.args in
 
         (* Prepare env for mutual binding between components and methods/states *)
-        let inner_env = hydrate_compoent_env_from_iota inner_env this_entry in 
+        let inner_env = hydrate_compoent_env_from_iota env this_entry in 
 
         let inner_env, body = List.fold_left_map ccitem inner_env cdcl.body in
         let body = List.flatten body in
@@ -1041,7 +1040,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
             | a -> Error.error a.place "%s is not a component annotation!" (S.show_annotation a)
         ) cdcl.annotations in
 
-        new_env, T.ComponentStructure {target_name = UserDefined; annotations; name; args; body} 
+        new_env, T.ComponentStructure {target_name = UserDefined; annotations; name; body} 
     | S.ComponentAssign cdcl -> 
         let new_env, name = bind_component env place cdcl.name in
         let env = {env with component = new_env.component } in

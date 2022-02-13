@@ -787,7 +787,6 @@ module Make () = struct
         target_name = cdcl.target_name;
         annotations = cdcl.annotations;
         name = cdcl.name;
-        args = List.map (tannot_param parent_opt) cdcl.args;
         body =  body (* TODO first pass allow mutual recursive function ?? - only from header *)
     } 
     | ComponentAssign {name; value} -> ComponentAssign {

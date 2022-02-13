@@ -8,7 +8,7 @@ protocol p_pingpong = !ping?pong.;
 
 (********************* PingPong *********************)
 @capturable([MsgCounter])
-component A () {
+component A {
     bridge<B, A, inline p_pingpong> _b;
     
     onstartup void toto (bridge<B, A, inline p_pingpong> b0){
@@ -24,7 +24,7 @@ component A () {
     }
 }
 
-component B () {
+component B {
     bridge<B, A, inline p_pingpong> _b;
     outport p_out on this._b :: bridge<B, A, inline p_pingpong>;
 
@@ -36,14 +36,16 @@ component B () {
 
         ?pong. s1 = fire(s0, ping());
         print("> Ping fired");
+        (* TODO add this 
         tuple<pong, !ping!ping.> res = receive(s1, this._b);
         print("pong_or_timeout");
+        *)
     }
 }
 
 
     (* Orchestration logic *)
-component PingPong () {
+component PingPong {
     activation_ref<MsgCounter> make_interceptor (
         place -> activation_ref<MsgCounter> factory,
         string intercepted_component_schema,
@@ -76,7 +78,7 @@ component PingPong () {
 (*
     TODO write a msg counter - independent of msg
 *)
-component MsgCounter () {
+component MsgCounter {
     onstartup void toto (){
         print(">MsgCounter"); (* count ping *)
     }
@@ -142,13 +144,13 @@ component MsgCounter () {
 
 (********************* Guardians and entry points *********************)
 
-component PassivePlayer() {
+component PassivePlayer {
     onstartup void toto () {
         print("Start passive player"); 
     }
 }
 
-component MultiJVMOrchestrator (){
+component MultiJVMOrchestrator {
     onstartup void toto (){
         spawn PingPong();
     }

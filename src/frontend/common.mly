@@ -586,8 +586,8 @@ any_component_dcl_:
     ...
     component_stmtn;
 }*)
-| COMPONENT name=UID LPAREN params=right_flexible_list(COMMA, any_param) RPAREN LCURLYBRACKET body=flexible_sequence(any_component_item) RCURLYBRACKET  
-    { ComponentStructure {name=name; annotations=[]; args=params; body=body} }
+| COMPONENT name=UID LCURLYBRACKET body=flexible_sequence(any_component_item) RCURLYBRACKET  
+    { ComponentStructure {name=name; annotations=[]; body=body} }
 (* component X = Y*)
 | COMPONENT name=UID EQ value=any_component_expr SEMICOLON
     { ComponentAssign {name=name; value=value} }
