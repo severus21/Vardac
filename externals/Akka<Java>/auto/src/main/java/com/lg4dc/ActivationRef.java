@@ -8,7 +8,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Optional;
 
-
 public class ActivationRef<Command> implements CborSerializable, JsonSerializable, java.io.Serializable {
     @JsonProperty("componentSchema")
     public String componentSchema;
@@ -39,8 +38,20 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
         this.isInterceptor = isInterceptor; 
     }
 
+    public ActivationRef(ActivationRef<Command> a_ref, Optionnal<ActivationRef<Command>> interceptedActivationRef_opt){
+        this.actorRef = a_ref.actorRef;
+        this.componentSchema = a_ref.componentSchema;
+        this.interceptedActivationRef_opt = interceptedActivationRef_opt;
+        this.isInterceptor = true; 
+    }
+
     public String toString(){
         return this.actorRef.toString();
+    }
+
+    public String activationId(){
+        // TODO discuss with Benoit
+        return this.actorRef.path().toSerializationFormat();
     }
 
     public boolean equals(Object obj) {
