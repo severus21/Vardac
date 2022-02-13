@@ -515,12 +515,26 @@ core_method:
         on_startup = false;
     } }
 
+core_lf_method:
+(* lf_method can not be abstract *)
+| LPAREN args=right_flexible_list(COMMA, any_param) RPAREN LCURLYBRACKET stmts=flexible_sequence(any_stmt) RCURLYBRACKET 
+    { {
+        annotations = [];
+        ghost=false;
+        ret_type={place=[$loc]; value=CType {place=[$loc]; value=TFlatType TVoid}};
+        name="";
+        args=args;
+        abstract_impl= stmts;
+        on_destroy = false;
+        on_startup = false;
+    } }
+
 
 
 lifetime_method_:
-| ONSTARTUP  m=core_method
+| ONSTARTUP m=core_lf_method
     { {m with on_startup = true} }
-| ONDESTROY  m=core_method
+| ONDESTROY m=core_lf_method
     { {m with on_destroy = true} }
 
 any_method_:

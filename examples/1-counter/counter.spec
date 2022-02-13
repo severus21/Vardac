@@ -21,7 +21,7 @@ component A {
     bridge<A, Counter, inline p_protocol> _b;
     outport p_out on this._b :: bridge<A, Counter, inline p_protocol>;
 
-    onstartup void toto (bridge<A, Counter, inline p_protocol> b0, activation_ref<Counter> b) {
+    onstartup (bridge<A, Counter, inline p_protocol> b0, activation_ref<Counter> b) {
         this._b = b0;
 
         print("> Starting A");
@@ -45,7 +45,7 @@ component A {
 }
 
 component B {
-    onstartup void toto(activation_ref<Counter> c){
+    onstartup (activation_ref<Counter> c){
         print(">Starting B");
         c.incr();
         print("> b read value:");
@@ -57,7 +57,7 @@ component Counter {
     int counter = 0;
     bridge<A, Counter, inline p_protocol> _b;
 
-    onstartup void toto (bridge<A, Counter, inline p_protocol> b0){
+    onstartup (bridge<A, Counter, inline p_protocol> b0){
         print("> Starting Counter");
         this._b = b0;
     }
@@ -99,7 +99,7 @@ component PassivePlayer {
 component MultiJVMOrchestrator {
     component Inner { (* FIXME needed since @ place can not be used directly in the guardian *)
 
-        onstartup void toto () {
+        onstartup () {
             bridge<A, Counter, inline p_protocol> b0 = bridge(p_protocol);
             print("Start active player"); 
             list<place> ps1 = select_places(vpb, x  : place -> true);
@@ -112,7 +112,7 @@ component MultiJVMOrchestrator {
             activation_ref<B> b = spawn B(c);
         }
     }
-    onstartup void toto (){
+    onstartup (){
         spawn Inner();
     }
 }

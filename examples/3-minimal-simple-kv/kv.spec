@@ -10,7 +10,7 @@ protocol p_kv = &{
 component KVServer {
     bridge<Client, KVServer, p_kv> b;
 
-    onstartup void toto (bridge<Client, KVServer, p_kv> b){
+    onstartup (bridge<Client, KVServer, p_kv> b){
         this.b = b;
     }
 
@@ -53,7 +53,7 @@ component Client {
 
     outport p_out on this.b :: bridge<Client, KVServer, p_kv>;
 
-    onstartup void toto (bridge<Client, KVServer, p_kv> b, activation_ref<KVServer> kv){
+    onstartup (bridge<Client, KVServer, p_kv> b, activation_ref<KVServer> kv){
         this.b = b;
         this.kv = kv;
     }
@@ -77,7 +77,7 @@ component Client {
     }
 }
 component TopLevel {
-    onstartup void toto (){
+    onstartup {
         bridge<Client, KVServer, p_kv> b = bridge(p_kv);
 
         activation_ref<KVServer> kv_a = spawn KVServer(b);

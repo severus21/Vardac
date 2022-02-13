@@ -67,7 +67,7 @@ component A {
 
     outport p_out on this._b :: bridge<A, B, inline p_pingpong>;
 
-    onstartup void toto (bridge<A, B, inline p_pingpong> b0, activation_ref<B> b) {
+    onstartup (bridge<A, B, inline p_pingpong> b0, activation_ref<B> b) {
         this._b = b0;
         print("> Starting A");
         print(string_of_bridge(b0));
@@ -98,7 +98,7 @@ component A {
         return ok(());
     }*)
     component C {
-        onstartup void toto () {
+        onstartup () {
             (* Adding an implicit in C - comming from A *)            
             print(implicit::_test);
             print(implicit::_testb);
@@ -123,7 +123,7 @@ component A {
 component B {
     bridge<A, B, inline p_pingpong> _b;
 
-    onstartup void toto (bridge<A, B, inline p_pingpong> b0){
+    onstartup (bridge<A, B, inline p_pingpong> b0){
         print("> Starting B");
         print(string_of_bridge(b0));
         this._b = b0;
@@ -165,7 +165,7 @@ component B {
 }
 
 component Orchestrator {
-    onstartup void toto () {
+    onstartup () {
         bridge<A, B, inline p_pingpong> b0 = bridge(p_pingpong);
         activation_ref<B> c = (spawn B(b0));
         activation_ref<A> a2 = (spawn A(b0, c));  
@@ -173,7 +173,7 @@ component Orchestrator {
 }
 
 component PassivePlayer {
-    onstartup void toto () {
+    onstartup () {
         print("Start passive player"); 
     }
 }
@@ -181,7 +181,7 @@ component PassivePlayer {
 component MultiJVMOrchestrator {
     component Inner { (* FIXME needed since @ place can not be used directly in the guardian *)
 
-        onstartup void toto () {
+        onstartup () {
             bridge<A, B, inline p_pingpong> b0 = bridge(p_pingpong);
 
             vplace<vpcloud> vp1 = vpcloud;
@@ -224,7 +224,7 @@ component MultiJVMOrchestrator {
             *)
         }
     }
-    onstartup void toto (){
+    onstartup (){
         spawn Inner();
     }
 }

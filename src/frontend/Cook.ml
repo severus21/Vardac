@@ -319,6 +319,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         *)
         match value with
         | S.Term t -> cartography_term entry t
+        | S.Method {value={on_startup; on_destroy}} when on_startup || on_destroy -> entry 
         | S.Method {value={name}} | S.Inport {value={name;}} | S.Outport {value={name;}} | S.State {value=StateDcl{name;}} -> begin
             match Env.find_opt name entry.inner with 
             | None -> { entry with
@@ -904,8 +905,17 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
     let fplace = (Error.forge_place "Coook.cook_method0" 0 0) in
     let auto_place smth = {AstUtils.place = place; value=smth} in
     let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
-        (* method name has been already binded when scanning the structure of the component *)
-        let name = cook_var_this env place m.name in 
+        let name = 
+            (* Onstartup/destrory has no name*)
+            if m.on_startup then 
+                Atom.fresh "onstartup"
+            else
+                if m.on_destroy then
+                    Atom.fresh "ondestroy"
+                else
+                    (* method name has been already binded when scanning the structure of the component *)
+                    cook_var_this env place m.name 
+        in 
         let inner_env, args = List.fold_left_map cparam env m.args in
 
         let rec remove_empty_stmt = function

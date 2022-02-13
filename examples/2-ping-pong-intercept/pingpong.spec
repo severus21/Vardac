@@ -11,7 +11,7 @@ protocol p_pingpong = !ping?pong.;
 component A {
     bridge<B, A, inline p_pingpong> _b;
     
-    onstartup void toto (bridge<B, A, inline p_pingpong> b0){
+    onstartup (bridge<B, A, inline p_pingpong> b0){
         print("> Starting A");
         this._b = b0;
     }
@@ -28,7 +28,7 @@ component B {
     bridge<B, A, inline p_pingpong> _b;
     outport p_out on this._b :: bridge<B, A, inline p_pingpong>;
 
-    onstartup void toto (bridge<B, A, inline p_pingpong> b0, activation_ref<A> b) {
+    onstartup (bridge<B, A, inline p_pingpong> b0, activation_ref<A> b) {
         this._b = b0;
 
         print("> Starting B");
@@ -55,7 +55,7 @@ component PingPong {
         return factory(p);
     }
 
-    onstartup void toto (){
+    onstartup {
         bridge<B, A, inline p_pingpong> bridge0 = bridge(p_pingpong);
 
         (* First group *) 
@@ -79,7 +79,7 @@ component PingPong {
     TODO write a msg counter - independent of msg
 *)
 component MsgCounter {
-    onstartup void toto (){
+    onstartup {
         print(">MsgCounter"); (* count ping *)
     }
 
@@ -145,13 +145,13 @@ component MsgCounter {
 (********************* Guardians and entry points *********************)
 
 component PassivePlayer {
-    onstartup void toto () {
+    onstartup {
         print("Start passive player"); 
     }
 }
 
 component MultiJVMOrchestrator {
-    onstartup void toto (){
+    onstartup {
         spawn PingPong();
     }
 }
