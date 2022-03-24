@@ -77,7 +77,7 @@ component Client {
     }
 }
 component TopLevel {
-    onstartup {
+    onstartup () {
         bridge<Client, KVServer, p_kv> b = bridge(p_kv);
 
         activation_ref<KVServer> kv_a = spawn KVServer(b);

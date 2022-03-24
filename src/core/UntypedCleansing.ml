@@ -54,7 +54,6 @@ let type_aliasing_elimiation program =
         (* Cycle detection *)
         let already_seen = Hashtbl.create 16 in 
 
-
         let rec _alias_rewriter place = function
             | CType {place; value=TVar x} -> begin 
                 if Hashtbl.find_opt already_seen x <> None then
@@ -120,9 +119,6 @@ let rec dual_elimination program =
     and dual_elim st = map_place _dual_elim st
     and rewrite (SType st) = SType (dual_elim st)
     in
-
-
-
 
     rewrite_type_program select rewrite program 
 

@@ -1,0 +1,14 @@
+- place: placeA 
+  nbr_instances: "1 + 1"
+  features:
+    addr: "127.0.0.1"
+    port: 14290
+    cpus: 3
+- place: Cloud
+  children:
+  - place: nodeB 
+    features:
+      addr: "127.0.0.1"
+      port: 14290
+      cpus: 3
+     

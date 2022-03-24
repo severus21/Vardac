@@ -1,0 +1,8 @@
+- target: akka 
+  codegen: 
+    language: Java
+    runtime: Akka
+    mains: 
+      local:
+        bootstrap: TopLevel 
+        entrypoint: no_main 

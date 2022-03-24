@@ -55,7 +55,7 @@ component PingPong {
         return factory(p);
     }
 
-    onstartup {
+    onstartup () {
         bridge<B, A, inline p_pingpong> bridge0 = bridge(p_pingpong);
 
         (* First group *) 
@@ -79,7 +79,7 @@ component PingPong {
     TODO write a msg counter - independent of msg
 *)
 component MsgCounter {
-    onstartup {
+    onstartup () {
         print(">MsgCounter"); (* count ping *)
     }
 
@@ -145,13 +145,13 @@ component MsgCounter {
 (********************* Guardians and entry points *********************)
 
 component PassivePlayer {
-    onstartup {
+    onstartup () {
         print("Start passive player"); 
     }
 }
 
 component MultiJVMOrchestrator {
-    onstartup {
+    onstartup () {
         spawn PingPong();
     }
 }
