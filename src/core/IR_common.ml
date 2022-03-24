@@ -321,6 +321,7 @@ module type TIRC = sig
     val rewrite_type_mtype : ( _main_type -> bool) -> (_main_type -> _main_type) -> main_type -> main_type
     val rewrite_type_expr : ( _main_type -> bool) -> (_main_type -> _main_type) -> expr -> expr
     val rewrite_type_stmt : (_main_type -> bool) -> (_main_type -> _main_type) -> stmt -> stmt
+    val rewrite_type_aconstraint : (_main_type -> bool) -> (_main_type -> _main_type) -> applied_constraint -> applied_constraint
     val rewrite_expr_expr : (_expr -> bool) -> (main_type -> _expr -> _expr) -> expr -> expr
     val rewrite_expr_stmt : (_expr -> bool) -> (main_type -> _expr -> _expr) -> stmt -> stmt
     val replace_expr_expr : expr_variable -> (expr_variable option * _expr option) -> expr -> expr
@@ -726,6 +727,15 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         collect_expr_expr parent_opt already_binded selector collector e
     | AssignThisExpr (x, e) ->
         collect_expr_expr parent_opt already_binded selector collector e
+
+    | BranchStmt {s; label; branches} ->
+        let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector s in
+        let _, collected_elts2, fvars2 = collect_expr_expr parent_opt already_binded selector collector label in
+        let stmts = List.map (function {body} -> body) branches in
+        let _, res = collect_stmts already_binded stmts in
+        let collected_elts3, fvars3 = List.split res in 
+
+        already_binded, collected_elts1@collected_elts2@(List.flatten collected_elts3),  fvars1@fvars2@(List.flatten fvars3)
     | BlockStmt stmts ->
         let _, res = collect_stmts already_binded stmts in 
         let collected_elts = List.map fst res in
@@ -1080,6 +1090,13 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         match stmt with
         | BreakStmt | CommentsStmt _ | ContinueStmt | ExitStmt _ | EmptyStmt -> already_binded, [], []
         | AssignExpr (_, e) | AssignThisExpr (_, e) | ExpressionStmt e |  ReturnStmt e -> collect_expr e
+        | BranchStmt {s; label; branches} -> 
+            let _, collected_elts1, ftvars1 = collect_expr s in
+            let _, collected_elts2, ftvars2 = collect_expr label in
+            let stmts = List.map (function {body} -> body) branches in
+
+            let collected_elts3, ftvars3 = collect_stmts stmts in
+            already_binded, collected_elts1@collected_elts2@collected_elts3, ftvars1@ftvars2@ftvars3
         | LetStmt (mt, _, e) ->
             let _, collected_elts1, ftvars1 = collect_mtype mt in
             let _, collected_elts2, ftvars2 = collect_expr e in
@@ -1337,6 +1354,20 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | LetStmt (mt, x, e) -> (* TODO FIXME expr in type are not yet concerned *)
             LetStmt (mt, x, rewrite_expr_expr selector rewriter e)
         | CommentsStmt c -> CommentsStmt c
+        | BranchStmt {s; label; branches} -> begin 
+            let rewrite_branche {branch_label; branch_s;body} =
+                {   
+                    branch_label; 
+                    branch_s; 
+                    body = rewrite_expr_stmt selector rewriter body;
+                }
+            in
+            BranchStmt{
+                s       = rewrite_expr_expr selector rewriter s;
+                label   = rewrite_expr_expr selector rewriter label;
+                branches= List.map rewrite_branche branches
+            }
+        end
         | BreakStmt -> BreakStmt
         | ContinueStmt -> ContinueStmt
         | ExitStmt i -> ExitStmt i

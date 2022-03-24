@@ -197,6 +197,16 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         current = env0.current;
         component = List.fold_left combine env0.component (List.map (fun c -> c.component) envs)
     }
+
+    let export_branch_label (env0:env) (env1:env) : env = 
+        (* TODO refactor - rename label_ by smth else or use a dedicated env field *)
+        let is_branch_label x _ = String.starts_with "label_" x in
+        { env0 with 
+            current = { env0.current with 
+                exprs = Env.fold Env.add (Env.filter is_branch_label env1.current.exprs) env0.current.exprs 
+            }
+        } (* TODO label types binding  not preserved since they should be removed *)
+
     let fresh_env iota = {
         current         = fresh_entity_env iota;
         component       = fresh_component_env ();
@@ -456,6 +466,11 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         let aux env (x, st, aconst_opt) = 
             let x = "label_"^x in
             let env1, y = bind_type env place x in
+            let env1 = register_expr env place ~create_instance:false y in (* register for blabel literal in match *)
+
+            (* TODO since all label has blabel types do need this
+                or maybe introduce a blabel subtype per stbranch
+            *)
             (* Register an event def for this label *)
             let env2 : env = bind_eventdef env1 place y in
 
@@ -467,6 +482,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
                 env4, (y, st, Some aconst) 
         in
         let new_env, entries = List.fold_left_map aux env entries in
+        
         new_env, (match st0 with
             | S.STBranch _ -> T.STBranch entries            
             | S.STSelect _ -> T.STSelect entries            
@@ -518,7 +534,12 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         let timers = S.timers_of_st st in 
         let inner_env = List.fold_left (fun env  name -> fst (bind_expr env place name)) env timers in
 
+
         let env1, st = cstype inner_env st in
+
+        (* label should be binded externally *)
+        let env = export_branch_label env env1 in 
+
         env << [env1], T.SType st
     | S.CompType cmt -> 
         let cmt = ccomptype env cmt in
@@ -765,7 +786,9 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         let env1, s = cexpr env s in 
         let env2, label = cexpr env label in
         let envs, branches = List.split (List.map (function {S.branch_label; branch_s; body} -> 
-            let branch_label = {place; value = T.BLabelLit (Atom.builtin branch_label)} in
+        print_env env;
+            let branch_label = cook_var_expr env place ("label_"^branch_label) in
+            let branch_label = {place; value = T.BLabelLit branch_label} in
             let env_inner, branch_s = bind_expr env place branch_s in
             let env2, body = cstmt env_inner body in
 
@@ -1121,6 +1144,8 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         (* We use resgister_expr y here in order to preserve atom identity between both the world of types and the world of values (type constructor for instance) *)
         let new_env2 = register_expr new_env1 place ~create_instance:false y in 
         let env3, mt = cmtype env mt in 
+
+        let new_env2 = export_branch_label new_env2 env3 in
 
         (* p : () -> p *)
         let constructor_type = auto_fplace(T.CType(auto_fplace(T.TArrow(

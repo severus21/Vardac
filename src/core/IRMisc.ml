@@ -91,7 +91,7 @@ let e_param_of str : Atom.atom * expr =
     let param = Atom.fresh str in
     param, e2var param
 
-let st_branch_of mt_st branch_label = 
+let rec st_branch_of mt_st branch_label = 
     let blabel = match branch_label.value with 
         | BLabelLit l -> l
         | _ -> raise (Error.PlacedDeadbranchError (branch_label.place, "must be session type label"))
@@ -100,9 +100,14 @@ let st_branch_of mt_st branch_label =
     match mt_st.value with 
     | SType st -> begin 
         match st.value with 
-        | STBranch branches -> 
+        | STBranch branches -> begin 
             try
                 let _, _st, _ = List.find (function (_label, _st, _) -> _label = blabel) branches in
                 _st
             with Not_found -> Error.error mt_st.place "label [%s] not found in %s" (Atom.to_string blabel) (show_session_type st)
+        end
+        | STDual st -> (* when called before partial evaluation *)
+            st_branch_of {place=st.place; value=SType st} branch_label
+    | mt -> failwith (show__session_type mt)
     end
+    | mt -> failwith (show__main_type mt)

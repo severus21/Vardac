@@ -15,6 +15,7 @@ module Derive = IRCompilationPass.Make(Derive)
 module Intercept = IRCompilationPass.Make(Intercept)
 module PartialEval = IRCompilationPass.Make(Core.PartialEval)
 module Reduce = IRCompilationPass.Make(Core.Reduce)
+module UntypedCleansing = IRCompilationPass.Make(Core.UntypedCleansing)
 module TypeChecking = IRCompilationPass.Make(Core.TypeChecking)
 module TypeInference1 = IRCompilationPass.Make(Core.TypeInference.Make())
 module TypeInference2 = IRCompilationPass.Make(Core.TypeInference.Make())
@@ -47,6 +48,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     let ir1 =
         ir
         |> Reduce.apply
+        |> UntypedCleansing.apply
         |> TypeInference1.apply
         (*|> TypeChecking.apply*)
         |> PartialEval.apply

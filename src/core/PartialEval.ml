@@ -436,6 +436,15 @@ function
     else
         env, AssignExpr (x, e)
 | AssignThisExpr (x, e) -> env, AssignExpr (x,  snd(pe_expr env e ))
+| BranchStmt {s; label; branches} -> 
+    let s = snd(pe_expr env s) in
+    let label = snd(pe_expr env label) in
+    (* each branch lives in its own isolated env *)
+    let branches = List.map (fun {branch_label; branch_s; body} -> 
+        {branch_label; branch_s; body = snd(pe_stmt env body)}
+    ) branches in
+
+    env, BranchStmt{ s; label; branches }
 | BlockStmt stmts -> begin 
     let inner_env, stmts = List.fold_left_map (fun env stmt -> pe_stmt env stmt) env stmts in
     let stmts = clean_stmts stmts in
