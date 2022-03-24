@@ -65,9 +65,17 @@ make run -- compile --places examples/2-ping-pong-intercept/places.yml --targets
 ```bash
 make run -- compile --places examples/1-counter/places.yml --targets examples/1-counter/targets.yml --filename examples/1-counter/counter.spec --impl examples/1-counter/counter.impl --provenance 0
 ```
+* minimal-kv
+```bash
+make run -- compile --places examples/3-minimal-simple-kv/places.yml --targets examples/3-minimal-simple-kv/targets.yml --filename examples/3-minimal-simple-kv/kv.spec --impl examples/3-minimal-simple-kv/kv.impl --provenance 0
+```
+* s-kv
+```bash
+make run -- compile --places examples/4-sharded-kv/places.yml --targets examples/4-sharded-kv/targets.yml --filename examples/4-sharded-kv/kv.spec --impl examples/4-sharded-kv/kv.impl --provenance 0
+```
 * kvs
 ```bash
-make run -- compile --debug --places examples/kvs/places.yml --targets examples/kvs/targets.yml --filename examples/kvs/kvs.spec --impl examples/kvs/kvs.impl --provenance 0
+make run -- compile --places examples/kvs/places.yml --targets examples/kvs/targets.yml --filename examples/kvs/kvs.spec --impl examples/kvs/kvs.impl --provenance 0
 ```
 
 ```
