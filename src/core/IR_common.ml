@@ -302,6 +302,7 @@ module type TIRC = sig
 
 
     (****** BEGIN EDIT BY HUMAN*****)
+    val collect_stype_stype : Atom.atom option -> Atom.Set.t -> (_session_type -> bool) -> (Atom.atom option -> Atom.Set.t -> session_type -> 'a list) -> session_type -> Atom.Set.t * 'a list * type_variable list
     val collect_type_mtype : Atom.atom option -> Atom.Set.t -> (_main_type -> bool) -> (Atom.atom option -> Atom.Set.t -> main_type -> 'a list) -> main_type -> Atom.Set.t * 'a list * type_variable list
     val collect_type_stmt : Atom.atom option -> Atom.Set.t -> (_main_type -> bool) -> (Atom.atom option -> Atom.Set.t -> main_type -> 'a list) -> stmt -> Atom.Set.t * 'a list * type_variable list
     val collect_type_cexpr : Atom.atom option -> Atom.Set.t -> (_main_type -> bool) -> (Atom.atom option -> Atom.Set.t -> main_type -> 'a list) -> component_expr -> Atom.Set.t * 'a list * type_variable list
@@ -319,6 +320,8 @@ module type TIRC = sig
     val free_tvars_mtype : Atom.Set.t -> main_type -> Atom.Set.t * type_variable list
     val  timers_of_headers : constraint_header list -> expr_variable list
     val rewrite_type_mtype : ( _main_type -> bool) -> (_main_type -> _main_type) -> main_type -> main_type
+    val rewrite_stype_stype : ( _session_type -> bool) -> (_session_type -> _session_type) -> session_type -> session_type
+    val rewrite_stype_mtype : ( _session_type -> bool) -> (_session_type -> _session_type) -> main_type -> main_type
     val rewrite_type_expr : ( _main_type -> bool) -> (_main_type -> _main_type) -> expr -> expr
     val rewrite_type_stmt : (_main_type -> bool) -> (_main_type -> _main_type) -> stmt -> stmt
     val rewrite_type_aconstraint : (_main_type -> bool) -> (_main_type -> _main_type) -> applied_constraint -> applied_constraint
@@ -910,6 +913,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let inner_already_binded = (Atom.Set.add x already_binded) in
         let _, collected_elts, ftvars = collect_type_stype parent_opt inner_already_binded selector collector st in
         already_binded, collected_elts, ftvars
+    | STDual st -> collect_type_stype parent_opt already_binded selector collector st
     | STInline x -> raise (Error.DeadbranchError (Printf.sprintf "STInline should have been resolved before running collect_type_stype_ %s" (Atom.to_string x)))
     and collect_type_stype parent_opt already_binded selector collector st =       
         map0_place (collect_type_stype_ parent_opt already_binded selector collector) st 
@@ -1464,6 +1468,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | STRec (x, st) -> STRec (x, rewrite_stype st) 
         | STInline x -> STInline x 
         | STPolyVar x -> STPolyVar x 
+        | STDual st -> STDual (rewrite_stype st)
     and rewrite_type_stype selector rewriter = map_place (_rewrite_type_stype selector rewriter)
 
     and _rewrite_type_cmtype selector rewriter place = function
@@ -1548,6 +1553,22 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | ExpressionStmt e -> ExpressionStmt (rewrite_expr e)
     | BlockStmt stmts -> BlockStmt (List.map rewrite_stmt stmts)
     | GhostStmt stmt -> GhostStmt (rewrite_stmt stmt)
+    | BranchStmt {s; label; branches} -> begin 
+        let rewrite_branche {branch_label; branch_s;body} =
+            {   
+                branch_label; 
+                branch_s; 
+                body = rewrite_stmt body;
+            }
+        in
+        BranchStmt{
+            s       = rewrite_expr s;
+            label   = rewrite_expr label;
+            branches= List.map rewrite_branche branches
+        }
+    end
+    | WithContextStmt (anonymous_mod, cname, e, stmts) -> 
+        WithContextStmt(anonymous_mod, cname, rewrite_expr e, List.map rewrite_stmt stmts)
     and rewrite_type_stmt selector rewriter = map_place (_rewrite_type_stmt selector rewriter)
 
     and _rewrite_type_cexpr selector rewriter place (ce, mt) = 
@@ -1618,6 +1639,104 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             WithContextStmt(anonymous_mod, cname, e, List.flatten (List.map rewrite_stmt_stmt stmts))
         ]
     and rewrite_stmt_stmt recurse selector (rewriter:Error.place -> _stmt -> _stmt list) = map_places (_rewrite_stmt_stmt recurse selector rewriter)
+
+
+(*****************************************************)
+let rec collect_stype_stype_ parent_opt already_binded selector collector place (st:_session_type) =
+    let collect_stypes stypes = 
+        List.fold_left (fun (acc0, acc1) stype -> 
+            let _, collected_elts, ftvars = collect_stype_stype parent_opt already_binded selector collector stype in
+            collected_elts@acc0, ftvars@acc1
+        ) ([], []) stypes 
+    in
+
+
+
+    (* Collection *)
+    let collected_elts0 = if selector st then collector parent_opt already_binded {place; value=st} else [] in 
+
+match st with
+| STEnd -> already_binded, collected_elts0, []
+| STVar x | STPolyVar x when Atom.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, []
+| STVar x | STPolyVar x -> already_binded, collected_elts0, [x]
+| STRecv (mt, st) | STSend (mt, st) -> 
+    let _, collected_elts1, ftvars1 = collect_stype_mtype parent_opt already_binded selector collector mt in
+    let _, collected_elts2, ftvars2 = collect_stype_stype parent_opt already_binded selector collector st in
+    already_binded, collected_elts0@collected_elts1@collected_elts2, ftvars1@ftvars2
+| STBranch branches | STSelect branches -> 
+    let sts =  List.map (function (_,st,_) -> st) branches in
+    let acs =  List.map Option.get (List.filter (function x -> x <> None) (List.map (function (_,_,ac) -> ac) branches)) in
+    let collected_elts1, ftvars1 = collect_stypes sts in
+    let collected_elts2, ftvars2 = collect_stype_aconstraints parent_opt already_binded selector collector acs in
+    already_binded, collected_elts0@collected_elts1@collected_elts2, ftvars1@ftvars2 
+| STRec (x, st) -> 
+    let inner_already_binded = (Atom.Set.add x already_binded) in
+    let _, collected_elts, ftvars = collect_stype_stype parent_opt inner_already_binded selector collector st in
+    already_binded, collected_elts0@collected_elts, ftvars
+| STDual st -> 
+    let _, collected_elts, ftvars = collect_stype_stype parent_opt already_binded selector collector st in
+    already_binded, collected_elts0@collected_elts, ftvars
+| STInline x -> raise (Error.DeadbranchError (Printf.sprintf "STInline should have been resolved before running collect_stype_stype_ %s" (Atom.to_string x)))
+and collect_stype_stype parent_opt already_binded selector collector st =       
+    map0_place (collect_stype_stype_ parent_opt already_binded selector collector) st 
+and collect_stype_mtype parent_opt already_binded selector collector =
+        collect_type_mtype parent_opt already_binded 
+            (function | SType _ -> true | _-> false) 
+            (fun parent_opt already_binded -> 
+                function | {value=SType st} -> 
+                    let _, elts, _ = collect_stype_stype parent_opt already_binded selector collector st in 
+                    elts
+            )
+and collect_stype_aconstraint parent_opt already_binded selector rewriter =
+    collect_type_aconstraint parent_opt already_binded
+        (function | SType _ -> true | _-> false) 
+        (fun parent_opt already_binded -> 
+            function | {value=SType st} -> 
+                let _, elts, _ = collect_stype_stype parent_opt already_binded selector rewriter st in
+                elts
+        )
+and collect_stype_aconstraints parent_opt already_binded selector collector (aconstraints: applied_constraint list) = 
+        List.fold_left (fun (acc0, acc1) aconstraint -> 
+            let _, collected_elts, ftvars = collect_stype_aconstraint  parent_opt already_binded selector collector aconstraint in
+            collected_elts@acc0, ftvars@acc1
+        ) ([], []) aconstraints 
+
+let rec _rewrite_stype_stype selector rewriter place = 
+    let rewrite_stype = rewrite_stype_stype selector rewriter in    
+    let rewrite_stype_branch (x, st, ac_opt) = (x, rewrite_stype st, Option.map (rewrite_stype_aconstraint selector rewriter) ac_opt) in
+function 
+    | st when selector st -> rewriter st
+    | STEnd -> STEnd
+    | STInline x -> STInline x 
+    | STDual st -> STDual (rewrite_stype st )
+    | STBranch entries -> 
+        STBranch (List.map rewrite_stype_branch entries) 
+    | STRec (x, st) -> STRec (x, rewrite_stype st) 
+    | STRecv (mt, st) -> 
+        STRecv (
+            rewrite_stype_mtype selector rewriter mt, 
+            rewrite_stype st)
+    | STSelect entries -> 
+        STSelect (List.map rewrite_stype_branch entries) 
+    | STSend (mt, st) -> 
+        STSend (
+            rewrite_stype_mtype selector rewriter mt, 
+            rewrite_stype st)
+    | STVar x -> STVar x
+    | STPolyVar x -> STPolyVar x
+and rewrite_stype_stype selector rewriter = map_place (_rewrite_stype_stype selector rewriter)
+and rewrite_stype_mtype selector rewriter =
+    rewrite_type_mtype 
+        (function | SType _ -> true | _-> false)
+        (function | SType st -> 
+            SType (rewrite_stype_stype selector rewriter st)
+        )
+and rewrite_stype_aconstraint selector rewriter =
+    rewrite_type_aconstraint 
+        (function | SType _ -> true | _-> false) 
+        (function | SType st -> 
+            SType (rewrite_stype_stype selector rewriter st)
+        )
 
 (*****************************************************)
 

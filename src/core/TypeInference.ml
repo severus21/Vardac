@@ -556,16 +556,20 @@ module Make () = struct
         let mt_x = typeof_var_expr x in
         let e = tannot_expr parent_opt e in
 
-        if Bool.not (is_subtype (snd e.value) mt_x) then
+        (* TODO move this checks into TypeChecking*)
+        (*if Bool.not (is_subtype (snd e.value) mt_x) then
             Error.error place "Type error: types do not match";
+        *)
         
         AssignExpr (x, e)
     | AssignThisExpr (x, e) -> 
         let mt_x = typeof_var_expr x in
         let e = tannot_expr parent_opt e in
 
-        if Bool.not (is_subtype (snd e.value) mt_x) then
+        (* TODO move this checks into TypeChecking*)
+        (*if Bool.not (is_subtype (snd e.value) mt_x) then
             Error.error place "Type error: types do not match";
+        *)
         
         AssignThisExpr (x, e)
     | LetStmt (mt, x, e) -> 

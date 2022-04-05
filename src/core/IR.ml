@@ -656,14 +656,15 @@ and free_tvars_program already_binded program =
     let already_binded, _, ftvars = collect_type_program  already_binded (function e -> false) (fun parent_opt env e -> []) program in
     already_binded, Utils.deduplicate Fun.id ftvars 
 
+(*****************************************************************)
 
-
-
-
-
-
-
-
+let collect_stype_program already_binded selector collector program = 
+    collect_type_program already_binded 
+    (function | SType st -> true | _-> false) 
+    (fun parent_opt already_binded {place; value=SType st} -> 
+        let _, elts, _ = collect_stype_stype parent_opt already_binded selector collector st in
+        elts
+    ) 
 
 (*****************************************************************)
 
@@ -757,11 +758,14 @@ and rewrite_type_term selector rewriter = map_place (rewrite_type_term_ selector
 and rewrite_type_program selector rewriter (program : program) : program = List.map (rewrite_type_term selector rewriter) program
 
 
+(*****************************************************************)
 
-
-
-
-
+let rewrite_stype_program selector rewriter program = 
+    let fplace = (Error.forge_place "Core.rewrite_stype_program" 0 0) in
+    let auto_fplace smth = {place = fplace; value=smth} in
+    rewrite_type_program 
+    (function _ -> true) 
+    (function mt -> (rewrite_stype_mtype selector rewriter (auto_fplace mt)).value) program
 
 (*****************************************************************)
 
