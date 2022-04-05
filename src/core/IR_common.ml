@@ -1101,10 +1101,15 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | BranchStmt {s; label; branches} -> 
             let _, collected_elts1, ftvars1 = collect_expr s in
             let _, collected_elts2, ftvars2 = collect_expr label in
-            let stmts = List.map (function {body} -> body) branches in
+            let collected_elts3, ftvars3 = List.split (List.map (function {branch_s; body} -> 
+                (* branch_s is not a type binder *)
+                let _, collect_elts, fvars = collect_type_stmt parent_opt already_binded selector collector body in
 
-            let collected_elts3, ftvars3 = collect_stmts stmts in
-            already_binded, collected_elts1@collected_elts2@collected_elts3, ftvars1@ftvars2@ftvars3
+                collect_elts, fvars
+            ) branches)
+            in
+
+            already_binded, collected_elts1@collected_elts2@(List.flatten collected_elts3), ftvars1@ftvars2@(List.flatten ftvars3)
         | LetStmt (mt, _, e) ->
             let _, collected_elts1, ftvars1 = collect_mtype mt in
             let _, collected_elts2, ftvars2 = collect_expr e in
