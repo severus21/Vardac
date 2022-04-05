@@ -718,8 +718,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         already_binded, Utils.deduplicate snd fvars 
 
     and collect_expr_stmt_ parent_opt (already_binded:Variable.Set.t) selector collector place = 
-        let collect_stmts already_binded stmts = 
-            List.fold_left_map (fun already_binded stmt -> 
+        let collect_stmts already_binded stmts : Variable.Set.t * (('a list * (main_type*expr_variable) list)) list = 
+            List.fold_left_map (fun already_binded stmt  -> 
                 let already_binded, collected_elts, fvars = collect_expr_stmt parent_opt already_binded selector collector stmt in
                 already_binded, (collected_elts, fvars)
             ) already_binded stmts
@@ -734,10 +734,14 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | BranchStmt {s; label; branches} ->
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector s in
         let _, collected_elts2, fvars2 = collect_expr_expr parent_opt already_binded selector collector label in
-        let stmts = List.map (function {body} -> body) branches in
-        let _, res = collect_stmts already_binded stmts in
-        let collected_elts3, fvars3 = List.split res in 
+        let collected_elts3, fvars3 = List.split (List.map (function {branch_s; body} -> 
+            (* branch_s is a binder *)
+            let inner_binded = Variable.Set.add branch_s already_binded in
+            let _, collect_elts, fvars = collect_expr_stmt parent_opt inner_binded selector collector body in
 
+            collect_elts, fvars
+        ) branches)
+        in
         already_binded, collected_elts1@collected_elts2@(List.flatten collected_elts3),  fvars1@fvars2@(List.flatten fvars3)
     | BlockStmt stmts ->
         let _, res = collect_stmts already_binded stmts in 

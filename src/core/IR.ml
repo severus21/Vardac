@@ -1294,6 +1294,7 @@ and rename_applied_constraint renaming (headers,e_opt) =
 and _rename_literal renaming place lit = 
 match lit with
 | VoidLit | BoolLit _ | FloatLit _ | IntLit _ | LabelLit _ | StringLit _ | ActivationRef _ | Place _  -> lit
+| BLabelLit x -> BLabelLit (renaming x)
 | VPlace vp ->
     let rec rename_vp (vp:vplace) =  {
         name = renaming vp.name;
