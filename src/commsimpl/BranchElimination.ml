@@ -34,12 +34,12 @@ module Make () : Sig = struct
             auto_fplace (BlockStmt ([
 
                 (* localy set to the branch *)
-                (* s_branch = select_local(local_s, branch_label); *)
+                (* s_branch = select(local_s, branch_label); *)
                 auto_fplace(LetStmt(
                     mtype_of_st st_branch.value,
                     branch_s, (* Branch introduce a binder *)
                     e2_e (CallExpr(
-                        e2var (Atom.builtin "select_local"),
+                        e2var (Atom.builtin "select"),
                         [ e_local_s ]
                     ))
                 ));

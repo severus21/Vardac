@@ -430,7 +430,10 @@ module Make () = struct
                             | CType {value=TTuple targs} when List.length targs > i -> List.nth targs i 
                             | _ -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered inductive type has only %d parts" i)))
                         end
-                        | _ -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered type is not an inductive type %s" (Atom.to_string field))))
+                        | CType {value=TFlatType TWildcard} ->
+                            (* TODO generate constraints TTuple of length >= i *)
+                            mtype_of_ft TWildcard
+                        | _ -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered type is not an inductive type %s:\n%s"  (Atom.to_string field) (show__main_type (snd e1.value).value))))
                     end
                     else begin
                         mt_of_citem parent_opt place (snd e1.value) field
