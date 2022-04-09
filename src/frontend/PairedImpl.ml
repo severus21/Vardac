@@ -45,6 +45,7 @@ let type_impls : (string list, S1.type_impl  AstUtils.placed) Hashtbl.t = Hashtb
 
 let name2key : (Atom.atom, string list) Hashtbl.t = Hashtbl.create 16
 let component2target : (string list, string) Hashtbl.t = Hashtbl.create 256
+let target2headers : (string, Impl_common.blackbox_term list) Hashtbl.t = Hashtbl.create 256
 
 
 let show_htblimpls htbl = 
@@ -82,6 +83,10 @@ match value with
     List.iter (scan_component_item_impl (parents@c.name)) c.body
 | S1.TypeImpl tdef -> Hashtbl.add type_impls (parents@tdef.name) {place; value = tdef}
 | S1.FunctionImpl fdef -> Hashtbl.add function_impls (parents@fdef.name) {place; value = fdef}
+| S1.HeadersImpl h -> 
+    match Hashtbl.find_opt target2headers h.target with
+    | None -> Hashtbl.add target2headers h.target [h.body] 
+    | Some headers -> Hashtbl.replace target2headers h.target (h.body :: headers) 
 
 let scan_program terms =    
     List.iter (scan_term []) terms  
@@ -276,4 +281,4 @@ let paired_program targets terms impl_terms =
     check_seen_all !methods_seen method_impls; 
     check_seen_all !states_seen state_impls; 
     check_seen_all !types_seen type_impls; 
-    program
+    target2headers, program

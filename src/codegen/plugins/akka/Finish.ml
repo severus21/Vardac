@@ -399,6 +399,7 @@ module Make () = struct
 
         | S.Place _ -> failwith "Place is not yet supported"
         | S.StaticBridge _ -> raise (Error.DeadbranchError "Bridge should have been process by the finish_expr (returns an expr)")
+        | x -> failwith (S.show__literal x)
     and fliteral lit : T.literal = map_place finish_literal lit
 
     (************************************ Expr & Stmt *****************************)
@@ -414,8 +415,13 @@ module Make () = struct
         | S.LambdaExpr (x, mt, e) -> T.LambdaExpr ([(fmtype mt, x)], auto_place (T.ReturnStmt (fexpr e))) 
         | S.BridgeCall b -> 
         fst (e_bridge_of_protocol place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown))).value 
+        | S.LitExpr {value=S.BLabelLit l; place=lit_place} -> 
+            T.NewExpr( 
+                auto_place(T.RawExpr "LabelEvent", auto_place T.TUnknown), 
+                [ auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string l))), auto_place T.TUnknown)]
+            )
         | S.LitExpr {value=S.StaticBridge b; place=lit_place} -> 
-        fst (e_static_bridge_of_protocol place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown)) b.id).value
+            fst (e_static_bridge_of_protocol place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown)) b.id).value
         | S.LitExpr {value=S.VPlace vp} -> begin 
             T.CallExpr (
                 auto_place(T.VarExpr (Atom.builtin "VPlaces.get"), auto_place T.TUnknown),
@@ -681,12 +687,8 @@ module Make () = struct
         | S.StateDcl {ghost; type0; name; body = S.InitExpr e} -> 
             T.LetStmt (fmtype type0, name, Some (fexpr e))
         | S.StateDcl {ghost; type0; name; body = S.InitBB bb_term} -> 
-            let re = 
-                if bb_term.value.template then 
-                    Error.error bb_term.place "template is not used for state"
-                else
-                    bb_term.value.body
-            in
+            Error.error bb_term.place "template is not used for state";
+            let re = bb_term.value.body in
             T.LetStmt (fmtype type0, name, Some ({place=bb_term.place; value = T.RawExpr re, auto_place T.TUnknown}))
         (*use global x as y;*)
         | S.StateDcl { ghost; type0; name; body = S.NoInit} ->
@@ -1639,12 +1641,7 @@ module Make () = struct
             value = {
                 T.annotations = [];
                 T.decorators = [];
-                v = begin
-                    if not body.value.template then
-                        T.RawClass (v, {place = body.place; value = body.value.body})
-                    else
-                        T.TemplateClass {place=body.place; value = body.value.body}
-                end
+                v = T.TemplateClass {place=body.place; value = body.value.body}
             }
         }]
     | S.Typedef {value = EventDef (v, _, Some body); _} -> Error.error place "eventdef with body is not yet supported by the akka.finish"

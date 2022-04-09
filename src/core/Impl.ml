@@ -33,6 +33,7 @@ and _term =
     | CurrentDefaultTarget of string 
     | FunctionImpl of function_impl
     | TypeImpl of type_impl
+    | HeadersImpl of {target: string; body: blackbox_term}
 
 and term = _term placed
 

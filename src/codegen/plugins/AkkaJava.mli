@@ -22,7 +22,7 @@ type plgstate = Rt.Finish.collected_state
 val plgstate: plgstate ref
 
 val finish_ir_program : Core.Target.target -> Plugin.S.program ->  ((string * Fpath.t) * Lg.Ast.program) list 
-val output_program : Core.Target.target -> Fpath.t -> Plugin.S.program -> unit
+val output_program : Core.Target.target -> Fpath.t -> Core.Impl.blackbox_term list -> Plugin.S.program -> unit
 
 
 val custom_template_rules : Core.Target.target -> (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) list

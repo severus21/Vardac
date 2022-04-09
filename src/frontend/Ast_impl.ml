@@ -28,6 +28,7 @@ and _term =
     | ComponentImpl of component_impl
     | CurrentDefaultTarget of string 
     | TypeImpl of type_impl
+    | HeadersImpl of blackbox_term
 
 and term = _term placed
 

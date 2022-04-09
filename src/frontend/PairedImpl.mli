@@ -9,4 +9,8 @@
 
 open Core
 
-val paired_program: Target.targets -> IR.program -> Impl.program -> IRI.program
+(* 
+    return headers per target, program
+    headers per target are external to AST, i.e., orthogonal with IRI program,
+*)
+val paired_program: Target.targets -> IR.program -> Impl.program ->  (string, Impl_common.blackbox_term list) Hashtbl.t * IRI.program

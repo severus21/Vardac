@@ -1244,28 +1244,25 @@ end) = struct
             }
         | S.BBImpl bbterm ->
             let body = T.RawStmt (
-                if bbterm.value.template then
-                    let jingoo_args = Hashtbl.create (List.length args) in
-                    let aux_arg (decorators, ct,x)= 
-                        let buffer = Buffer.create 64 in
-                        Lg.Output.output_arg (Format.formatter_of_buffer buffer)(decorators, ct, x);
-                        Hashtbl.add jingoo_args (Atom.hint x) (Jg_types.Tstr (Buffer.contents buffer)) 
-                    in
-                    List.iter aux_arg (List.map finish_arg args);
+                let jingoo_args = Hashtbl.create (List.length args) in
+                let aux_arg (decorators, ct,x)= 
+                    let buffer = Buffer.create 64 in
+                    Lg.Output.output_arg (Format.formatter_of_buffer buffer)(decorators, ct, x);
+                    Hashtbl.add jingoo_args (Atom.hint x) (Jg_types.Tstr (Buffer.contents buffer)) 
+                in
+                List.iter aux_arg (List.map finish_arg args);
 
-                    let jingoo_ret_type = 
-                        let buffer = Buffer.create 64 in
-                        Lg.Output.ojtype (Format.formatter_of_buffer buffer) (fctype ret_type);
-                        Buffer.contents buffer 
-                    in
+                let jingoo_ret_type = 
+                    let buffer = Buffer.create 64 in
+                    Lg.Output.ojtype (Format.formatter_of_buffer buffer) (fctype ret_type);
+                    Buffer.contents buffer 
+                in
 
-                    Jg_template.from_string bbterm.value.body ~models:[
-                        ("name", Jg_types.Tstr (Atom.to_string name));
-                        ("ret_type", Jg_types.Tstr jingoo_ret_type);
-                        ("args", Jg_types.Thash jingoo_args)
-                    ]
-                else
-                    bbterm.value.body
+                Jg_template.from_string bbterm.value.body ~models:[
+                    ("name", Jg_types.Tstr (Atom.to_string name));
+                    ("ret_type", Jg_types.Tstr jingoo_ret_type);
+                    ("args", Jg_types.Thash jingoo_args)
+                ]
             ) in
             let body = [{place = bbterm.place; value = body }] in
 
@@ -1710,7 +1707,16 @@ let finish_ir_program target (ir_program: Plugin.S.program) : ((string * Fpath.t
 
 
 (** Output program*)
-let output_program target build_dir ir_program =
+let output_program target build_dir headers ir_program =
+    (* Resolve template in headers
+        FIXME inside each plugin or outside ??
+        depends if plugin can set the models
+    *)
+    let headers = List.map (function (header:Impl_common.blackbox_term) -> auto_place(T.Raw(
+        Jg_template.from_string header.value.body ~models:[]
+        ))) headers
+    in
+
     ir_program
     |> finish_ir_program target
     |> List.map (function ((package_name, file), program) -> 
@@ -1719,6 +1725,8 @@ let output_program target build_dir ir_program =
         
         package_name, file, Clean.apply program 
     )
+    (* Add general headers *)
+    |> List.map (function (package_name, file, program) -> (package_name, file, headers @ program))
     |> List.iter (function (package_name, file, program) -> Lg.Output.output_program package_name (Fpath.append build_dir file) program)
 
 let jingoo_env (target:Core.Target.target) (cstate:Rt.Finish.collected_state) places = 

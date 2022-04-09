@@ -314,7 +314,8 @@ let output_program package_name outpath items : unit =
         JModule (mock_placed(ImportDirective "com.lg4dc.*"));
         JModule (mock_placed(ImportDirective "com.lg4dc.timers.*"));
         JModule (mock_placed(ImportDirective "com.bmartin.*"));
-    ])@ items in
+    ])
+    @ items in
 
     (* Configure formatter *)
     pp_set_margin out 80;

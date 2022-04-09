@@ -8,9 +8,14 @@ let logger = Logging.make_logger "_1_ compspec.codegen" Debug [];;
 let display_available_plugins = Factory.display_available_plugins 
 
 
-let codegen_program project_dir build_dir places ((target, program):Target.target * IRI.program) : unit =
+let codegen_program project_dir build_dir places target2headers ((target, program):Target.target * IRI.program) : unit =
     let build_dir = Fpath.add_seg build_dir target.value.name in
     Utils.refresh_or_create_build_dir build_dir;
+
+    let headers = match Hashtbl.find_opt target2headers target.value.name with
+        | None -> []
+        | Some headers -> headers
+    in
 
     let plug = (Factory.load_plugin target.value.codegen.runtime_plg target.value.codegen.language_plg) in 
     let module Plug = (val plug:Plugins.Plugin.Plug) in    
@@ -18,12 +23,12 @@ let codegen_program project_dir build_dir places ((target, program):Target.targe
     logger#info "Init build directory \"%s\" with plugin external files"  (Fpath.to_string build_dir);
     Plug.init_build_dir target project_dir build_dir;
     logger#info "Building ...";
-    let res = Plug.output_program target build_dir program in 
+    let res = Plug.output_program target build_dir headers program in 
     logger#info "Resolve templates (maydepend of the build collected state)";
     Plug.resolve_templates places target project_dir build_dir;
     res 
 
-let codegen project_dir (build_dir:Fpath.t) places targets program = 
+let codegen project_dir (build_dir:Fpath.t) places targets (target2headers, program) = 
     (* build a { target -> plugin } dictionary *)
     let build_plug = function
         | {place; value={Target.name; codegen}} as target -> 
@@ -36,7 +41,7 @@ let codegen project_dir (build_dir:Fpath.t) places targets program =
     (* Split the AST according to targets *)
     |> Split.split_program targets
     (* Do the codegeneration *) 
-    |> Seq.iter (codegen_program project_dir build_dir places)
+    |> Seq.iter (codegen_program project_dir build_dir places target2headers)
 
 
 let  make_component2target () = Split.make_component2target ()

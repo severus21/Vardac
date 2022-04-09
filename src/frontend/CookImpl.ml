@@ -56,10 +56,16 @@ end
 | S.CurrentDefaultTarget target as term->
     let new_env = { env with default_target = Some target } in
     new_env, [] 
-| S.TypeImpl timpl-> env, [{place; value=T.TypeImpl {
+| S.TypeImpl timpl -> env, [{place; value=T.TypeImpl {
     name = timpl.name;
     body = timpl.body
 }}]
+| S.HeadersImpl body -> begin
+    match env.default_target with
+    | Some target -> 
+        env, [{place; value=T.HeadersImpl {target; body }}]
+    | None -> Error.error place "no default target defined and no target assigned to headers" 
+end
 
 let cook_program impl_terms =    
     let terms = List.flatten (snd(List.fold_left_map cook_term (fresh_env ()) impl_terms)) in

@@ -20,7 +20,7 @@ entry:
     { t }
 (* -------------------------------------------------------------------------- *)
 
-blacbox_body:
+blackbox_body:
 | b = BLACKBOX_BODY 
     { String.trim b }
 
@@ -29,10 +29,10 @@ any_var:
     { x }
 
 any_blackbox_term_:
-| language = LID body = blacbox_body
-    { {language; body; template = false} }
-| TEMPLATE LANGLEBRACKET language = LID RANGLEBRACKET body = blacbox_body
-    { {language; body; template = true} }
+| body = blackbox_body
+    { {language=None; body;} } (* language is set in a subsequent pass based on target *)
+| language = LID COLON body = blackbox_body (* language is used for syntax coloring only *)
+    { {language=Some language; body;} }
 %inline any_blackbox_term:
   t = placed(any_blackbox_term_)
     {t}
@@ -74,6 +74,8 @@ any_component_impl:
 any_term_:
 | TARGET target = LID SEMICOLON
     { CurrentDefaultTarget target }
+| IMPL HEADERS body = any_blackbox_term
+    { HeadersImpl body }
 | c=any_component_impl
     { ComponentImpl c }
 | f_impl = any_function_impl

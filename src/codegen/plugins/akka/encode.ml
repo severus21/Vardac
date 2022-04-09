@@ -128,7 +128,7 @@ let encode_builtin_fct place name (args:T.expr list) =
                 e_this_dead_sessions place;
             ]
         ) 
-        | _ -> Error.error place "fire must take two arguments : place(session, message)"
+        | _ -> Error.error place "select must take two arguments : place(session, message)"
         end
     | "first" -> begin
         match args with

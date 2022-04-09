@@ -53,5 +53,4 @@ let to_impl targets filename program =
     |> function ast -> logger#sinfo "Impl AST is built"; ast 
     |> dump "Impl" Impl.show_program
     |> PairedImpl.paired_program targets program
-    |> function ast -> logger#sinfo "AST_impl is cooked, Impl has been generated"; ast 
-    |> dump "IRI - IR-with-implemented" IRI.show_program
+    |> function (headers, program) -> dump "IRI - IR-with-implemented" IRI.show_program program; (headers, program)
