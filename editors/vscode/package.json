@@ -22,6 +22,17 @@
                     ".spec"
                 ],
                 "configuration": "./language-configuration.json"
+            },
+            {
+                "id": "impl",
+                "aliases": [
+                    "impl",
+                    "impl"
+                ],
+                "extensions": [
+                    ".impl"
+                ],
+                "configuration": "./language-configuration.json"
             }
         ],
         "grammars": [
@@ -29,7 +40,18 @@
                 "language": "aspec",
                 "scopeName": "source.spec",
                 "path": "./syntaxes/aspec.tmLanguage.json"
+            },
+            {
+                "language": "impl",
+                "scopeName": "source.impl",
+                "path": "./syntaxes/impl.tmLanguage.json",
+                "embeddedLanguages": {
+                    "meta.embedded.block.java": "java"
+                }
             }
         ]
+    },
+    "dependencies": {
+        "vsce": "^2.7.0"
     }
 }
