@@ -26,7 +26,7 @@ let to_ast places filename =
 
 module Resolve = AstCompilationPass.Make(Resolve)
 
-let to_ir places filename : Cook.gamma_t * Core.IR.program =
+let to_ir places filename =
     let module Cookk = Cook.Make(struct let _places = places end) in 
     let module Cook = Ast2IRCompilationPass.Make(Cookk) in
 
@@ -34,7 +34,7 @@ let to_ir places filename : Cook.gamma_t * Core.IR.program =
     |> Resolve.apply  
     |> PairedAnnotation.apair_program 
     |> dump "PairedAnnotationAst" Ast.show_program  
-    |> function program -> let ir = Cook.apply program in Cookk.gamma, ir
+    |> function program -> let ir = Cook.apply program in Cookk.gamma, Cookk.sealed_envs, ir
 
 let process_place (filename:string) =
     filename
@@ -45,7 +45,11 @@ let process_place (filename:string) =
     |> function x-> logger#sinfo "PlaceAST has been coocked";x
     |> dump "Place" IR.show_vplaces  
 
-let to_impl targets filename program = 
+let to_impl sealed_envs targets filename program = 
+    let module PairedImpl = PairedImpl.Make(
+        struct let sealed_envs = sealed_envs end
+    ) in 
+
     filename
     |> ParseImpl.read
     |> function ast -> logger#sinfo "Main impl file has been read"; ast 

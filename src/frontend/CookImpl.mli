@@ -2,4 +2,4 @@
     - it removes CurrentDefaultTarget and add target information to all component impl
 *)
 
-val cook_program: Ast_impl.program -> Core.Impl.program
+val cook_program: Ast_impl.program -> Impl.program

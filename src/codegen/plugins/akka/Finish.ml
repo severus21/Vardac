@@ -41,6 +41,9 @@ let empty_cstate () : collected_state = {
 
 module Make () = struct
 
+    (* Use to remove type alias introduced by *.impl. Varda type aliasing have been compiled away during UntypedCleansing pass *)
+    let typealias = Hashtbl.create 32
+
     let to_capitalize_variables = Hashtbl.create 64
     let make_capitalize_renaming = function x ->
         match Hashtbl.find_opt to_capitalize_variables x with 
@@ -151,7 +154,12 @@ module Make () = struct
             fmtype m2
         )
 
-        | S.TVar x -> T.TVar x 
+        | S.TVar x ->  begin
+            (* Remove type alias introduced by *.impl if any *)
+            match Hashtbl.find_opt typealias x with
+            | None -> T.TVar x
+            | Some bb -> T.TBB (fbbterm bb) 
+        end
         | S.TFlatType ft -> begin match ft with  
             (* When using Tuyple, Map, ... we need object so for ease we box atomic type in objects everywhere *)
             | AstUtils.TActivationID -> T.Atomic "UUID"
@@ -175,7 +183,6 @@ module Make () = struct
         | S.TTuple mts ->  T.TTuple (List.map (fun x -> (fmtype x)) mts)
         | S.TVPlace mt -> (t_lg4dc_vplace place).value
         | S.TBridge b -> (t_lg4dc_bridge place).value
-        | S.TRaw bbraw -> T.TRaw bbraw.value.body
         | S.TUnion _-> T.TRaw "Object" (* TODO maybe a better solution*)
         | S.TForall _ -> T.TUnknown (* TODO maybe encode it as class <T> ... { <T> } *)
         | S.TPolyVar _ -> T.TUnknown (* TODO maybe encode it as class <T> ... { <T> } *)
@@ -656,7 +663,17 @@ module Make () = struct
         | f ->
             let body = match f.body with
                 | S.AbstractImpl stmts -> T.AbstractImpl (List.map fstmt stmts)
-                | S.BBImpl body -> T.BBImpl body
+                | S.BBImpl bbterm -> 
+                    T.BBImpl { 
+                        place = bbterm.place; 
+                        value = {
+                            language=bbterm.value.language; 
+                            body = (List.map (function
+                                | S.Text t -> T.Text t 
+                                | S.Varda e -> T.Varda (fexpr e)
+                            ) bbterm.value.body)
+                        }
+                    }
             in
 
             let new_function : T.method0 = {
@@ -687,9 +704,13 @@ module Make () = struct
         | S.StateDcl {ghost; type0; name; body = S.InitExpr e} -> 
             T.LetStmt (fmtype type0, name, Some (fexpr e))
         | S.StateDcl {ghost; type0; name; body = S.InitBB bb_term} -> 
-            Error.error bb_term.place "template is not used for state";
-            let re = bb_term.value.body in
-            T.LetStmt (fmtype type0, name, Some ({place=bb_term.place; value = T.RawExpr re, auto_place T.TUnknown}))
+            T.LetStmt (
+                fmtype type0, 
+                name, 
+                Some {
+                    place = bb_term.place;
+                    value = T.BBExpr (fbbterm bb_term), auto_place T.TUnknown
+                })
         (*use global x as y;*)
         | S.StateDcl { ghost; type0; name; body = S.NoInit} ->
             T.LetStmt (fmtype type0, name, None)
@@ -871,7 +892,7 @@ module Make () = struct
         assert( false = m0.on_destroy); (* TODO not yet supported*)
         let body = match m0.body with
             | S.AbstractImpl stmts -> T.AbstractImpl (List.map fstmt stmts)
-            | S.BBImpl body -> T.BBImpl body
+            | S.BBImpl body -> T.BBImpl (fbbterm body)
         in
 
         let new_method : T.method0 = {
@@ -895,6 +916,17 @@ module Make () = struct
             | Some contract -> fcontract actor_name new_method contract 
         end
     and fmethod actor_name : S.method0 -> T.method0 list = function m -> finish_method m.place actor_name m.value
+
+    and finish_bbterm place {S.language; body} = 
+    {
+        T.language;
+        body = List.map (
+            function 
+            | S.Text t -> T.Text t
+            | S.Varda e -> T.Varda (fexpr e)
+        ) body
+    }
+    and fbbterm bbterm: T.blackbox_term = (map_place finish_bbterm) bbterm
 
 
 
@@ -1549,7 +1581,10 @@ module Make () = struct
         (* TODO generate the dynamic checking of protocol order if needed *)
 
     | S.Typealias (v, S.AbstractTypealias body) -> raise (Error.PlacedDeadbranchError (place, "partial evaluation should have removed type alias exept those from impl"))
-    | S.Typealias (v, S.BBTypealias body) as term -> raise (Error.PlacedDeadbranchError (place, "should have been removed (and replaced) by clean_terms"))
+    | S.Typealias (x, S.BBTypealias body) as term -> 
+        (* Java does not support type aliasing *)
+        Hashtbl.add typealias x body;
+        []
     |Typedef {value= EventDef (name, mts, None) as tdef; place = inner_place} ->
         (* Registration *)
         Hashtbl.add to_capitalize_variables name ();
@@ -1641,7 +1676,7 @@ module Make () = struct
             value = {
                 T.annotations = [];
                 T.decorators = [];
-                v = T.TemplateClass {place=body.place; value = body.value.body}
+                v = T.TemplateClass (fbbterm body)
             }
         }]
     | S.Typedef {value = EventDef (v, _, Some body); _} -> Error.error place "eventdef with body is not yet supported by the akka.finish"
@@ -1667,23 +1702,12 @@ module Make () = struct
 
     and fterm : S.term -> T.term list = function t -> finish_term t.place t.value
 
-    (* Remove type alias for java *)
-    and clean_terms : S.term list -> S.term list = function
-    | [] -> [] 
-    | {value= S.Typealias (x, S.BBTypealias body); _} :: terms ->
-        let terms = List.map (S.type_replace_term (TVar x) (TRaw body)) terms in
-        (clean_terms terms)
-    | term :: terms -> term::(clean_terms terms)
-
-
-
     let cstate = ref (empty_cstate ())
 
     let finish_program program = 
         let terms =     
             program
             |> GuardTransform.gtransform_program
-            |> clean_terms
             |> function terms -> List.flatten (List.rev(List.map fterm terms))
         in
         

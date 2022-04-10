@@ -5,21 +5,32 @@ module IRC = IR.IRC
 (* IR extended with blackbox implementation for type, methods and states *)
 type iri_target_name = string
 
+and blackbox_body = 
+| Text of string
+| Varda of IR.expr 
+
+and _blackbox_term = {
+    language: string option;
+    body: blackbox_body list;
+} 
+
+and blackbox_term = _blackbox_term placed
+
 and iri_state_dcl_body = 
 | InitExpr of IRC.expr
-| InitBB of Impl_common.blackbox_term
+| InitBB of blackbox_term
 | NoInit
 
 and iri_custom_method0_body = 
 | AbstractImpl of IRC.stmt list
-| BBImpl of Impl_common.blackbox_term
+| BBImpl of blackbox_term
 
 and iri_custom_function_body = iri_custom_method0_body
 
 and iri_typealias_body = 
 | AbstractTypealias of IRC.main_type
-| BBTypealias of Impl_common.blackbox_term 
-and iri_typedef_body = Impl_common.blackbox_term option 
+| BBTypealias of blackbox_term 
+and iri_typedef_body = blackbox_term option 
 [@@deriving show { with_path = false }]
 
 
@@ -96,7 +107,6 @@ let rec _type_replace_ctype to_be_replaced by = function
         out_type = type_replace_main_type to_be_replaced by out_type; 
         protocol = type_replace_main_type to_be_replaced by protocol
     }
-| TRaw _ as mt -> mt
 and type_replace_ctype to_be_replaced by : composed_type -> composed_type = replace_place (_type_replace_ctype to_be_replaced by)
 
 and _type_replace_stype to_be_replaced by = function

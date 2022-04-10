@@ -13,4 +13,7 @@ open Core
     return headers per target, program
     headers per target are external to AST, i.e., orthogonal with IRI program,
 *)
-val paired_program: Target.targets -> IR.program -> Impl.program ->  (string, Impl_common.blackbox_term list) Hashtbl.t * IRI.program
+
+module Make : functor (Arg:sig val sealed_envs : (Atom.t, Cook.env) Hashtbl.t end) -> sig 
+    val paired_program: Target.targets -> IR.program -> Impl.program ->  (string, IRI.blackbox_term list) Hashtbl.t * IRI.program
+end

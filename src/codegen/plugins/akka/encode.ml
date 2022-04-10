@@ -86,6 +86,28 @@ let encode_builtin_fct place name (args:T.expr list) =
         ) 
         | _ -> Error.error place "get2dict takes two arguments"
     end
+    | "ip" -> begin
+        match args with
+        | [place] -> T.CallExpr( 
+            auto_place (T.AccessExpr (
+                place, 
+                auto_place (T.VarExpr (Atom.builtin "getHost"), auto_place T.TUnknown)
+            ), auto_place T.TUnknown),
+            []
+        ) 
+        | _ -> Error.error place "ip takes one argument"
+    end
+    | "port" -> begin
+        match args with
+        | [place] -> T.CallExpr( 
+            auto_place (T.AccessExpr (
+                place, 
+                auto_place (T.VarExpr (Atom.builtin "getPort"), auto_place T.TUnknown)
+            ), auto_place T.TUnknown),
+            []
+        ) 
+        | _ -> Error.error place "port takes one argument"
+    end
     | "dict" -> begin 
         (* empty dict *)
         match args with

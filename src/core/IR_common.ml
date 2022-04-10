@@ -55,8 +55,6 @@ module type TIRC = sig
         | TInport of main_type * main_type (* session_type * bridge type *)
         | TOutport of main_type (* bridge type *)
 
-        | TRaw of Impl_common.blackbox_term (*TODO move it to IRI by doing so composed type should not be any more in common *)
-
         (* Polymorphsim*)
         | TPolyVar of type_variable (* TODO do we need the disctinction between TVar and TPolyVar ????? *)
         | TForall of type_variable * main_type 
@@ -387,8 +385,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | TBridge of tbridge
         | TInport of main_type * main_type (* session_type * bridge type *)
         | TOutport of main_type (* bridge type *)
-
-        | TRaw of Impl_common.blackbox_term (*TODO move it to IRI by doing so composed type should not be any more in common *)
 
         (* Polymorphsim*)
         | TPolyVar of type_variable
@@ -1171,7 +1167,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         ) 
         | TVar x when x = x_to_replace && replaceby_x_opt <> None -> TVar (Option.get replaceby_x_opt)
         | TPolyVar x when x = x_to_replace && replaceby_x_opt <> None -> TPolyVar (Option.get replaceby_x_opt)
-        | (TVar _ as t) | (TBridge _ as t) | (TRaw _ as t) | (TFlatType _ as t) | (TPolyVar _ as t) -> t
+        | (TVar _ as t) | (TBridge _ as t) | (TFlatType _ as t) | (TPolyVar _ as t) -> t
         | TArray mt -> TArray (replace_type_main_type x_to_replace replaceby mt)  
         | TDict (mt1, mt2) -> TDict (
             replace_type_main_type x_to_replace replaceby mt1,
@@ -1452,7 +1448,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | TInport (mt1, mt2) -> TInport (rewrite_mtype mt1, rewrite_mtype mt2) 
         | TOutport (mt) -> TOutport (rewrite_mtype mt) 
 
-        | TRaw x -> TRaw x
         | TPolyVar x -> TPolyVar x
         | TForall (x, mt) -> TForall (x, rewrite_mtype mt) 
     and rewrite_type_ctype selector rewriter = map_place (_rewrite_type_ctype selector rewriter)
@@ -1765,7 +1760,6 @@ and rewrite_stype_aconstraint selector rewriter =
         equal_mtype b1.in_type b2.in_type &&
         equal_mtype b1.out_type b2.out_type &&
         equal_mtype b1.protocol b2.protocol
-    | TRaw r1, TRaw r2 -> r1 = r2
     | TPolyVar x1, TPolyVar x2 -> x1 = x2
     | TForall (x1, mt1), TForall (x2, mt2) ->
         let mt2' = replace_type_main_type x2 (Some x1, None) mt2 in

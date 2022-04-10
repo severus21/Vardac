@@ -27,6 +27,7 @@ and _ctype =
     | TAccess of ctype * ctype (* t1.t2 *)
     | TParam of ctype * ctype list (* Type parametric (ct, [arg_1; .. arg_n]) -> ct<arg_1, .., arg_n>*)
     | TRaw of string
+    | TBB of blackbox_term
     | TUnknown 
 and ctype =_ctype placed
 
@@ -73,6 +74,7 @@ and _expr =
     | CurrentContext
     | CurrentSystem
     | RawExpr of string
+    | BBExpr of blackbox_term
 and expr = (_expr * ctype) placed
 
 and _stmt = 
@@ -105,9 +107,21 @@ and 'a annotated = {
     decorators: decorator list;
     v: 'a;
 }
+
+and blackbox_body = 
+| Text of string
+| Varda of expr 
+
+and _blackbox_term = {
+    language: string option;
+    body: blackbox_body list;
+} 
+
+and blackbox_term = _blackbox_term placed
+
 and method0_body = 
 | AbstractImpl of stmt list
-| BBImpl of Impl_common.blackbox_term
+| BBImpl of blackbox_term
 
 and _method0 = {
     ret_type: ctype;
@@ -167,8 +181,6 @@ and actor = _actor placed
 (* TODO *)
 
 (************************************ Akka program **********************************)
-and raw = string placed
-
 and _term = 
 | Comments of comments
 (** Preprocessor *)
@@ -183,8 +195,8 @@ and _term =
     implemented_types: ctype list;
     body: term list} 
 | MethodDeclaration of method0
-| RawClass of variable *raw 
-| TemplateClass of raw 
+| RawClass of variable * blackbox_term 
+| TemplateClass of blackbox_term 
 | Stmt of stmt 
 
 (** Akka structure *)

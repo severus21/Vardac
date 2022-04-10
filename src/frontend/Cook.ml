@@ -30,164 +30,169 @@ type gamma_t = (IR.expr_variable, IR.main_type) Hashtbl.t
 let print_gamma gamma = 
     Format.fprintf Format.std_formatter "Gamma {@[%a]}" (Error.pp_list "\n  -" (fun out (x,t) -> Format.fprintf out " %s -> %s " (Atom.to_string x) (T.show_main_type t))) (List.of_seq (Hashtbl.to_seq gamma))
 
+(* Environments map strings to atoms. *)
+module Env = Map.Make(String)
+
+(*
+    A{
+        method b
+        C {
+            method titi
+        }
+    }
+
+    B {
+        D {
+            method d
+        }
+    }
+    => 
+    A -> A1
+        b -> b2
+        C -> C3
+            titi -> titi4
+    B -> B5
+        D -> D6
+            b -> b7
+*)
+type iota_entry = {
+    name: Atom.atom AstUtils.placed; (* A -> A1*)
+    inner: Atom.atom AstUtils.placed Env.t; (*b -> b2*)
+    rec_inner: iota_entry AstUtils.placed Env.t; (* C -> C3
+                                                        titi -> titi3
+                                                *)
+}
+
+let fresh_iota_entry name = {
+    name;
+    inner = Env.empty;
+    rec_inner = Env.empty;
+}
+(* iota denotes the structure of the program should be expose for subsequent passes *)
+let iota_entry_toplevel = ref (fresh_iota_entry (auto_fplace (Atom.builtin "__default__")))
+
+(* component atom -> iota_entry*)
+let iota = Hashtbl.create 64
+
+let rec hydrate_iota entry = 
+    Env.iter (fun _ entry -> hydrate_iota entry.value) entry.rec_inner;
+
+    if "__default__" <> Atom.value entry.name.value then
+        Hashtbl.add iota entry.name.value entry
+
+
+
+(*********** Entity level environment - each entity create its own ************)
+type entity_env = {
+    components:     IR.component_variable Env.t; 
+    exprs:          IR.expr_variable  Env.t; 
+    instanciations: bool  Env.t; 
+    this:           iota_entry; 
+    implicits:      IR.component_variable Env.t;
+    types:          IR.type_variable  Env.t} [@@deriving fields] 
+
+let fresh_entity_env iota = {
+    components              = Env.empty;
+    exprs                   = Env.empty;
+    instanciations          = Env.empty;
+    this                    = iota;
+    implicits               = Env.empty;
+    types                   = Env.empty}
+
+(*debug only*)
+let print_entity_env env =
+    let print_keys env = Env.iter (fun x _ -> Printf.printf "%s;" x) env in
+
+    print_newline ();
+    print_string "Env = {";
+
+    List.iter (
+        function (name, l) -> print_string ("\t"^name^"\n\t\t"); print_keys (l env);print_newline (); 
+    ) [
+        ("components", components);
+        ("exprs", exprs); 
+        ("implicits", implicits);
+        ("types", types) ];
+    
+    print_string "}";
+    print_newline ()
+
+(* [bind env x] creates a fresh atom [a] and extends the environment [env]
+with a mapping of [x] to [a]. *)
+
+
+(*********** Component level environment - each component create its own  ************)
+(* Any entities (except subcomponent) share the "parent" component environment *)
+type component_env = {
+    name: Atom.atom; (* component name *)
+    eventdef_from_labels: IR.typedef Env.t; 
+} [@@deriving fields] 
+
+let print_component_env env =
+    let print_keys env = Env.iter (fun x _ -> Printf.printf "%s;" x) env in
+
+    print_newline ();
+    print_string ((Atom.value env.name)^" = {");
+
+    List.iter (
+        function (name, l) -> print_string ("\t"^name^"\n\t\t"); print_keys (l env);print_newline (); 
+    ) [
+        ("eventdef_from_labels", eventdef_from_labels);
+    ];
+    
+    print_string "}";
+    print_newline ()
+let fresh_component_env () = {
+    name                    = Atom.builtin "__default__";
+    eventdef_from_labels    = Env.empty;
+}
+
+(* TODO FIXME can we do monadic computation *)
+let combine (env1:component_env) (env2: component_env) = 
+    if env1 = env2 then env1
+    else begin
+        Printf.printf "try combine %s %s\n" (Atom.to_string env1.name) (Atom.to_string env2.name);
+        assert( env1.name = env2.name);
+        
+        let rec populate (key:string) (value:IR.typedef) env = 
+            match Env.find_opt key env with
+            | Some {AstUtils.place; _} -> Error.error (place@value.place) "labels %s defined multiple times" key
+            | None -> Env.add key value env
+        in 
+
+        {
+            name = env1.name;
+            eventdef_from_labels = Env.fold populate env1.eventdef_from_labels env2.eventdef_from_labels;
+        }
+    end
+
+let _terms_of_eventdef_from_labels env =
+    List.map (function (edef:IR.typedef) -> {AstUtils.place=edef.place; value=T.Typedef edef})(List.map snd (List.of_seq (Env.to_seq env.eventdef_from_labels))) 
+let _citems_of_eventdef_from_labels env =
+    List.map (function (t:IR.term) -> {AstUtils.place=t.place; value=T.Term t}) (_terms_of_eventdef_from_labels env) 
+
+(************************** Environement wrapper  ****************************)
+let print_components_env (env:(IR.component_variable Env.t) Atom.VMap.t) =
+    Format.fprintf Format.std_formatter "Components env = {@[<hv>%a@]}\n" (Error.pp_list "\n -" (fun out (x,_env) -> 
+        Format.fprintf out " %s -> {@[%a@]}" (Atom.to_string x) (Error.pp_list ";" (fun out (x,_) -> Format.fprintf out "%s" x)) (List.of_seq (Env.to_seq _env))    
+    )) (List.of_seq (Atom.VMap.to_seq env))
+
+type env = {
+    current: entity_env;
+    component: component_env; (* NB: top-level is considered as a mock component *)
+}
+
 module Make(Arg:sig val _places : IR.vplace list end) = struct
     let gamma = Hashtbl.create 64 
-
-    (* Environments map strings to atoms. *)
-    module Env = Map.Make(String)
-
-    (*
-        A{
-            method b
-            C {
-                method titi
-            }
-        }
-
-        B {
-            D {
-                method d
-            }
-        }
-        => 
-        A -> A1
-            b -> b2
-            C -> C3
-                titi -> titi4
-        B -> B5
-            D -> D6
-                b -> b7
-    *)
-    type iota_entry = {
-        name: Atom.atom AstUtils.placed; (* A -> A1*)
-        inner: Atom.atom AstUtils.placed Env.t; (*b -> b2*)
-        rec_inner: iota_entry AstUtils.placed Env.t; (* C -> C3
-                                                            titi -> titi3
-                                                    *)
-    }
-
-    let fresh_iota_entry name = {
-        name;
-        inner = Env.empty;
-        rec_inner = Env.empty;
-    }
-    (* iota denotes the structure of the program should be expose for subsequent passes *)
-    let iota_entry_toplevel = ref (fresh_iota_entry (auto_fplace (Atom.builtin "__default__")))
-
-    (* component atom -> iota_entry*)
-    let iota = Hashtbl.create 64
-
-    let rec hydrate_iota entry = 
-        Env.iter (fun _ entry -> hydrate_iota entry.value) entry.rec_inner;
-
-        if "__default__" <> Atom.value entry.name.value then
-            Hashtbl.add iota entry.name.value entry
-
 
     let register_gamma x t = Hashtbl.add gamma x t 
     let register_gamma_builtin x = 
         Hashtbl.add gamma x (Builtin.type_of (Atom.hint x))
 
-
-    (*********** Entity level environment - each entity create its own ************)
-    type entity_env = {
-        components:     IR.component_variable Env.t; 
-        exprs:          IR.expr_variable  Env.t; 
-        instanciations: bool  Env.t; 
-        this:           iota_entry; 
-        implicits:      IR.component_variable Env.t;
-        types:          IR.type_variable  Env.t} [@@deriving fields] 
-
-    let fresh_entity_env iota = {
-        components              = Env.empty;
-        exprs                   = Env.empty;
-        instanciations          = Env.empty;
-        this                    = iota;
-        implicits               = Env.empty;
-        types                   = Env.empty}
-
-    (*debug only*)
-    let print_entity_env env =
-        let print_keys env = Env.iter (fun x _ -> Printf.printf "%s;" x) env in
-
-        print_newline ();
-        print_string "Env = {";
-
-        List.iter (
-            function (name, l) -> print_string ("\t"^name^"\n\t\t"); print_keys (l env);print_newline (); 
-        ) [
-            ("components", components);
-            ("exprs", exprs); 
-            ("implicits", implicits);
-            ("types", types) ];
-        
-        print_string "}";
-        print_newline ()
-
-    (* [bind env x] creates a fresh atom [a] and extends the environment [env]
-    with a mapping of [x] to [a]. *)
-
-
-    (*********** Component level environment - each component create its own  ************)
-    (* Any entities (except subcomponent) share the "parent" component environment *)
-    type component_env = {
-        name: Atom.atom; (* component name *)
-        eventdef_from_labels: IR.typedef Env.t; 
-    } [@@deriving fields] 
-
-    let print_component_env env =
-        let print_keys env = Env.iter (fun x _ -> Printf.printf "%s;" x) env in
-
-        print_newline ();
-        print_string ((Atom.value env.name)^" = {");
-
-        List.iter (
-            function (name, l) -> print_string ("\t"^name^"\n\t\t"); print_keys (l env);print_newline (); 
-        ) [
-            ("eventdef_from_labels", eventdef_from_labels);
-        ];
-        
-        print_string "}";
-        print_newline ()
-    let fresh_component_env () = {
-        name                    = Atom.builtin "__default__";
-        eventdef_from_labels    = Env.empty;
-    }
-
-    (* TODO FIXME can we do monadic computation *)
-    let combine (env1:component_env) (env2: component_env) = 
-        if env1 = env2 then env1
-        else begin
-            Printf.printf "try combine %s %s\n" (Atom.to_string env1.name) (Atom.to_string env2.name);
-            assert( env1.name = env2.name);
-            
-            let rec populate (key:string) (value:IR.typedef) env = 
-                match Env.find_opt key env with
-                | Some {AstUtils.place; _} -> Error.error (place@value.place) "labels %s defined multiple times" key
-                | None -> Env.add key value env
-            in 
-
-            {
-                name = env1.name;
-                eventdef_from_labels = Env.fold populate env1.eventdef_from_labels env2.eventdef_from_labels;
-            }
-        end
-
-    let _terms_of_eventdef_from_labels env =
-        List.map (function (edef:IR.typedef) -> {AstUtils.place=edef.place; value=T.Typedef edef})(List.map snd (List.of_seq (Env.to_seq env.eventdef_from_labels))) 
-    let _citems_of_eventdef_from_labels env =
-        List.map (function (t:IR.term) -> {AstUtils.place=t.place; value=T.Term t}) (_terms_of_eventdef_from_labels env) 
-
-    (************************** Environement wrapper  ****************************)
-    let print_components_env (env:(IR.component_variable Env.t) Atom.VMap.t) =
-        Format.fprintf Format.std_formatter "Components env = {@[<hv>%a@]}\n" (Error.pp_list "\n -" (fun out (x,_env) -> 
-            Format.fprintf out " %s -> {@[%a@]}" (Atom.to_string x) (Error.pp_list ";" (fun out (x,_) -> Format.fprintf out "%s" x)) (List.of_seq (Env.to_seq _env))    
-        )) (List.of_seq (Atom.VMap.to_seq env))
-
-    type env = {
-        current: entity_env;
-        component: component_env; (* NB: top-level is considered as a mock component *)
-    }
+    (* Used to cook Varda expr in impl with the same environment as Varda file. Sealed envs includes: 
+        - method env
+    *)
+    let sealed_envs = Hashtbl.create 32  
 
     let print_env env = 
         print_component_env env.component;
@@ -521,6 +526,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
         env, T.CompTUid (cook_var_type env place x)
     and ccomptype env cmt : T.component_type = snd(map2_place (cook_component_type env) cmt)
     and cook_expression = function (e:S.expr) -> snd (cexpr (fresh_env !iota_entry_toplevel) e)
+    and cook_expression_env env e = snd (cexpr env e)
 
     and cook_mtype env place: S._main_type -> env * T._main_type = function
     | S.CType ct -> 
@@ -622,7 +628,7 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
                         let env1, e1 = cexpr env e1 in
                         let env2, e2 = cexpr env e2 in
                         env << [env1; env2], T.AccessExpr (e1, e2)
-                end with | Not_found -> error place "Variable %s not in  gamma" a
+                end with | Not_found -> error place "Variable %s not in gamma" a
             end
             | S.AccessExpr (e1, e2) -> 
                 let env1, e1 = cexpr env e1 in
@@ -940,6 +946,9 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
                     cook_var_this env place m.name 
         in 
         let inner_env, args = List.fold_left_map cparam env m.args in
+
+        (* Registed method (parent env + args) in sealed env*)
+        Hashtbl.add sealed_envs name inner_env;
 
         let rec remove_empty_stmt = function
             | [] -> []

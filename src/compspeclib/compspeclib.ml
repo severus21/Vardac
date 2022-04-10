@@ -28,7 +28,7 @@ let process_check build_dir places_file filename =
 
     let places = Frontend.process_place places_file in
 
-    let (gamma, ir) = Frontend.to_ir places filename in
+    let (gamma, _, ir) = Frontend.to_ir places filename in
     ir
     |> PartialEval.apply
     |> Check.check_program project_dir build_dir
@@ -44,7 +44,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     let places = Frontend.process_place places_file in
 
 
-    let (gamma, ir) = Frontend.to_ir places filename in
+    let (gamma, sealed_envs, ir) = Frontend.to_ir places filename in
     let ir1 =
         ir
         |> Reduce.apply
@@ -96,7 +96,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     in
 
     ir3
-    |> Frontend.to_impl targets impl_filename  
+    |> Frontend.to_impl sealed_envs targets impl_filename  
     |> Codegen.codegen project_dir build_dir places targets;
 
     (* Before rewriting *)

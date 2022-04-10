@@ -14,7 +14,7 @@ impl component KVServer {
         // Open a socket to the local redis backend
         nl.melp.redis.Redis r = new nl.melp.redis.Redis(new Socket({{%ip(current_place())%}}, {{%port(current_place())%}}));
         // Perform the GET request on key [k]
-        return r.call("GET", {{%string_of_ley(k)%}});
+        return r.call("GET", {{%k%}});
 =}
 
     void put () java:{=

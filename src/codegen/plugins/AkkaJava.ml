@@ -26,6 +26,7 @@ let [externals_location] = Mysites.Sites.externals
 let fplace = (Error.forge_place "Plg=AkkaJava" 0 0)
 let auto_place smth = {place = fplace; value=smth}
 
+type blackbox_term = Rt.Ast.blackbox_term
 
 module MakeRt2Lg(Arg:sig 
     val target:Core.Target.target 
@@ -1243,36 +1244,42 @@ end) = struct
                 body        = List.map fstmt stmts;
             }
         | S.BBImpl bbterm ->
-            let body = T.RawStmt (
-                let jingoo_args = Hashtbl.create (List.length args) in
-                let aux_arg (decorators, ct,x)= 
-                    let buffer = Buffer.create 64 in
-                    Lg.Output.output_arg (Format.formatter_of_buffer buffer)(decorators, ct, x);
-                    Hashtbl.add jingoo_args (Atom.hint x) (Jg_types.Tstr (Buffer.contents buffer)) 
-                in
-                List.iter aux_arg (List.map finish_arg args);
+            let jingoo_args = Hashtbl.create (List.length args) in
+            let aux_arg (decorators, ct,x)= 
+                let buffer = Buffer.create 64 in
+                Lg.Output.output_arg (Format.formatter_of_buffer buffer)(decorators, ct, x);
+                Hashtbl.add jingoo_args (Atom.hint x) (Jg_types.Tstr (Buffer.contents buffer)) 
+            in
+            List.iter aux_arg (List.map finish_arg args);
 
-                let jingoo_ret_type = 
-                    let buffer = Buffer.create 64 in
-                    Lg.Output.ojtype (Format.formatter_of_buffer buffer) (fctype ret_type);
-                    Buffer.contents buffer 
-                in
-
-                Jg_template.from_string bbterm.value.body ~models:[
-                    ("name", Jg_types.Tstr (Atom.to_string name));
-                    ("ret_type", Jg_types.Tstr jingoo_ret_type);
-                    ("args", Jg_types.Thash jingoo_args)
-                ]
-            ) in
-            let body = [{place = bbterm.place; value = body }] in
+            let jingoo_ret_type = 
+                let buffer = Buffer.create 64 in
+                Lg.Output.ojtype (Format.formatter_of_buffer buffer) (fctype ret_type);
+                Buffer.contents buffer 
+            in
+            let models = [
+                ("name", Jg_types.Tstr (Atom.to_string name));
+                ("ret_type", Jg_types.Tstr jingoo_ret_type);
+                ("args", Jg_types.Thash jingoo_args)
+            ] in
 
             T.MethodDeclaration {
                 ret_type    = if is_constructor then None else Some (fctype ret_type);
                 name;
                 parameters  = List.map finish_arg args;
-                body
+                body        = [ {place=bbterm.place; value=T.BBStmt (fbbterm models bbterm)}]
             }
     and fmethod is_guardian is_actor_method m : T.str_items = {place=m.place; value= T.Body (map_place (finish_annoted (finish_method_v is_guardian is_actor_method)) m)}
+
+
+    and finish_bbterm models place (bbterm:S._blackbox_term) = 
+        List.map (function
+            | S.Text str -> 
+                let str = Jg_template.from_string str  ~models:models in
+                T.Text str
+            | S.Varda e ->  T.Varda (fexpr e)
+        ) bbterm.body
+    and fbbterm models : S.blackbox_term -> T.blackbox_term = map_place (finish_bbterm models)
 
     and finish_actor place ({is_guardian; extended_types; implemented_types; name; methods; states; events; nested_items; static_items; receiver}: S._actor): T._str_items =
         let fplace = place@(Error.forge_place "Plg=Akka/finish_actor" 0 0) in
@@ -1651,7 +1658,7 @@ end) = struct
                     decorators  = external_decorators @ body.value.decorators 
                 }
             } 
-        | RawClass (x, raw) ->  T.Body { 
+        | RawClass (x, bb_term) ->  T.Body { 
             place;
             value = { 
                 T.annotations = finish_annotations annotations;
@@ -1662,11 +1669,11 @@ end) = struct
                     parameters = []; 
                     extended_types = [];
                     implemented_types = [];
-                    body = [{ place=raw.place; value=T.Raw raw.value}] 
+                    body = [{ place=bb_term.place; value=T.BBItem (fbbterm [] bb_term)}] 
                 }
             }
         }
-        | TemplateClass raw -> T.Raw raw.value (* TODO FIXME we should  keep raw.place here *) 
+        | TemplateClass bbterm -> T.BBItem (fbbterm []bbterm)  
     and fterm ?(is_cl_toplevel=false) t : T.str_items = map_place (finish_term is_cl_toplevel) t
 
     let finish_program (program:Akka.Ast.program) : ((string * Fpath.t) * Java.Ast.program) list = 
@@ -1712,10 +1719,17 @@ let output_program target build_dir headers ir_program =
         FIXME inside each plugin or outside ??
         depends if plugin can set the models
     *)
-    let headers = List.map (function (header:Impl_common.blackbox_term) -> auto_place(T.Raw(
-        Jg_template.from_string header.value.body ~models:[]
-        ))) headers
+    let headers = List.map (
+        function (header:Core.IRI.blackbox_term) -> 
+            List.map (function 
+                | Core.IRI.Text str -> 
+                    let str = Jg_template.from_string str  ~models:[] in
+                    auto_place (T.Raw str)
+                | Core.IRI.Varda e -> Error.error e.place "Varda expression is not supported inside headers"
+            ) header.value.body
+        ) headers
     in
+    let headers = List.flatten headers in
 
     ir_program
     |> finish_ir_program target

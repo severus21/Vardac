@@ -1241,7 +1241,6 @@ function
 }
 | TInport (mt1, mt2) -> TInport (rmt mt1, rmt mt2)
 | TOutport mt -> TOutport (rmt mt)
-| TRaw _ as ct -> ct
 | TForall (x, mt) -> TForall (renaming x, rmt mt)
 | TPolyVar x -> TPolyVar (renaming x)
 and rename_composed_type renaming = map_place (_rename_composed_type (protect_renaming renaming))

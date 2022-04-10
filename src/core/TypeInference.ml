@@ -310,7 +310,6 @@ module Make () = struct
         out_type = tannot_main_type parent_opt b.out_type;
         protocol = tannot_main_type parent_opt b.protocol;
     }
-    | TRaw bt -> TRaw bt
     and tannot_composed_type parent_opt = map_place (_tannot_composed_type parent_opt)
 
     and _tannot_component_type parent_opt place = function

@@ -112,6 +112,15 @@ and oexpr out : expr -> unit = function e ->
     | Config.Full -> output_placed out output_expr e 
 and oexprs out: expr list -> unit = pp_list ", " oexpr out
 
+and obbbody out : blackbox_body -> unit = function 
+    | Text t -> fprintf out "%s" t
+    | Varda e -> oexpr out e
+and output_bbterm out : _blackbox_term -> unit = pp_list " " obbbody out
+and obbterm out (bbterm:blackbox_term) = 
+    match Config.provenance_lvl () with
+    | Config.None -> output_bbterm out bbterm.value
+    | Config.Medium | Config.Full -> output_placed out output_bbterm bbterm
+
 
 and output_stmt out : _stmt -> unit = function
     | BlockStmt stmts -> fprintf out "{@;@[<v 3>%a@]@;<0 -3>}" (pp_list "" ostmt) stmts
@@ -133,6 +142,7 @@ and output_stmt out : _stmt -> unit = function
         fprintf out "%a %a;" ojtype jt output_var x 
     | ReturnStmt e -> fprintf out "return %a;" oexpr e
     | RawStmt str -> pp_print_string out str
+    | BBStmt bb -> obbterm out bb
     | TryStmt  (stmt, branches) -> 
         fprintf out "try{@[<hv>%a@]}%a" 
             ostmt stmt

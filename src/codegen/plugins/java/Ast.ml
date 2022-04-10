@@ -60,6 +60,13 @@ and _body =
 and body = (_body annotated) placed
 and comments = AstUtils._comments
 
+
+and blackbox_body = 
+| Text of string
+| Varda of expr 
+and _blackbox_term = blackbox_body list 
+and blackbox_term = _blackbox_term placed
+
 and _expr = 
     | AccessExpr of expr * expr (*e1.e2*)
     | AccessMethod of expr * variable (*e1::m*)
@@ -75,6 +82,7 @@ and _expr =
     | UnaryExpr of unop * expr
     | VarExpr of variable
     | RawExpr of string
+    | BBExpr of blackbox_term
     | TernaryExpr of expr * expr * expr
 and expr = (_expr * jtype) placed
 
@@ -95,6 +103,7 @@ and _stmt =
     | NamedExpr of jtype * variable * expr option 
     | ReturnStmt of expr
     | RawStmt of string
+    | BBStmt of blackbox_term
     | TryStmt of stmt * (jtype * variable * stmt) list
 and stmt = _stmt placed
 
@@ -114,6 +123,7 @@ and _str_items =
     | Stmt of stmt
     | JType of jtype
     | Raw of string
+    | BBItem of blackbox_term
 and str_items = _str_items placed
 
 and program = str_items list

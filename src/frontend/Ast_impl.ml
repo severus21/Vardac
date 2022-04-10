@@ -1,10 +1,10 @@
 open Core
 open AstUtils
 
-include Impl_common
-
 (************************************* Base types ****************************)
 type variable = string list
+
+and blackbox_term = Impl.blackbox_term
 
 and method_impl = {
         ret_type: Ast.main_type; 

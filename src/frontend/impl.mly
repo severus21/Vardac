@@ -41,11 +41,10 @@ blackbox_body:
                 let e = Parse.parse_expr pos.pos_fname code in
                 (* TODO update loc number *)
 
-                (Varda code)::(aux xs) 
-            | (Str.Text code) :: xs-> (Text code)::(aux xs)
+                (Impl.Varda e)::(aux xs) 
+            | (Str.Text code) :: xs-> (Impl.Text code)::(aux xs)
         in
-        aux tokens;
-        body
+        aux tokens
     }
 
 any_var:
@@ -54,9 +53,9 @@ any_var:
 
 any_blackbox_term_:
 | body = blackbox_body
-    { {language=None; body;} } (* language is set in a subsequent pass based on target *)
+    { {Impl.language=None; body;} } (* language is set in a subsequent pass based on target *)
 | language = LID COLON body = blackbox_body (* language is used for syntax coloring only *)
-    { {language=Some language; body;} }
+    { {Impl.language=Some language; body;} }
 %inline any_blackbox_term:
   t = placed(any_blackbox_term_)
     {t}

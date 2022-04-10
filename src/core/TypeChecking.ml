@@ -41,7 +41,6 @@ let rec _tcheck_composed_type ct = function
     tcheck_main_type b.in_type;
     tcheck_main_type b.out_type;
     tcheck_main_type b.protocol
-| TRaw _ ->  () 
 and tcheck_composed_type ct = map0_place _tcheck_composed_type ct
 
 and _tcheck_session_type place = function

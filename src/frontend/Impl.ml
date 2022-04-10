@@ -1,9 +1,19 @@
+open Core
 open AstUtils
-
-include Impl_common
 
 (************************************* Base types ****************************)
 type variable = string list
+
+and blackbox_body = 
+| Text of string
+| Varda of Ast.expr 
+
+and _blackbox_term = {
+    language: string option;
+    body: blackbox_body list;
+} 
+
+and blackbox_term = _blackbox_term placed
 
 (* TODO need to pair vairble in ret_type/... with their name in architeure*)
 and method_impl = {
