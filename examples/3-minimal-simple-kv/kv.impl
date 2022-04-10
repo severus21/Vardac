@@ -1,24 +1,26 @@
 target akka;
 
-impl headers {
-    (* use the java-redis-client library *)
+(* use the java-redis-client library *)
+impl headers java:{=
     import nl.melp.redis.protocol.Parser;
-}
+=}
 
 impl component Client {
 }
 
 impl component KVServer {
+    (* binding for the get method *)
+    void get () java:{=
+        // Open a socket to the local redis backend
+        nl.melp.redis.Redis r = new nl.melp.redis.Redis(new Socket({{%ip(current_place())%}}, {{%port(current_place())%}}));
+        // Perform the GET request on key [k]
+        return r.call("GET", {{%string_of_ley(k)%}});
+=}
+
+    void put () java:{=
+        int i = 0;
+=}
+
 }
 
 impl component TopLevel {}
-
-(* binding for the get method *)
-impl method KVServer::get {
-    (* Open a socket to the local redis backend *)
-    nl.melp.redis.Redis r = new nl.melp.redis.Redis(new Socket({{ip(current_place())}}, {{port(current_place()))}});
-    (* perform the GET request on key [k] *)
-    return r.call("GET", {{string_of_ley(k)}});
-}
-
-impl method KVServer::put {}

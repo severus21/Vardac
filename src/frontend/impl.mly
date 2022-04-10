@@ -22,7 +22,31 @@ entry:
 
 blackbox_body:
 | b = BLACKBOX_BODY 
-    { String.trim b }
+    { 
+        let body = String.trim b in
+        let varda_regexp = Str.regexp "{{%\|%}}" in
+        let tokens = Str.full_split varda_regexp body in
+
+        (* debug only *)
+        (*List.map (function 
+            | Str.Text t -> Printf.printf "Text <%s>\n" t
+            | Str.Delim t -> Printf.printf "Delim <%s>\n" t
+        ) tokens;*)
+
+        let rec aux = function
+            | [] -> []
+            | (Str.Delim "{{%"):: (Str.Text code):: (Str.Delim "%}}")::xs -> 
+                Printf.printf "\n\n>> %s" code;
+                let (pos:Lexing.position) = fst $loc in
+                let e = Parse.parse_expr pos.pos_fname code in
+                (* TODO update loc number *)
+
+                (Varda code)::(aux xs) 
+            | (Str.Text code) :: xs-> (Text code)::(aux xs)
+        in
+        aux tokens;
+        body
+    }
 
 any_var:
 | x = right_flexible_list(DOUBLE_COLON, LID)

@@ -2,6 +2,7 @@
 %nonassoc UNOP 
 %right LANGLEBRACKET RANGLEBRACKET
 %start<Ast.program> entry
+%start<Ast.expr> entry_expr
 
 %{
 
@@ -37,6 +38,10 @@ let make_contract x binders cfs =
 entry:
   t = list(any_toplevel_term) EOF
     { t }
+
+entry_expr:
+    e = any_expr EOF
+    { e }
 
 (* -------------------------------------------------------------------------- *)
 
