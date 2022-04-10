@@ -5,7 +5,7 @@
     "version": "0.0.1",
     "publisher": "severus21",
     "engines": {
-        "vscode": "^1.53.2"
+        "vscode": "^1.66.1"
     },
     "categories": [
         "Programming Languages"
@@ -50,8 +50,5 @@
                 }
             }
         ]
-    },
-    "dependencies": {
-        "vsce": "^2.7.0"
     }
 }
