@@ -99,6 +99,8 @@ any_term_:
     { CurrentDefaultTarget target }
 | IMPL HEADERS body = any_blackbox_term
     { HeadersImpl body }
+| IMPL DEPENDENCIES body = any_blackbox_term
+    { DependenciesImpl body }
 | c=any_component_impl
     { ComponentImpl c }
 | f_impl = any_function_impl

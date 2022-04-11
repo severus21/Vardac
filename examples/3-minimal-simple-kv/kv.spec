@@ -62,7 +62,8 @@ component Client {
         !key?value. s = select(s, "get");
         ?value. s = fire(s, k);
 
-        nth(receive(s), 0);//TODO current recv-elim can not return :')
+        int ret = nth(receive(s), 0);
+        return ();//TODO current recv-elim can not return :')
     }
 
     void put(key k, value v){

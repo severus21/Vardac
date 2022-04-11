@@ -29,6 +29,7 @@ and _term =
     | CurrentDefaultTarget of string 
     | TypeImpl of type_impl
     | HeadersImpl of blackbox_term
+    | DependenciesImpl of blackbox_term
 
 and term = _term placed
 

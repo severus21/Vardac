@@ -260,8 +260,10 @@ module Make () = struct
     and encode_guard_header header : T.expr = encode_guard_header_ header.place header.value in 
 
     let encodectype = function
-    | {value=T.TVar x; place} -> {value=T.VarExpr x, auto_place T.TUnknown; place} 
-    | _ -> {value=T.RawExpr "TODO encodectype_Finish", auto_place T.TUnknown; place}
+        | {value=T.TVar x; place} -> {value=T.VarExpr x, auto_place T.TUnknown; place} 
+        | {value=T.Atomic x; place} -> {value=T.VarExpr (Atom.builtin x), auto_place T.TUnknown; place} 
+        | {value=T.TTuple xs} -> {value=T.VarExpr (Atom.builtin (Printf.sprintf "io.vavr.Tuple%d" (List.length xs))), auto_place T.TUnknown; place}
+        | ct -> failwith "TODO encodectype_Finish"
     in
 
     function 
@@ -1021,7 +1023,7 @@ module Make () = struct
                 auto_place {   
                     T.persistent = false; (*TODO persistence True ??*)
                     stmts = [ auto_place(T.LetStmt (
-                        auto_place( T.Atomic "Outport"),
+                        auto_place( T.Atomic "OutPort"),
                         _p.name,
                         Some (e_outport_of p.place (fexpr _p.input))
                     ))]

@@ -46,6 +46,7 @@ let type_impls : (string list, S1.type_impl  AstUtils.placed) Hashtbl.t = Hashtb
 let name2key : (Atom.atom, string list) Hashtbl.t = Hashtbl.create 16
 let component2target : (string list, string) Hashtbl.t = Hashtbl.create 256
 let target2headers : (string, IRI.blackbox_term list) Hashtbl.t = Hashtbl.create 256
+let target2dependencies : (string, IRI.blackbox_term list) Hashtbl.t = Hashtbl.create 256
 
 
 let show_htblimpls htbl = 
@@ -98,7 +99,7 @@ module Make (Arg: ArgSig) = struct
         List.iter (scan_component_item_impl (parents@c.name)) c.body
     | S1.TypeImpl tdef -> Hashtbl.add type_impls (parents@tdef.name) {place; value = tdef}
     | S1.FunctionImpl fdef -> Hashtbl.add function_impls (parents@fdef.name) {place; value = fdef}
-    | S1.HeadersImpl h -> 
+    | S1.HeadersImpl h | S1.DependenciesImpl h -> 
         let aux = map_place (fun place {S1.language; body} ->
             {
                 T.language = language;
@@ -109,10 +110,17 @@ module Make (Arg: ArgSig) = struct
             })
         in
 
-        match Hashtbl.find_opt target2headers h.target with
-        | None -> Hashtbl.add target2headers h.target [aux h.body] 
-        | Some headers -> Hashtbl.replace target2headers h.target (aux h.body :: headers) 
-
+        match value with
+        | S1.HeadersImpl _ -> begin
+            match Hashtbl.find_opt target2headers h.target with
+            | None -> Hashtbl.add target2headers h.target [aux h.body] 
+            | Some headers -> Hashtbl.replace target2headers h.target (aux h.body :: headers) 
+        end
+        | S1.DependenciesImpl _ -> begin
+            match Hashtbl.find_opt target2dependencies h.target with
+            | None -> Hashtbl.add target2dependencies h.target [aux h.body] 
+            | Some dependencies -> Hashtbl.replace target2dependencies h.target (aux h.body :: dependencies) 
+        end
     let scan_program terms =    
         List.iter (scan_term []) terms  
 
@@ -333,5 +341,5 @@ module Make (Arg: ArgSig) = struct
         check_seen_all !methods_seen method_impls; 
         check_seen_all !states_seen state_impls; 
         check_seen_all !types_seen type_impls; 
-        target2headers, program
+        (target2dependencies, target2headers), program
 end

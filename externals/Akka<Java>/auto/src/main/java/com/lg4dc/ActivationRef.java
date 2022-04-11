@@ -38,7 +38,7 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
         this.isInterceptor = isInterceptor; 
     }
 
-    public ActivationRef(ActivationRef<Command> a_ref, Optionnal<ActivationRef<Command>> interceptedActivationRef_opt){
+    public ActivationRef(ActivationRef<Command> a_ref, Optional<ActivationRef<Command>> interceptedActivationRef_opt){
         this.actorRef = a_ref.actorRef;
         this.componentSchema = a_ref.componentSchema;
         this.interceptedActivationRef_opt = interceptedActivationRef_opt;

@@ -1,8 +1,10 @@
 target akka;
 
-(* use the java-redis-client library *)
 impl headers java:{=
-    import nl.melp.redis.protocol.Parser;
+    import redis.clients.jedis.JedisPooled;
+=}
+impl dependencies java:{=
+    implementation group: 'redis.clients', name: 'jedis', version: '4.2.1'
 =}
 
 impl component Client {
@@ -12,13 +14,16 @@ impl component KVServer {
     (* binding for the get method *)
     void get () java:{=
         // Open a socket to the local redis backend
-        nl.melp.redis.Redis r = new nl.melp.redis.Redis(new Socket({{%ip(current_place())%}}, {{%port(current_place())%}}));
+        JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%port(current_place())%}});
         // Perform the GET request on key [k]
-        return r.call("GET", {{%k._0_%}});
+        return jedis.sget({{%k._0_%}});
 =}
 
     void put () java:{=
-        int i = 0;
+        // Open a socket to the local redis backend
+        JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%port(current_place())%}});
+        // Perform the GET request on key [k]
+        return jedis.sget({{%k._0_%}}, {{%v%}});
 =}
 
 }

@@ -33,7 +33,7 @@
 %token<Ast._comments> COMMENTS 
 %token ERR NONE OK SOME
 
-%token IMPL HEADERS TARGET WHERE
+%token DEPENDENCIES IMPL HEADERS TARGET WHERE
 %token<string> BLACKBOX_BODY
 
 %%

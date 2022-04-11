@@ -60,10 +60,14 @@ end
     name = timpl.name;
     body = timpl.body
 }}]
-| S.HeadersImpl body -> begin
+| (S.HeadersImpl body as t) | (S.DependenciesImpl body as t) -> begin
     match env.default_target with
     | Some target -> 
-        env, [{place; value=T.HeadersImpl {target; body }}]
+        env, [{place; value=
+            match t with 
+            | S.HeadersImpl _ -> T.HeadersImpl {target; body}
+            | S.DependenciesImpl _ -> T.DependenciesImpl {target; body}
+        }]
     | None -> Error.error place "no default target defined and no target assigned to headers" 
 end
 

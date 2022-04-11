@@ -20,5 +20,5 @@ module type ArgSig = sig
 end
 
 module Make : functor (Arg: ArgSig) -> sig 
-    val paired_program: Target.targets -> IR.program -> Impl.program ->  (string, IRI.blackbox_term list) Hashtbl.t * IRI.program
+    val paired_program: Target.targets -> IR.program -> Impl.program ->  ((string, IRI.blackbox_term list) Hashtbl.t * (string, IRI.blackbox_term list) Hashtbl.t) * IRI.program
 end

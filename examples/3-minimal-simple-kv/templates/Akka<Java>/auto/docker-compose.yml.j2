@@ -18,8 +18,8 @@ services:
       "-l", "8080",
       "-vp", "Cloud"
     ]
-# cd ../akka && gradle jarPassivePlayer
-# java -jar build/libs/passivePlayer.jar -ip 127.0.0.1 -p 25520 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp Cloud
+# cd ../akka && gradle jarLocal
+# java -jar build/libs/local.jar -ip 127.0.0.1 -p 25520 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp Cloud
 
   server2:
     build: .
