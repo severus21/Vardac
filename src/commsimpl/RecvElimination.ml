@@ -274,12 +274,9 @@ module Make () : Sig = struct
                 ] @ (
                     List.mapi (fun i {value=(mt, x)} ->
                         auto_fplace (LetStmt (mt, x, 
-                            e2_e( CallExpr(
-                                e2var (Atom.builtin "nth"),
-                                [ 
-                                    e2var local_tmp_args;
-                                    e2_lit (IntLit i);
-                                ]
+                            e2_e( AccessExpr(
+                                e2var local_tmp_args,
+                                e2var (Atom.builtin (Printf.sprintf "_%d" i))
                             ))
                         )) 
                     ) intermediate_args

@@ -182,45 +182,33 @@ module Make (Args: TArgs) = struct
                 auto_fplace (LetStmt (
                     mtype_of_ct (TTuple [ a_mt; mtype_of_ft TPlace]),
                     local_res2,
-                    e2_e (CallExpr (
-                        e2var (Atom.builtin "nth"),
-                        [
-                            e_local_res;
-                            e2_lit (IntLit 0)
-                        ]
+                    e2_e (AccessExpr (
+                        e_local_res,
+                        e2var (Atom.builtin "_0")
                     ))
                 ));
                 auto_fplace (LetStmt (
                     mtype_of_st (STSend (mtype_of_ft TBool, auto_fplace STEnd)),
                     local_s3,
-                    e2_e (CallExpr (
-                        e2var (Atom.builtin "nth"),
-                        [
-                            e_local_res;
-                            e2_lit (IntLit 1)
-                        ]
+                    e2_e (AccessExpr (
+                        e_local_res,
+                        e2var (Atom.builtin "_1")
                     ))
                 ));
                 auto_fplace (LetStmt (
                     a_mt, 
                     local_a,
-                    e2_e (CallExpr (
-                        e2var (Atom.builtin "nth"),
-                        [
-                            e_local_res2;
-                            e2_lit (IntLit 0)
-                        ]
+                    e2_e (AccessExpr (
+                        e_local_res2,
+                        e2var (Atom.builtin "_0")
                     ))
                 ));
                 auto_fplace (LetStmt (
                     mtype_of_ft TPlace,
                     local_p,
-                    e2_e (CallExpr (
-                        e2var (Atom.builtin "nth"),
-                        [
-                            e_local_res2;
-                            e2_lit (IntLit 1)
-                        ]
+                    e2_e (AccessExpr (
+                        e_local_res2,
+                        e2var (Atom.builtin "_1")
                     ))
                 ));
 

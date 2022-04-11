@@ -23,9 +23,11 @@ module Make () = struct
     (* Typing context for components *)
     let cctx : (Atom.atom, main_type) Hashtbl.t = Hashtbl.create 256
 
-    let typeof_var_expr x : main_type =
+    let typeof_var_expr place x : main_type =
         if Atom.is_builtin x then
-            Builtin.type_of (Atom.hint x)
+            if Builtin.is_tuple_attr (Atom.value x) || Builtin.is_inductive_attr (Atom.value x) then
+                mtype_of_ft TWildcard (* Has no meaning *)
+            else Builtin.type_of place (Atom.value x)
         else
             try
                 Hashtbl.find ectx x
@@ -402,41 +404,69 @@ module Make () = struct
         (* Annote every things not only EmptyMainType since type expression can have been rewritten *)
         match e with  
             | VarExpr x -> 
-                VarExpr x, typeof_var_expr x 
+                VarExpr x, typeof_var_expr place x 
             | ImplicitVarExpr x -> 
-                ImplicitVarExpr x, typeof_var_expr x 
+                ImplicitVarExpr x, typeof_var_expr place x 
             | ActivationAccessExpr (cname, e, mname) ->
                 let e = tannot_expr parent_opt e in
                 
                 ActivationAccessExpr (cname, e, mname), mt_of_citem parent_opt place ( typeof_var_cexpr cname) mname
             | AccessExpr (e1, e2) -> begin
                 let e1 = tannot_expr parent_opt e1 in
-
-
-                let field = match fst e2.value with 
-                    | VarExpr f -> f 
-                    | _ -> Error.error e2.place "This is not a valid attribute"
-                    (* No means to add a type to e2 *)
-                in
+                let mt1 = (snd e1.value).value in
+                let e2 = tannot_expr parent_opt e2 in
                 
-                let ret_type : main_type = 
-                    (* Accessing inductive type parts - dirty hack *)
-                    if List.mem (Atom.hint field) ["_0_"; "_1_"; "_2_"; "_3_"] then begin
-                        let i = int_of_string (String.sub (Atom.hint field) 1 1)  in
-                        match (snd e1.value).value with
+                let ret_type = 
+                    match fst e2.value with 
+                    | VarExpr x when Builtin.is_inductive_attr (Atom.to_string x) -> begin
+                        let i = Builtin.pos_of_inductive_attr (Atom.to_string x) in
+                        (* Check that e1 has the right type and extract type of pos i *)
+
+                        let aux targs i =
+                            let n = List.length targs in
+                            if n > i then List.nth targs i 
+                            else Error.error place "Can not access the %d elmts of inductive types, it has only %d parts" i n
+                        in
+
+                        match mt1 with
                         | CType{value=TVar t1} -> begin 
                             match (defof_tvar t1).value  with
-                            | CType {value=TTuple targs} when List.length targs > i -> List.nth targs i 
-                            | _ -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered inductive type has only %d parts" i)))
+                            | CType {value=TTuple targs} -> aux targs i 
+                            | _ -> Error.error e1.place "This not an inductive type"
                         end
+                        | CType {value=TTuple targs} -> aux targs i 
                         | CType {value=TFlatType TWildcard} ->
                             (* TODO generate constraints TTuple of length >= i *)
                             mtype_of_ft TWildcard
-                        | _ -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered type is not an inductive type %s:\n%s"  (Atom.to_string field) (show__main_type (snd e1.value).value))))
+                        | _ -> Error.error e1.place "This not an inductive type"
                     end
-                    else begin
+                    | VarExpr x when Builtin.is_tuple_attr (Atom.to_string x) -> begin
+                        let i = Builtin.pos_of_tuple_attr (Atom.to_string x) in
+                        (* Check that e1 has the right type and extract type of pos i *)
+
+                        let aux targs i =
+                            let n = List.length targs in
+                            if n > i then List.nth targs i 
+                            else Error.error place "Can not access the %d elmts of tuple types, it has only %d parts" i n
+                        in
+
+                        match mt1 with
+                        | CType{value=TVar t1} -> begin 
+                            match (defof_tvar t1).value  with
+                            | CType {value=TTuple targs} -> aux targs i 
+                            | _ -> Error.error e1.place "This not a type"
+                        end
+                        | CType {value=TTuple targs} -> aux targs i 
+                        | CType {value=TFlatType TWildcard} ->
+                            (* TODO generate constraints TTuple of length >= i *)
+                            mtype_of_ft TWildcard
+                        | _ -> Error.error e1.place "This not a tuple"
+                    end
+                    | VarExpr field -> 
+                        (* TODO Clean this *)
                         mt_of_citem parent_opt place (snd e1.value) field
-                    end
+                    | _ -> Error.error place "Invalid attribute"
+
                 in
                 
                 AccessExpr(e1, e2), ret_type 
@@ -555,7 +585,7 @@ module Make () = struct
     and _tannot_stmt parent_opt place = function
     | EmptyStmt -> EmptyStmt
     | AssignExpr (x, e) -> 
-        let mt_x = typeof_var_expr x in
+        let mt_x = typeof_var_expr place x in
         let e = tannot_expr parent_opt e in
 
         (* TODO move this checks into TypeChecking*)
@@ -565,7 +595,7 @@ module Make () = struct
         
         AssignExpr (x, e)
     | AssignThisExpr (x, e) -> 
-        let mt_x = typeof_var_expr x in
+        let mt_x = typeof_var_expr place x in
         let e = tannot_expr parent_opt e in
 
         (* TODO move this checks into TypeChecking*)

@@ -27,13 +27,13 @@ component KVServer {
         branch s on msg {
             | "get" => s -> { 
                 tuple<key, ?value.> tmp = receive(s);
-                fire(nth(tmp, 1), option_get(nth(tmp, 0)));
+                fire(tmp._1, option_get(tmp._0));
             }
             | "put" => s -> {
                 tuple<tuple<key,value>, ?bool.> tmp= receive(s);
-                tuple<key, value> res = nth(tmp, 0); 
-                (*TODO put(nth(res, 0), nth(res, 1)); *)
-                fire(nth(tmp, 1), true);
+                tuple<key, value> res = tmp._0; 
+                (*TODO put(res._0, res._1); *)
+                fire(tmp._1, true);
             }
         }
 
@@ -62,7 +62,7 @@ component Client {
         !key?value. s = select(s, "get");
         ?value. s = fire(s, k);
 
-        int ret = nth(receive(s), 0);
+        int ret = receive(s)._0;
         return ();//TODO current recv-elim can not return :')
     }
 
@@ -72,7 +72,7 @@ component Client {
         !tuple<key, value>?bool. s = select(s, "put");
         ?bool. s = fire(s, (k, value()));
 
-        (*assert(nth(receive(s), 0));*) //TODO assert do not exit
+        (*assert(receive(s)._0);*) //TODO assert do not exit
     }
 }
 component TopLevel {

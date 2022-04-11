@@ -165,23 +165,16 @@ module Make () = struct
                             [
                                 (*unboxed msg*)
                                 e2_e (AccessExpr (
-                                    e2_e(CallExpr(
-                                        e2var (Atom.builtin "nth"),
-                                        [
-                                            e_param_res;
-                                            e2_lit (IntLit 0)
-                                        ]
+                                    e2_e(AccessExpr(
+                                        e_param_res,
+                                        e2var (Atom.builtin "_0")
                                     )),
                                     e2var (Atom.builtin "_0_")
                                 ));
                                 (* session preserved *)
-                                e2_e(CallExpr(
-                                    e2var (Atom.builtin "nth"),
-                                    [
-                                        e_param_res;
-                                        e2_lit (IntLit 1)
-                                    ]
-
+                                e2_e(AccessExpr(
+                                    e_param_res,
+                                    e2var (Atom.builtin "_1")
                                 )) 
                             ]
                         ))

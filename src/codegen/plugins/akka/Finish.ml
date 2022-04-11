@@ -418,7 +418,7 @@ module Make () = struct
     let auto_place smth = {place = fplace; value=smth} in
     (match e with
         | S.VarExpr x -> T.VarExpr x
-        | S.AccessExpr (e1, {value=S.VarExpr x, _}) when Atom.is_builtin x -> Encode.encode_builtin_access place (fexpr e1) (Atom.hint x)
+        | S.AccessExpr (e1, {value=S.VarExpr x, _}) when Atom.is_builtin x -> Encode.encode_builtin_access place (fexpr e1) (Atom.value x)
         | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
         | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
         | S.LambdaExpr (x, mt, e) -> T.LambdaExpr ([(fmtype mt, x)], auto_place (T.ReturnStmt (fexpr e))) 

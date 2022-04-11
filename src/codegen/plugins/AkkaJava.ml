@@ -982,7 +982,6 @@ module Make (Arg: Plugin.CgArgSig) = struct
             | S.VarExpr x -> T.VarExpr x             
             | S.NewExpr (e, es) -> T.NewExpr (fexpr e, List.map fexpr es)             
             | S.RawExpr str -> T.RawExpr str
-            | e -> failwith(S.show__expr e)
         ), fctype ct
         and fexpr expr : T.expr = map_place finish_expr expr
 

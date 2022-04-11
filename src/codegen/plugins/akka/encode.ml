@@ -26,11 +26,9 @@ let encode_builtin_access place e name =
     assert(Core.Builtin.is_builtin_expr name);
     let auto_place t = {place; value=t} in 
 
-    let re = Str.regexp "^_\([0-9]\)_$" in 
     match name with
-    (* Case 1: "_0_", "_1_", ..., "_n_" *)
-    | _ when Str.string_match re name 0 -> begin
-        let i = int_of_string (Str.replace_first re "\1" name) in
+    | _ when Builtin.is_tuple_attr name -> begin
+        let i = Builtin.pos_of_tuple_attr name in
 
         (* Vavr state at _1 and not _0 *)
         let i = i+1 in
@@ -41,6 +39,20 @@ let encode_builtin_access place e name =
                 T.VarExpr (Atom.builtin (Printf.sprintf "_%d" i)), 
                 auto_place T.TUnknown
             )
+        )
+    end
+    | _ when Builtin.is_inductive_attr name -> begin
+        let i = Builtin.pos_of_inductive_attr name in
+
+        T.CallExpr (
+            auto_place (T.AccessExpr (
+                e, 
+                auto_place (
+                    T.VarExpr (Atom.builtin (Printf.sprintf "_%d_" i)), 
+                    auto_place T.TUnknown
+                )
+            ), auto_place T.TUnknown),
+            []
         )
     end
     | _ -> failwith (Printf.sprintf "Unsupported builtin access in Akka:  %s" name) 
@@ -178,16 +190,6 @@ let encode_builtin_fct place name (args:T.expr list) =
             )
         | _ -> Error.error place "second must take one argument"
     end
-    | "nth" -> begin (* TODO remove nth and only use _1_ etc accessor it would be easiset for type checking *)
-        (* Vavr state at _1 and not _0 *)
-        match args with
-        | [ tuple; {value=LitExpr{value=IntLit i},_}]->  
-            T.AccessExpr (
-                tuple, 
-                auto_place (T.VarExpr (Atom.builtin (Printf.sprintf "_%d"(i+1))), auto_place T.TUnknown)
-            )
-        | _ -> Error.error place "nth must take two argument"
-    end
     | "listget" -> begin
         (* Vavr state at _1 and not _0 *)
         match args with
@@ -198,7 +200,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             ), auto_place T.TUnknown),
             [n]
         )
-        | _ -> Error.error place "nth must take two argument"
+        | _ -> Error.error place "listget must take two argument"
     end
     | "sessionid" -> begin
         match args with

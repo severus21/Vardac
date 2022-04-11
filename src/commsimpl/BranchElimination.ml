@@ -74,22 +74,22 @@ module Make () : Sig = struct
                     [ s ]
                 ))
             );
-            (* blabel label = nth(tmp, 0); *)
+            (* blabel label = tmp._0); *)
             LetStmt(
                 mtype_of_ft TBLabel,
                 local_label,
-                e2_e (CallExpr(
-                    e2var (Atom.builtin "nth"),
-                    [ e_local_res; e2_lit (IntLit 0) ]
+                e2_e (AccessExpr(
+                    e_local_res,
+                    e2var (Atom.builtin "_0")
                 ))
             );
-            (* ... local_s = nth(tmp, 1); *)
+            (* ... local_s = tmp._1; *)
             LetStmt(
                 mt_st,
                 local_s,
-                e2_e (CallExpr(
-                    e2var (Atom.builtin "nth"),
-                    [ e_local_res; e2_lit (IntLit 1) ]
+                e2_e (AccessExpr(
+                    e_local_res, 
+                    e2var (Atom.builtin "_1")
                 ))
             );
         ]

@@ -1,11 +1,18 @@
 val builtin_fcts : (string * string * string * (unit -> IR.main_type)) list
 val builtin_atomic_types : string list  
 
+val re_tuple_attr : Str.regexp 
+val re_inductive_attr : Str.regexp 
+val is_tuple_attr : string -> bool
+val is_inductive_attr : string -> bool
+val pos_of_tuple_attr : string -> int
+val pos_of_inductive_attr : string -> int
+
 val is_builtin_component : string -> bool
 val is_builtin_expr : string -> bool
 val is_builtin_type : string -> bool
 val is_builtin_derivation : string -> bool
 
-val type_of : string -> IR.main_type
+val type_of : Error.place -> string -> IR.main_type
 val desc_of : string -> string
 

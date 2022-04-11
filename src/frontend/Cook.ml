@@ -195,10 +195,6 @@ module Make(Arg:ArgSig) = struct
 
     let register_gamma x t = Hashtbl.add gamma x t 
     let register_gamma_types x t = Hashtbl.add gamma_types x t 
-    let register_gamma_builtin x = 
-        Hashtbl.add gamma x (Builtin.type_of (Atom.hint x))
-    let register_gamma_types_builtin x = 
-        Hashtbl.add gamma_types x (Builtin.type_of (Atom.hint x))
 
     (* Used to cook Varda expr in impl with the same environment as Varda file. Sealed envs includes: 
         - method env
@@ -600,6 +596,20 @@ module Make(Arg:ArgSig) = struct
     | S.ActivationRef _ -> env, T.ActivationRef () (* TODO *)
     and cliteral env lit: env * T.literal = map2_place (cook_literal env) lit
 
+    (* TODO inline the two following trivial fcts *)
+    and cook_tuple_attributes env place env1 e1 e2 x = 
+        let env2, e2 = cexpr env e2 in
+        env << [env1; env2], T.AccessExpr(
+            e1, 
+            e2
+        )
+
+    and cook_inductive_attributes env place env1 e1 e2 x = 
+        let env2, e2 = cexpr env e2 in
+        env << [env1; env2], T.AccessExpr(
+            e1, 
+            e2
+        )
     (*
     bool parameter - create_instance_flag
     *)
@@ -635,30 +645,12 @@ module Make(Arg:ArgSig) = struct
                             )
                         with Not_found -> error place "Unbound variable: %s in %s" x (Atom.to_string cname)
                     end
-                    | T.CType{value=T.TVar y} -> begin
-                        match (Hashtbl.find gamma_types y).value with
-                        |T.CType {value=T.TTuple content} ->
-                        (* Case 1 - tuple content can be accessed *)
-
-                            let re = Str.regexp "^_\([0-9]\)_$" in 
-
-                            if Str.string_match re x 0 then 
-                            begin
-                                let n = int_of_string (Str.replace_first re "\1" x) in
-                                logger#error "toto %d %d" n;
-                                if n >= (List.length content) then 
-                                    error place "can not access [%d]th elements of tuple [%s], it has only %d elements" n (Atom.hint a) (List.length content)
-                                else 
-                                    let env2, e2 = cexpr env e2 in
-                                    env << [env1; env2], T.AccessExpr(
-                                        e, 
-                                        e2
-                                    )
-                            end
-                            else error place "%s is not a tuple accessor" x 
-                        | r -> failwith (T.show__main_type r)
-                    end
-
+                    | _ when Builtin.is_tuple_attr x ->
+                        (* Type checking will check correctness afterwards *)
+                            cook_tuple_attributes env place env1 e e2 x
+                    | _ when Builtin.is_inductive_attr x ->
+                        (* Type checking will check correctness afterwards *)
+                            cook_inductive_attributes env place env1 e e2 x
                     (* TODO record content can be accessed too *)
                     | _ -> error place "expression has no accessor (based on detected type)"
                 end with | Not_found -> error place "Variable %s not in gamma" a

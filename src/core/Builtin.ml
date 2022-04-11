@@ -1,6 +1,9 @@
 (* TODO clean builtin and write type information + descrption*)
 open AstUtils
 open IR
+open Easy_logging
+
+let logger = Logging.make_logger "_1_ compspec.Builtin" Debug [];;
 let fplace = (Error.forge_place "Builtin.*" 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
 
@@ -301,15 +304,6 @@ let t_dict () =
         mtype_of_ft TWildcard
     ))
 
-let t_nth () = (* TODO can not work - number of elmt not knwon*)
-    mtype_of_ct(TArrow(
-        mtype_of_ct (TTuple [mtype_of_ft TWildcard]),
-        mtype_of_ct(TArrow(
-            mtype_of_ft TInt,
-            mtype_of_ft TWildcard
-        ))
-    ))
-
 let t_string_of_bridge () = 
     mtype_of_ct(TArrow(
         fresh_tbridge (),
@@ -322,7 +316,21 @@ let t_sessionid () =
         quantify ["st"] (function [st] -> mtype_poly_of_svar st),
         mtype_of_ft TInt
     ))
-        
+
+let re_tuple_attr = Str.regexp "^_\([0-9]\)$"
+let re_inductive_attr = Str.regexp "^_\([0-9]\)_$"
+let is_inductive_attr x = Str.string_match re_inductive_attr x 0
+let is_tuple_attr x = Str.string_match re_tuple_attr x 0
+let pos_of_tuple_attr x =
+    assert(is_tuple_attr x);
+    int_of_string (Str.replace_first re_tuple_attr "\1" x)
+let pos_of_inductive_attr x =
+    assert(is_inductive_attr x);
+    int_of_string (Str.replace_first re_inductive_attr "\1" x)
+
+
+(*TODO use re_.. for builtin_access *)
+    
 let builtin_access : (string * string) list = [
     "_0_", "access part of user inductive type";
     "_1_", "...";
@@ -331,6 +339,8 @@ let builtin_access : (string * string) list = [
     (* Session attributes *)
     (* TODO session_from/session_to/session_to_2_ => syntaxic sugar s.from s.to s.to_2_*)
 
+    "_0", "access part of a tuple";
+    "_1", "...";
 ]
 
 (* name, signature string, description, signature () -> .. , neeed a closure to generate fresh types *)
@@ -349,7 +359,6 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "initiate_session_with", "TODO", "TODO", 
     t_initiate;
     "listget", " list<T> -> int -> t", "", t_listget;
-    "nth", "tuple -> int -> ...", "nème elmt", t_nth;
     "pick", "dict<k,v> -> v", "Random choice in a sequence, failed if empty", t_select; (*TODO*)
     "placeof", "abs -> place option", "Give the current place where the abstraction is running. Returns None if the abstraction is not yet placed.", t_placeof;
     "place_to_string", "place -> string", "", t_place_to_string;
@@ -408,11 +417,12 @@ let is_builtin_expr x = try let _ = BuiltinSet.find x builtin_expr_env in true w
 let is_builtin_type x = try let _ = BuiltinSet.find x builtin_type_env in true with Not_found -> false                   
 let is_builtin_derivation x = try let _ = BuiltinSet.find x builtin_derivation_env in true with Not_found -> false                   
 
-let type_of x : IR.main_type = 
+let type_of place x : IR.main_type = 
+    assert(is_builtin_expr x);
     let (_, _, make_mt) = 
         try
             Hashtbl.find builtin_htbl x 
-        with Not_found -> raise (Error.DeadbranchError (Printf.sprintf "Builtin function [%s] has not a builtin signature" x))
+        with Not_found -> raise (Error.PlacedDeadbranchError (place, Printf.sprintf "Builtin function [%s] has not a builtin signature" x))
     in
     (* TODO type are incorrect or forall is incorectly used because
     the builtin types introduce free type variable that are outside the scope of their forall quantifier
