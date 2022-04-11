@@ -29,6 +29,7 @@ let fst3 (x,y,z) = x
 type gamma_t = (IR.expr_variable, IR.main_type) Hashtbl.t
 let print_gamma gamma = 
     Format.fprintf Format.std_formatter "Gamma {@[%a]}" (Error.pp_list "\n  -" (fun out (x,t) -> Format.fprintf out " %s -> %s " (Atom.to_string x) (T.show_main_type t))) (List.of_seq (Hashtbl.to_seq gamma))
+let empty_gamma () = Hashtbl.create 64
 
 (* Environments map strings to atoms. *)
 module Env = Map.Make(String)
@@ -182,12 +183,22 @@ type env = {
     component: component_env; (* NB: top-level is considered as a mock component *)
 }
 
-module Make(Arg:sig val _places : IR.vplace list end) = struct
-    let gamma = Hashtbl.create 64 
+module type ArgSig = sig
+    val _places : IR.vplace list 
+    val gamma: gamma_t 
+    val gamma_types: gamma_t (* for typedef (x, mt) store atom_x -> mt*)
+end
+
+module Make(Arg:ArgSig) = struct
+    let gamma = Arg.gamma
+    let gamma_types = Arg.gamma_types
 
     let register_gamma x t = Hashtbl.add gamma x t 
+    let register_gamma_types x t = Hashtbl.add gamma_types x t 
     let register_gamma_builtin x = 
         Hashtbl.add gamma x (Builtin.type_of (Atom.hint x))
+    let register_gamma_types_builtin x = 
+        Hashtbl.add gamma_types x (Builtin.type_of (Atom.hint x))
 
     (* Used to cook Varda expr in impl with the same environment as Varda file. Sealed envs includes: 
         - method env
@@ -624,10 +635,32 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
                             )
                         with Not_found -> error place "Unbound variable: %s in %s" x (Atom.to_string cname)
                     end
-                    | r -> 
-                        let env1, e1 = cexpr env e1 in
-                        let env2, e2 = cexpr env e2 in
-                        env << [env1; env2], T.AccessExpr (e1, e2)
+                    | T.CType{value=T.TVar y} -> begin
+                        match (Hashtbl.find gamma_types y).value with
+                        |T.CType {value=T.TTuple content} ->
+                        (* Case 1 - tuple content can be accessed *)
+
+                            let re = Str.regexp "^_\([0-9]\)_$" in 
+
+                            if Str.string_match re x 0 then 
+                            begin
+                                let n = int_of_string (Str.replace_first re "\1" x) in
+                                logger#error "toto %d %d" n;
+                                if n >= (List.length content) then 
+                                    error place "can not access [%d]th elements of tuple [%s], it has only %d elements" n (Atom.hint a) (List.length content)
+                                else 
+                                    let env2, e2 = cexpr env e2 in
+                                    env << [env1; env2], T.AccessExpr(
+                                        e, 
+                                        e2
+                                    )
+                            end
+                            else error place "%s is not a tuple accessor" x 
+                        | r -> failwith (T.show__main_type r)
+                    end
+
+                    (* TODO record content can be accessed too *)
+                    | _ -> error place "expression has no accessor (based on detected type)"
                 end with | Not_found -> error place "Variable %s not in gamma" a
             end
             | S.AccessExpr (e1, e2) -> 
@@ -1161,7 +1194,9 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
             auto_fplace(T.CType(auto_fplace(T.TFlatType AstUtils.TVoid))),
             auto_fplace(T.CType(auto_fplace(T.TVar y)))
         )))) in
+
         register_gamma y constructor_type;
+        register_gamma_types y mt;
 
         new_env2 << [env3], [T.Typedef ({ place; value = 
         ProtocolDef (y, mt) })]
@@ -1196,7 +1231,9 @@ module Make(Arg:sig val _places : IR.vplace list end) = struct
 
         (* t : args1 -> ... argsn -> t *)
         let constructor_type = mtype_of_fun2 args (auto_fplace(T.CType(auto_fplace(T.TVar y)))) in 
+        
         register_gamma y constructor_type;
+        register_gamma_types y (mtype_of_ct (T.TTuple args)); (* TODO use an external fct to compute the type of a typedef - shared with type, maybe defined in TypingUtils *)
 
         new_env2 << envs, [T.Typedef ({ place; value = 
         match tdef with 

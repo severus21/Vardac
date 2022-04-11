@@ -54,10 +54,21 @@ let show_htblimpls htbl =
         Printf.fprintf stdout "- entry %s\n" (key_to_string key)
     ) htbl 
 
-module Make (Arg:sig val sealed_envs : (Atom.t, Cook.env) Hashtbl.t end) = struct
+
+module type ArgSig = sig
+    val sealed_envs : (Atom.t, Cook.env) Hashtbl.t 
+    val gamma : Cook.gamma_t
+    val gamma_types : Cook.gamma_t
+end
+
+module Make (Arg: ArgSig) = struct
     let sealed_envs = Arg.sealed_envs
 
-    module Cook = Cook.Make(struct let _places = [] end)
+    module Cook = Cook.Make(struct 
+        let _places = [] 
+        let gamma = Arg.gamma
+        let gamma_types = Arg.gamma_types
+    end)
 
     (************************************ Pass 1 *****************************)
     (*

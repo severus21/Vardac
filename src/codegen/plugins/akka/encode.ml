@@ -19,20 +19,30 @@ encode_no_arg, one_arg
 encode try encode according to arg number in order to mutualised the error messages
 *)
 
+(*
+    @param mt_name - type of the right-hand side variable
+*)
 let encode_builtin_access place e name =
     assert(Core.Builtin.is_builtin_expr name);
     let auto_place t = {place; value=t} in 
+
+    let re = Str.regexp "^_\([0-9]\)_$" in 
     match name with
-    | "_0_" | "_1_" | "_2_" | "_3_" | "_4_" ->
-        let i = int_of_string (String.sub name 1 1) in
-        (* Class provide getter called __i__ (it is easieast than renaming - no global state to manage) *)
-        T.CallExpr(
-            auto_place (T.AccessExpr (
-                e, 
-                auto_place(T.VarExpr (Atom.builtin name), auto_place T.TUnknown)
-            ), auto_place T.TUnknown),
-            []
-        ) 
+    (* Case 1: "_0_", "_1_", ..., "_n_" *)
+    | _ when Str.string_match re name 0 -> begin
+        let i = int_of_string (Str.replace_first re "\1" name) in
+
+        (* Vavr state at _1 and not _0 *)
+        let i = i+1 in
+
+        T.AccessExpr (
+            e, 
+            auto_place (
+                T.VarExpr (Atom.builtin (Printf.sprintf "_%d" i)), 
+                auto_place T.TUnknown
+            )
+        )
+    end
     | _ -> failwith (Printf.sprintf "Unsupported builtin access in Akka:  %s" name) 
 
 let encode_builtin_fct place name (args:T.expr list) =
@@ -168,7 +178,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             )
         | _ -> Error.error place "second must take one argument"
     end
-    | "nth" -> begin
+    | "nth" -> begin (* TODO remove nth and only use _1_ etc accessor it would be easiset for type checking *)
         (* Vavr state at _1 and not _0 *)
         match args with
         | [ tuple; {value=LitExpr{value=IntLit i},_}]->  

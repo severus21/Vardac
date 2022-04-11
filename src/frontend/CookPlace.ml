@@ -18,10 +18,14 @@ module Env = Map.Make(String)
 (* [bind env x] creates a fresh atom [a] and extends the environment [env]
    with a mapping of [x] to [a]. *)
 let bind env x =
-  let a = Atom.fresh x in
-  Env.add x a env, a
+    let a = Atom.fresh x in
+    Env.add x a env, a
 
-module Cook = Cook.Make(struct let _places=[] end)
+module Cook = Cook.Make(struct 
+    let _places=[] 
+    let gamma = Cook.empty_gamma () 
+    let gamma_types = Cook.empty_gamma () 
+end)
 
 let rec cook_vplace env (vp:S.vplace) = 
     let env, children = List.fold_left_map cook_vplace env vp.children in 

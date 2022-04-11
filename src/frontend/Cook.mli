@@ -27,11 +27,21 @@ open Core
 
 type gamma_t = (IR.expr_variable, IR.main_type) Hashtbl.t
 val print_gamma : gamma_t -> unit
+val empty_gamma : unit -> gamma_t
 
 type env
 
-module Make : functor (Arg : sig val _places : Core.IR.vplace list end) -> sig 
+
+module type ArgSig = sig
+    val _places : IR.vplace list 
+    val gamma: gamma_t 
+    val gamma_types: gamma_t 
+end
+
+
+module Make : functor (Arg : ArgSig) -> sig 
    val gamma : gamma_t
+   val gamma_types : gamma_t
    val sealed_envs : (Atom.t, env) Hashtbl.t
 
    val cook_expression: Ast.expr -> IR.expr
