@@ -89,10 +89,12 @@ let t_receive () =
         mtype_of_st(STRecv(
             mtype_of_ft TWildcard, auto_fplace STEnd 
         )),
-        mtype_of_ct(TArrow(
-            mtype_of_ft TWildcard,
-            mtype_of_ft TWildcard
-        ))
+        mtype_of_ct(TTuple
+            [
+                mtype_of_ft TWildcard;
+                mtype_of_ft TWildcard
+            ]
+        )
     ))
 
 let t_initiate () =
@@ -317,6 +319,13 @@ let t_sessionid () =
         mtype_of_ft TInt
     ))
 
+
+(* FT -> inductive type representation *)
+let builtin_inductive_types = [ 
+    (TBLabel, [mtype_of_ft TStr]) (* _0_ only *)
+]
+
+(********** Regexp selector **********)
 let re_tuple_attr = Str.regexp "^_\([0-9]\)$"
 let re_inductive_attr = Str.regexp "^_\([0-9]\)_$"
 let is_inductive_attr x = Str.string_match re_inductive_attr x 0
@@ -328,19 +337,9 @@ let pos_of_inductive_attr x =
     assert(is_inductive_attr x);
     int_of_string (Str.replace_first re_inductive_attr "\1" x)
 
-
-(*TODO use re_.. for builtin_access *)
+(********** White list selector **********)
     
 let builtin_access : (string * string) list = [
-    "_0_", "access part of user inductive type";
-    "_1_", "...";
-    "_3_", "...";
-    "_4_", "...";
-    (* Session attributes *)
-    (* TODO session_from/session_to/session_to_2_ => syntaxic sugar s.from s.to s.to_2_*)
-
-    "_0", "access part of a tuple";
-    "_1", "...";
 ]
 
 (* name, signature string, description, signature () -> .. , neeed a closure to generate fresh types *)
@@ -407,13 +406,35 @@ let builtin_derivations = [
     "rpc"
 ]
 
+(****************************************)
+
 module BuiltinSet = Set.Make(String)                     
 let builtin_htbl = Hashtbl.of_seq (List.to_seq (List.map (function (x, a, b, mt) -> (x, (a,b, mt))) builtin_fcts))
 
-let builtin_expr_env = BuiltinSet.of_list ((List.map (function x,_,_,_ -> x) builtin_fcts)@(List.map fst builtin_access))    
+let inductive_htbl = Hashtbl.of_seq (List.to_seq builtin_inductive_types)
+
+let is_builtin_inductive_type ft = 
+    Hashtbl.find_opt inductive_htbl ft <> None 
+let sig_of_builtin_inductive_type ft = 
+    assert(is_builtin_inductive_type ft);
+    Hashtbl.find inductive_htbl ft 
+
+let builtin_expr_env = 
+    BuiltinSet.of_list (
+        (List.map (function x,_,_,_ -> x) builtin_fcts)
+        @ (List.map fst builtin_access)
+    )    
+
 let builtin_type_env = BuiltinSet.of_list  builtin_atomic_types    
 let builtin_derivation_env = BuiltinSet.of_list  builtin_derivations    
-let is_builtin_expr x = try let _ = BuiltinSet.find x builtin_expr_env in true with Not_found -> false                   
+let is_builtin_expr x = 
+    try 
+        (* whiteliste based selection *)
+        let _ = BuiltinSet.find x builtin_expr_env in true 
+    with Not_found -> 
+        (* Regexp based selection *)
+        is_inductive_attr x || is_tuple_attr x
+
 let is_builtin_type x = try let _ = BuiltinSet.find x builtin_type_env in true with Not_found -> false                   
 let is_builtin_derivation x = try let _ = BuiltinSet.find x builtin_derivation_env in true with Not_found -> false                   
 

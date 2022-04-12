@@ -150,34 +150,39 @@ module Make () = struct
             | CallExpr ({place; value= (VarExpr x, _)}, args) when Atom.hint x = "receive" && Atom.is_builtin x -> 
                 logger#debug "receive auto-boxing";
                 let [s] = args in
-                
+
                 let t_msg, st_continuation = msgcont_of_st (match (snd s.value).value with | SType st -> st) in
 
                 (* tuple<event, s> -> tuple<unboxed, s>*)
                 if needs_autoboxing t_msg then 
-                    let param_res, e_param_res = e_param_of "res" in
+                    let param_res = Atom.fresh "res_autoboxing" in
+                    let mt_res = mtype_of_ct (TTuple [t_msg; mtype_of_st st_continuation.value]) in
+                    let e_param_res = auto_fplace(VarExpr param_res, mt_res) in
 
-                    LambdaExpr(
-                        param_res,
-                        mtype_of_ct (TTuple [t_msg; mtype_of_st st_continuation.value]),
-                        e2_e(BlockExpr(
-                            Tuple,
-                            [
-                                (*unboxed msg*)
-                                e2_e (AccessExpr (
+                    CallExpr(
+                        e2_e (LambdaExpr(
+                            param_res,
+                            mt_res,
+                            e2_e(BlockExpr(
+                                Tuple,
+                                [
+                                    (*unboxed msg*)
+                                    e2_e (AccessExpr (
+                                        e2_e(AccessExpr(
+                                            e_param_res,
+                                            e2var (Atom.builtin "_0")
+                                        )),
+                                        e2var (Atom.builtin "_0_")
+                                    ));
+                                    (* session preserved *)
                                     e2_e(AccessExpr(
                                         e_param_res,
-                                        e2var (Atom.builtin "_0")
-                                    )),
-                                    e2var (Atom.builtin "_0_")
-                                ));
-                                (* session preserved *)
-                                e2_e(AccessExpr(
-                                    e_param_res,
-                                    e2var (Atom.builtin "_1")
-                                )) 
-                            ]
-                        ))
+                                        e2var (Atom.builtin "_1")
+                                    )) 
+                                ]
+                            ))
+                        )),
+                        args 
                     )
                 else e
         in

@@ -30,7 +30,7 @@ component KVServer {
                 fire(tmp._1, option_get(tmp._0));
             }
             | "put" => s -> {
-                tuple<tuple<key,value>, ?bool.> tmp= receive(s);
+                tuple<tuple<key,value>, ?bool.> tmp = receive(s);
                 tuple<key, value> res = tmp._0; 
                 (*TODO put(res._0, res._1); *)
                 fire(tmp._1, true);

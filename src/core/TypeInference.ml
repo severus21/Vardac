@@ -418,8 +418,8 @@ module Make () = struct
                 
                 let ret_type = 
                     match fst e2.value with 
-                    | VarExpr x when Builtin.is_inductive_attr (Atom.to_string x) -> begin
-                        let i = Builtin.pos_of_inductive_attr (Atom.to_string x) in
+                    | VarExpr x when Builtin.is_inductive_attr (Atom.value x) -> begin
+                        let i = Builtin.pos_of_inductive_attr (Atom.value x) in
                         (* Check that e1 has the right type and extract type of pos i *)
 
                         let aux targs i =
@@ -432,16 +432,21 @@ module Make () = struct
                         | CType{value=TVar t1} -> begin 
                             match (defof_tvar t1).value  with
                             | CType {value=TTuple targs} -> aux targs i 
-                            | _ -> Error.error e1.place "This not an inductive type"
+                            | _ -> Error.error e1.place "This not an inductive type (1)"
                         end
                         | CType {value=TTuple targs} -> aux targs i 
                         | CType {value=TFlatType TWildcard} ->
                             (* TODO generate constraints TTuple of length >= i *)
                             mtype_of_ft TWildcard
-                        | _ -> Error.error e1.place "This not an inductive type"
+                        | CType {value=TFlatType ft} when Builtin.is_builtin_inductive_type ft -> begin
+                            let targs = Builtin.sig_of_builtin_inductive_type ft in
+                            aux targs i  
+                        end
+                        | _ -> 
+                            Error.error e1.place "This not an inductive type (2)"
                     end
-                    | VarExpr x when Builtin.is_tuple_attr (Atom.to_string x) -> begin
-                        let i = Builtin.pos_of_tuple_attr (Atom.to_string x) in
+                    | VarExpr x when Builtin.is_tuple_attr (Atom.value x) -> begin
+                        let i = Builtin.pos_of_tuple_attr (Atom.value x) in
                         (* Check that e1 has the right type and extract type of pos i *)
 
                         let aux targs i =
@@ -460,7 +465,8 @@ module Make () = struct
                         | CType {value=TFlatType TWildcard} ->
                             (* TODO generate constraints TTuple of length >= i *)
                             mtype_of_ft TWildcard
-                        | _ -> Error.error e1.place "This not a tuple"
+                        | _ -> 
+                            Error.error e1.place "This not a tuple"
                     end
                     | VarExpr field -> 
                         (* TODO Clean this *)

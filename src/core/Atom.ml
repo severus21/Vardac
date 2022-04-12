@@ -228,7 +228,10 @@ let output_atom out builtin_eval (x:atom)=
     fprintf out "%s%d" (hint x) (identity x)
 
 let to_string (x:atom)=
-    if is_builtin x then hint x
+    (* For builtin, we use value and not in order not to erase trailing digits- allowed for builtin e.g.hint
+      _0 or _1 to access tuple attr
+    *)
+    if is_builtin x then value x
     else (hint x)^(string_of_int (identity x))
 
 let p_to_string builtin_eval (x:atom)=
