@@ -29,23 +29,33 @@ let auto_place smth = {place = fplace; value=smth} in
     | AccessExpr (e1, e2) -> AccessExpr (cexpr e1, cexpr e2)
     | AccessMethod (e, x) -> AccessMethod (cexpr e, x)
     | AppExpr (e, es) as e0 -> begin 
-        match (snd (e.value)).value with
-        | ClassOrInterfaceType  ({value=TAtomic "Function"}, [t1; t2]) -> begin
-            match fst e.value with
-            | LambdaExpr _ ->
-                AppExpr(
-                    auto_place(AccessExpr(
-                        auto_place(CastExpr(
-                            auto_place(ClassOrInterfaceType  ( auto_place (TAtomic "Function"), [t1; t2])),
-                            e
-                        ), snd (e.value)),
-                        auto_place (RawExpr "apply", auto_place TUnknown)
-                    ), auto_place TUnknown),
-                    es
-                )
-            | _ -> e0
-        end
-        | _ -> AppExpr (cexpr e, List.map cexpr es)
+        match (snd e.value).value with
+            | ClassOrInterfaceType  ({value=TAtomic "Function"}, _::[t_ret]) -> begin
+                match fst e.value with
+                | LambdaExpr ([(t1, _)], _) ->
+                    AppExpr(
+                        auto_place(AccessExpr(
+                            auto_place(CastExpr(
+                                auto_place(ClassOrInterfaceType  ( auto_place (TAtomic "Function"), [t1; t_ret])),
+                                e
+                            ), snd (e.value)),
+                            auto_place (RawExpr "apply", auto_place TUnknown)
+                        ), auto_place TUnknown),
+                        es
+                    )
+                | LambdaExpr ([(t1, _); (t2,_)], _) ->
+                    AppExpr(
+                        auto_place(AccessExpr(
+                            auto_place(CastExpr(
+                                auto_place(ClassOrInterfaceType  ( auto_place (TAtomic "BiFunction"), [t1; t2; t_ret])),
+                                e
+                            ), snd (e.value)),
+                            auto_place (RawExpr "apply", auto_place TUnknown)
+                        ), auto_place TUnknown),
+                        es
+                    )
+            end
+            | _ -> AppExpr (cexpr e, List.map cexpr es)
     end
     | AssertExpr e -> AssertExpr (cexpr e)
     | AssignExpr (e1, op, e2) -> AssignExpr (cexpr e1, op, cexpr e2)

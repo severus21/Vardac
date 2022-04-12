@@ -671,7 +671,7 @@ module Make(Arg:ArgSig) = struct
 
                 register_gamma y mt;
 
-                env << [env2; env3], T.LambdaExpr (y, mt, e)
+                env << [env2; env3], T.LambdaExpr ([auto_fplace (mt, y)], e)
             | S.LitExpr l -> 
                 let env1, l = cliteral env l in
                 env << [env1], T.LitExpr l

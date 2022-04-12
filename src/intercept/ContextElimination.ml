@@ -404,8 +404,12 @@ module Make () = struct
         in
 
         let core_factory = e2_e (LambdaExpr (
-            p_of_i,
-            mtype_of_ct (TOption (mtype_of_ft (TPlace))),
+            [
+                auto_fplace (
+                    mtype_of_ct (TOption (mtype_of_ft (TPlace))),
+                    p_of_i
+                )
+            ], 
             body
         )) in
 
@@ -417,7 +421,7 @@ module Make () = struct
         let rec make_wraper core_factory = function
         | [] -> core_factory
         | {value=(mt, x)}::params -> 
-            let res = e2_e (LambdaExpr (x, mt, core_factory)) in 
+            let res = e2_e (LambdaExpr ( [auto_fplace (mt,x)], core_factory)) in 
             make_wraper res params
         in
 

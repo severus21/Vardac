@@ -182,8 +182,8 @@ and _tcheck_expr place (e, mt_e) =
             tcheck_expr e2
         | BinopExpr (e1, op, e2) -> 
             tcheck_binop place mt_e op (snd e1.value) (snd e2.value)
-        | LambdaExpr (x, mt, e) -> 
-            tcheck_main_type mt;
+        | LambdaExpr (params, e) -> 
+            List.iter (map0_place (fun _ (mt,_) -> tcheck_main_type mt)) params;
             tcheck_expr e (* propagation of mt already done  by TypeInference and mt_e is the mt -> type of e by type inference *)
         | LitExpr l -> () 
         | UnopExpr (op, e) -> tcheck_unop place mt_e op (snd e.value)

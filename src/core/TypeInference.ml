@@ -486,10 +486,13 @@ module Make () = struct
                 let e1 = tannot_expr parent_opt e1 in
                 let e2_opt = Option.map (tannot_expr parent_opt) e2_opt in
                 InterceptedActivationRef(e1, e2_opt), snd e1.value 
-            | LambdaExpr (x, mt, e) -> 
-                register_expr_type x mt;
+            | LambdaExpr (params, e) -> 
+                List.iter (map0_place (fun place (mt, x) -> register_expr_type x mt)) params;
+
                 let e = tannot_expr parent_opt e in
-                LambdaExpr (x, mt, e), ctypeof (TArrow (mt, snd e.value))
+                let mt_fct = mtype_of_fun params (snd e.value) in
+
+                LambdaExpr (params, e), mt_fct 
             | LitExpr l -> LitExpr l, typeof_literal l.value
             | UnopExpr (op, e) -> 
                 let e = tannot_expr parent_opt e in

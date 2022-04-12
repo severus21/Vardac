@@ -568,7 +568,7 @@ module Make () : Sig = struct
         let body = List.flatten body in
 
         (*List<Map<UUID, ?>> this.intermediate_states = new ArrayList(); [this. ....]; registration at each creation*)
-        let a_intermediate_states = Atom.fresh "intermediate_states" in
+        let a_intermediate_states = Atom.fresh "recv_intermediate_states" in
         let intermediate_states_index = auto_place(State( auto_place(StateDcl { 
             ghost = false;
             type0 = auto_fplace(CType(auto_fplace (TList(

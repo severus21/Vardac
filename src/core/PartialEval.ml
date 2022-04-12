@@ -378,10 +378,10 @@ and peval_expr env place (e, mt) :  env * (_expr * main_type) =
             let args = List.map (function arg -> snd (pe_expr env arg)) args in
             let env, (e,_) = peval_call env place fct args mt in
             env, e
-        | LambdaExpr (x, mt, e) ->
-            let _, e = pe_expr env e in
+        | LambdaExpr (params, e) ->
+            let params = List.map (function param -> snd(pe_param env param)) params in
             let _, mt = pe_mtype env mt in 
-            env, LambdaExpr (x, mt, e)
+            env, LambdaExpr (params, e)
         | LitExpr lit -> env, LitExpr lit
         | OptionExpr e_opt -> env, OptionExpr (Option.map (function e -> snd(pe_expr env e)) e_opt)
         | ResultExpr (ok_opt, err_opt) -> 

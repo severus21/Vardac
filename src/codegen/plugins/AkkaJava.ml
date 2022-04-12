@@ -804,7 +804,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             | S.TFunction (t1, t2) -> T.ClassOrInterfaceType  ( auto_place (T.TAtomic "Function"), [fctype t1; fctype t2]) 
             | S.TArray t1 -> T.ClassOrInterfaceType  (auto_place (T.TArray (fctype t1)), [])
             | S.TList t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "List"), [fctype t1])
-            | S.TMap (t1, t2) -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "Map"), [fctype t1; fctype t2])
+            | S.TMap (t1, t2) -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "HashMap"), [fctype t1; fctype t2])
             | S.TOption t1 -> T.ClassOrInterfaceType  (auto_place(T.TAtomic "Optional"), [fctype t1]) 
             | S.TAccess (t1, t2) -> T.TAccess (fctype t1, fctype t2)
             | S.TParam (t, t_args) -> T.ClassOrInterfaceType (fctype t, List.map fctype t_args)
@@ -937,7 +937,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             | S.Block2Expr (b, ees) -> begin
                 match b with
                 | Dict when ees = [] -> T.NewExpr(
-                    auto_place(T.VarExpr(Atom.builtin "Map"), auto_place T.TUnknown),
+                    auto_place(T.VarExpr(Atom.builtin "HashMap"), auto_place T.TUnknown),
                     []
                 ) 
                 | Dict when ees <> []  -> 

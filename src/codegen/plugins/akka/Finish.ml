@@ -427,7 +427,11 @@ module Make () = struct
         | S.AccessExpr (e1, {value=S.VarExpr x, _}) when Atom.is_builtin x -> Encode.encode_builtin_access place (fexpr e1) (Atom.value x)
         | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
         | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
-        | S.LambdaExpr (x, mt, e) -> T.LambdaExpr ([(fmtype mt, x)], auto_place (T.ReturnStmt (fexpr e))) 
+        | S.LambdaExpr (params, e) -> 
+            T.LambdaExpr (
+                List.map (map0_place (fun _ (mt, x) -> fmtype mt, x)) params,
+                auto_place (T.ReturnStmt (fexpr e))
+            ) 
         | S.BridgeCall b -> 
         fst (e_bridge_of_protocol place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown))).value 
         | S.LitExpr {value=S.BLabelLit l; place=lit_place} -> 

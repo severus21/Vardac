@@ -171,7 +171,7 @@ module type TIRC = sig
         | ActivationAccessExpr of component_variable * expr * expr_variable (* cname, e, x*)
         | AccessExpr of expr * expr (*e1.e2*)
         | BinopExpr of expr * binop * expr 
-        | LambdaExpr of expr_variable * main_type * expr 
+        | LambdaExpr of param list * expr 
         | LitExpr of literal
         | UnopExpr of unop * expr 
 
@@ -499,7 +499,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | ActivationAccessExpr of component_variable * expr * expr_variable (* cname, e, x*)
         | AccessExpr of expr * expr (*e1.e2*)
         | BinopExpr of expr * binop * expr 
-        | LambdaExpr of expr_variable * main_type * expr 
+        | LambdaExpr of param list * expr 
         | LitExpr of literal
         | UnopExpr of unop * expr 
 
@@ -638,9 +638,18 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
         (* Handling scope and propagation *)
         match e with 
-        | LambdaExpr (x, mt, e) ->
-            let _, collected_elts1, fvars1 = collect_expr_expr parent_opt (Variable.Set.add x already_binded) selector collector e in
-            already_binded, collected_elts0@collected_elts1, fvars1
+        | LambdaExpr (params, e) ->
+            let _, collected_elts1, fvars1 = List.fold_left (fun (set, collected_elts0, fvars0) {value=mt, x} -> 
+                let _, collected_elts, fvars = collect_expr_mtype parent_opt set selector collector mt in
+                set, collected_elts0@collected_elts, fvars0@fvars
+            ) (already_binded, [], []) params in
+
+            let inner_already_binded = List.fold_left (fun set {value=_,x} -> V.Set.add x set) already_binded params in
+
+
+            let _, collected_elts2, fvars2 = collect_expr_expr parent_opt inner_already_binded selector collector e in
+
+            already_binded, collected_elts0@collected_elts1@collected_elts2, fvars1@fvars2
         | (VarExpr x) | (ImplicitVarExpr x) when Variable.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, [] 
         | (VarExpr x) | (ImplicitVarExpr x) when Variable.is_builtin x -> already_binded, collected_elts0, [] 
         | (VarExpr x) | (ImplicitVarExpr x)-> already_binded, collected_elts0, [mt, x]
@@ -1032,8 +1041,12 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             let _, collected_elts1, ftvars1 = collect_expr actor_ref in
             let _, collected_elts2, ftvars2 = collect_expropt interceptec_actor_ref in
             collected_elts1@collected_elts2, ftvars1@ftvars2
-        | LambdaExpr (_, mt, e) ->
-            let _, collected_elts1, ftvars1 =  collect_mtype mt in
+        | LambdaExpr (params, e) ->
+            let collected_elts1, ftvars1 =  
+            List.fold_left (fun (collected_elts0, ftvars0) {value=mt, _} -> 
+                let _, collected_elts1, ftvars1 =  collect_mtype mt in
+                collected_elts0@collected_elts1, ftvars0@ftvars1
+            ) ([], []) params in
             let _, collected_elts2, ftvars2 =  collect_expr e in
             collected_elts1@collected_elts2, ftvars1@ftvars2
         | CallExpr (e, es) | NewExpr (e, es) ->
@@ -1312,9 +1325,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             op,
             rewrite_expr_expr selector rewriter e2
         )
-        | LambdaExpr (x, mt, e) -> LambdaExpr (
-            x,
-            mt, (* WARNIN TODO FIXME replace in type predicates *)
+        | LambdaExpr (params, e) -> LambdaExpr (
+            params, (* WARNIN TODO FIXME replace in type predicates *)
             rewrite_expr_expr selector rewriter e
         )
         | UnopExpr (op, e) -> UnopExpr (op, rewrite_expr_expr selector rewriter e)
@@ -1509,7 +1521,10 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             | AccessExpr (e1, e2) -> AccessExpr (rewrite_expr e1, rewrite_expr e2)
             | BinopExpr (e1, op, e2) -> BinopExpr (rewrite_expr e1, op, rewrite_expr e2)
             | TernaryExpr (e1, e2, e3) -> TernaryExpr (rewrite_expr e1,  rewrite_expr e2, rewrite_expr e3)
-            | LambdaExpr (x, mt, e) -> LambdaExpr (x, rewrite_mtype mt, rewrite_expr e)
+            | LambdaExpr (params, e) -> 
+                LambdaExpr (
+                    List.map (map_place(fun place (mt,x) -> rewrite_mtype mt, x)) params,
+                    rewrite_expr e)
             | UnopExpr (op, e) -> UnopExpr (op, rewrite_expr e)
             | CallExpr (e, es) -> CallExpr (rewrite_expr e, List.map rewrite_expr es)
             | NewExpr (e, es) -> NewExpr (rewrite_expr e, List.map rewrite_expr es)
@@ -1863,11 +1878,25 @@ and rewrite_stype_aconstraint selector rewriter =
         equal_expr e1_a e2_a &&
         op1 = op2 &&
         equal_expr e1_b e2_b
-    | LambdaExpr (x1, mt1, e1), LambdaExpr (x2, mt2, e2) -> 
-        let e2' = replace_expr_expr x2 (Some x1, None) e2 in
+    | LambdaExpr (params1, e1), LambdaExpr (params2, e2) -> 
+        (* equality under alpha renaming *)
+        if List.length params1 <> List.length params2 then
+            false
+        else begin
+            let pparams = List.combine params1 params2 in
 
-        equal_mtype mt1 mt2 &&
-        equal_expr e1 e2'
+            let mt_flag = List.fold_left (fun acc ({value=mt1,_}, {value=mt2,_}) ->
+                acc && equal_mtype mt1 mt2
+            ) true pparams in
+
+            (* alpha renaming *)
+            let e2' = List.fold_left (fun e2 ({value=_, x1}, {value=_, x2}) ->
+                replace_expr_expr x2 (Some x1, None) e2
+            ) e2 pparams in
+
+            mt_flag &&
+            equal_expr e1 e2'
+        end
     | LitExpr l1, LitExpr l2 -> l1 = l2
     | UnopExpr(op1, e1), UnopExpr (op2, e2) -> 
         op1 = op2 &&

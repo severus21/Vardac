@@ -161,8 +161,7 @@ module Make () = struct
 
                     let autounbox = 
                         e2_e (LambdaExpr(
-                            param_res,
-                            mt_res,
+                            [ auto_fplace (mt_res, param_res) ],
                             e2_e(BlockExpr(
                                 Tuple,
                                 [
@@ -213,21 +212,19 @@ module Make () = struct
                         (* St type of p will be rewritten afterwards by the type rewritten pass *)
                         callback = 
                             e2_e(LambdaExpr (
-                                param_msg,
-                                mtype_of_var event,
-                                e2_e(LambdaExpr (
-                                    param_session,
-                                    mtype_of_st st_continuation.value,
-                                    e2_e(CallExpr(
-                                        (fst p.value).callback,
-                                        [
-                                            e2_e (AccessExpr (
-                                                    e2var param_msg,
-                                                    e2var (Atom.builtin "_0_")
-                                            ));
-                                            e2var param_session 
-                                        ]
-                                    ))
+                                [ 
+                                    auto_fplace (mtype_of_var event, param_msg);
+                                    auto_fplace (mtype_of_st st_continuation.value, param_session)
+                                ],
+                                e2_e(CallExpr(
+                                    (fst p.value).callback,
+                                    [
+                                        e2_e (AccessExpr (
+                                                e2var param_msg,
+                                                e2var (Atom.builtin "_0_")
+                                        ));
+                                        e2var param_session 
+                                    ]
                                 ))
                             ))
                     }, auto_fplace EmptyMainType))

@@ -27,7 +27,7 @@ component KVServer {
         branch s on msg this.b {
             | "get" => s -> { 
                 tuple<key, ?value.> tmp = receive(s, this.b);
-                fire(tmp._1, option_get(tmp._0));
+                fire(tmp._1, tmp._0);
             }
             | "put" => s -> {
                 tuple<tuple<key,value>, ?bool.> tmp = receive(s, this.b);
@@ -62,7 +62,10 @@ component Client {
         !key?value. s = select(s, "get");
         ?value. s = fire(s, k);
 
-        int ret = receive(s, this.b)._0;
+        (* We need this intermediate let since there is no unification yet for universal type and receive is universally quantified *)
+        (* TODO maybe use polyapp *)
+        tuple<int, .> tmp = receive(s, this.b);
+        int ret = tmp._0;
         return ();//TODO current recv-elim can not return :')
     }
 

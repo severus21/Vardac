@@ -1323,7 +1323,10 @@ and _rename_expr renaming place (e, mt_e) =
     | AccessExpr (e1, ({value=VarExpr _,_} as e2)) -> AccessExpr (re e1, if rename_attribute then re e2 else e2)
     | AccessExpr (e1, e2) -> AccessExpr (re e1, re e2)
     | BinopExpr (e1, op, e2) -> BinopExpr (re e1, op, re e2)
-    | LambdaExpr (x, mt, e) -> LambdaExpr (renaming x, rmt mt, re e) 
+    | LambdaExpr (params, e) -> 
+        LambdaExpr (
+            List.map (map_place (fun _ (mt,x) -> rmt mt, renaming x)) params,
+            re e) 
     | LitExpr l -> LitExpr (rename_literal renaming l)
     | UnopExpr (op, e) -> UnopExpr (op, re e)
     | CallExpr (e, es) -> CallExpr (re e, List.map re es)
