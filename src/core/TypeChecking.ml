@@ -10,7 +10,7 @@ module S = IR
 module T = IR
 open IR
 
-let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
+let logger = Logging.make_logger "_1_ compspec.TypeChecking" Debug [];;
 
 
 (*

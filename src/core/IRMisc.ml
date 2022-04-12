@@ -28,6 +28,7 @@ let schema_to_label place schema =
 (********** Session type utilities **********)
 let rec _dual place : _session_type -> _session_type  = function
 | STEnd -> STEnd
+| STWildcard -> STWildcard
 | STVar _ as st -> st
 | STSend (mt, st) -> STRecv (mt, dual st)
 | STRecv (mt, st) -> STSend (mt, dual st)

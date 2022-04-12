@@ -73,7 +73,7 @@ module Make () = struct
 
     let rec _autobox_st _ st = 
     match st with
-    | STEnd | STVar _ | STInline _ -> st
+    | STEnd | STWildcard | STVar _ | STInline _ -> st
     | STSend (t_msg, st_continuation) | STRecv (t_msg, st_continuation) -> begin
         let st_continuation = autobox_st st_continuation in
         let t_msg = 
@@ -159,7 +159,7 @@ module Make () = struct
                     let mt_res = mtype_of_ct (TTuple [t_msg; mtype_of_st st_continuation.value]) in
                     let e_param_res = auto_fplace(VarExpr param_res, mt_res) in
 
-                    CallExpr(
+                    let autounbox = 
                         e2_e (LambdaExpr(
                             param_res,
                             mt_res,
@@ -181,8 +181,12 @@ module Make () = struct
                                     )) 
                                 ]
                             ))
-                        )),
-                        args 
+                        ))
+                    in
+
+                    CallExpr(
+                        autounbox,
+                        [ auto_fplace (e, mt) ]
                     )
                 else e
         in

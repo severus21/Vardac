@@ -237,6 +237,7 @@ module Make () = struct
 
     let rec _tannot_session_type parent_opt place = function
     | STEnd -> STEnd
+    | STWildcard -> STWildcard
     | STVar x -> STVar x
     | STSend (mt, st) -> 
         (* CTX to propagate headers *)
@@ -647,7 +648,7 @@ module Make () = struct
         (* From the outside WithContextStmt is transparent in term of parent_opt *)
         let stmts = List.map (tannot_stmt parent_opt) stmts in
         WithContextStmt (anonymous_mod, cname, tannot_expr parent_opt e, stmts)
-    | BranchStmt {s; label; branches} -> 
+    | BranchStmt {s; label; bridge; branches} -> 
         let s = tannot_expr parent_opt s in
         let mt_st = snd s.value in
 
@@ -681,6 +682,7 @@ module Make () = struct
         BranchStmt {
             s;
             label = tannot_expr parent_opt label;
+            bridge = tannot_expr parent_opt bridge;
             branches = List.map tannot_branch branches; 
         }
     and tannot_stmt parent_opt stmt =  

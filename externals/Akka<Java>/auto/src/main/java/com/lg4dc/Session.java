@@ -108,4 +108,14 @@ public class Session implements CborSerializable {
         this.init_stage = false;
         return this;
     }
+
+    public Session select(
+        LabelEvent label,  
+        ActorContext context, 
+        TimerScheduler contextTimers, 
+        Set<UUID> frozen_sessions, 
+        Set<UUID> dead_sessions
+    ){
+        return this.select(label.value, context, contextTimers, frozen_sessions, dead_sessions);
+    }
 }

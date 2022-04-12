@@ -813,9 +813,10 @@ module Make(Arg:ArgSig) = struct
             transformation will come later on
         *)
         env2, T.WithContextStmt (anonymous_mod, cname, e, stmts)
-    | S.BranchStmt {s; label; branches} -> 
+    | S.BranchStmt {s; label; bridge; branches} -> 
         let env1, s = cexpr env s in 
         let env2, label = cexpr env label in
+        let env3, bridge = cexpr env bridge in
         let envs, branches = List.split (List.map (function {S.branch_label; branch_s; body} -> 
         print_env env;
             let branch_label = cook_var_expr env place ("label_"^branch_label) in
@@ -825,7 +826,7 @@ module Make(Arg:ArgSig) = struct
 
             env << [env_inner; env2], {T.branch_label; branch_s; body}    
         ) branches) in
-        env << (env1 :: env2::envs), T.BranchStmt {s; label; branches}
+        env << (env1 :: env2::env3::envs), T.BranchStmt {s; label; bridge; branches}
     and cstmt env : S.stmt -> env * T.stmt = map2_place (cook_stmt env)
 
     and cook_function env place : S._function_dcl -> env * T._function_dcl = 

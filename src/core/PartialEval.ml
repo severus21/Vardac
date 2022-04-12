@@ -4,7 +4,7 @@ open Utils
 open AstUtils
 open IRMisc
 
-let logger = Logging.make_logger "_1_ compspec" Debug [];;
+let logger = Logging.make_logger "_1_ compspec.PartialEval" Debug [];;
 
 (*
  TODO add 
@@ -145,6 +145,7 @@ and peval_stype env place : _session_type -> env * _session_type =
         (x, st', cst_opt')
     in function  
     | STEnd -> env, STEnd
+    | STWildcard -> env, STWildcard
     | STInline x -> begin
         try
             let mt = Env.find x env.named_types in
@@ -436,15 +437,16 @@ function
     else
         env, AssignExpr (x, e)
 | AssignThisExpr (x, e) -> env, AssignExpr (x,  snd(pe_expr env e ))
-| BranchStmt {s; label; branches} -> 
+| BranchStmt {s; label; bridge; branches} -> 
     let s = snd(pe_expr env s) in
     let label = snd(pe_expr env label) in
+    let bridge = snd(pe_expr env bridge) in
     (* each branch lives in its own isolated env *)
     let branches = List.map (fun {branch_label; branch_s; body} -> 
         {branch_label; branch_s; body = snd(pe_stmt env body)}
     ) branches in
 
-    env, BranchStmt{ s; label; branches }
+    env, BranchStmt{ s; label; bridge; branches }
 | BlockStmt stmts -> begin 
     let inner_env, stmts = List.fold_left_map (fun env stmt -> pe_stmt env stmt) env stmts in
     let stmts = clean_stmts stmts in

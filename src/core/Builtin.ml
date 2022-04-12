@@ -19,10 +19,10 @@ let quantify labels make : main_type =
     aux vars
 (* FIXME TODO can we mutualize functions with type reconstruction ???*)
 let fresh_tbridge () = 
-    let a = Atom.fresh "a" in
+    (*let a = Atom.fresh "a" in
     let b = Atom.fresh "b" in
     let p = Atom.fresh "p" in
-    
+    *)
     (*quantify ["a"; "b"; "p"]
     ( function [a; b; p] ->
         mtype_of_ct (TArrow(
@@ -89,12 +89,15 @@ let t_receive () =
         mtype_of_st(STRecv(
             mtype_of_ft TWildcard, auto_fplace STEnd 
         )),
-        mtype_of_ct(TTuple
-            [
-                mtype_of_ft TWildcard;
-                mtype_of_ft TWildcard
-            ]
-        )
+        mtype_of_ct(TArrow(
+            fresh_tbridge (), (* FIXME bridge since we still need for RecvElim => should be removed and access parent ports bridge *)
+            mtype_of_ct(TTuple
+                [
+                    mtype_of_ft TWildcard;
+                    mtype_of_st STWildcard
+                ]
+            )
+        ))
     ))
 
 let t_initiate () =

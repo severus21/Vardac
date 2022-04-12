@@ -72,6 +72,7 @@ module type TIRC = sig
 
         (* Polymorphsim*)
         | STPolyVar of type_variable
+        | STWildcard
 
         | STDual of session_type 
     and session_type = _session_type placed
@@ -235,6 +236,7 @@ module type TIRC = sig
         | BranchStmt of {
             s: expr;
             label: expr;
+            bridge: expr; (* dirty fix should be remove when receive will not need it anymore *)
             branches: branch_stmt list 
         }
 
@@ -402,6 +404,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | STInline of type_variable (* syntaxic suggar in order to inline an existing session type definition*)
         (* Polymorphsim*)
         | STPolyVar of type_variable
+        | STWildcard
 
         | STDual of session_type 
     and session_type = _session_type placed
@@ -561,6 +564,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | BranchStmt of {
             s: expr;
             label: expr;
+            bridge: expr; (* dirty fix should be remove when receive will not need it anymore *)
             branches: branch_stmt list 
         }
     and stmt = _stmt placed
@@ -896,7 +900,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         already_binded, Utils.deduplicate Fun.id ftvars
 
     and collect_type_stype_ parent_opt already_binded selector collector place = function
-    | STEnd -> already_binded, [], []
+    | STEnd | STWildcard -> already_binded, [], []
     | STVar x | STPolyVar x when Atom.Set.find_opt x already_binded <> None  -> already_binded, [], []
     | STVar x | STPolyVar x -> already_binded, [], [x]
     | STRecv (mt, st) | STSend (mt, st) -> 
@@ -1150,7 +1154,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | {value=SetTimer x}::headers -> x::(timers_of_headers headers)
         | {value=SetFireTimer (x,_)}::headers -> raise (Error.DeadbranchError "SetFireTimer should exists before GuardTransform - not supported yet") 
     and timers_of_st_ = function
-    | STEnd -> []
+    | STEnd | STWildcard -> []
     | STRecv ({value=ConstrainedType (_, (guard_headers, _))}, st) | STSend ({value=ConstrainedType (_, (guard_headers, _))}, st) -> 
         (timers_of_headers guard_headers) @ (timers_of_st st)
     and timers_of_st st = timers_of_st_ st.value
@@ -1363,7 +1367,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | LetStmt (mt, x, e) -> (* TODO FIXME expr in type are not yet concerned *)
             LetStmt (mt, x, rewrite_expr_expr selector rewriter e)
         | CommentsStmt c -> CommentsStmt c
-        | BranchStmt {s; label; branches} -> begin 
+        | BranchStmt {s; label; bridge; branches} -> begin 
             let rewrite_branche {branch_label; branch_s;body} =
                 {   
                     branch_label; 
@@ -1374,6 +1378,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             BranchStmt{
                 s       = rewrite_expr_expr selector rewriter s;
                 label   = rewrite_expr_expr selector rewriter label;
+                bridge   = rewrite_expr_expr selector rewriter bridge;
                 branches= List.map rewrite_branche branches
             }
         end
@@ -1557,7 +1562,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | ExpressionStmt e -> ExpressionStmt (rewrite_expr e)
     | BlockStmt stmts -> BlockStmt (List.map rewrite_stmt stmts)
     | GhostStmt stmt -> GhostStmt (rewrite_stmt stmt)
-    | BranchStmt {s; label; branches} -> begin 
+    | BranchStmt {s; label; bridge; branches} -> begin 
         let rewrite_branche {branch_label; branch_s;body} =
             {   
                 branch_label; 
@@ -1568,6 +1573,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         BranchStmt{
             s       = rewrite_expr s;
             label   = rewrite_expr label;
+            bridge   = rewrite_expr bridge;
             branches= List.map rewrite_branche branches
         }
     end

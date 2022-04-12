@@ -4,7 +4,7 @@ open Easy_logging
 open Utils
 open AstUtils
 
-let logger = Logging.make_logger "_1_ compspec" Debug [];;
+let logger = Logging.make_logger "_1_ compspec.commsimpl.RecvElimination" Debug [];;
 let fplace = (Error.forge_place "RecvElimination" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
@@ -331,7 +331,8 @@ module Make () : Sig = struct
             let intermediate_ports = [intermediate_port] in
 
             (*** Since we introduce intermediate let (even for same variable) we need to attribute fresh identities ***)
-            let to_rename = Atom.VMap.of_list (List.map (function (_,x) -> x, Atom.fresh (Atom.hint x)) intermediate_args) in
+            let to_rename = Atom.VMap.of_list (List.map (function (_,x) -> 
+                x, Atom.fresh (Atom.hint x)) intermediate_args) in
             let renaming x = match Atom.VMap.find_opt x to_rename with 
                 | Some y -> y  
                 | None -> x

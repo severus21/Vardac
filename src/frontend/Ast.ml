@@ -172,6 +172,7 @@ and _stmt =
     | BranchStmt of {
         s: expr;
         label: expr;
+        bridge: expr; (* dirty fix should be remove when receive will not need it anymore *)
         branches: branch_stmt list 
     }
 

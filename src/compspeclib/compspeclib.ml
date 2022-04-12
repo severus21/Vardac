@@ -20,6 +20,7 @@ module TypeChecking = IRCompilationPass.Make(Core.TypeChecking)
 module TypeInference1 = IRCompilationPass.Make(Core.TypeInference.Make())
 module TypeInference2 = IRCompilationPass.Make(Core.TypeInference.Make())
 module TypeInference3 = IRCompilationPass.Make(Core.TypeInference.Make())
+module TypeInference4 = IRCompilationPass.Make(Core.TypeInference.Make())
 module EventAutoBoxing = IRCompilationPass.Make(Core.EventAutoBoxing.Make())
 
 let process_check build_dir places_file filename = 
@@ -80,7 +81,6 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         (* Clean derived code *)
         |> Core.PartialEval.peval_program
         |> ImplicitElimination.apply
-        
         |> CommSimpl.apply (* Transform receive to async + ports *) 
 
         (* Every pass that change ports and components should be performed before runngin the Intercept transformation *)
@@ -93,6 +93,8 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
 
         |> EventAutoBoxing.apply
+        |> TypeInference4.apply (*Needed since we introduce new constructions *)
+        |> CommSimpl.apply (* Transform receive to async + ports *) 
     in
 
     ir3

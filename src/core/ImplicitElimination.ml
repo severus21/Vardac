@@ -3,7 +3,7 @@ open Easy_logging
 open Utils
 open AstUtils
 
-let logger = Logging.make_logger "_1_ compspec" Debug [];;
+let logger = Logging.make_logger "_1_ compspec.ImplicitElimination" Debug [];;
 module type Params = sig
     val gamma : (IR.expr_variable, IR.main_type) Hashtbl.t
     val targets : Target.targets 

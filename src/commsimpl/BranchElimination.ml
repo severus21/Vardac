@@ -5,7 +5,7 @@ open Utils
 open AstUtils
 open IRMisc
 
-let logger = Logging.make_logger "_1_ compspec" Debug [];;
+let logger = Logging.make_logger "_1_ compspec.commsimpl.BranchElimination" Debug [];;
 let fplace = (Error.forge_place "BranchElimination" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
@@ -53,30 +53,38 @@ module Make () : Sig = struct
 
 
     let rewritor place = function 
-    | BranchStmt {s; label; branches} ->
+    | BranchStmt {s; label; bridge; branches} ->
         let mt_st = snd s.value in
 
-        let local_res, e_local_res = e_param_of "res" in
-        let local_label, e_local_label = e_param_of "label" in 
-        let local_s, e_local_s = e_param_of "s" in 
+        let local_res = Atom.fresh "res" in
+        let mt_local_res = 
+            mtype_of_ct (TTuple [
+                mtype_of_ft TBLabel;
+                mt_st 
+            ]) 
+        in
+        let e_local_res = auto_fplace (VarExpr local_res, mt_local_res) in
+        let local_label = Atom.fresh "label" in 
+        let mt_local_label = mtype_of_ft TBLabel in
+        let e_local_label = auto_fplace (VarExpr local_label, mt_local_label) in
+
+        let local_s = Atom.fresh "s" in 
+        let e_local_s = auto_fplace (VarExpr local_s, mt_st) in
 
         (*** Headers ***)
         [
-            (* tuple<blabel, ...> tmp = receive(s); *)
+            (* tuple<blabel, ...> tmp = receive(s, bridge); *)
             LetStmt(
-                mtype_of_ct (TTuple [
-                    mtype_of_ft TBLabel;
-                    mt_st 
-                ]),
+                mt_local_res,
                 local_res,
                 e2_e (CallExpr(
                     e2var (Atom.builtin "receive"),
-                    [ s ]
+                    [ s; bridge ]
                 ))
             );
             (* blabel label = tmp._0); *)
             LetStmt(
-                mtype_of_ft TBLabel,
+                mt_local_label,
                 local_label,
                 e2_e (AccessExpr(
                     e_local_res,

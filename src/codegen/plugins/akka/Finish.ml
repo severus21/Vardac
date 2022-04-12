@@ -360,6 +360,12 @@ module Make () = struct
         | S.STRec (_,st) -> failwith "Not yet supported"
         | S.STInline x -> 
             raise (Error.PlacedDeadbranchError (place, "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass."))
+        | S.STWildcard -> 
+            (* FIXME TODO WARNING dirty hack since we do not have working mgu to unify receive bridge type with concrete type
+            then temporaly we return STEnd encoding *)
+            T.NewExpr (auto_place (T.VarExpr (a_ASTStype_of "End"), auto_place T.TUnknown), []), auto_place T.TUnknown
+            (* The correct behaviour is *)
+            (* raise (Error.PlacedDeadbranchError (place, "STWildcard should have been concretized during type inference.")) *)
     and fvstype st : T.expr = map_place finishv_stype st
 
     and finish_component_type place : S._component_type -> T._ctype = function
