@@ -4,6 +4,7 @@ WORKDIR /home/gradle/src
 RUN gradle {% for name in target_mains %} jar{{name[0]|capitalize}}{{substring(1,strlen(name), name)}}{%endfor%}
 
 FROM openjdk:11.0.13-jre-buster
+RUN wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh -O /bin/wait-for-it.sh && chmod u+x /bin/wait-for-it.sh
 COPY --from=build /home/gradle/src/build/libs/* /bin/{{project_name}}/
 WORKDIR /bin/{{project_name}}
 EXPOSE 25520/tcp
