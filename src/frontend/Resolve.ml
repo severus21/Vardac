@@ -124,10 +124,12 @@ and resolve_program (prog: S.program) : T.program =
 
 
 (**********************************************************)
-
+let name = "Resolve"
 let displayed_pass_shortdescription = "AST is resolved"
 let displayed_ast_name = "ResolvedAst"
 let show_ast = true
+let global_at_most_once_apply = false
+
 let precondition program = program
 let postcondition program = program
 let apply_program = resolve_program

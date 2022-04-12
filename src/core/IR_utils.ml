@@ -80,6 +80,8 @@ and find_lca_program names program =
     see semantics of IR_utils.insert_in_terms for insertion into lca
 *)
 let insert_terms_into_lca (parents: (Atom.atom option) list) terms_to_insert program = 
+    assert( parents <> []);
+
     let common_ancestor_name = 
         if List.mem None parents then ( (* LCA = Top-level *)
             None

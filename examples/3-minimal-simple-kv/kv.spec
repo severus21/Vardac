@@ -44,7 +44,7 @@ component KVServer {
     value get(key k){
         return value(this._get(k));
     }
-    string _get(key k);
+    int _get(key k);
     bool put(key k, value v); 
 }
 

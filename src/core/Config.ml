@@ -41,3 +41,23 @@ let _keep_ghost = ref false
 let keep_ghost = function () -> !_keep_ghost
 
 let default_build_dir = Fpath.add_seg (Fpath.v (Sys.getcwd())) "compiler-build" 
+
+
+(***************************************)
+(* Recall applied compilation pass
+    This used to ensure at_most_once_apply guarantee for some pass
+    Assuming that name is unique
+*)
+let applied_passes : (string, unit) Hashtbl.t = Hashtbl.create 32
+let passes_history = ref []
+let register_pass name =
+    Hashtbl.add applied_passes name ();
+    passes_history := name::!passes_history;
+    ()
+
+let already_applied_pass name = 
+    Hashtbl.find_opt applied_passes name <> None
+
+let is_first_apply_pass name = 
+    Hashtbl.find_opt applied_passes name = None
+

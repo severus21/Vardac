@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.UUID;
 import java.util.Set;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.List;
 
 
@@ -23,7 +24,7 @@ public class Handlers {
         ActivationRef self,
         Set<UUID> frozen_sessions,
         Set<UUID> dead_sessions, 
-        List<Map<UUID, ?>> intermediate_states, 
+        List<HashMap<UUID, ?>> intermediate_states, 
         HBSessionTimer timerMsg
     ){
         context.getLog().debug("receive HBSessionTimer");
@@ -38,7 +39,7 @@ public class Handlers {
         ActivationRef self,
         Set<UUID> frozen_sessions,
         Set<UUID> dead_sessions, 
-        List<Map<UUID, ?>> intermediate_states,
+        List<HashMap<UUID, ?>> intermediate_states,
         LBSessionTimer timerMsg
     ){
         context.getLog().debug("receive LBSessionTimer");
@@ -52,7 +53,7 @@ public class Handlers {
         ActivationRef self,
         Set<UUID> frozen_sessions,
         Set<UUID> dead_sessions, 
-        List<Map<UUID, ?>> intermediate_states,
+        List<HashMap<UUID, ?>> intermediate_states,
         SessionIsDead timerMsg
     ){
         context.getLog().debug("receive SessionIsDead");
@@ -60,7 +61,7 @@ public class Handlers {
         frozen_sessions.remove(timerMsg.session_id);
         dead_sessions.remove(timerMsg.session_id);
 
-        for ( Map<UUID, ?> intermediate_state : intermediate_states){
+        for ( HashMap<UUID, ?> intermediate_state : intermediate_states){
             intermediate_state.remove(timerMsg.session_id);
         }
         timerMsg.replyTo.actorRef.tell(new AckDeadSession(timerMsg.session_id, self));
@@ -70,7 +71,7 @@ public class Handlers {
         ActivationRef self,
         Set<UUID> frozen_sessions,
         Set<UUID> dead_sessions, 
-        List<Map<UUID, ?>> intermediate_states,
+        List<HashMap<UUID, ?>> intermediate_states,
         AckDeadSession timerMsg
     ){
         context.getLog().debug("receive AckDeadSession");
@@ -78,7 +79,7 @@ public class Handlers {
         frozen_sessions.remove(timerMsg.session_id);
         dead_sessions.remove(timerMsg.session_id);
 
-        for ( Map<UUID, ?> intermediate_state : intermediate_states){
+        for ( HashMap<UUID, ?> intermediate_state : intermediate_states){
             intermediate_state.remove(timerMsg.session_id);
         }
     }

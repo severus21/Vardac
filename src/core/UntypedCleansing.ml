@@ -145,10 +145,11 @@ module Make () = struct
         rewrite_stype_program stype_selector stype_rewriter program
 
     (*****************************************************)
-
+    let name = "UntypedCleansing"
     let displayed_pass_shortdescription = "types has been cleaned from IR"
     let displayed_ast_name = "IR type cleansing"
     let show_ast = true
+    let global_at_most_once_apply = false
 
     let precondition program = program 
 

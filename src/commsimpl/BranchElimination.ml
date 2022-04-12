@@ -105,10 +105,11 @@ module Make () : Sig = struct
         @ (List.map (elim_branch mt_st e_local_label e_local_s) branches) 
 
     (*****************************************************)
-
+    let name = "Commsimpl.BranchElimination"
     let displayed_pass_shortdescription = "branch has been eliminated from IR"
     let displayed_ast_name = "IR branchelim"
     let show_ast = true
+    let global_at_most_once_apply = false
 
 
     let precondition program = program

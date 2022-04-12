@@ -1275,9 +1275,12 @@ module Make(Arg:ArgSig) = struct
 
 
     (**********************************************************)
-
+    let name = "Cook"
     let displayed_pass_shortdescription = "AST is cooked, IR has been generated"
     let displayed_ast_name = "IR"
+    let global_at_most_once_apply = false
+
+
     let show_ast = Config.debug_cook ()
     let precondition program = program
     let postcondition program = program

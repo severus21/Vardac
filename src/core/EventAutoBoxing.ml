@@ -4,7 +4,7 @@ open Utils
 open AstUtils
 open IRMisc
 
-let logger = Logging.make_logger "_1_ compspec" Debug [];;
+let logger = Logging.make_logger "_1_ compspec.EventAutoBoxing" Debug [];;
 let fplace = (Error.forge_place "EventAutoBoxing" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
@@ -69,6 +69,8 @@ module Make () = struct
         
     let needs_autoboxing = function
         | {value=CType {value = TVar x }} -> Hashtbl.find_opt events x = None
+        (* BLabel is a "builtin" event *)
+        | {value=CType {value = TFlatType TBLabel}} -> false
         | _ -> true
 
     let rec _autobox_st _ st = 
@@ -249,7 +251,11 @@ module Make () = struct
         (* TODO
             auto boxing can not works for user-defined types since we insert generate_eventdefs before definitions of those types 
         *)
-        let program = generate_eventdefs () @ program in
+        (* let program = generate_eventdefs () @ program in *)
+
+        (* toplevel *)
+        logger#debug "inserting generated event definitions for autoboxing";
+        let program = IR_utils.insert_terms_into_lca [None] (generate_eventdefs ()) program in
 
         (*** Need to recompute all types ***)
         let program = TypeInference2.apply program in
@@ -259,9 +265,20 @@ module Make () = struct
 
 
     (**********************************************************)
+    let name = "EventAutoBoxing"
     let displayed_pass_shortdescription = "non event msg have been boxed into events"
     let displayed_ast_name = "auto-boxed IR"
     let show_ast = true
+
+    (* This pass needs the global_at_most_once_guarante since
+        it insert new events for each detection
+        TODO: Check if the pass is idempotent: true -> false
+            I don't think so
+    *)
+    let global_at_most_once_apply = true
+
+
+
     let precondition program = program
     let postcondition program = program
     let apply_program = autobox_program

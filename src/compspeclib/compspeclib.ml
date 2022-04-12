@@ -95,6 +95,10 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         |> EventAutoBoxing.apply
         |> TypeInference4.apply (*Needed since we introduce new constructions *)
         |> CommSimpl.apply (* Transform receive to async + ports *) 
+
+
+        (* Last cleansing *)
+        |> PartialEval.apply
     in
 
     ir3

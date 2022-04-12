@@ -38,7 +38,6 @@ let check_program program : unit=
 
 (* Environment *)
 module Env = Atom.VMap 
-let toto = ref 0 
 
 type env = { 
     named_types: (main_type option) Env.t; (* namely the list of typealias with their current definition, 
@@ -152,9 +151,9 @@ and peval_stype env place : _session_type -> env * _session_type =
             match mt with 
             | Some {value=SType st; _} -> 
                 let st = (snd <-> pe_stype env) st in
-                logger#debug "culprit toto";
-                    ignore (collect_type_mtype None Atom.Set.empty stinline_selector stinline_collector {value=SType st; place});
-                logger#debug "tata";
+
+                (* FIXME is this debug code ?? i don't remember ... *)
+                ignore (collect_type_mtype None Atom.Set.empty stinline_selector stinline_collector {value=SType st; place});
                 
                 env, st.value 
             (* FIXME do we want to have the place of the inline (current behviour) or the place of the typealias ??*)
@@ -696,10 +695,12 @@ let peval_program (terms: IR.program) : IR.program =
     program
 
 (**********************************************************)
+let name = "PartialEval"
 let displayed_pass_shortdescription = "IR has been partially evaluated"
 let displayed_ast_name = "pevaled IR"
-
 let show_ast = true
+let global_at_most_once_apply = false
+
 let precondition program = program
 let postcondition program = program
 let apply_program = peval_program

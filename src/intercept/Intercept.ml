@@ -17,10 +17,11 @@ let rewrite_program program =
     InterceptionElimination.apply program
     
 (*********************************************************)
-
+let name = "Intercept"
 let displayed_pass_shortdescription = "Interception in IR compiled away"
 let displayed_ast_name = "interception-less IR"
 let show_ast = true
+let global_at_most_once_apply = false
 
 let interception_selector = function 
     | InterceptedActivationRef _ -> true

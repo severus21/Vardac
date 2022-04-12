@@ -197,9 +197,13 @@ let clean_program program = List.map citem program
 
 (*****************************************************)
 module Make(Arg: sig val filename:string end) = struct
+    let name = "Java.Clean"
     let displayed_pass_shortdescription = Printf.sprintf "Cleaned Lg AST for file %s" Arg.filename
     let displayed_ast_name = "IR recvelim"
     let show_ast = true
+    let global_at_most_once_apply = false
+
+
     let precondition program = program
     let postcondition program = program
     let apply_program = clean_program

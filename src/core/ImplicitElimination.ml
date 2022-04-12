@@ -327,10 +327,12 @@ module Make (Args : Params ) : Sig = struct
         List.map rterm2 terms
 
     (*****************************************************)
+    let name = "ImplicitElimination"
     let displayed_pass_shortdescription = "Implicit have been removed and turned to explicit"
     let displayed_ast_name = "explicit IR"
 
     let show_ast = true
+    let global_at_most_once_apply = false
 
     let precondition program = program 
     let postcondition program = program 

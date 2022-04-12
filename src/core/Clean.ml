@@ -34,9 +34,11 @@ let clean_program program =
     rewrite_stmt_program true stmt_selector stmt_rewriter program    
 
 (*****************************************************)
+let name = "Clean"
 let displayed_pass_shortdescription = "IR has been cleaned"
 let displayed_ast_name = "cleaned IR"
 let show_ast = true
+let global_at_most_once_apply = false
 
 let precondition program = program
 

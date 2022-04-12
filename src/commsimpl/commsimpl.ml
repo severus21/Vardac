@@ -13,10 +13,11 @@ let rewrite_program program=
     |> RecvElimination.apply
     
 (*********************************************************)
-
+let name = "Commsimpl"
 let displayed_pass_shortdescription = "Communication has been simplified"
 let displayed_ast_name = "simple-comm IR"
 let show_ast = true
+let global_at_most_once_apply = false
 
 let precondition program = program
 

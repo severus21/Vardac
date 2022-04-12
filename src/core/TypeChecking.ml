@@ -439,9 +439,12 @@ and tcheck_program program =
     program
 
 (**********************************************************)
+let name = "TypeChecking"
 let displayed_pass_shortdescription = "IR has been typed checked successfully"
 let displayed_ast_name = "annotated IR (with types)"
 let show_ast = true
+let global_at_most_once_apply = false
+
 let precondition program = program
 let postcondition program = program
 let apply_program = tcheck_program

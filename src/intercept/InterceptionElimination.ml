@@ -1356,10 +1356,12 @@ module Make (Args: TArgs) = struct
         program
 
     (*********************************************************)
-
+    let name = "InterceptionElimination"
     let displayed_pass_shortdescription = "interception logic has been eliminated from IR"
     let displayed_ast_name = "interception-eliminated IR"
     let show_ast = true
+    let global_at_most_once_apply = false
+
     let precondition program = program
 
     let postcondition program = 

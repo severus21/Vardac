@@ -9,6 +9,8 @@ let fplace = (Error.forge_place "RecvElimination" 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
+let pass_name = "Commsimpl.RecvElimination"
+
 let receive_selector = function 
     | (CallExpr ({value=(VarExpr x, _)}, [s; bridge])as e) when Atom.is_builtin x && Atom.hint x = "receive" -> true
     | _ -> false
@@ -570,20 +572,29 @@ module Make () : Sig = struct
         let intermediate_state_names = List.flatten(intermediate_state_names) in
         let body = List.flatten body in
 
-        (*List<Map<UUID, ?>> this.intermediate_states = new ArrayList(); [this. ....]; registration at each creation*)
-        let a_intermediate_states = Atom.fresh "recv_intermediate_states" in
-        let intermediate_states_index = auto_place(State( auto_place(StateDcl { 
-            ghost = false;
-            type0 = auto_fplace(CType(auto_fplace (TList(
-                        auto_fplace(CType(auto_fplace (TDict(
-                            auto_fplace (CType (auto_fplace (TFlatType TUUID))), 
-                            auto_fplace (CType (auto_fplace (TFlatType TWildcard))) 
-                        ))))
-            ))));
-            name = a_intermediate_states;
-            body = Some (e2_e(BlockExpr(List, [])))
-        }))) in
-        let body = body @ [intermediate_states_index] in 
+        let body = 
+            if Config.is_first_apply_pass pass_name then begin
+                (*List<Map<TSessionId, ?>> this.intermediate_states = new ArrayList(); [this. ....]; registration at each creation*)
+                (* Tips: we use Atom.builtin since Java code in externals needs to access the state, we can template it 
+                    FIXME Atom.builtin -> Atom.fresh to preserve binder unicity
+                *)
+                let a_intermediate_states = Atom.builtin "intermediate_states" in
+                let intermediate_states_index = auto_place(State( auto_place(StateDcl { 
+                    ghost = false;
+                    type0 = auto_fplace(CType(auto_fplace (TList(
+                                auto_fplace(CType(auto_fplace (TDict(
+                                    auto_fplace (CType (auto_fplace (TFlatType TUUID))), 
+                                    auto_fplace (CType (auto_fplace (TFlatType TWildcard))) 
+                                ))))
+                    ))));
+                    name = a_intermediate_states;
+                    body = Some (e2_e(BlockExpr(List, [])))
+                }))) in
+
+                body @ [intermediate_states_index]
+            end
+            else body
+        in
 
         ComponentStructure { cdcl with body }
     and rcdcl cdcl = map_place rewrite_component_dcl cdcl 
@@ -605,10 +616,15 @@ module Make () : Sig = struct
         List.map rterm program
     
     (*****************************************************)
-
+    let name = pass_name 
     let displayed_pass_shortdescription = "recv has been eliminated from IR"
     let displayed_ast_name = "IR recvelim"
     let show_ast = true
+    let global_at_most_once_apply = false  
+    (* To ensure that this pass only insert one "intermediate_states" per component
+        we protect the insertion with "is_first_apply name"
+    *)
+
 
 
     let precondition program = 

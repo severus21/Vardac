@@ -755,10 +755,11 @@ module Make () = struct
         program
 
     (*********************************************************)
-
+    let name = "Interception.ContextElimination"
     let displayed_pass_shortdescription = "interception ctx has been eliminated from IR"
     let displayed_ast_name = "interception-ctx-eliminated IR"
     let show_ast = true
+    let global_at_most_once_apply = false
 
 
     let precondition program = program

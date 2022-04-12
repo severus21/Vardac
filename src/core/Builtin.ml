@@ -61,11 +61,11 @@ let t_fire () =
     *)
     mtype_of_ct(TArrow(
         mtype_of_st(STSend(
-            mtype_of_ft TWildcard, auto_fplace STEnd 
+            mtype_of_ft TBottom, auto_fplace STEnd (* see t_recive for TBottom *)
         )),
         mtype_of_ct(TArrow(
-            mtype_of_ft TWildcard,
-            mtype_of_ft TWildcard
+            mtype_of_ft TBottom,
+            mtype_of_st STWildcard
         ))
     ))
 let t_receive () = 
@@ -87,13 +87,17 @@ let t_receive () =
         )*)
     mtype_of_ct(TArrow(
         mtype_of_st(STRecv(
-            mtype_of_ft TWildcard, auto_fplace STEnd 
+            (* TBottom should be wildcard or better a quantified universal type
+            for now it is a TBottom to be translated to java "Object" 
+            FIXME TODO when mgu 
+            *)
+            mtype_of_ft TBottom, auto_fplace STEnd 
         )),
         mtype_of_ct(TArrow(
             fresh_tbridge (), (* FIXME bridge since we still need for RecvElim => should be removed and access parent ports bridge *)
             mtype_of_ct(TTuple
                 [
-                    mtype_of_ft TWildcard;
+                    mtype_of_ft TBottom; (* Same as previous TBottom*)
                     mtype_of_st STWildcard
                 ]
             )

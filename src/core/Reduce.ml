@@ -58,9 +58,12 @@ and reduce_program (terms: IR.program) : IR.program =
     List.map r_term terms
 
 (**********************************************************)
+let name = "Reduce"
 let displayed_pass_shortdescription = "IR has been reduced"
 let displayed_ast_name = "reduced IR"
 let show_ast = true
+let global_at_most_once_apply = false
+
 let precondition program = program
 let postcondition program = program
 let apply_program = reduce_program

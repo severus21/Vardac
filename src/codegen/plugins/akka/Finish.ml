@@ -170,7 +170,8 @@ module Make () = struct
             | AstUtils.TStr -> T.Atomic "String"
             | AstUtils.TVoid -> T.Atomic "Void" 
             | AstUtils.TUUID -> T.Atomic "UUID" 
-            | AstUtils.TWildcard -> T.Atomic "Object"
+            | AstUtils.TWildcard -> T.Atomic "?"
+            | AstUtils.TBottom -> T.Atomic "Object"
             | AstUtils.TPlace -> (t_lg4dc_place place).value
             | AstUtils.TBLabel -> T.Atomic "LabelEvent"
         end
@@ -1021,7 +1022,7 @@ module Make () = struct
                     a_dead_sesison,
                     Some (auto_place(T.BlockExpr(Core.AstUtils.Set, []), auto_place T.TUnknown))
                 ))]
-            }
+            };
         ] @ states in
 
         (*** Outports ***)
@@ -1742,9 +1743,12 @@ module Make () = struct
         }
 
     (*****************************************************)
+    let name = "Akka.Finish"
     let displayed_pass_shortdescription = Printf.sprintf "Codegen: Runtime AST" 
     let displayed_ast_name = "Runtime AST"
     let show_ast = true
+    let global_at_most_once_apply = false
+
     let precondition program = program
     let postcondition program = program
     let apply_program = finish_program

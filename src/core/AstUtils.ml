@@ -71,7 +71,8 @@ type flat_type =
     | TPlace
     | TSessionID (* can not be created by programmer -> no constructor *)
     | TTimer
-    | TWildcard
+    | TWildcard (* e.g. ? *)
+    | TBottom (* e.g. object in Java *)
 [@@deriving show { with_path = false }]
 
 type unop = 
