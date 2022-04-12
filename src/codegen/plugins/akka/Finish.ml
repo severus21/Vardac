@@ -170,7 +170,7 @@ module Make () = struct
             | AstUtils.TStr -> T.Atomic "String"
             | AstUtils.TVoid -> T.Atomic "Void" 
             | AstUtils.TUUID -> T.Atomic "UUID" 
-            | AstUtils.TWildcard -> T.Atomic "?"
+            | AstUtils.TWildcard -> T.Atomic "Object"
             | AstUtils.TPlace -> (t_lg4dc_place place).value
             | AstUtils.TBLabel -> T.Atomic "LabelEvent"
         end
@@ -1609,6 +1609,8 @@ module Make () = struct
                 v = T.Event (finish_eventdef inner_place (name, mts, None)) 
             }
         }]
+
+    (* Inductive type definition *)
     | S.Typedef  {value= ClassicalDef (name, args, None) as tdef; place} -> (* implicit constructor should translate to akka *)
         (* Registration *)
         Hashtbl.add to_capitalize_variables name ();

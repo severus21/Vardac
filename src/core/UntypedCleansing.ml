@@ -30,11 +30,13 @@ module Make () = struct
             | Typedef {value=ProtocolDef (x,mt)} -> 
                 Hashtbl.add typedefs x mt; true
             | Typedef {value=EventDef (x,args, ())} -> 
-                Hashtbl.add typedefs x (mtype_of_ct(TTuple args)); true
+                (* Event type is not aliasing *)
+                false
             | Typedef {value=VPlaceDef x} -> 
                 Hashtbl.add typedefs x (mtype_of_ct(TTuple [])); true
             | Typedef {value=ClassicalDef (x, args, ())} -> 
-                Hashtbl.add typedefs x (mtype_of_ct(TTuple args)); true
+                (* Inductive type is not aliasing *)
+                false
             | Typealias (x, body) -> begin 
                 match body with 
                 | None -> true (* TODO why an option for type alias*)
@@ -63,7 +65,7 @@ module Make () = struct
 
         let rec unalias mt0 =
             let rec _alias_rewriter already_seen place = function
-                | CType {place; value=TVar x} -> begin 
+                | CType {place; value=TVar x} as mt0-> begin 
                     (* Cycle detection *)
                     if Atom.Set.mem x already_seen then
                         Error.error place "cyclic type alias detected"
@@ -71,11 +73,11 @@ module Make () = struct
 
                     let already_seen = Atom.Set.add x already_seen in
 
-                    try
-                        let mt = Hashtbl.find typedefs x in
+                    match Hashtbl.find_opt typedefs x with
+                    | Some mt -> 
                         (* Recursive cleansing*)
                         (unalias (alias_rewriter already_seen mt)).value
-                    with Not_found ->  raise (PlacedDeadbranchError (place, Printf.sprintf "Unalias TVar: type [%s] is unknown" (Atom.to_string x))) 
+                    | None -> mt0  
                 end
                 | SType{place; value=STInline x} -> begin 
                     try

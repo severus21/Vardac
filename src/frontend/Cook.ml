@@ -1215,6 +1215,8 @@ module Make(Arg:ArgSig) = struct
             ]
         with Not_found -> Error.error place "vplace does not exists in configuration file"
     end
+    
+    (* Inductive type for now *)
     | Typedef {value= ClassicalDef (x, args) as tdef; place} | Typedef {value= EventDef (x, args) as tdef; place} -> 
         let new_env1, y = bind_type env place x in
         (* Type constructor for typedef *)
@@ -1226,7 +1228,7 @@ module Make(Arg:ArgSig) = struct
         let constructor_type = mtype_of_fun2 args (auto_fplace(T.CType(auto_fplace(T.TVar y)))) in 
         
         register_gamma y constructor_type;
-        register_gamma_types y (mtype_of_ct (T.TTuple args)); (* TODO use an external fct to compute the type of a typedef - shared with type, maybe defined in TypingUtils *)
+        register_gamma_types y (mtype_of_ct (T.TInductive args)); (* TODO use an external fct to compute the type of a typedef - shared with type, maybe defined in TypingUtils *)
 
         new_env2 << envs, [T.Typedef ({ place; value = 
         match tdef with 

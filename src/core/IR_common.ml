@@ -45,6 +45,7 @@ module type TIRC = sig
         | TResult of main_type * main_type
         | TSet of main_type
         | TTuple of main_type list
+        | TInductive of main_type list
         | TVPlace of main_type
 
         | TUnion of main_type * main_type
@@ -317,6 +318,9 @@ module type TIRC = sig
     val free_vars_expr : Variable.Set.t -> expr -> Variable.Set.t * (main_type*expr_variable) list
     val free_vars_stmt : Variable.Set.t -> stmt -> Variable.Set.t * (main_type*expr_variable) list
     val free_vars_mtype : Variable.Set.t -> main_type -> Variable.Set.t * (main_type*expr_variable) list
+
+    val free_tvars_expr : Atom.Set.t -> expr -> Atom.Set.t * type_variable list
+    val free_tvars_stmt : Atom.Set.t -> stmt -> Atom.Set.t * type_variable list
     val free_tvars_mtype : Atom.Set.t -> main_type -> Atom.Set.t * type_variable list
     val  timers_of_headers : constraint_header list -> expr_variable list
     val rewrite_type_mtype : ( _main_type -> bool) -> (_main_type -> _main_type) -> main_type -> main_type
@@ -378,6 +382,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | TResult of main_type * main_type
         | TSet of main_type
         | TTuple of main_type list
+        | TInductive of main_type list
         | TVPlace of main_type
 
         | TUnion of main_type * main_type
@@ -890,7 +895,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let _,  collected_elts2, ftvars2 = collect_mtype b.out_type in
         let _,  collected_elts3, ftvars3 = collect_mtype b.protocol in
         already_binded,  collected_elts1@collected_elts2@collected_elts3, ftvars1@ftvars2@ftvars3
-    | TTuple mts -> 
+    | TTuple mts | TInductive mts -> 
         let collected_elts, ftvars = collect_type_mtypes parent_opt already_binded selector collector mts in
         already_binded, collected_elts, ftvars
     | TVar x | TPolyVar x when Atom.Set.find_opt x already_binded <> None  -> already_binded, [], [] 
@@ -1082,7 +1087,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     and collect_type_expr parent_opt already_binded selector collector e =       
         map0_place (collect_type_expr_ parent_opt already_binded selector collector) e 
 
-    and free_tvars_expr (already_binded:Atom.Set.t) e = 
+    and free_tvars_expr (already_binded:Atom.Set.t) (e:expr) = 
         let already_binded, _, ftvars = collect_type_expr None  already_binded (function e -> false) (fun parent_opt env e -> []) e in
         already_binded, Utils.deduplicate Fun.id ftvars 
 
@@ -1198,6 +1203,11 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         ) 
         | TSet mt -> TSet (replace_type_main_type x_to_replace replaceby mt)
         | TTuple mts -> TTuple (
+            List.map (
+                replace_type_main_type x_to_replace replaceby
+            ) mts
+        ) 
+        | TInductive mts -> TInductive (
             List.map (
                 replace_type_main_type x_to_replace replaceby
             ) mts
@@ -1455,6 +1465,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | TResult (mt1, mt2) -> TResult (rewrite_mtype mt1, rewrite_mtype mt2)
         | TSet mt -> TSet (rewrite_mtype mt) 
         | TTuple mts -> TTuple (List.map rewrite_mtype mts) 
+        | TInductive mts -> TInductive (List.map rewrite_mtype mts) 
         | TVPlace mt -> TVPlace (rewrite_mtype mt) 
         | TUnion (mt1, mt2) -> TUnion (rewrite_mtype mt1, rewrite_mtype mt2) 
         | TBridge tb -> TBridge {
@@ -1777,6 +1788,7 @@ and rewrite_stype_aconstraint selector rewriter =
     | TFlatType TInt, TFlatType TTimer | TFlatType TTimer, TFlatType TInt -> true 
     | TFlatType ft1, TFlatType ft2 -> ft1 = ft2
     | TTuple mts1, TTuple mts2 -> List.equal equal_mtype mts1 mts2
+    | TInductive mts1, TInductive mts2 -> List.equal equal_mtype mts1 mts2
     | TBridge b1, TBridge b2 ->
         equal_mtype b1.in_type b2.in_type &&
         equal_mtype b1.out_type b2.out_type &&

@@ -16,14 +16,14 @@ impl component KVServer {
         // Open a socket to the local redis backend
         JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%port(current_place())%}});
         // Perform the GET request on key [k]
-        return jedis.sget({{%k._0_%}});
+        return jedis.get({{%k._0_%}});
 =}
 
     void put () java:{=
         // Open a socket to the local redis backend
         JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%port(current_place())%}});
-        // Perform the GET request on key [k]
-        return jedis.sget({{%k._0_%}}, {{%v%}});
+        // Perform the PUT request on key [k]
+        return jedis.sadd({{%k._0_%}}, {{%v._0_%}}.to_string());
 =}
 
 }

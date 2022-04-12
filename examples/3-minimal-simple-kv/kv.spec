@@ -73,7 +73,7 @@ component Client {
         session<p_kv> s = initiate_session_with(this.p_out, this.kv);
 
         !tuple<key, value>?bool. s = select(s, "put");
-        ?bool. s = fire(s, (k, value()));
+        ?bool. s = fire(s, (k, v));
 
         (*assert(receive(s, this.b)._0);*) //TODO assert do not exit
     }

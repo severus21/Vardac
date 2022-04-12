@@ -30,7 +30,10 @@ let auto_place smth = {place = fplace; value=smth} in
     | AccessMethod (e, x) -> AccessMethod (cexpr e, x)
     | AppExpr (e, es) as e0 -> begin 
         match (snd e.value).value with
-            | ClassOrInterfaceType  ({value=TAtomic "Function"}, _::[t_ret]) -> begin
+            | ClassOrInterfaceType  ({value=TAtomic "Function"}, targs) -> begin
+                assert(List.length targs > 0);
+                let t_ret = List.nth targs (List.length targs - 1) in
+
                 match fst e.value with
                 | LambdaExpr ([(t1, _)], _) ->
                     AppExpr(
@@ -44,6 +47,24 @@ let auto_place smth = {place = fplace; value=smth} in
                         es
                     )
                 | LambdaExpr ([(t1, _); (t2,_)], _) ->
+
+                    (* t_ret must be rewritten to erase t2 since we group in BiFunction 
+                    because, in Java, 
+                        type a -> b -> c is not the same than a-> (b -> c)
+                        and Varda is working with curryfied types for now
+                        however we can not curryfied appexpr since there is no partial function/method in Java .....
+
+                        Our transformation encoding works for lambda with one or two args only
+                    *)
+
+                    let t_ret = match t_ret.value with
+                        | ClassOrInterfaceType  ({value=TAtomic "Function"}, _::[t]) -> t
+                        | ClassOrInterfaceType  ({place; value=TAtomic "Function"}, _::targs) -> 
+                            {
+                                place= t_ret.place; value=ClassOrInterfaceType  ({place; value=TAtomic "Function"}, targs)
+                            }
+                    in
+
                     AppExpr(
                         auto_place(AccessExpr(
                             auto_place(CastExpr(
@@ -54,6 +75,9 @@ let auto_place smth = {place = fplace; value=smth} in
                         ), auto_place TUnknown),
                         es
                     )
+            | LambdaExpr _ -> failwith "LambdaExpr with more than two args are not yet supported (Akka Plg)"
+            | _ -> 
+                AppExpr (cexpr e, List.map cexpr es)
             end
             | _ -> AppExpr (cexpr e, List.map cexpr es)
     end

@@ -409,7 +409,9 @@ module Make () : Sig = struct
                     let duplicate_stmts stmts = 
                         let _, fvars = List.split (List.map (free_vars_stmt Atom.Set.empty) stmts) in
                         let fvars = List.flatten fvars in
-                        let not_to_rename = Atom.Set.of_list (List.map snd fvars) in
+                        let _, ftvars = List.split (List.map (free_tvars_stmt Atom.Set.empty) stmts) in
+                        let ftvars = List.flatten ftvars in
+                        let not_to_rename = Atom.Set.of_list ((List.map snd fvars)@ftvars) in
                         let renaming =
                             let state = Hashtbl.create 16 in
                             function x -> 
@@ -421,6 +423,7 @@ module Make () : Sig = struct
                                     match Hashtbl.find_opt state x with 
                                     | Some y -> y 
                                     | None -> begin
+                                        logger#warning "sfs %s" (Atom.hint x);
                                         let y = Atom.fresh (Atom.hint x) in 
                                         Hashtbl.add state x y;
                                         y

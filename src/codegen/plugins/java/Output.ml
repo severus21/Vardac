@@ -297,6 +297,7 @@ let output_program package_name outpath items : unit =
         JModule (mock_placed(ImportDirective "java.util.UUID"));
         JModule (mock_placed(ImportDirective "java.util.stream.Collectors"));
         JModule (mock_placed(ImportDirective "java.util.function.Function"));
+        JModule (mock_placed(ImportDirective "java.util.function.BiFunction"));
 
         (* Jackson (serialization) *)
         JModule (mock_placed(ImportDirective "com.fasterxml.jackson.annotation.JsonProperty"));
