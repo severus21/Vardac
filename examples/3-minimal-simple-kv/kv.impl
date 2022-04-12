@@ -12,7 +12,7 @@ impl component Client {
 
 impl component KVServer {
     (* binding for the get method *)
-    void get () java:{=
+    void _get () java:{=
         // Open a socket to the local redis backend
         JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%port(current_place())%}});
         // Perform the GET request on key [k]
@@ -23,7 +23,7 @@ impl component KVServer {
         // Open a socket to the local redis backend
         JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%port(current_place())%}});
         // Perform the PUT request on key [k]
-        return jedis.sadd({{%k._0_%}}, {{%v._0_%}}.to_string());
+        return jedis.sadd({{%k._0_%}}, {{%v._0_%}}.toString()) == 0;
 =}
 
 }

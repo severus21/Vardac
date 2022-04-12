@@ -41,7 +41,10 @@ component KVServer {
     }
 
     (*** Impl of get and put out of the scope of the glu, i.e., defined as abstract methods ***)
-    value get(key k);
+    value get(key k){
+        return value(this._get(k));
+    }
+    string _get(key k);
     bool put(key k, value v); 
 }
 
