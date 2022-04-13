@@ -30,6 +30,14 @@ public class Session implements CborSerializable {
         ASTStype.Base st,
         Boolean init_stage,
         Optional<ActivationRef> hidden_right) {
+
+        assert(bridge_id != null);
+        assert(right != null);
+        assert(left != null);
+        assert(st != null);
+        assert(init_stage != null);
+        assert(hidden_right != null);
+
         this.bridge_id = bridge_id;
         this.session_id = UUID.randomUUID();
         this.left = left;

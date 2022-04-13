@@ -17,6 +17,8 @@ public final class OutPort<P extends Protocol> implements CborSerializable, Json
     
     @JsonCreator 
     public OutPort (Bridge<P> bridge){
+        assert(bridge != null);
+
         this.bridge = bridge;
     }
 
@@ -29,11 +31,23 @@ public final class OutPort<P extends Protocol> implements CborSerializable, Json
         ActivationRef to,
         Optional<ActivationRef> hidden_to
     ){
+        assert(null!=null);
         assert(from != null);
         assert(to != null);
         assert(this.bridge != null);
+        assert(this.bridge.id != null);
+        assert(this.bridge.protocol != null);
+        assert(this.bridge.protocol.get_st() != null);
+        assert(hidden_to != null);
 
-        return new Session(this.bridge.id, from, to, this.bridge.protocol.get_st(), true, hidden_to);
+        Session t = new Session(
+            this.bridge.id, 
+            from, 
+            to, 
+            this.bridge.protocol.get_st(), 
+            true,
+            hidden_to);
+        return t;
     }    
 
     public boolean equals(Object obj) {

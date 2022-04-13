@@ -11,6 +11,7 @@ component KVServer {
     bridge<Client, KVServer, p_kv> b;
 
     onstartup (bridge<Client, KVServer, p_kv> b){
+        print(">>> Starting a KVServer instance");
         this.b = b;
     }
 
@@ -55,8 +56,12 @@ component Client {
     outport p_out on this.b :: bridge<Client, KVServer, p_kv>;
 
     onstartup (bridge<Client, KVServer, p_kv> b, activation_ref<KVServer> kv){
+        print(">>> Starting a Client instance");
         this.b = b;
         this.kv = kv;
+        
+        this.put(key("Key1"), value(10));
+        this.get(key("Key1"));
     }
 
     void get(key k){
@@ -69,6 +74,11 @@ component Client {
         (* TODO maybe use polyapp *)
         tuple<int, .> tmp = receive(s, this.b);
         int ret = tmp._0;
+        
+        (* TODO print(f">> get success {{ret}}");*)
+        print(">> get success");
+        print(int_to_string(ret));
+        print("");
         return ();//TODO current recv-elim can not return :')
     }
 
@@ -83,10 +93,12 @@ component Client {
 }
 component TopLevel {
     onstartup () {
+        print(">> Entering toplevel");
         bridge<Client, KVServer, p_kv> b = bridge(p_kv);
 
         activation_ref<KVServer> kv_a = spawn KVServer(b);
         activation_ref<KVServer> kv_b = spawn KVServer(b);
         activation_ref<Client> c = spawn Client(b, kv_a);
+        print(">> Ending toplevel");
     }
 }

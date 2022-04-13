@@ -265,7 +265,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             )
         | _ -> Error.error place "print must take one argument" 
     end
-    | "place_to_string" -> begin
+    | "place_to_string" | "int_to_string" -> begin
         match args with
         | [p] -> T.CallExpr(
             auto_place(T.AccessExpr (
@@ -274,7 +274,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             ), auto_place T.TUnknown),
             []
         )
-        | _ -> Error.error place "places must take one argument"
+        | _ -> Error.error place "X_to_string takes one arg"
     end
     | "initiate_session_with" -> begin
         (* TODO i need to get the name of the type of the protocol 

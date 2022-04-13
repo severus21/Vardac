@@ -19,7 +19,7 @@ services:
       "-vp", "Cloud"
     ]
 # cd ../akka && gradle jarPassivePlayer
-# java -jar build/libs/passivePlayer.jar -ip 127.0.0.1 -p 25520 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp placeB 
+# java -enableassertions  -jar build/libs/passivePlayer.jar -ip 127.0.0.1 -p 25520 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp placeB 
 
   server2:
     build: .
@@ -42,4 +42,4 @@ services:
       "-vp", "placeA"
     ]
 # cd ../akka && gradle jarMultiPlayer
-# java -jar build/libs/multiPlayer.jar -ip 127.0.0.1 -p 25521 -s akka://{{system_name}}@127.0.0.1:25520 -l 8081 -vp placeA
+# java -enableassertions -jar build/libs/multiPlayer.jar -ip 127.0.0.1 -p 25521 -s akka://{{system_name}}@127.0.0.1:25520 -l 8081 -vp placeA

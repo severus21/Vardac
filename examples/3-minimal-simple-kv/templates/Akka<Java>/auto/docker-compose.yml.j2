@@ -29,4 +29,4 @@ services:
     depends_on:
       - "redis"
 # cd ../akka && gradle jarLocal
-# java -jar build/libs/local.jar -ip 127.0.0.1 -p 25520 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp Cloud
+# java -enableassertions -jar build/libs/local.jar -ip 127.0.0.1 -p 25520 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp Cloud

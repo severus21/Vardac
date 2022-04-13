@@ -349,6 +349,10 @@ let pos_of_inductive_attr x =
 let builtin_access : (string * string) list = [
 ]
 
+(* TODO
+encode builtin fcts as type constructor to be able to type check that each plg correctly implements them
+*)
+
 (* name, signature string, description, signature () -> .. , neeed a closure to generate fresh types *)
 let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "activationsat", "place -> set<activation_ref>", "", t_activationat;
@@ -368,6 +372,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "pick", "dict<k,v> -> v", "Random choice in a sequence, failed if empty", t_select; (*TODO*)
     "placeof", "abs -> place option", "Give the current place where the abstraction is running. Returns None if the abstraction is not yet placed.", t_placeof;
     "place_to_string", "place -> string", "", t_place_to_string;
+    "int_to_string", "int -> string", "", t_place_to_string;
     "places", "() -> list<place>", "TODO", t_places;
     "print", "string -> unit", "TODO", t_print;
     "receive", "STReceive<'msg,'continuation> -> 'msg * 'continuation", "TODO", t_receive;

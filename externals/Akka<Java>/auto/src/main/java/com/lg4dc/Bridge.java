@@ -18,20 +18,26 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
     @JsonProperty("protocol")
     P protocol;
 
-    @JsonCreator 
-    public Bridge (P protocol, UUID id){
-        this.id = id;
+    public Bridge (P protocol){
+        assert(protocol != null);
+        this.id = UUID.randomUUID();
         this.protocol = protocol;
     }
 
-    public Bridge (P protocol){
-        this.id = UUID.randomUUID();
+    @JsonCreator 
+    public Bridge (P protocol, UUID id){
+        assert(protocol != null);
+        assert(id != null);
 
+        this.id = id;
         this.protocol = protocol;
     }
     
     //Same key => Same id
     public Bridge (P protocol, String key){
+        assert(protocol != null);
+        assert(key != null);
+
         this.id = UUIDCreator.getSha1Uuid(key);
         this.protocol = protocol;
     }
