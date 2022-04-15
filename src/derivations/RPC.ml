@@ -160,13 +160,13 @@ module Make(Args:Args) : Sig = struct
 
                 (* One port per method*)
                 let mt_port = mtype_of_ct (TInport (
-                    mtype_of_st _expecting_st.value,
-                    mt_rpc_bridge
+                    mtype_of_st _expecting_st.value
+                    (*mt_rpc_bridge*)
                 )) in
                 let a_port = Atom.fresh (prefix^"port") in
                 let port = auto_fplace (Inport(auto_fplace ({
                         name = a_port;
-                        input = auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge);
+                        (*input = auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge);*)
                         expecting_st = mtype_of_st (dual _expecting_st).value;
                         callback = auto_fplace (AccessExpr(
                             auto_fplace (This, mtype_of_ct (TActivationRef (mtype_of_cvar cname))), 
@@ -372,9 +372,9 @@ module Make(Args:Args) : Sig = struct
             let rpc_outport = auto_fplace (Outport (auto_fplace (
                 { 
                     name = Hashtbl.find rpc_outports_translator caller_name;
-                    input = auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge);
+                    (*input = auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge);*)
                 },    
-                mtype_of_ct (TOutport mt_rpc_protocol)
+                mtype_of_ct (TOutport (*mt_rpc_protocol*))
             ))) in
             [
                 {cstruct with 

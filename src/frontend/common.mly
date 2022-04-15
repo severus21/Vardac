@@ -379,8 +379,8 @@ any_stmt_:
     }
 | MATCH e1=any_expr LCURLYBRACKET exprs=flexible_sequence(match_entry) RCURLYBRACKET
     { MatchStmt (e1, exprs) }
-| BBRANCH s = any_expr ON label=any_expr bridge=any_expr LCURLYBRACKET branches=flexible_sequence(branch_entry) RCURLYBRACKET
-    { BranchStmt {s; label; bridge; branches} }
+| BBRANCH s = any_expr ON label=any_expr LCURLYBRACKET branches=flexible_sequence(branch_entry) RCURLYBRACKET
+    { BranchStmt {s; label; branches} }
 (* TODO for*)
 | RETURN e=any_expr SEMICOLON
     { ReturnStmt e }
@@ -551,15 +551,15 @@ any_method_:
     { t }
 
 any_inport_:
-| INPORT name=LID ON chan=any_expr DOUBLE_COLON chan_type=any_type EXPECTING t=any_type EQ callback=any_expr
-    { {name=name; input=chan; input_type=chan_type; expecting_st=t; callback=callback} }
+| INPORT name=LID DOUBLE_COLON chan_type=any_type EXPECTING t=any_type EQ callback=any_expr
+    { {name=name; input_type=chan_type; expecting_st=t; callback=callback} }
 %inline any_inport:
   t = placed(any_inport_)
     { t }
 
 any_outport_:
-| OUTPORT name=LID ON chan=any_expr DOUBLE_COLON chan_type=any_type
-    { {name=name; input=chan; input_type=chan_type} }
+| OUTPORT name=LID DOUBLE_COLON chan_type=any_type
+    { {name=name; input_type=chan_type} }
 %inline any_outport:
   t = placed(any_outport_)
     { t }

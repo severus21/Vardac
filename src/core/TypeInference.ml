@@ -178,10 +178,12 @@ module Make () = struct
     let typeof_function fdcl = typeof_arrow fdcl.value.ret_type fdcl.value.args
 
     let typeof_port p = 
-        snd p.value (* Already computed from programmer annotation *)
+        let _p = fst p.value in
+        mtype_of_ct (TInport _p.expecting_st)
 
     let typeof_outport p = 
-        snd p.value (* Already computed from programmer annotation *)
+        mtype_of_ct TOutport
+
     let typeof_state s = 
         match s.value with
         | StateDcl sdcl -> sdcl.type0
@@ -238,6 +240,7 @@ module Make () = struct
     let rec _tannot_session_type parent_opt place = function
     | STEnd -> STEnd
     | STWildcard -> STWildcard
+    | STBottom -> STBottom
     | STVar x -> STVar x
     | STSend (mt, st) -> 
         (* CTX to propagate headers *)
@@ -313,6 +316,8 @@ module Make () = struct
         out_type = tannot_main_type parent_opt b.out_type;
         protocol = tannot_main_type parent_opt b.protocol;
     }
+    | TInport mt -> TInport (tannot_main_type parent_opt mt) 
+    | TOutport -> TOutport
     and tannot_composed_type parent_opt = map_place (_tannot_composed_type parent_opt)
 
     and _tannot_component_type parent_opt place = function
@@ -651,7 +656,7 @@ module Make () = struct
         (* From the outside WithContextStmt is transparent in term of parent_opt *)
         let stmts = List.map (tannot_stmt parent_opt) stmts in
         WithContextStmt (anonymous_mod, cname, tannot_expr parent_opt e, stmts)
-    | BranchStmt {s; label; bridge; branches} -> 
+    | BranchStmt {s; label; branches} -> 
         let s = tannot_expr parent_opt s in
         let mt_st = snd s.value in
 
@@ -685,7 +690,6 @@ module Make () = struct
         BranchStmt {
             s;
             label = tannot_expr parent_opt label;
-            bridge = tannot_expr parent_opt bridge;
             branches = List.map tannot_branch branches; 
         }
     and tannot_stmt parent_opt stmt =  
@@ -700,7 +704,6 @@ module Make () = struct
 
     and _tannot_port parent_opt place ((p, mt_p):_port*main_type) = {
         name = p.name;
-        input = tannot_expr parent_opt p.input;
         expecting_st = tannot_main_type parent_opt p.expecting_st;
         callback = tannot_expr parent_opt p.callback;
     } 
@@ -711,7 +714,6 @@ module Make () = struct
 
         let _p = _tannot_port parent_opt p.place p.value in
         let mt_port = ctypeof (TInport (
-            snd _p.input.value,
             _p.expecting_st
         )) in
 
@@ -722,7 +724,6 @@ module Make () = struct
 
     and _tannot_outport parent_opt place ((p, mt_p):_outport*main_type) = {
         name = p.name;
-        input = tannot_expr parent_opt p.input;
     } 
     and tannot_outport parent_opt p = 
         let fplace = (Error.forge_place "TypeInference.tannot_outport" 0 0) in
@@ -730,9 +731,7 @@ module Make () = struct
         let ctypeof x = auto_fplace (CType(auto_fplace x)) in
 
         let _p = _tannot_outport parent_opt p.place p.value in
-        let mt_outport = ctypeof (TOutport (
-            snd _p.input.value
-        )) in
+        let mt_outport = ctypeof TOutport in
 
         {
             place = p.place;

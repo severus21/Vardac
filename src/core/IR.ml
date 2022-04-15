@@ -74,16 +74,14 @@ let rec collect_expr_contract_ parent_opt (already_binded:Atom.Set.t) selector c
 and collect_expr_contract parent_opt (already_binded:Atom.Set.t) selector collector c = 
     map0_place (collect_expr_contract_ parent_opt already_binded selector collector) c 
 and collect_expr_port_ parent_opt (already_binded:Atom.Set.t) selector collector place ((_port, _):_port * 'a ) =
-    let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded  selector collector _port.input in
-    let _, collected_elts2, fvars2 = collect_expr_mtype parent_opt already_binded selector collector _port.expecting_st in
-    let _, collected_elts3, fvars3 = collect_expr_expr parent_opt already_binded  selector collector _port.callback in
-    already_binded, collected_elts1@collected_elts2@collected_elts3, fvars1@fvars2@fvars3
+    let _, collected_elts1, fvars1 = collect_expr_mtype parent_opt already_binded selector collector _port.expecting_st in
+    let _, collected_elts2, fvars2 = collect_expr_expr parent_opt already_binded  selector collector _port.callback in
+    already_binded, collected_elts1@collected_elts2, fvars1@fvars2
 and collect_expr_port parent_opt (already_binded:Atom.Set.t) selector collector p = 
     map0_place (collect_expr_port_ parent_opt already_binded selector collector) p
 
 and collect_expr_outport_ parent_opt (already_binded:Atom.Set.t) selector collector place ((_outport, _):_outport * 'a ) =
-    let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded  selector collector _outport.input in
-    already_binded, collected_elts1, fvars1
+    already_binded, [],[] 
 and collect_expr_outport parent_opt (already_binded:Atom.Set.t) selector collector p = 
     map0_place (collect_expr_outport_ parent_opt already_binded selector collector) p
 
@@ -263,14 +261,13 @@ and collect_cexpr_contract parent_opt selector collector c =
     map0_place (collect_cexpr_contract_ parent_opt  selector collector) c 
 
 and collect_cexpr_inport_ parent_opt selector collector place ((_inport, _):_port*'a) =
-    let collected_elts1 = collect_cexpr_expr parent_opt   selector collector _inport.input in
-    let collected_elts3 = collect_cexpr_expr parent_opt   selector collector _inport.callback in
-    collected_elts1@collected_elts3
+    let collected_elts1 = collect_cexpr_expr parent_opt   selector collector _inport.callback in
+    collected_elts1
 and collect_cexpr_inport parent_opt selector collector p = 
     map0_place (collect_cexpr_inport_ parent_opt  selector collector) p
 
 and collect_cexpr_outport_ parent_opt selector collector place ((_outport, _):_outport*'a) =
-    collect_cexpr_expr parent_opt selector collector _outport.input
+    []
 and collect_cexpr_outport parent_opt selector collector p = 
     map0_place (collect_cexpr_outport_ parent_opt  selector collector) p
 
@@ -457,16 +454,14 @@ let rec collect_type_contract_ parent_opt (already_binded:Atom.Set.t) selector c
 and collect_type_contract parent_opt (already_binded:Atom.Set.t) selector collector c = 
     map0_place (collect_type_contract_ parent_opt already_binded selector collector) c 
 and collect_type_port_ parent_opt (already_binded:Atom.Set.t) selector collector place ((_port, _):_port*'a) =
-    let _, collected_elts1, fvars1 = collect_type_expr parent_opt already_binded  selector collector _port.input in
-    let _, collected_elts2, fvars2 = collect_type_mtype parent_opt already_binded selector collector _port.expecting_st in
-    let _, collected_elts3, fvars3 = collect_type_expr parent_opt already_binded  selector collector _port.callback in
-    already_binded, collected_elts1@collected_elts2@collected_elts3, fvars1@fvars2@fvars3
+    let _, collected_elts1, fvars1 = collect_type_mtype parent_opt already_binded selector collector _port.expecting_st in
+    let _, collected_elts2, fvars2 = collect_type_expr parent_opt already_binded  selector collector _port.callback in
+    already_binded, collected_elts1@collected_elts2, fvars1@fvars2
 and collect_type_port parent_opt (already_binded:Atom.Set.t) selector collector p = 
     map0_place (collect_type_port_ parent_opt already_binded selector collector) p
 
 and collect_type_outport_ parent_opt (already_binded:Atom.Set.t) selector collector place (_outport, _) =
-    let _, collected_elts1, fvars1 = collect_type_expr parent_opt already_binded  selector collector _outport.input in
-    already_binded, collected_elts1, fvars1
+    already_binded, [], [] 
 and collect_type_outport parent_opt (already_binded:Atom.Set.t) selector collector p = 
     map0_place (collect_type_outport_ parent_opt already_binded selector collector) p
 
@@ -683,19 +678,14 @@ and rewrite_type_port_  selector rewriter place ((_port, mt): _port*main_type) =
     let rewrite_expr = rewrite_type_expr selector rewriter in
     let rewrite_mtype = rewrite_type_mtype selector rewriter in
     ({ _port with
-        input = rewrite_expr  _port.input; 
         expecting_st  = rewrite_mtype _port.expecting_st;
         callback = rewrite_expr _port.callback; 
     }, mt)
     
 and rewrite_type_port selector rewriter = map_place (rewrite_type_port_ selector rewriter) 
 
-and rewrite_type_outport_  selector rewriter place (_outport, mt) =
-    let rewrite_expr = rewrite_type_expr selector rewriter in
-    let rewrite_mtype = rewrite_type_mtype selector rewriter in
-    ({ _outport with
-        input = rewrite_expr  _outport.input; 
-    }, mt)
+and rewrite_type_outport_  selector rewriter place (({name}, mt): _outport * main_type) =
+    ({name}, mt)
     
 and rewrite_type_outport selector rewriter = map_place (rewrite_type_outport_ selector rewriter) 
 
@@ -736,7 +726,7 @@ and rewrite_type_component_item_  selector rewriter place = function
     | Contract c -> Contract (rewrite_type_contract selector rewriter c)
     | Method m -> Method (rewrite_type_method0 selector rewriter m)
     | State s -> State (rewrite_type_state selector rewriter s )
-    |Inport p  ->Inport (rewrite_type_port selector rewriter p)
+    | Inport p  ->Inport (rewrite_type_port selector rewriter p)
     | Outport p  -> Outport (rewrite_type_outport selector rewriter p)
     | Term t -> Term (rewrite_type_term selector rewriter t)
 and rewrite_type_component_item selector rewriter = map_place (rewrite_type_component_item_ selector rewriter) 
@@ -779,17 +769,14 @@ and rewrite_expr_contract selector rewriter = map_place (rewrite_expr_contract_ 
 
 and rewrite_expr_port_  selector rewriter place ((_port, mt): _port * main_type) =
     ({ _port with
-        input = rewrite_expr_expr selector rewriter _port.input; 
-        (* TODO rewrite_expr_mt expecting_st*)
+        (* TODO on rewirte_expr_mtype => expecting_st = rewrite_expr_mtype selector rewriter expecting_st;*)
         callback = rewrite_expr_expr selector rewriter _port.callback; 
     }, mt)
     
 and rewrite_expr_port selector rewriter = map_place (rewrite_expr_port_ selector rewriter) 
 
-and rewrite_expr_outport_  selector rewriter place (_outport, mt) =
-    ({ _outport with
-        input = rewrite_expr_expr selector rewriter _outport.input; 
-    }, mt)
+and rewrite_expr_outport_  selector rewriter place (({name}, mt): _outport * main_type) =
+    ({name}, mt)
     
 and rewrite_expr_outport selector rewriter = map_place (rewrite_expr_outport_ selector rewriter) 
 
@@ -1239,8 +1226,8 @@ function
     out_type = rmt tb.out_type;
     protocol = rmt tb.protocol;
 }
-| TInport (mt1, mt2) -> TInport (rmt mt1, rmt mt2)
-| TOutport mt -> TOutport (rmt mt)
+| TInport mt -> TInport (rmt mt)
+| TOutport -> TOutport
 | TForall (x, mt) -> TForall (renaming x, rmt mt)
 | TPolyVar x -> TPolyVar (renaming x)
 and rename_composed_type renaming = map_place (_rename_composed_type (protect_renaming renaming))
@@ -1382,7 +1369,6 @@ and rename_param renaming = map_place (_rename_param (protect_renaming renaming)
 
 and _rename_port renaming place ((p, mt_p): _port * main_type) = ({
     name = renaming p.name;
-    input = rename_expr renaming p.input;
     expecting_st = rename_main_type renaming p.expecting_st;
     callback = rename_expr renaming p.callback;
 }, rename_main_type renaming mt_p)
@@ -1390,7 +1376,6 @@ and rename_port renaming = map_place (_rename_port (protect_renaming  renaming))
 
 and _rename_outport renaming place ((p, mt_p): _outport * main_type) = ({
     name = renaming p.name;
-    input = rename_expr renaming p.input
 }, rename_main_type renaming mt_p)
 and rename_outport renaming = map_place (_rename_outport (protect_renaming renaming))
 

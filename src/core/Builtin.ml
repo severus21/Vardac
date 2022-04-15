@@ -326,6 +326,18 @@ let t_sessionid () =
         mtype_of_ft TInt
     ))
 
+let t_bind () =
+    mtype_of_ct (TArrow (
+        mtype_of_ct (TUnion (
+            mtype_of_ct TOutport,
+            mtype_of_ct (TInport (mtype_of_st STWildcard))
+        )),
+        mtype_of_ct (TArrow (
+            fresh_tbridge (),
+            mtype_of_ft TVoid
+        ))
+    ))
+
 
 (* FT -> inductive type representation *)
 let builtin_inductive_types = [ 
@@ -355,6 +367,9 @@ encode builtin fcts as type constructor to be able to type check that each plg c
 
 (* name, signature string, description, signature () -> .. , neeed a closure to generate fresh types *)
 let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
+    "bind", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind; 
+    "bind_in", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind; 
+    "bind_out", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind; 
     "activationsat", "place -> set<activation_ref>", "", t_activationat;
     "add2dict", "dict<k,v> -> k -> v -> ()", "add in place",t_add2dict ;
     "bridge", "() -> Bridge<'A, 'B, 'a>", "create a new bridge with a fresh id",

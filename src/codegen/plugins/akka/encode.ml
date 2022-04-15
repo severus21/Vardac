@@ -72,6 +72,34 @@ let encode_builtin_fct place name (args:T.expr list) =
             []
         )
     end
+    | "bind_in" -> begin
+        match args with
+        | [port; bridge] -> 
+            T.CallExpr(
+                    auto_place (T.AccessExpr(
+                        auto_place (T.This, auto_place T.TUnknown),
+                        auto_place(T.VarExpr (Atom.builtin "bind_in"), auto_place T.TUnknown)
+                ), auto_place T.TUnknown),
+                [ 
+                    port; 
+                    bridge 
+                ]
+            )
+    end
+    | "bind_out" -> begin
+        match args with
+        | [port; bridge] -> 
+            T.CallExpr(
+                    auto_place (T.AccessExpr(
+                        auto_place (T.This, auto_place T.TUnknown),
+                        auto_place(T.VarExpr (Atom.builtin "bind_out"), auto_place T.TUnknown)
+                ), auto_place T.TUnknown),
+                [ 
+                    port; 
+                    bridge 
+                ]
+            )
+    end
     | "add2dict" -> begin 
         (* empty dict *)
         match args with

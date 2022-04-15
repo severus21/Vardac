@@ -8,14 +8,12 @@ protocol p_kv = &{
 
 
 component KVServer {
-    bridge<Client, KVServer, p_kv> b;
-
     onstartup (bridge<Client, KVServer, p_kv> b){
         print(">>> Starting a KVServer instance");
-        this.b = b;
+        bind(this.p_in, b);
     }
 
-    inport p_in on this.b :: bridge<Client, KVServer, p_kv> expecting (dual p_kv) = this.callback;
+    inport p_in :: bridge<Client, KVServer, p_kv> expecting (dual p_kv) = this.callback;
 
     void callback (blabel msg, p_kv s) {
         print("callback");
@@ -25,13 +23,13 @@ component KVServer {
         }
         print("");
 
-        branch s on msg this.b {
+        branch s on msg {
             | "get" => s -> { 
-                tuple<key, ?value.> tmp = receive(s, this.b);
+                tuple<key, ?value.> tmp = receive(s);
                 fire(tmp._1, tmp._0);
             }
             | "put" => s -> {
-                tuple<tuple<key,value>, ?bool.> tmp = receive(s, this.b);
+                tuple<tuple<key,value>, ?bool.> tmp = receive(s);
                 tuple<key, value> res = tmp._0; 
                 (*TODO put(res._0, res._1); *)
                 fire(tmp._1, true);
@@ -53,11 +51,11 @@ component Client {
     bridge<Client, KVServer, p_kv> b;
     activation_ref<KVServer> kv;
 
-    outport p_out on this.b :: bridge<Client, KVServer, p_kv>;
+    outport p_out :: bridge<Client, KVServer, p_kv>;
 
     onstartup (bridge<Client, KVServer, p_kv> b, activation_ref<KVServer> kv){
         print(">>> Starting a Client instance");
-        this.b = b;
+        bind(this.p_out, b);
         this.kv = kv;
         
         this.put(key("Key1"), value(10));
@@ -72,7 +70,7 @@ component Client {
 
         (* We need this intermediate let since there is no unification yet for universal type and receive is universally quantified *)
         (* TODO maybe use polyapp *)
-        tuple<int, .> tmp = receive(s, this.b);
+        tuple<int, .> tmp = receive(s);
         int ret = tmp._0;
         
         (* TODO print(f">> get success {{ret}}");*)

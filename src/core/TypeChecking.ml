@@ -282,19 +282,12 @@ and _tcheck_param place (mt, x) = tcheck_main_type mt
 and tcheck_param arg = map0_place _tcheck_param arg
 
 and _tcheck_port place ((p, mt_p): _port * main_type) = 
-
-    tcheck_expr p.input; 
     tcheck_expr p.callback;
-    (match mt_p.value with 
-    | CType{value=TInport (mt_bridge, mt_st)} -> begin 
-        (* Just checking that the Type reconstruction is correct *)
-        assert(equal_mtype mt_bridge (snd p.input.value) &&
-        equal_mtype mt_st p.expecting_st);
 
-        (match mt_bridge.value with 
-        | CType{value=TBridge tb} -> () (* TODO FIXME check that tb is a subtype of TBridge <current, Top, Top> *)
-        | _-> Error.error p.input.place "Type error: must be a bridge"
-        );
+    (match mt_p.value with 
+    | CType{value=TInport mt_st} -> begin 
+        (* Just checking that the Type reconstruction is correct *)
+        assert(equal_mtype mt_st p.expecting_st);
 
         (match mt_st.value with 
         | SType st -> 
@@ -318,27 +311,9 @@ and tcheck_port p = map0_place _tcheck_port p
 
 
 and _tcheck_outport place (p, mt_p) = 
-
-    tcheck_expr p.input; 
     (match mt_p.value with 
-    | CType{value=TInport (mt_bridge, mt_st)} -> begin 
-        (* Just checking that the Type reconstruction is correct *)
-        assert(equal_mtype mt_bridge (snd p.input.value));
-
-        (match mt_bridge.value with 
-        | CType{value=TBridge tb} -> () (* TODO FIXME check that tb is a subtype of TBridge <current, Top, Top> *)
-        | _-> Error.error p.input.place "Type error: must be a bridge"
-        );
-
-        (match mt_st.value with 
-        | SType st -> 
-            match (unfold_st_star st).value with 
-            | STSend (mt_msg, mt_continuation) -> true 
-            | STSelect _ -> failwith "TODO tcheck_outport STSelect"
-            | _ -> Error.error place "Type error: should expected an incomming label or message"
-        | _-> Error.error mt_st.place "Type error: must be a session type"
-        )
-    end
+    | CType{value=TOutport} -> () 
+    | _ -> Error.error place "outport must have type outport (internal error)"
     )
 and tcheck_outport p = map0_place _tcheck_outport p
 

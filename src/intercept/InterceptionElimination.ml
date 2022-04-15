@@ -302,7 +302,6 @@ module Make (Args: TArgs) = struct
         let port_onboard_def = auto_fplace (Inport (auto_fplace (
             {
                 name = port_onboard;
-                input = e_this_b_onboard; 
                 expecting_st = mtype_of_st interceptor_info.onboard_info.st_onboard.value; 
                 callback = e2_e (AccessExpr (
                     e2_e This, 
@@ -847,13 +846,11 @@ module Make (Args: TArgs) = struct
         let outport_name = Atom.fresh (Printf.sprintf "%s_outport__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i) in
         let outport = auto_fplace (Outport (auto_fplace ({
             name = outport_name;
-            input = e_this_b_out;
         }, auto_fplace EmptyMainType))) in
 
         let inport_name = Atom.fresh (Printf.sprintf "%s_inport__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i) in
         let inport = auto_fplace (Inport (auto_fplace ({
             name = inport_name;
-            input = e_this_b_int;
             expecting_st = mtype_of_st st_stage;
             callback = e2_e (AccessExpr(
                 e2_e This,

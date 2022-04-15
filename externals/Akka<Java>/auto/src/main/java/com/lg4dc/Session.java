@@ -12,6 +12,7 @@ import io.vavr.*;
 
 import com.bmartin.*;
 import com.lg4dc.timers.*;
+import com.lg4dc.OutPort;
 
 public class Session implements CborSerializable {
     public UUID bridge_id;
@@ -22,6 +23,8 @@ public class Session implements CborSerializable {
 
     public Boolean init_stage;
     public Optional<ActivationRef> hidden_right; //e.g. non anonymous redirection
+    
+    public AbstractPort init_port;
 
     public Session(
         UUID bridge_id,
@@ -29,7 +32,9 @@ public class Session implements CborSerializable {
         ActivationRef right,
         ASTStype.Base st,
         Boolean init_stage,
-        Optional<ActivationRef> hidden_right) {
+        Optional<ActivationRef> hidden_right,
+        AbstractPort init_port //used for RecvElim for now 
+        ) {
 
         assert(bridge_id != null);
         assert(right != null);
@@ -37,6 +42,7 @@ public class Session implements CborSerializable {
         assert(st != null);
         assert(init_stage != null);
         assert(hidden_right != null);
+        assert(init_port != null);
 
         this.bridge_id = bridge_id;
         this.session_id = UUID.randomUUID();
@@ -46,6 +52,8 @@ public class Session implements CborSerializable {
         this.st = st;
         this.init_stage = init_stage;
         this.hidden_right = hidden_right;
+
+        this.init_port = init_port;
     }
     
     public void set_id(UUID id){

@@ -813,10 +813,9 @@ module Make(Arg:ArgSig) = struct
             transformation will come later on
         *)
         env2, T.WithContextStmt (anonymous_mod, cname, e, stmts)
-    | S.BranchStmt {s; label; bridge; branches} -> 
+    | S.BranchStmt {s; label; branches} -> 
         let env1, s = cexpr env s in 
         let env2, label = cexpr env label in
-        let env3, bridge = cexpr env bridge in
         let envs, branches = List.split (List.map (function {S.branch_label; branch_s; body} -> 
         print_env env;
             let branch_label = cook_var_expr env place ("label_"^branch_label) in
@@ -826,7 +825,7 @@ module Make(Arg:ArgSig) = struct
 
             env << [env_inner; env2], {T.branch_label; branch_s; body}    
         ) branches) in
-        env << (env1 :: env2::env3::envs), T.BranchStmt {s; label; bridge; branches}
+        env << (env1 :: env2::envs), T.BranchStmt {s; label; branches}
     and cstmt env : S.stmt -> env * T.stmt = map2_place (cook_stmt env)
 
     and cook_function env place : S._function_dcl -> env * T._function_dcl = 
@@ -1011,11 +1010,10 @@ module Make(Arg:ArgSig) = struct
         let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
 
         let new_env, name = bind_this env place port.name in
-        let env1, input = cexpr env port.input in
-        let env2, expecting_st = cmtype env port.expecting_st in 
-        let env3, callback = cexpr env port.callback in 
-        let env4, input_type = cmtype env port.input_type in
-        new_env << [env1; env2; env3; env4], ({ name; input; expecting_st; callback}, input_type)
+        let env1, expecting_st = cmtype env port.expecting_st in 
+        let env2, callback = cexpr env port.callback in 
+        let env3, input_type = cmtype env port.input_type in
+        new_env << [env1; env2; env3], ({ name; expecting_st; callback}, input_type)
     and cport env: S.port -> env * T.port = map2_place (cook_port env)
 
     and cook_outport env place (outport:S._outport) : env * (T._outport * T.main_type)=
@@ -1023,9 +1021,8 @@ module Make(Arg:ArgSig) = struct
         let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
 
         let new_env, name = bind_this env place outport.name in
-        let env1, input = cexpr env outport.input in
-        let env2, input_type = cmtype env outport.input_type in
-        new_env << [env1; env2], ({ name; input }, input_type)
+        let env1, input_type = cmtype env outport.input_type in
+        new_env << [env1; env1], ({ name; }, input_type)
     and coutport env: S.outport -> env * T.outport = map2_place (cook_outport env)
 
     and cook_component_item env _ : S._component_item -> env * T._component_item list = function

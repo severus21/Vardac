@@ -75,7 +75,7 @@ module Make () = struct
 
     let rec _autobox_st _ st = 
     match st with
-    | STEnd | STWildcard | STVar _ | STInline _ -> st
+    | STEnd | STWildcard | STBottom | STVar _ | STInline _ -> st
     | STSend (t_msg, st_continuation) | STRecv (t_msg, st_continuation) -> begin
         let st_continuation = autobox_st st_continuation in
         let t_msg = 

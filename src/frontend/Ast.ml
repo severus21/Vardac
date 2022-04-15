@@ -172,7 +172,6 @@ and _stmt =
     | BranchStmt of {
         s: expr;
         label: expr;
-        bridge: expr; (* dirty fix should be remove when receive will not need it anymore *)
         branches: branch_stmt list 
     }
 
@@ -225,7 +224,6 @@ and method0 = _method0 placed
 
 and _port = {
     name: variable;
-    input: expr;
     input_type: main_type;
     expecting_st: main_type;
     callback: expr
@@ -234,7 +232,6 @@ and port = _port placed
 
 and _outport = {
     name: variable;
-    input: expr;
     input_type: main_type;
 }
 and outport = _outport placed

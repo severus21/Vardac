@@ -125,15 +125,9 @@ end
 | TForall (x, mt) -> env, TForall (x, snd (pe_mtype env mt))
 (* no inner_env with x for pe_eval mt because x is not binded to any concrete type at this point *)
 | TPolyVar x -> env, TPolyVar x
-| TInport (mt1, mt2) ->
-    env, TInport ( 
-        (snd <-> pe_mtype env) mt1,
-        (snd <-> pe_mtype env) mt2
-    )
-
-| TOutport mt ->
-    let _, mt = pe_mtype env mt in 
-    env, TOutport mt
+| TInport mt ->
+    env, TInport ((snd <-> pe_mtype env) mt)
+| TOutport -> env, TOutport 
 and pe_ctype env: composed_type -> env * composed_type = map2_place (peval_composed_type env)
 
 
@@ -145,6 +139,7 @@ and peval_stype env place : _session_type -> env * _session_type =
     in function  
     | STEnd -> env, STEnd
     | STWildcard -> env, STWildcard
+    | STBottom -> env, STBottom
     | STInline x -> begin
         try
             let mt = Env.find x env.named_types in
@@ -436,16 +431,16 @@ function
     else
         env, AssignExpr (x, e)
 | AssignThisExpr (x, e) -> env, AssignExpr (x,  snd(pe_expr env e ))
-| BranchStmt {s; label; bridge; branches} -> 
+| BranchStmt {s; label; branches} -> 
     let s = snd(pe_expr env s) in
     let label = snd(pe_expr env label) in
-    let bridge = snd(pe_expr env bridge) in
+
     (* each branch lives in its own isolated env *)
     let branches = List.map (fun {branch_label; branch_s; body} -> 
         {branch_label; branch_s; body = snd(pe_stmt env body)}
     ) branches in
 
-    env, BranchStmt{ s; label; bridge; branches }
+    env, BranchStmt{ s; label; branches }
 | BlockStmt stmts -> begin 
     let inner_env, stmts = List.fold_left_map (fun env stmt -> pe_stmt env stmt) env stmts in
     let stmts = clean_stmts stmts in
@@ -569,16 +564,16 @@ and peval_port env place (port, mt_port) =
     end;
 
     env, ({ port with
-        input =  snd(pe_expr env port.input);
         expecting_st;
         callback = snd(pe_expr env port.callback)
     }, snd (pe_mtype env mt_port))
 and pe_port env: port -> env * port = map2_place (peval_port env)
 
-and peval_outport env place (outport, mt_outport) = 
-    env, ({ outport with
-        input =  snd(pe_expr env outport.input);
-    }, snd (pe_mtype env mt_outport))
+and peval_outport env place ((outport, mt_outport):_outport*main_type) = 
+    env, (
+        {name=outport.name}, 
+        snd (pe_mtype env mt_outport)
+    )
 and pe_outport env: outport -> env * outport = map2_place (peval_outport env)
 
 and peval_state env place = function 

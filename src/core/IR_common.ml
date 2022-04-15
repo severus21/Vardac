@@ -53,8 +53,8 @@ module type TIRC = sig
 
         (** Message-passing *)
         | TBridge of tbridge
-        | TInport of main_type * main_type (* session_type * bridge type *)
-        | TOutport of main_type (* bridge type *)
+        | TInport of main_type (* session_type *)
+        | TOutport (* TODO ?? *)
 
         (* Polymorphsim*)
         | TPolyVar of type_variable (* TODO do we need the disctinction between TVar and TPolyVar ????? *)
@@ -74,6 +74,7 @@ module type TIRC = sig
         (* Polymorphsim*)
         | STPolyVar of type_variable
         | STWildcard
+        | STBottom
 
         | STDual of session_type 
     and session_type = _session_type placed
@@ -237,7 +238,6 @@ module type TIRC = sig
         | BranchStmt of {
             s: expr;
             label: expr;
-            bridge: expr; (* dirty fix should be remove when receive will not need it anymore *)
             branches: branch_stmt list 
         }
 
@@ -249,7 +249,6 @@ module type TIRC = sig
     (******************************** Component **********************************)
     and _port = {
         name: component_variable;
-        input: expr;
         expecting_st: main_type;
         callback: expr
     }
@@ -257,7 +256,6 @@ module type TIRC = sig
 
     and _outport = {
         name: component_variable;
-        input: expr
     }
     and outport = (_outport * main_type) placed
 
@@ -390,8 +388,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
         (** Message-passing *)
         | TBridge of tbridge
-        | TInport of main_type * main_type (* session_type * bridge type *)
-        | TOutport of main_type (* bridge type *)
+        | TInport of main_type (* session_type *)
+        | TOutport (* TODO ?? *)
 
         (* Polymorphsim*)
         | TPolyVar of type_variable
@@ -410,6 +408,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         (* Polymorphsim*)
         | STPolyVar of type_variable
         | STWildcard
+        | STBottom
 
         | STDual of session_type 
     and session_type = _session_type placed
@@ -569,7 +568,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | BranchStmt of {
             s: expr;
             label: expr;
-            bridge: expr; (* dirty fix should be remove when receive will not need it anymore *)
             branches: branch_stmt list 
         }
     and stmt = _stmt placed
@@ -580,7 +578,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     (******************************** Component **********************************)
     and _port = {
         name: component_variable;
-        input: expr;
         expecting_st: main_type;
         callback: expr
     }
@@ -588,7 +585,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
 
     and _outport = {
         name: component_variable;
-        input: expr;
     }
     and outport = (_outport * main_type) placed
 
@@ -884,9 +880,9 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         let collect_mtype = collect_type_mtype parent_opt already_binded selector collector in    
         
     function
-    | TFlatType _ -> already_binded, [], []
-    | TActivationRef mt | TArray mt | TList mt | TOption mt | TOutport mt | TSet mt | TVPlace mt -> collect_mtype mt
-    | TArrow (mt1, mt2) | TDict (mt1, mt2) | TInport (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) -> 
+    | TFlatType _ | TOutport -> already_binded, [], []
+    | TActivationRef mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt | TInport mt -> collect_mtype mt
+    | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) -> 
         let _, collected_elts1, ftvars1 = collect_mtype mt1 in
         let _, collected_elts2, ftvars2 = collect_mtype mt2 in
         already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
@@ -914,7 +910,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         already_binded, Utils.deduplicate Fun.id ftvars
 
     and collect_type_stype_ parent_opt already_binded selector collector place = function
-    | STEnd | STWildcard -> already_binded, [], []
+    | STEnd | STWildcard | STBottom -> already_binded, [], []
     | STVar x | STPolyVar x when Atom.Set.find_opt x already_binded <> None  -> already_binded, [], []
     | STVar x | STPolyVar x -> already_binded, [], [x]
     | STRecv (mt, st) | STSend (mt, st) -> 
@@ -1389,7 +1385,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         | LetStmt (mt, x, e) -> (* TODO FIXME expr in type are not yet concerned *)
             LetStmt (mt, x, rewrite_expr_expr selector rewriter e)
         | CommentsStmt c -> CommentsStmt c
-        | BranchStmt {s; label; bridge; branches} -> begin 
+        | BranchStmt {s; label; branches} -> begin 
             let rewrite_branche {branch_label; branch_s;body} =
                 {   
                     branch_label; 
@@ -1400,7 +1396,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             BranchStmt{
                 s       = rewrite_expr_expr selector rewriter s;
                 label   = rewrite_expr_expr selector rewriter label;
-                bridge   = rewrite_expr_expr selector rewriter bridge;
                 branches= List.map rewrite_branche branches
             }
         end
@@ -1473,8 +1468,8 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
             out_type = rewrite_mtype tb.out_type;
             protocol = rewrite_mtype tb.protocol;
         }
-        | TInport (mt1, mt2) -> TInport (rewrite_mtype mt1, rewrite_mtype mt2) 
-        | TOutport (mt) -> TOutport (rewrite_mtype mt) 
+        | TInport (mt) -> TInport (rewrite_mtype mt) 
+        | TOutport -> TOutport
 
         | TPolyVar x -> TPolyVar x
         | TForall (x, mt) -> TForall (x, rewrite_mtype mt) 
@@ -1588,7 +1583,7 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
     | ExpressionStmt e -> ExpressionStmt (rewrite_expr e)
     | BlockStmt stmts -> BlockStmt (List.map rewrite_stmt stmts)
     | GhostStmt stmt -> GhostStmt (rewrite_stmt stmt)
-    | BranchStmt {s; label; bridge; branches} -> begin 
+    | BranchStmt {s; label; branches} -> begin 
         let rewrite_branche {branch_label; branch_s;body} =
             {   
                 branch_label; 
@@ -1599,7 +1594,6 @@ module Make (V : TVariable) : (TIRC with module Variable = V and type Variable.t
         BranchStmt{
             s       = rewrite_expr s;
             label   = rewrite_expr label;
-            bridge   = rewrite_expr bridge;
             branches= List.map rewrite_branche branches
         }
     end

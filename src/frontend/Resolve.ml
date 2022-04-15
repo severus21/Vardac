@@ -74,11 +74,10 @@ and resolve_method place (m: S._method0) : T._method0 =
 and rmethod m = map_place resolve_method m
 
 and resolve_port place (port:S._port) : T._port =
-{ port with input= rexpr port.input;
-            callback= rexpr port.callback }
+{ port with callback= rexpr port.callback }
 
 and resolve_outport place (outport:S._outport) : T._outport =
-{ outport with input= rexpr outport.input; }
+    outport
 
 and resolve_component_item place : S._component_item -> T._component_item list = function
 | S.State s -> [ T.State (map_place resolve_state s) ]

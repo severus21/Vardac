@@ -112,3 +112,29 @@ let rec st_branch_of mt_st branch_label =
     | mt -> failwith (show__session_type mt)
     end
     | mt -> failwith (show__main_type mt)
+
+let get_onstartup (schema : component_structure) : method0 option= 
+    Option.map 
+        (function {value=Method m} -> m) 
+        (List.find_opt 
+            (function | {value=Method m} -> m.value.on_startup | _ -> false) schema.body
+        )
+
+let replace_onstartup (schema : component_structure) onstartup =
+    let flag = ref false in
+
+    let item = {place=onstartup.place; value= Method onstartup} in
+
+    let body = 
+        List.map 
+        (function 
+            | {value=Method m} when m.value.on_startup -> 
+                flag := true;
+                item 
+            | citem -> citem 
+        )
+        schema.body
+    in
+
+    if !flag then {schema with body} 
+    else {schema with body = item :: body}

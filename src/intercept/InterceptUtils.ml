@@ -28,13 +28,6 @@ let get_schema program wanted_name=
 
    place, schema
 
-let get_onstartup (schema : component_structure) : method0 option= 
-    Option.map 
-        (function {value=Method m} -> m) 
-        (List.find_opt 
-            (function | {value=Method m} -> m.value.on_startup | _ -> false) schema.body
-        )
-
 let mt_internals_of place intercepted_schemas = 
     assert(intercepted_schemas <> []);
     List.fold_left 

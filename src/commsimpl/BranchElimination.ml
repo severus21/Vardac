@@ -53,7 +53,7 @@ module Make () : Sig = struct
 
 
     let rewritor place = function 
-    | BranchStmt {s; label; bridge; branches} ->
+    | BranchStmt {s; label; branches} ->
         let mt_st = snd s.value in
 
         let local_res = Atom.fresh "res" in
@@ -73,13 +73,13 @@ module Make () : Sig = struct
 
         (*** Headers ***)
         [
-            (* tuple<blabel, ...> tmp = receive(s, bridge); *)
+            (* tuple<blabel, ...> tmp = receive(s); *)
             LetStmt(
                 mt_local_res,
                 local_res,
                 e2_e (CallExpr(
                     e2var (Atom.builtin "receive"),
-                    [ s; bridge ]
+                    [ s ]
                 ))
             );
             (* blabel label = tmp._0); *)

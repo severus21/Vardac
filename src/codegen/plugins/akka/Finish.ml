@@ -9,6 +9,9 @@ open Misc
 let plg_name = "Akka"
 let logger = Logging.make_logger ("_1_ compspec.plg."^plg_name) Debug [];;
 
+let fplace = (Error.forge_place ("plg."^plg_name^".Finish") 0 0) 
+let auto_fplace smth = {place = fplace; value=smth}
+
 (* The source calculus. *)
 module S = IRI 
 (* The target calculus. *)
@@ -187,8 +190,10 @@ module Make () = struct
         | S.TUnion _-> T.TRaw "Object" (* TODO maybe a better solution*)
         | S.TForall _ -> T.TUnknown (* TODO maybe encode it as class <T> ... { <T> } *)
         | S.TPolyVar _ -> T.TUnknown (* TODO maybe encode it as class <T> ... { <T> } *)
-        | S.TOutport _ -> T.TUnknown (* as long as port are static we do not care of this inside Akka plg*) 
-        | S.TInport _ -> T.TUnknown (* as long as port are static we do not care of this inside Akka plg*) 
+        | S.TOutport -> T.TRaw "OutPort"
+        | S.TInport mt -> 
+            logger#warning "TODO TInport parameter type is not yet encoded in Java";
+            T.TRaw "InPort"
     and fctype ct :  T.ctype = map_place finish_ctype ct
 
     (* Represent an ST object in Java type *)
@@ -1036,13 +1041,41 @@ module Make () = struct
                     stmts = [ auto_place(T.LetStmt (
                         auto_place( T.Atomic "OutPort"),
                         _p.name,
-                        Some (e_outport_of p.place (fexpr _p.input))
+                        Some (
+                            auto_place (T.NewExpr(
+                                auto_place (T.RawExpr "OutPort", auto_place T.TUnknown),
+                                []
+                            ), auto_place T.TUnknown)    
+                        )
                     ))]
                 }
             ) grp_items.outports
             @ states 
         in
 
+        (*** Inports ***)
+        let states = 
+            List.map (function p -> 
+                let _p : S._port = fst p.value in
+                auto_place {   
+                    T.persistent = false; (*TODO persistence True ??*)
+                    stmts = [ auto_place(T.LetStmt (
+                        auto_place( T.Atomic "InPort"),
+                        _p.name,
+                        Some (
+                            auto_place (T.NewExpr(
+                                auto_place (T.RawExpr "InPort", auto_place T.TUnknown),
+                                [
+                                    fvstype (match _p.expecting_st.value with
+                                    | S.SType st -> st)
+                                ]
+                            ), auto_place T.TUnknown)    
+                        )
+                    ))]
+                }
+            ) grp_items.ports
+            @ states 
+        in
 
 
 
@@ -1051,8 +1084,8 @@ module Make () = struct
         let l_event_name : Atom.atom = (Atom.fresh "e") in
         let l_event : T.expr = auto_place (T.VarExpr l_event_name, auto_place T.TUnknown) in
 
-        (* Step1 - create {event_name: {(bridge_expr, st, remaining_step i.e st) ->  callbak}} *)
-        let env : (Atom.atom, (T.expr * S.session_type * S.session_type, T.expr) Hashtbl.t) Hashtbl.t = Hashtbl.create 16 in
+        (* Step1 - create {event_name: {(port, st, remaining_step i.e st) ->  callback}} *)
+        let env : (Atom.atom, (S.port * S.session_type * S.session_type, T.expr) Hashtbl.t) Hashtbl.t = Hashtbl.create 16 in
         let hydrate_env (p: S.port) = 
             let expecting_st, (msg_type, remaining_st) = match (fst p.value).expecting_st.value with 
             | S.SType st -> begin
@@ -1076,14 +1109,14 @@ module Make () = struct
             end 
             | _ -> Core.Error.error (fst p.value).expecting_st.place "%s plugin do not support main type for port expecting" plg_name  
             in
-        
-            let inner_env : (T.expr * S.session_type * S.session_type, T.expr) Hashtbl.t= begin 
+            
+            let inner_env : (S.port * S.session_type * S.session_type, T.expr) Hashtbl.t= begin 
                 try 
                     Hashtbl.find env msg_type 
                 with Not_found -> let _inner_env = Hashtbl.create 8 in Hashtbl.add env msg_type _inner_env; _inner_env
             end in
 
-            let key = (fexpr (fst p.value).input, expecting_st, remaining_st) in
+            let key = (p, expecting_st, remaining_st) in
 
             (* check that key are not duplicated for the current event *)
             try
@@ -1095,15 +1128,22 @@ module Make () = struct
         List.iter hydrate_env grp_items.ports;
 
         (* Step 2 - Generate a receiver per event *)
-        let generate_event_receiver (event_name:Atom.atom) (inner_env:(T.expr * S.session_type * S.session_type, T.expr) Hashtbl.t) : T.stmt list =
+        let generate_event_receiver (event_name:Atom.atom) (inner_env:(S.port * S.session_type * S.session_type, T.expr) Hashtbl.t) : T.stmt list =
             (* Helpers *)
-            let bridgeid (bridge: T.expr) = auto_place( T.CallExpr(
-                auto_place (T.AccessExpr (
-                    bridge,
-                    auto_place (T.VarExpr (Atom.builtin "get_id"), auto_place T.TUnknown)
-                ), auto_place T.TUnknown),
-                []
-            ), auto_place T.TUnknown) in
+            let bridgeid (port: S.port) =
+                auto_place (T.CallExpr (
+                    auto_place (T.AccessExpr (
+                        auto_place (T.AccessExpr (
+                            auto_place (T.This, auto_place T.TUnknown),
+                            auto_place (T.VarExpr
+                                (fst port.value).name,
+                                auto_place T.TUnknown)
+                        ), auto_place T.TUnknown),
+                        auto_place (T.RawExpr "get_binded_bridge_id", auto_place T.TUnknown)
+                    ), auto_place T.TUnknown),
+                    []
+                ), auto_place T.TUnknown)
+            in
             let e_bridgeid e = auto_place (T.AccessExpr (
                 e,
                 auto_place (T.VarExpr (Atom.builtin "bridge_id"), auto_place T.TUnknown)
@@ -1187,10 +1227,10 @@ module Make () = struct
             let a_session = Atom.builtin "s" in
             let l_session = auto_place (T.VarExpr a_session, auto_place T.TUnknown) in
 
-            let add_case (bridge, st, remaining_st) (callback:T.expr) acc : T.stmt =
+            let add_case (port, st, remaining_st) (callback:T.expr) acc : T.stmt =
                 auto_place (T.IfStmt (
                     auto_place (T.BinopExpr(
-                        auto_place (T.BinopExpr (e_bridgeid l_event, AstUtils.StructuralEqual, bridgeid bridge), auto_place T.TUnknown),
+                        auto_place (T.BinopExpr (e_bridgeid l_event, AstUtils.StructuralEqual, bridgeid port), auto_place T.TUnknown),
                         AstUtils.And,
                         auto_place (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, fvstype (IRMisc.dual st)), auto_place T.TUnknown)
                     ), auto_place T.TUnknown),
@@ -1210,6 +1250,10 @@ module Make () = struct
                                     fvstype remaining_st;
                                     e_init_stage l_event;
                                     e_hidden_right l_event;
+                                    auto_place (T.AccessExpr(
+                                        auto_place (T.This, auto_place T.TUnknown),
+                                        auto_place (T.VarExpr (fst port.value).name, auto_place T.TUnknown)
+                                    ), auto_place T.TUnknown)
                                 ]
                             ), auto_place T.TUnknown))
                         ));
