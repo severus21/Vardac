@@ -17,6 +17,8 @@ end;;
 module type Rt_plg = sig
     (*val name: string ifwe need the name we will have to load it from module Desc.name*)
     module Ast : S_Ast
+    
+    module Prepare: IRCompilationPass.Pass
 
     module Finish: sig 
         type collected_state
@@ -26,6 +28,7 @@ module type Rt_plg = sig
         end
     end
 end
+
 module type Lg_plg = sig
     (*val name: string*)
     module Ast : S_Ast

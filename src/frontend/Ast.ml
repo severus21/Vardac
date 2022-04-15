@@ -125,6 +125,7 @@ and _expr =
     | PolyApp of expr * main_type list 
 
     (** Control flow *)
+    | UnboxOrPropagateResult of expr (* if Ok e then e else return Err err *)
 
     (* Reflexifity *)
     | This (* current activation *)

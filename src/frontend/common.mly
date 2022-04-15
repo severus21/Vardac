@@ -305,6 +305,8 @@ any_expr_:
     { t }
 | e = any_expr LANGLEBRACKET LANGLEBRACKET mts=right_flexible_list(COMMA,any_type) RANGLEBRACKET RANGLEBRACKET (* For some reason the parser can not distinguish between e<e> and e<mt> - NB. however e<e> should not be accepted*)
     { PolyApp (e,mts) }
+| e=any_expr RECV
+    { UnboxOrPropagateResult e }
 
 (* Control-flow *)
 (* TODO Ternary*)

@@ -1698,6 +1698,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
     end
 
     (*****************************************************)
+    module RtPrepare = IRICompilationPass.Make(Rt.Prepare)
     module RFinish = Rt.Finish.Make()
     module RtFinish = Rt.IRI2AstCompilationPass.Make(RFinish)
 
@@ -1705,7 +1706,10 @@ module Make (Arg: Plugin.CgArgSig) = struct
     let plgstate = ref (Rt.Finish.empty_cstate ())
 
     let finish_ir_program target (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
-        let program = RtFinish.apply ir_program in
+        let program = ir_program
+            |> RtPrepare.apply
+            |> RtFinish.apply
+        in
 
         let module Akka2Java0 = MakeRt2Lg(struct
             let target = target
