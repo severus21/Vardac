@@ -13,6 +13,7 @@ open AstUtils
 open TypingUtils
 open IRMisc
 open IR
+open IR_utils
 
 let logger = Logging.make_logger "_1_ compspec.core" Debug [];;
 let fplace = (Error.forge_place "UntypedCleansing" 0 0) 

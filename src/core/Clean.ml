@@ -1,6 +1,7 @@
 open AstUtils
 open IR
 open Easy_logging
+open IR_utils
 
 let logger = Logging.make_logger ("_1_ compspec") Debug [];;
 

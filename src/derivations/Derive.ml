@@ -1,6 +1,7 @@
 open Core
 open AstUtils
 open IR
+open IR_utils
 
 (* 
     Extract derivation from AST - since derivations can be defined anywhere in the program 

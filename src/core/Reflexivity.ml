@@ -10,6 +10,7 @@
 
 open AstUtils
 open IR
+open IR_utils
 open Easy_logging
 
 let logger = Logging.make_logger ("_1_ compspec.Reflexivity") Debug [];;

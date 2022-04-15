@@ -4,6 +4,7 @@ open Core.Builtin
 open Fieldslib
 open Easy_logging
 open AstUtils
+open IR_utils
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
 (* The source calculus. *)
@@ -327,7 +328,7 @@ module Make (Arg: ArgSig) = struct
         (* Pass 2 *)
 
         (*TODO to support multiple SameAs indirection - loop until all SameAs have been seen + cycle detection *)
-        S2.collect_term_program
+        collect_term_program
             true
             (function | Component {value = S2.ComponentStructure _ } -> true | _ -> false)
             (fun parents place -> function | Component { value = S2.ComponentStructure {target_name; name}} -> 
