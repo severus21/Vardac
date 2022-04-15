@@ -465,7 +465,7 @@ let is_builtin_expr x =
 let is_builtin_type x = try let _ = BuiltinSet.find x builtin_type_env in true with Not_found -> false                   
 let is_builtin_derivation x = try let _ = BuiltinSet.find x builtin_derivation_env in true with Not_found -> false                   
 
-let type_of place x : IR.main_type = 
+let type_of place x : main_type = 
     assert(is_builtin_expr x);
     let (_, _, make_mt) = 
         try

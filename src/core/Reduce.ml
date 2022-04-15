@@ -23,7 +23,7 @@ and reduce_component_dcl place : _component_dcl -> _component_dcl = function
             Atom.VMap.add c.value.method_name c env 
         | _ -> env 
     in
-    let contracts : IR.contract Atom.VMap.t = List.fold_left collect_contracts Atom.VMap.empty cdcl.body in (* method_name -> contract *)
+    let contracts : contract Atom.VMap.t = List.fold_left collect_contracts Atom.VMap.empty cdcl.body in (* method_name -> contract *)
 
     (* Remove contracts from body and pair method with contracts *)
     let body = List.filter_map (function (item:component_item) ->

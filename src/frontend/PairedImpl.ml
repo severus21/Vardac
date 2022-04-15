@@ -4,7 +4,7 @@ open Core.Builtin
 open Fieldslib
 open Easy_logging
 open AstUtils
-open IR_utils
+ 
 let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
 
 (* The source calculus. *)

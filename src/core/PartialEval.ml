@@ -3,7 +3,7 @@ open Easy_logging
 open Utils
 open AstUtils
 open IRMisc
-open IR_utils
+ 
 
 let logger = Logging.make_logger "_1_ compspec.PartialEval" Debug [];;
 

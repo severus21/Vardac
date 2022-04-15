@@ -1,6 +1,5 @@
 open AstUtils
-
-module IRC = IR.IRC
+open IR_common
 
 (* IR extended with blackbox implementation for type, methods and states *)
 type iri_target_name = string
@@ -17,22 +16,31 @@ and _blackbox_term = {
 and blackbox_term = _blackbox_term placed
 
 and iri_state_dcl_body = 
-| InitExpr of IRC.expr
+| InitExpr of expr
 | InitBB of blackbox_term
 | NoInit
 
 and iri_custom_method0_body = 
-| AbstractImpl of IRC.stmt list
+| AbstractImpl of stmt list
 | BBImpl of blackbox_term
 
-and iri_custom_function_body = iri_custom_method0_body
-
 and iri_typealias_body = 
-| AbstractTypealias of IRC.main_type
+| AbstractTypealias of main_type
 | BBTypealias of blackbox_term 
 and iri_typedef_body = blackbox_term option 
 [@@deriving show { with_path = false }]
 
+
+let collect_expr_iri_state_dcl_body 
+    (* function provided by parent to keep processing - since they do not exists at this point (they are created by the Make)*)
+    collect_expr_expr
+    (* argument of the collect_expr_.. fct *)
+    parent_opt already_binded selector collector place 
+= function
+| InitExpr e -> collect_expr_expr parent_opt already_binded selector collector e
+| InitBB _ | NoInit -> already_binded, [], []
+
+let collect_expr_iri_custom_method0_body = failwith "collect_expr_iri_custom_method0_body"
 
 (*
     Type
@@ -51,7 +59,6 @@ module Params : (
         type target_name = iri_target_name and
         type _state_dcl_body = iri_state_dcl_body and 
         type _custom_method0_body = iri_custom_method0_body and 
-        type _custom_function_body = iri_custom_function_body and 
         type _typealias_body = iri_typealias_body and
         type _typedef_body = iri_typedef_body
 ) = struct
@@ -59,10 +66,11 @@ module Params : (
     type target_name = iri_target_name
     and _state_dcl_body = iri_state_dcl_body 
     and _custom_method0_body = iri_custom_method0_body 
-    and _custom_function_body = iri_custom_function_body 
     and _typealias_body = iri_typealias_body
     and _typedef_body = iri_typedef_body
     [@@deriving show { with_path = false }]
+
+    let collect_expr_ir_state_dcl_body = collect_expr_iri_state_dcl_body
 end
 
 (*include IR_common*)

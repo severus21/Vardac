@@ -3,7 +3,7 @@ open Easy_logging
 open Utils
 open AstUtils
 open IRMisc
-open IR_utils
+ 
 
 let logger = Logging.make_logger "_1_ compspec.EventAutoBoxing" Debug [];;
 let fplace = (Error.forge_place "EventAutoBoxing" 0 0) 
@@ -256,7 +256,7 @@ module Make () = struct
 
         (* toplevel *)
         logger#debug "inserting generated event definitions for autoboxing";
-        let program = IR_utils.insert_terms_into_lca [None] (generate_eventdefs ()) program in
+        let program = insert_terms_into_lca [None] (generate_eventdefs ()) program in
 
         (*** Need to recompute all types ***)
         let program = TypeInference2.apply program in

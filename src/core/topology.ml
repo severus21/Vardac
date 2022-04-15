@@ -10,7 +10,7 @@ module Node = struct
 end
 
 module Edge = struct 
-    type t = IR.tbridge option 
+    type t = tbridge option 
     let compare = Pervasives.compare                                                 
     let default = None 
 

@@ -4,7 +4,7 @@ open Easy_logging
 open Utils
 open AstUtils
 open IRMisc
-open IR_utils
+ 
 
 let logger = Logging.make_logger "_1_ compspec.commsimpl.BranchElimination" Debug [];;
 let fplace = (Error.forge_place "BranchElimination" 0 0) 
