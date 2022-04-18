@@ -54,7 +54,7 @@ module Make(Args:Args) : Sig = struct
             | _ -> false
         in
         let collect_caller parent_opt _ _ = [parent_opt] in 
-        let _, callers, _ = collect_expr_program Variable.Set.empty select_caller collect_caller program in
+        let _, callers, _ = collect_expr_program Atom.Set.empty select_caller collect_caller program in
         let callers : Atom.atom list = List.map Option.get (List.filter (function x -> x <> None) callers) in 
         (if callers = [] then 
             Error.error fplace "There is no RPC call for %s" (Atom.value cname) (* FIXME compute the correct place to improve error reporting *)
@@ -349,7 +349,7 @@ module Make(Args:Args) : Sig = struct
         in
 
         let scope_rewriter (terms : term list) =
-            IR_utils.insert_in_terms (!top_level_terms) terms
+            IRUtils.insert_in_terms (!top_level_terms) terms
         in
 
         (* TODO FIXME Bridge should be used outside maybe an issue in multi JVM*)

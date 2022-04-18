@@ -31,17 +31,6 @@ and iri_typedef_body = blackbox_term option
 [@@deriving show { with_path = false }]
 
 
-let collect_expr_iri_state_dcl_body 
-    (* function provided by parent to keep processing - since they do not exists at this point (they are created by the Make)*)
-    collect_expr_expr
-    (* argument of the collect_expr_.. fct *)
-    parent_opt already_binded selector collector place 
-= function
-| InitExpr e -> collect_expr_expr parent_opt already_binded selector collector e
-| InitBB _ | NoInit -> already_binded, [], []
-
-let collect_expr_iri_custom_method0_body = failwith "collect_expr_iri_custom_method0_body"
-
 (*
     Type
     Make(param), pb 2 make
@@ -70,12 +59,106 @@ module Params : (
     and _typedef_body = iri_typedef_body
     [@@deriving show { with_path = false }]
 
-    let collect_expr_ir_state_dcl_body = collect_expr_iri_state_dcl_body
+    let collect_type_state_dcl_body 
+        parent_opt already_binded selector collector 
+    = function
+        | InitExpr e -> collect_type_expr parent_opt already_binded selector collector e
+        | InitBB _ | NoInit -> already_binded, [], []
+    let rewrite_type_state_dcl_body 
+        selector rewriter
+    = function 
+        | InitExpr e -> InitExpr (rewrite_type_expr selector rewriter e)
+        | (InitBB _ as e) | (NoInit as e) -> e
+    let rewrite_expr_state_dcl_body 
+        selector rewriter
+    = function 
+        | InitExpr e -> InitExpr (rewrite_expr_expr selector rewriter e)
+        | (InitBB _ as e) | (NoInit as e) -> e
+        (* TODO FIXME rewrite type0*)
+
+    let collect_expr_state_dcl_body 
+        parent_opt already_binded selector collector 
+    = function
+        | InitExpr e -> collect_expr_expr parent_opt already_binded selector collector e
+        | InitBB _ | NoInit -> already_binded, [], []
+
+    let collect_cexpr_state_dcl_body 
+        parent_opt already_binded selector collector   
+    = function
+        | InitExpr e -> already_binded, IR_common.collect_cexpr_expr parent_opt already_binded selector collector e, []
+        | InitBB _ | NoInit -> already_binded, [], []
+
+    let collect_cexpr_custom_method0_body 
+        parent_opt already_binded selector collector 
+    = function 
+        | AbstractImpl body ->  already_binded, List.flatten (List.map (collect_cexpr_stmt parent_opt already_binded selector collector) body), []
+        | (BBImpl _ ) -> already_binded, [], []
+
+    let collect_type_custom_method0_body 
+        parent_opt already_binded selector collector 
+    = function 
+        | AbstractImpl body ->
+            List.fold_left_map (fun set stmt ->         
+                let env, a,b  = collect_type_stmt parent_opt set selector collector stmt in
+                env, (a,b)
+            ) already_binded body
+        | (BBImpl _ ) -> already_binded, []
+    let rewrite_type_custom_method0_body 
+        selector rewriter
+    = function
+        | AbstractImpl stmts -> 
+            AbstractImpl (List.map (rewrite_type_stmt selector rewriter) stmts)
+        | (BBImpl _ as x) -> x
+    let rewrite_expr_custom_method0_body 
+        selector rewriter
+    = function
+        | AbstractImpl stmts -> 
+            AbstractImpl (
+                List.map (rewrite_expr_stmt selector rewriter) stmts)
+        | (BBImpl _ as x) -> x
+    let rewrite_exprstmts_custom_method0_body rewrite_exprstmts_stmt parent_opt exclude_stmt selector rewriter = function 
+        | AbstractImpl body ->
+            AbstractImpl (
+                List.flatten (List.map (rewrite_exprstmts_stmt parent_opt exclude_stmt selector rewriter) body))
+        | (BBImpl _ as x) -> x
+    let rewrite_stmt_custom_method0_body
+    rewrite_stmt_stmt recurse selector rewriter = function 
+        | AbstractImpl body ->
+            AbstractImpl (
+                List.flatten (List.map (rewrite_stmt_stmt recurse selector rewriter) body))
+        | (BBImpl _ as x) -> x
+
+    let collect_expr_custom_method0_body 
+        parent_opt already_binded selector collector
+    = function 
+        | AbstractImpl stmts ->
+            List.fold_left_map (fun already_binded stmt ->         
+                let env, a,b  = collect_expr_stmt parent_opt already_binded selector collector stmt in
+                env, (a,b)
+            ) already_binded stmts
+        | BBImpl _ -> already_binded, []
+
+    let collect_stmt_custom_method0_body 
+        parent_opt selector collector 
+    = function  
+        | AbstractImpl body ->
+            List.flatten (List.map (collect_stmt_stmt parent_opt  selector collector) body)
+        | BBImpl _ -> []
+
+    let rename_state_dcl_body rename_expr renaming = function
+        | InitExpr e -> InitExpr (rename_expr renaming e)
+        | (InitBB _) as x | (NoInit as x) -> x
+    let rename_custom_method0_body rename_stmt renaming = function 
+        | AbstractImpl stmts -> AbstractImpl (List.map (rename_stmt renaming) stmts) 
+        | (BBImpl _) as x -> x
+
+    let rename_typealias_body rename_main_type renaming = function 
+        | AbstractTypealias mt -> AbstractTypealias (rename_main_type renaming mt) 
+        | BBTypealias _ as x -> x
 end
 
 (*include IR_common*)
-module IRI = IR_template.Make(IRC)(Params) 
-
+module IRI = IR_template.Make(Params) 
 include IRI
 
 (* TODO integrate replace_ in IR_template/IR_common *)

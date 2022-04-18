@@ -36,7 +36,7 @@ let precondition program = program
 
 let postcondition program =
     (* Check: no MakeInterceptor*)
-    ignore (collect_cexpr_program functor_selector (failure_collector_ce "Intercept: MakeInterceptor remains in IR") program);
+    ignore (collect_cexpr_program Atom.Set.empty functor_selector (failure_collector_e3 "Intercept: MakeInterceptor remains in IR") program);
     
     program
 

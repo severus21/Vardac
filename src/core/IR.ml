@@ -46,8 +46,6 @@ module Params : (
         | Some e -> collect_type_expr parent_opt already_binded selector collector e
         | None _ -> already_binded, [], []
     let rewrite_type_state_dcl_body 
-        (* function provided by parent to keep processing - since they do not exists at this point (they are created by the Make)*)
-        rewrite_type_expr
         selector rewriter
     = Option.map (rewrite_type_expr selector rewriter)
     let rewrite_expr_state_dcl_body 

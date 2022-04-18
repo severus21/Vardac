@@ -4,6 +4,7 @@ open AstUtils
 open IR
 open Easy_logging
 open IRMisc
+open IRUtils
  
 
 let logger = Logging.make_logger ("_1_ compspec.Intercept") Debug [];;
@@ -291,7 +292,7 @@ module Make () = struct
             logger#warning ">> Parent %s" (match opt with | None -> "None" | Some x -> Atom.to_string x)
         ) parents;
 
-        IR_utils.insert_terms_into_lca (List.of_seq (AtomOptionSet.to_seq parents)) [(auto_fplace (Component interceptor_dcl))] program   
+        IRUtils.insert_terms_into_lca (List.of_seq (AtomOptionSet.to_seq parents)) [(auto_fplace (Component interceptor_dcl))] program   
 
     (*************** Step 2 - Bridge handling  ******************)
 
@@ -348,7 +349,7 @@ module Make () = struct
                     Hashtbl.find interceptor_parents key 
                 with Not_found -> failwith "key %s not found in interceptor_parents" key
             in
-            IR_utils.insert_terms_into_lca (List.of_seq (AtomOptionSet.to_seq parents)) [auto_fplace p_onboard_def] program   
+            IRUtils.insert_terms_into_lca (List.of_seq (AtomOptionSet.to_seq parents)) [auto_fplace p_onboard_def] program   
 
     (*************** Step 3 - Generate the interceptor factory  ******************)
     (* 
@@ -770,7 +771,7 @@ module Make () = struct
         | _ -> false
     let postcondition program = 
         (* Check: no WithContextStmt *)
-        ignore (collect_stmt_program withcontext_selector (failure_collector_ce "WithContextStmt remains in IR") program);
+        ignore (collect_stmt_program withcontext_selector (failure_collector_e2 "WithContextStmt remains in IR") program);
 
         program
     let apply_program = ctxelim_program

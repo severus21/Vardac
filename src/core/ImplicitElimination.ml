@@ -76,7 +76,7 @@ module Make (Args : Params ) : Sig = struct
 
         (* C, scope*)
         let selector = function | Spawn _ as e -> true | _ -> false in
-        let collector parent_opt env e = 
+        let collector (parent_opt:Atom.atom option) (env:Atom.Set.t) (e:expr) : 'a list = 
             match fst e.value with  
             | Spawn {c; args; at} -> [(c, env)] 
             | _ -> []
