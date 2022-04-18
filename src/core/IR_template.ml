@@ -464,10 +464,7 @@ module Make (Params : IRParams) = struct
         
         (******************************************************************)
 
-        let rec collect_expr_contract_ parent_opt (already_binded:Atom.Set.t) selector (collector:Atom.atom option ->
-         Atom.Set.t ->
-         expr ->
-         (_expr * main_type) list) place _contract = 
+        let rec collect_expr_contract_ parent_opt already_binded selector collector place _contract = 
             let inner_already_binded = List.fold_left (fun already_binded (mt, x, e) ->
                 Atom.Set.add x already_binded
             ) already_binded _contract.pre_binders in
@@ -559,7 +556,8 @@ module Make (Params : IRParams) = struct
             let already_binded, _, fvars = collect_expr_component_item None  already_binded (function e -> false) (fun parent_opt env e -> []) citem in
             already_binded, Utils.deduplicate snd fvars 
 
-        and collect_expr_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector (collector: 'a sig_expr_collector) place = function 
+        and collect_expr_component_dcl_ parent_opt (already_binded:Atom.Set.t) selector (collector: 'a sig_expr_collector) place =
+        function 
         | ComponentAssign {name; value} ->
             (* TODO write collect expr_cexpr
             let _, collected_elts, fvars = collect_expr_cexpr parent_opt already_binded selector collector in 
@@ -592,15 +590,12 @@ module Make (Params : IRParams) = struct
             let collected_elts = List.flatten (List.map fst res) in
             let fvars = List.flatten (List.map snd res) in
             already_binded, collected_elts, fvars
-        and collect_expr_component_dcl parent_opt (already_binded:Atom.Set.t) selector collector cdcl = failwith "TODO failure IR_template" 
-        (*
+        and collect_expr_component_dcl parent_opt (already_binded:Atom.Set.t) selector collector  cdcl = 
             map0_place (collect_expr_component_dcl_ parent_opt already_binded selector collector ) cdcl
 
-*)
         and free_vars_component_dcl already_binded cdcl = 
-            (*let already_binded, _, fvars = collect_expr_component_dcl None  already_binded (function e -> false) (fun parent_opt env e -> []) cdcl in
-            already_binded, Utils.deduplicate snd fvars *)
-            failwith "TODO IR_template"
+            let already_binded, _, fvars = collect_expr_component_dcl None  already_binded (function e -> false) (fun parent_opt env e -> []) cdcl in
+            already_binded, Utils.deduplicate snd fvars
 
         and collect_expr_typedef_ parent_opt (already_binded:Atom.Set.t) selector (collector: 'a sig_expr_collector) place = function 
         (* already binded left unchanged since it is type binder *)
@@ -627,11 +622,11 @@ module Make (Params : IRParams) = struct
             let fvars = List.flatten (List.map snd res) in
             already_binded, collected_elts, fvars
 
-        and collect_expr_term_ parent_opt (already_binded:Atom.Set.t) selector (collector: 'a sig_expr_collector) place = function 
+        and collect_expr_term_ parent_opt (already_binded:Atom.Set.t) selector (collector: 'a sig_expr_collector) place = 
+        function 
             | EmptyTerm | Comments _ -> already_binded, [], []
             | Stmt stmt -> collect_expr_stmt parent_opt already_binded selector collector stmt
-            | Component cdcl -> failwith "TODO IR_template" (*collect_expr_component_dcl parent_opt already_binded selector collector cdcl
-            *)
+            | Component cdcl -> collect_expr_component_dcl parent_opt already_binded selector collector cdcl
             | Function fdcl -> collect_expr_function_dcl parent_opt already_binded selector collector fdcl
             | Typealias _ -> already_binded, [], [] (* type binder but not an expr binder so already_binded is left unchanged*)
             | Typedef typedef -> collect_expr_typedef parent_opt already_binded selector collector typedef
@@ -639,14 +634,14 @@ module Make (Params : IRParams) = struct
         and collect_expr_term parent_opt (already_binded:Atom.Set.t) selector (collector:'a sig_expr_collector) t = 
             map0_place (collect_expr_term_ parent_opt already_binded selector collector) t
 
-        and collect_expr_program already_binded selector collector program = failwith "TODO" 
-           (* let _, res = List.fold_left_map (fun already_binded term -> 
+        let rec collect_expr_program already_binded selector collector program = 
+            let _, res = List.fold_left_map (fun already_binded term -> 
                 let env, a,b = collect_expr_term None already_binded selector collector term in
                 env, (a,b)    
             ) already_binded program in
             let collected_elts = List.flatten (List.map fst res) in
             let fvars = List.flatten (List.map snd res) in
-            already_binded, collected_elts, fvars*)
+            already_binded, collected_elts, fvars
 
         and free_vars_term already_binded citem = 
             let already_binded, _, fvars = collect_expr_term None  already_binded (function e -> false) (fun parent_opt env e -> []) citem in
@@ -654,11 +649,8 @@ module Make (Params : IRParams) = struct
 
 
         and free_vars_program already_binded program = 
-        failwith "TODO IR_template"
-        (*
             let already_binded, _, fvars = collect_expr_program  already_binded (function e -> false) (fun parent_opt env e -> []) program in
             already_binded, Utils.deduplicate snd fvars 
-            *)
 
 
         (******************************************************************)
