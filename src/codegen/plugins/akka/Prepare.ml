@@ -75,8 +75,7 @@ let elim_unbox_or_propagate program =
         in
         [propagate_or_nothing], unboxed_e
     in
-    failwith "Akka.Prepare"
-    (* rewrite_exprstmts_program (function _ -> false) selector_unbox_or_propagate rewriter program *)
+    IRUtils.rewrite_exprstmts_program (function _ -> false) selector_unbox_or_propagate rewriter program
 
 (*****************************************************)
 let name = "Akka.PrepareIRI"
@@ -85,12 +84,12 @@ let displayed_ast_name = "Prepared IRI for codegen plg"
 let show_ast = true
 let global_at_most_once_apply = false
 
-let precondition program = 
+let precondition (program:IRI.program) = program 
+let postcondition program = 
     (* Ensure that they are no UnboxOrPropagateResult anymore *)
-    failwith "Akka.Prepare";
-    (*collect_expr_program Atom.Set.empty selector_unbox_or_propagate (failwith "UnboxOrPropagateResult") program;*)
+    IRUtils.collect_expr_program Atom.Set.empty selector_unbox_or_propagate (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnboxOrPropagateResult"))) program;
     program
-let postcondition program = program
+
 let apply_program program =
     program
     |> elim_unbox_or_propagate 

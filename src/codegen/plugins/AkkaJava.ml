@@ -1698,7 +1698,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
     end
 
     (*****************************************************)
-    module RtPrepare = IRICompilationPass.Make(Rt.Prepare)
+    module RtPrepare = Core.IRICompilationPass.Make(Rt.Prepare)
     module RFinish = Rt.Finish.Make()
     module RtFinish = Rt.IRI2AstCompilationPass.Make(RFinish)
 
