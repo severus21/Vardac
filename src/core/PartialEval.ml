@@ -240,7 +240,7 @@ and is_terminal_expr (e, mt): bool =
 and peval_unop env place (op: unop) (e: expr) : env * (_expr * main_type) =
 match (op, e.value) with
 | Not, (LitExpr {value = BoolLit b; _}, mt) -> env, (LitExpr {place=e.place; value = BoolLit (not b); }, mt)
-| UnpackResult, (ResultExpr (ok_opt, err_opt) as re, mt) -> 
+| UnpackOrPropagateResult, (ResultExpr (ok_opt, err_opt) as re, mt) -> 
     if is_terminal_expr (re, mt) then
         env, ((match (ok_opt, err_opt) with 
         | Some e, None | None, Some e -> fst e.value (* TODO here we should return e.place *)

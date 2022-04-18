@@ -111,7 +111,9 @@ module Make () = struct
         let of_tflat ft = auto_fplace(CType ( auto_fplace (TFlatType ft))) in
     match (op, mt_e.value) with
     | Not, _ -> of_tflat TBool
-    | UnpackResult, CType{value=TResult (ok,err)} -> ok
+    | UnpackOrPropagateResult, CType{value=TResult (ok,err)} -> ok
+    (* TODO what if TForall TForall ... TForall TResult .. ??*)
+    | UnpackOrPropagateResult, CType{value=TForall (x, {value=CType {value=TResult (ok, err)};})} -> ok 
 
     let typeof_binop op mt_e1 mt_e2 = 
         let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in

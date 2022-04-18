@@ -77,7 +77,7 @@ type flat_type =
 
 type unop = 
     | Not 
-    | UnpackResult
+    | UnpackOrPropagateResult
 
 and binop =
     (* Boolean *)

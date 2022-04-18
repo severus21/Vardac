@@ -145,10 +145,10 @@ match (op, mt_e.value) with
     (*mt_ret == TBool by reconstruction algo *)
     () 
 | Not, _ -> Error.error place "[not] expect a boolean expression"
-| UnpackResult, CType{value=TResult (mt_res,_)} ->
+| UnpackOrPropagateResult, CType{value=TResult (mt_res,_)} ->
     if Bool.not (equal_mtype mt_res mt_res) then
         Error.error place "Type error: types mismatched (subtyping is forbiden)"
-| UnpackResult, _ -> Error.error place "[?] expect a result expression"
+| UnpackOrPropagateResult, _ -> Error.error place "[?] expect a result expression"
 
 
 and check_call place mt_e = 

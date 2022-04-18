@@ -21,12 +21,11 @@ module S = IRI
 module T = IRI 
 
 let selector_unbox_or_propagate = function 
-    | UnboxOrPropagateResult _ -> true 
+    | UnopExpr (UnpackOrPropagateResult, e) -> true 
     |_ ->false
 let elim_unbox_or_propagate program = 
-    let rewriter parent_opt mt_e e =
-        let e = auto_fplace (e, mt_e) in
-        let mt_ok = match mt_e.value with
+    let rewriter parent_opt mt_op (UnopExpr (UnpackOrPropagateResult, e)) =
+        let mt_ok = match mt_op.value with
             | CType{value=TResult (mt_ok, _)} -> mt_ok
         in
         (*
@@ -47,7 +46,8 @@ let elim_unbox_or_propagate program =
             auto_fplace (IfStmt(
                 e2_e (CallExpr(
                     e2_e (AccessExpr( 
-                        e,
+                        (* Update type of e : TRes<ok, err> -> ok*)
+                        {place=e.place; value = ((fst e.value), mt_op)},
                         e2var (Atom.builtin "isLeft")
                     )),
                     [ ]
@@ -86,8 +86,8 @@ let global_at_most_once_apply = false
 
 let precondition (program:IRI.program) = program 
 let postcondition program = 
-    (* Ensure that they are no UnboxOrPropagateResult anymore *)
-    IRUtils.collect_expr_program Atom.Set.empty selector_unbox_or_propagate (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnboxOrPropagateResult"))) program;
+    (* Ensure that they are no UnpackOrPropagateResult anymore *)
+    IRUtils.collect_expr_program Atom.Set.empty selector_unbox_or_propagate (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrPropagateResult"))) program;
     program
 
 let apply_program program =

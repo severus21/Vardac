@@ -183,7 +183,6 @@ and _expr =
 
     (* condensed form of the if-else statement that also returns a value i.e. an expr *)
     | TernaryExpr of expr * expr * expr
-    | UnboxOrPropagateResult of expr (* if Ok e then e else return Err err *)
 
     (* Reflexifity *)
     | This (* current activation *)

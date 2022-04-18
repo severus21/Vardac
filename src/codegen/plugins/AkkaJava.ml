@@ -947,7 +947,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         auto_place (T.RawExpr "stream().collect(Collectors.toMap(t -> t.0, t -> t.1));", auto_place T.TUnknown)
                     )
             end
-            | S.UnopExpr (AstUtils.UnpackResult, e) -> 
+            | S.UnopExpr (AstUtils.UnpackOrPropagateResult, e) -> 
                 (*  Encoding
                     e.getOrElseThrow(t -> new RuntimeException("The result is failure, can access the success."))
                 *)

@@ -615,7 +615,6 @@ module Make () = struct
             }
 
         | S.TernaryExpr (e1, e2, e3) -> T.TernaryExpr (fexpr e1, fexpr e2, fexpr e3) 
-        | S.UnboxOrPropagateResult _ -> raise (Error.DeadbranchError "UnboxOrPropagatResult must be eliminated in PrepareIRI since return can not be part of an expression in Java")
     ), fmtype mt
     and fexpr e : T.expr = map_place finish_expr e
 

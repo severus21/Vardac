@@ -234,7 +234,7 @@ any_op_:
 | op=UNOP e=any_expr
     { UnopExpr (op, e)}
 | e=any_expr RECV
-    { UnopExpr (Core.AstUtils.UnpackResult, e)}
+    { UnopExpr (Core.AstUtils.UnpackOrPropagateResult, e)}
 |  x = any_expr  op=atomic_bin_op y = any_expr   
     { BinopExpr  (x, op, y) }
 
@@ -305,8 +305,6 @@ any_expr_:
     { t }
 | e = any_expr LANGLEBRACKET LANGLEBRACKET mts=right_flexible_list(COMMA,any_type) RANGLEBRACKET RANGLEBRACKET (* For some reason the parser can not distinguish between e<e> and e<mt> - NB. however e<e> should not be accepted*)
     { PolyApp (e,mts) }
-| e=any_expr RECV
-    { UnboxOrPropagateResult e }
 
 (* Control-flow *)
 (* TODO Ternary*)

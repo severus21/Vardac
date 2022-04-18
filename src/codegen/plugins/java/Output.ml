@@ -52,7 +52,7 @@ and output_comments out : AstUtils._comments -> unit = function
 (** Akka specific *)
 let rec output_unop out = function
     | AstUtils.Not -> pp_print_string out "!"
-    | AstUtils.UnpackResult -> raise (Core.Error.DeadbranchError "output_unop : unpacking a result should have been encoded as a method call when translating from Akka to Java AST.")
+    | AstUtils.UnpackOrPropagateResult -> raise (Core.Error.DeadbranchError "output_unop : unpacking a result should have been encoded as a method call when translating from Akka to Java AST.")
 and output_binop out = function
     | AstUtils.And -> pp_print_string out "&&"
     | AstUtils.Equal -> pp_print_string out "=="
