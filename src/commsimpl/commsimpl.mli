@@ -1,4 +1,4 @@
-(* 
+(** 
     - simplify communication to only send/receive + session
     - get ride of branch / then receive
 *) 

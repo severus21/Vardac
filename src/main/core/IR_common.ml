@@ -98,7 +98,7 @@ and main_type = _main_type placed
 and _constraint_header =      
     | UseMetadata of main_type * expr_variable
     | SetTimer of expr_variable
-    | SetFireTimer of expr_variable * int (* specify timeout delay *)
+    | SetFireTimer of expr_variable * int (** specify timeout delay *)
 and constraint_header = _constraint_header placed
 
 and _constraints = _expr * main_type (* for now, maybe we will need to restrict a bit for SMT solving*)
