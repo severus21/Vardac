@@ -20,12 +20,12 @@ module S = IRI
 (* The target calculus. *)
 module T = IRI 
 
-let selector_unbox_or_propagate = function 
+let selector_unpack_or_propagate = function 
     | UnopExpr (UnpackOrPropagateResult, e) -> true 
     |_ ->false
-let elim_unbox_or_propagate program = 
+let elim_unpack_or_propagate program = 
     let rewriter parent_opt mt_op (UnopExpr (UnpackOrPropagateResult, e)) =
-        let mt_ok = match mt_op.value with
+        let mt_ok = match (snd e.value).value with
             | CType{value=TResult (mt_ok, _)} -> mt_ok
         in
         (*
@@ -53,29 +53,36 @@ let elim_unbox_or_propagate program =
                     [ ]
                 )),
                 auto_fplace (ReturnStmt(
-                    e2_e (CallExpr(
-                        e2_e (AccessExpr(
-                            e,
-                            e2var (Atom.builtin "getLeft")
-                        )),
-                        [ e ]
+                    (* Built a new result with a wildcard type for ok type*)
+                    e2_e (ResultExpr (
+                        None,
+                        (* Extract the error*)
+                        Some ( 
+                            e2_e (CallExpr(
+                                e2_e (AccessExpr(
+                                    e,
+                                    e2var (Atom.builtin "getLeft")
+                                )),
+                                [ ]
+                            ))
+                        )
                     ))
                 )),
                 None
             ))
         in
-        let unboxed_e = 
+        let unpacked_e = 
             (CallExpr(
                 e2_e(AccessExpr(
                     e,
                     e2var (Atom.builtin "get")
                 )),
-                [ e ]
+                [ ]
             ), mt_ok)
         in
-        [propagate_or_nothing], unboxed_e
+        [propagate_or_nothing], unpacked_e
     in
-    IRUtils.rewrite_exprstmts_program (function _ -> false) selector_unbox_or_propagate rewriter program
+    IRUtils.rewrite_exprstmts_program (function _ -> false) selector_unpack_or_propagate rewriter program
 
 (*****************************************************)
 let name = "Akka.PrepareIRI"
@@ -87,9 +94,9 @@ let global_at_most_once_apply = false
 let precondition (program:IRI.program) = program 
 let postcondition program = 
     (* Ensure that they are no UnpackOrPropagateResult anymore *)
-    IRUtils.collect_expr_program Atom.Set.empty selector_unbox_or_propagate (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrPropagateResult"))) program;
+    IRUtils.collect_expr_program Atom.Set.empty selector_unpack_or_propagate (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrPropagateResult"))) program;
     program
 
 let apply_program program =
     program
-    |> elim_unbox_or_propagate 
+    |> elim_unpack_or_propagate 

@@ -9,6 +9,8 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.TimerScheduler;
 
 import io.vavr.*;
+import io.vavr.control.*;
+
 
 import com.bmartin.*;
 import com.lg4dc.timers.*;
@@ -64,7 +66,7 @@ public class Session implements CborSerializable {
         return this.session_id;
     }
     
-    public <E extends Event> Session fire(
+    public <E extends Event> Either<Error, Session> fire(
         E e,  
         ActorContext context, 
         TimerScheduler contextTimers, 
@@ -74,7 +76,7 @@ public class Session implements CborSerializable {
         assert(this.st.continuations.size() == 1);
         if(! Handlers.is_session_alive( context, this.left, frozen_sessions, dead_sessions, this.session_id, this.right)){
             context.getLog().warn( String.format("Can not send message from [%s] to [%s] : session %s is dead", this.left.toString(), this.right.toString(), this.session_id));
-            return this; //TODO return Err() and Ok(This)
+            return Either.left(new Error("Dead session"));
         }
 
         e.hydrate(this.bridge_id,  this.session_id,  this.left, this.st, this.init_stage, this.hidden_right, new NoMetadata());
@@ -86,10 +88,10 @@ public class Session implements CborSerializable {
         this.st = this.st.continuations.get(0)._3;
         this.init_stage = false;
 
-        return this;
+        return Either.right(this);
     }
 
-    public Session select(
+    public Either<Error, Session> select(
         String label,  
         ActorContext context, 
         TimerScheduler contextTimers, 
@@ -99,7 +101,7 @@ public class Session implements CborSerializable {
         assert(this.st.continuations.size() > 0);
         if(! Handlers.is_session_alive( context, this.left, frozen_sessions, dead_sessions, this.session_id, this.right)){
             context.getLog().warn( String.format("Can not select from [%s] to [%s] : session %s is dead", this.left.toString(), this.right.toString(), this.session_id));
-            return this; //TODO return Err() and Ok(This)
+            return Either.left(new Error("Dead session"));
         }
 
         this.right.actorRef.tell(new LabelEvent(label));
@@ -114,7 +116,7 @@ public class Session implements CborSerializable {
         for(Tuple3<ASTStype.MsgT, List<ASTStype.TimerHeader>, ASTStype.Base> branch : this.st.continuations){
             if(branch._1.equals(msgT)){
                 this.st = branch._3;
-                return this;
+                return Either.right(this);
             }
         }
 
@@ -122,10 +124,10 @@ public class Session implements CborSerializable {
         assert(false);
 
         this.init_stage = false;
-        return this;
+        return Either.left(new Error("Unknown label"));
     }
 
-    public Session select(
+    public Either<Error, Session> select(
         LabelEvent label,  
         ActorContext context, 
         TimerScheduler contextTimers, 

@@ -114,6 +114,7 @@ module Make () = struct
     | UnpackOrPropagateResult, CType{value=TResult (ok,err)} -> ok
     (* TODO what if TForall TForall ... TForall TResult .. ??*)
     | UnpackOrPropagateResult, CType{value=TForall (x, {value=CType {value=TResult (ok, err)};})} -> ok 
+    | UnpackOrPropagateResult, t -> Error.error mt_e.place "%s" (show__main_type t)
 
     let typeof_binop op mt_e1 mt_e2 = 
         let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
@@ -513,7 +514,15 @@ module Make () = struct
                     | CType{value=TForall(_, mt)} -> ret_typeof depth mt
                     | _ -> Error.error place "Function [%s] expect %d args, not %d" (show_expr e) ((List.length es)-depth) (List.length es)
                 in
-
+                
+                (* Debug - at this point there is no call(..) that return lambda in kv.spec *)
+                assert( 
+                    match (ret_typeof (List.length es) (snd e.value)).value with
+                    | CType{value=TArrow _} -> 
+                        Error.error place "Should not be annotated with TArrow %d %s" (List.length es) (show_expr e);
+                        false
+                    | _ -> true
+                );
                 CallExpr(e, es), ret_typeof (List.length es) (snd e.value) 
             | NewExpr (e, es) -> 
                 let e = tannot_expr parent_opt e in

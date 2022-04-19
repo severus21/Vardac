@@ -53,7 +53,8 @@ module Make () : Sig = struct
         {
             annotations = main_annotations;
             ghost = false;
-            ret_type = mtype_of_ft TVoid; 
+            (* result<void, error> to support error propagation *)
+            ret_type = mtype_of_ct (TResult(mtype_of_ft TVoid, Builtin.builtin_mt_error)); 
             name = Atom.fresh ((Atom.hint main_name)^"_intermediate");
             args = (
                 match t_msg_cont with

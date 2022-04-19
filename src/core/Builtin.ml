@@ -10,6 +10,10 @@ let auto_fplace smth = {place = fplace; value=smth}
 (* load mtype_of_... *)
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
+
+let builtin_mt_error_name = "error"
+let builtin_mt_error = mtype_of_var (Atom.builtin builtin_mt_error_name)
+
 let quantify labels make : main_type =
     let vars = List.map Atom.fresh labels in
     let rec aux = function
@@ -65,9 +69,13 @@ let t_fire () =
         )),
         mtype_of_ct(TArrow(
             mtype_of_ft TBottom,
-            mtype_of_st STWildcard
+            mtype_of_ct (TResult (
+                mtype_of_st STWildcard,
+                builtin_mt_error
+            ))
         ))
     ))
+
 let t_receive () = 
     (*quantify 
         ["msg"; "continuation"] 
@@ -93,15 +101,12 @@ let t_receive () =
             *)
             mtype_of_ft TBottom, auto_fplace STEnd 
         )),
-        mtype_of_ct(TArrow(
-            fresh_tbridge (), (* FIXME bridge since we still need for RecvElim => should be removed and access parent ports bridge *)
-            mtype_of_ct(TTuple
-                [
-                    mtype_of_ft TBottom; (* Same as previous TBottom*)
-                    mtype_of_st STWildcard
-                ]
-            )
-        ))
+        mtype_of_ct(TTuple
+            [
+                mtype_of_ft TBottom; (* Same as previous TBottom*)
+                mtype_of_st STWildcard
+            ]
+        )
     ))
 
 let t_initiate () =
@@ -202,18 +207,14 @@ let t_placeof () =
         mtype_of_ft TWildcard
     ))
 let t_select () = 
-    (*mtype_of_ct(TArrow(
-        quantify ["vp"] (function[vp] -> mtype_of_ct (TVPlace (mtype_poly_of_var vp))),
-        mtype_of_ct (TArrow(
-            mtype_of_ft TPlace,
-            mtype_of_ft TBool
-        ))
-    ))*)
     mtype_of_ct(TArrow(
-        mtype_of_ft TWildcard,
+        mtype_of_st STWildcard,
         mtype_of_ct(TArrow(
-            mtype_of_ft TWildcard,
-            mtype_of_ft TWildcard
+            mtype_of_ft TBLabel,
+            mtype_of_ct ( TResult(
+                mtype_of_ft TWildcard,
+                builtin_mt_error
+            ))
         ))
     ))
 
@@ -293,10 +294,7 @@ let t_remove2dict () =
         mtype_of_ft TWildcard,
         mtype_of_ct(TArrow(
             mtype_of_ft TWildcard,
-            mtype_of_ct(TArrow(
-                mtype_of_ft TWildcard,
-                mtype_of_ft TWildcard
-            ))
+            mtype_of_ft TVoid
         ))
 
     ))
@@ -322,7 +320,7 @@ let t_string_of_bridge () =
 
 let t_sessionid () =
     mtype_of_ct (TArrow(
-        quantify ["st"] (function [st] -> mtype_poly_of_svar st),
+        mtype_of_st STBottom,
         mtype_of_ft TInt
     ))
 
@@ -394,14 +392,13 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "remove2dict", "dict<k,v> -> k -> v", "remove and return", t_remove2dict;
     "second", "Tuple<'a, 'b> -> 'b", "Return the second element of list, failed if empty", t_second;
     "select_places", "label -> (place -> bool) -> place", "", t_select;
-    "sessionid", "'st -> int", "Return the id of the session", t_sessionid;
     "sleep", "int -> unit", "sleep", t_sleep;
     "select", "st -> label -> st", "select", t_select;
     "option_get", "option<'a> -> 'a", "", t_select; (*TODO*)
     "session_from", "session -> activation<>", "get the initiater of the session", t_select; (*TODO*)
     "session_to_2_", "session -> activation<>", "TODO", t_select; (*TODO*)
     "activationid", "activation_ref -> activation_id", "TODO", t_select; (*TODO*)
-    "sessionid", "'st -> session_id", "TODO", t_select; (*TODO*)
+    "sessionid", "'st -> int", "Return the id of the session", t_sessionid;
     "ip", "place -> string", "TODO", t_select;
     "port", "place -> int", "TODO", t_select;
     (*
@@ -426,6 +423,7 @@ let builtin_atomic_types = [
   "ipaddress";
   "place_selector";
   "uuid";
+  builtin_mt_error_name;
   ]
 
 

@@ -39,12 +39,15 @@ module Make () : Sig = struct
                 auto_fplace(LetStmt(
                     mtype_of_st st_branch.value,
                     branch_s, (* Branch introduce a binder *)
-                    e2_e (CallExpr(
-                        e2var (Atom.builtin "select"),
-                        [ 
-                            e_local_s;
-                            e_local_label 
-                        ]
+                    e2_e ( UnopExpr(
+                        UnpackOrPropagateResult,
+                        e2_e (CallExpr(
+                            e2var (Atom.builtin "select"),
+                            [ 
+                                e_local_s;
+                                e_local_label 
+                            ]
+                        ))
                     ))
                 ));
             ] @ [ body ])

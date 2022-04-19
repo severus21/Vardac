@@ -211,13 +211,19 @@ module Make(Args:Args) : Sig = struct
                             ]
                         ), auto_fplace EmptyMainType)));
                         (* s1 = select(s0, counter__incr__label); *)
-                            auto_fplace (LetStmt(mtype_of_st _expecting_st.value, s1, auto_fplace (CallExpr(
-                                auto_fplace (VarExpr (Atom.builtin "select"), auto_fplace EmptyMainType),
-                                [
-                                    auto_fplace (VarExpr s0, auto_fplace EmptyMainType); 
-                                    auto_fplace (LitExpr (auto_fplace(StringLit (Atom.to_string l_selector))), auto_fplace EmptyMainType)
-                                ]
-                            ), auto_fplace EmptyMainType)));
+                        auto_fplace (LetStmt(
+                            mtype_of_st _expecting_st.value, s1, 
+                            e2_e (UnopExpr(
+                                UnpackOrPropagateResult,
+                                e2_e (CallExpr(
+                                    e2var (Atom.builtin "select"),
+                                    [
+                                        e2var s0; 
+                                        e2_lit (StringLit (Atom.to_string l_selector))
+                                    ]
+                                ))
+                            ))
+                        ));
                         (* s2 = fire(s1, counter__incr__call(args_as_tuple))?; *)
                         auto_fplace (LetStmt(mtype_of_st _expecting_st2.value, s2, auto_fplace (CallExpr(
                             auto_fplace (VarExpr (Atom.builtin "fire"), auto_fplace EmptyMainType),

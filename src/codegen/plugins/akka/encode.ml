@@ -19,10 +19,20 @@ encode_no_arg, one_arg
 encode try encode according to arg number in order to mutualised the error messages
 *)
 
+
+let encode_builtin_type place name = 
+    assert(Core.Builtin.is_builtin_type name);
+    let auto_place t = {place; value=t} in 
+    
+    match name with
+    | "error" -> T.TVar (Atom.builtin "com.lg4dc.Error")
+    | _ -> failwith (Printf.sprintf "Unsupported builtin access in Akka:  %s" name) 
+
+
 (*
     @param mt_name - type of the right-hand side variable
 *)
-let encode_builtin_access place e name =
+let rec _encode_builtin_access place e name =
     assert(Core.Builtin.is_builtin_expr name);
     let auto_place t = {place; value=t} in 
 
@@ -56,6 +66,12 @@ let encode_builtin_access place e name =
         )
     end
     | _ -> failwith (Printf.sprintf "Unsupported builtin access in Akka:  %s" name) 
+and encode_builtin_access place e name = 
+    let auto_place t = {place; value=t} in 
+
+    if PlgBuiltin.is_builtin_expr name then 
+        T.AccessExpr(e, auto_place (T.VarExpr (Atom.builtin name), auto_place T.TUnknown))
+    else _encode_builtin_access place e name
 
 let encode_builtin_fct place name (args:T.expr list) =
     assert(Core.Builtin.is_builtin_expr name);

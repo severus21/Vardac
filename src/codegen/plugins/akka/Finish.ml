@@ -160,7 +160,10 @@ module Make () = struct
         | S.TVar x ->  begin
             (* Remove type alias introduced by *.impl if any *)
             match Hashtbl.find_opt typealias x with
-            | None -> T.TVar x
+            | None ->
+                if Atom.is_builtin x then 
+                    Encode.encode_builtin_type place (Atom.value x)
+                else  T.TVar x
             | Some bb -> T.TBB (fbbterm bb) 
         end
         | S.TFlatType ft -> begin match ft with  
