@@ -1,4 +1,4 @@
 (* functor to hide inner state *)
 module Make : functor() -> sig
-    include IRCompilationPass.Pass
+    include Core.IRCompilationPass.Pass
 end

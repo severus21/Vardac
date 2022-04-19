@@ -1,4 +1,5 @@
 (* TODO clean builtin and write type information + descrption*)
+open Core
 open AstUtils
 open IR
 open Easy_logging

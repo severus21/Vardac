@@ -3,6 +3,7 @@ open AstUtils
 open IR
 open Easy_logging
 open IRMisc
+open Common
  
 
 let logger = Logging.make_logger ("_1_ compspec.derive") Debug [];;

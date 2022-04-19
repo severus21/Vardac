@@ -3,6 +3,7 @@ open Core
 open Utils
 open Codegen
 open Easy_logging
+open Common
 
 let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
@@ -10,19 +11,19 @@ let process_impl filename =
     Frontend.to_impl filename
 
 (* Static passes *)
-module Clean = IRCompilationPass.Make(Core.Clean)
+module Clean = IRCompilationPass.Make(Common.Clean)
 module Derive = IRCompilationPass.Make(Derive)
 module Intercept = IRCompilationPass.Make(Intercept)
-module PartialEval = IRCompilationPass.Make(Core.PartialEval)
-module Reduce = IRCompilationPass.Make(Core.Reduce)
-module Reflexivity = IRCompilationPass.Make(Core.Reflexivity)
-module UntypedCleansing = IRCompilationPass.Make(Core.UntypedCleansing.Make())
-module TypeChecking = IRCompilationPass.Make(Core.TypeChecking)
-module TypeInference1 = IRCompilationPass.Make(Core.TypeInference.Make())
-module TypeInference2 = IRCompilationPass.Make(Core.TypeInference.Make())
-module TypeInference3 = IRCompilationPass.Make(Core.TypeInference.Make())
-module TypeInference4 = IRCompilationPass.Make(Core.TypeInference.Make())
-module EventAutoBoxing = IRCompilationPass.Make(Core.EventAutoBoxing.Make())
+module PartialEval = IRCompilationPass.Make(Common.PartialEval)
+module Reduce = IRCompilationPass.Make(Common.Reduce)
+module Reflexivity = IRCompilationPass.Make(Common.Reflexivity)
+module UntypedCleansing = IRCompilationPass.Make(Common.UntypedCleansing.Make())
+module TypeChecking = IRCompilationPass.Make(Common.TypeChecking)
+module TypeInference1 = IRCompilationPass.Make(Common.TypeInference.Make())
+module TypeInference2 = IRCompilationPass.Make(Common.TypeInference.Make())
+module TypeInference3 = IRCompilationPass.Make(Common.TypeInference.Make())
+module TypeInference4 = IRCompilationPass.Make(Common.TypeInference.Make())
+module EventAutoBoxing = IRCompilationPass.Make(Common.EventAutoBoxing.Make())
 
 let process_check build_dir places_file filename = 
     let build_dir = Utils.refresh_or_create_build_dir build_dir in
@@ -61,7 +62,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
     let module CommSimpl = Core.IRCompilationPass.Make(Commsimpl) in
 
-    let module ImplicitElimination = ((Core.ImplicitElimination.Make((struct let gamma = gamma let targets = targets end))):Core.ImplicitElimination.Sig) in
+    let module ImplicitElimination = ((Common.ImplicitElimination.Make((struct let gamma = gamma let targets = targets end))):Common.ImplicitElimination.Sig) in
     let module ImplicitElimination = Core.IRCompilationPass.Make(ImplicitElimination) in
 
     let ir2 = ir1 
@@ -80,7 +81,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         *)
 
         (* Clean derived code *)
-        |> Core.PartialEval.peval_program
+        |> PartialEval.apply
         |> ImplicitElimination.apply
         |> CommSimpl.apply (* Transform receive to async + ports *) 
 
@@ -109,7 +110,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     |> Codegen.codegen project_dir build_dir places targets;
 
     (* Before rewriting *)
-    let module TopologyPrinter = ((Core.Topology.Make((struct let component2target = (Codegen.make_component2target ()) end))):Core.Topology.Sig) in (* Warning make_component2target can not be called before spliting until split.ml was improved*)
+    let module TopologyPrinter = ((Common.Topology.Make((struct let component2target = (Codegen.make_component2target ()) end))):Common.Topology.Sig) in (* Warning make_component2target can not be called before spliting until split.ml was improved*)
     TopologyPrinter.generate_static_logical_topology build_dir ir1;
     ()
 

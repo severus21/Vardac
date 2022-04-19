@@ -8,6 +8,7 @@
         Should be one of the last Varda transformation pass, in order not to miss anything
 *)
 
+open Core
 open AstUtils
 open IR
  

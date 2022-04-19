@@ -21,7 +21,7 @@ encode try encode according to arg number in order to mutualised the error messa
 
 
 let encode_builtin_type place name = 
-    assert(Core.Builtin.is_builtin_type name);
+    assert(Builtin.is_builtin_type name);
     let auto_place t = {place; value=t} in 
     
     match name with
@@ -33,7 +33,7 @@ let encode_builtin_type place name =
     @param mt_name - type of the right-hand side variable
 *)
 let rec _encode_builtin_access place e name =
-    assert(Core.Builtin.is_builtin_expr name);
+    assert(Builtin.is_builtin_expr name);
     let auto_place t = {place; value=t} in 
 
     match name with
@@ -74,10 +74,10 @@ and encode_builtin_access place e name =
     else _encode_builtin_access place e name
 
 let encode_builtin_fct place name (args:T.expr list) =
-    assert(Core.Builtin.is_builtin_expr name);
+    assert(Builtin.is_builtin_expr name);
     let auto_place t = {place; value=t} in 
     match name with
-    (* TODO Remove string and used typed constructor in order to ensure that this file is uptodate with the Core.Builtin.builtin_fcts*)
+    (* TODO Remove string and used typed constructor in order to ensure that this file is uptodate with the Builtin.builtin_fcts*)
     | "activationid" -> begin
         match args with
         | [a] -> T.CallExpr(
@@ -369,7 +369,7 @@ let is_stmt_builtin = function
 | _ -> false
 
 let encode_builtin_fct_as_stmt place name (args:T.expr list) =
-    assert(Core.Builtin.is_builtin_expr name);
+    assert(Builtin.is_builtin_expr name);
     let auto_place t = {place; value=t} in 
     match name with
     | "sleep" -> begin

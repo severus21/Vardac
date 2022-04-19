@@ -1,7 +1,7 @@
 open Core 
 open Utils
-open Core.Error
-open Core.Builtin
+open Error
+open Builtin
 open Easy_logging
 open Fieldslib
 open AstUtils

@@ -1,3 +1,4 @@
+open Core
 open IR
 
 val builtin_fcts : (string * string * string * (unit -> IR.main_type)) list
