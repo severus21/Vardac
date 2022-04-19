@@ -57,22 +57,22 @@ type _comments =
 and comments = _comments placed
 [@@deriving show { with_path = false }]
 
+(** Literal types *)
 type flat_type = 
-    (** Literal types *)
-    | TActivationID (* can not be created by programmer -> no constructor *)
+    | TActivationID (** can not be created by programmer -> no constructor *)
     | TBool
     | TInt
     | TUUID
     | TFloat 
     | TStr
     | TLabel
-    | TBLabel (* label for non deterministic choices (STBranch/STSelect) only *)
+    | TBLabel (** label for non deterministic choices (STBranch/STSelect) only *)
     | TVoid
     | TPlace
-    | TSessionID (* can not be created by programmer -> no constructor *)
+    | TSessionID (** can not be created by programmer -> no constructor *)
     | TTimer
-    | TWildcard (* e.g. ? *)
-    | TBottom (* e.g. object in Java *)
+    | TWildcard (** e.g. ? *)
+    | TBottom (** e.g. object in Java *)
 [@@deriving show { with_path = false }]
 
 type unop = 
@@ -91,7 +91,7 @@ and binop =
     | Divide
 
     (** Comparison *)
-    | StructuralEqual (*(e.g. like equals in Java or = in Ocaml)*)
+    | StructuralEqual (** (e.g. like equals in Java or = in Ocaml)*)
     | Equal 
     | GreaterThanEqual
     | LessThanEqual

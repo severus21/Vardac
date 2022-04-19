@@ -1,4 +1,4 @@
-(* Split a program, an IRI AST, to a set of programs - one program per target.
+(** Split a program, an IRI AST, to a set of programs - one program per target.
    The split is done at top-level
    - non component term are added to all program 
         - TODO FIXME for now, this can add deadcode

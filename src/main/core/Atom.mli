@@ -1,9 +1,10 @@
+(** Atom define variable representation in Varda intermediate states. Each binder introduce a unique name. We do not use DeBruijn notations to simplify maintaining globl information in between compilation transformation. *)
+
 (* from https://gitlab.inria.fr/fpottier/alphaLib*)
 (* TEMPORARY document *)
 
-(* An atom is a pair of a unique integer identity and a (not necessarily
+(** An atom is a pair of a unique integer identity and a (not necessarily
    unique) string. *)
-
 type atom
 
 and t = atom
@@ -28,8 +29,6 @@ val refresh_hint : atom -> string -> atom
 val equal: atom -> atom -> bool
 val compare: atom -> atom -> int
 val hash: atom -> int
-
-
 
 (* Sets. *)
 

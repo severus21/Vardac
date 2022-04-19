@@ -1,4 +1,4 @@
-(* 
+(** 
     Handle derivation - rewrite the architectures
 *)
 

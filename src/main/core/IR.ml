@@ -17,13 +17,6 @@ and ir_typealias_body = main_type option
 and ir_typedef_body = unit
 [@@deriving show { with_path = false }]
 
-
-
-(*
-    IRC et Make dans IR_template sont deux module différent ...
-    variable ok les même mais les constructeurs sont différents
-*)
-
 module Params : (
     IR_template.IRParams with   
         type target_name = ir_target_name and

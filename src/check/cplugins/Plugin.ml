@@ -1,3 +1,5 @@
+(** Schema for verification and static analysis plugins *)
+
 open Core
 open Core.Utils
 

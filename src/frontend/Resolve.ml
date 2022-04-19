@@ -1,9 +1,3 @@
-(*  resolve preprocessed commands
-    - use: resolve + cycle detection
-  
-    ghost:
-    - remove ghost annotations or remove ghost item 
-*)
 open Core.Error
 open Core.AstUtils
 

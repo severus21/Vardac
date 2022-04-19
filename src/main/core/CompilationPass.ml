@@ -1,6 +1,7 @@
-(*
+(**
     describes an IR -> IR transformation
 *)
+
 open Easy_logging
 
 module type Arg = sig 
@@ -14,7 +15,7 @@ module Make(S:Arg)(T:Arg) = struct
         val displayed_pass_shortdescription : string
         val show_ast : bool
 
-        (*
+        (***
             If set to "true" this pass should not be applied more than once
             This is a global property for all generated Pass (using this Make) and sharing the same name
         *)

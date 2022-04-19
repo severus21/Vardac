@@ -1,3 +1,5 @@
+(** Compile away and apply RPC derivation *)
+
 open Core
 open AstUtils
 open IR

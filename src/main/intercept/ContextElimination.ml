@@ -23,7 +23,7 @@ module Make () = struct
     (* key for dedup *)
     type interceptor_key = Atom.t * Atom.Set.t
 
-    (* 
+    (** 
         Mapping from key to 
         - the MakeInterceptor stmt used to create the key related interceptor schema
         - the onboarding protocol name
@@ -38,7 +38,7 @@ module Make () = struct
         let compare = Option.compare Atom.compare 
     end)
 
-    (* 
+    (** 
         Store the schemas (called parents) that owns a ctx using the interceptor schema binded to the key
         * key -> parent set
     *)
@@ -73,7 +73,7 @@ module Make () = struct
                 else r1 + r2 
     end)
 
-    (*
+    (**
         Returns the set of intercepted_schemas
         N.B. 
             - works because binders introduce unique variable names
@@ -110,7 +110,7 @@ module Make () = struct
         let intercepted_schemas_sets = List.map (intercepted_schemas_of_stmt place cname) stmts in
         List.fold_left (fun acc set -> Atom.Set.union acc set) Atom.Set.empty intercepted_schemas_sets
 
-    (*
+    (**
         Returns set of exposed_activations : (schema, atom) Set - 
         N.B. 
             - works because binders introduce unique variable names
@@ -144,9 +144,9 @@ module Make () = struct
         let exposed_activations = collect_stmt_stmt None selector collector stmt in
         ExposedActivationSet.of_seq (List.to_seq exposed_activations)
 
-    (*
-        cname - base interceptor name
-        stmts - ctx body 
+    (**
+        @param cname - base interceptor name
+        @param stmts - ctx body 
     *)
     let exposed_activations_of_ctx place cname stmts : ExposedActivationSet.t =
         let exposed_activations_sets = List.map (exposed_activations_of_stmt place cname) stmts in
@@ -178,8 +178,8 @@ module Make () = struct
         let compare (_, b) (_, d) = Atom.compare b d
     end)
 
-    (*
-        Returns set of intercepted_bridges : (bridge type:TBridge, atom) Set - 
+    (**
+        @returns set of intercepted_bridges : (bridge type:TBridge, atom) Set - 
         N.B. 
             - works because binders introduce unique variable names
             - complet capture
@@ -202,7 +202,7 @@ module Make () = struct
 
     (*** Step 1.A - TODO ***)
 
-    (*  Generates an interceptor key per context 
+    (**  Generates an interceptor key per context 
         key : (cname, set of intercepted_schemas)
     *)
     let key_of_ctx place cname stmts = 
@@ -217,7 +217,7 @@ module Make () = struct
 
     (*** Step 1.B - Generation  ***)
 
-    (*
+    (**
         Generates ``component InterceptorXX = MakeInterceptor(BaseInterceptor, intercepted_schemas)``;
     *)
     let generate_make_schema place cname stmts intercepted_schemas = 
@@ -249,7 +249,8 @@ module Make () = struct
         let p_onboard = Atom.fresh ("p_onboard_"^(Atom.value interceptor_name)) in 
         let p_def_onboard = ProtocolDef (p_onboard, mtype_of_st st_onboard.value) in
         (p_onboard, st_onboard, Typedef (auto_fplace p_def_onboard))
-    (*
+
+    (**
         Register each ctx inside shared state (interceptor_parents, interceptor_makes) in order to deduplicate schemas.
     *)
     let ctxelim_prepare_stmt (parent_opt : Atom.atom option) place : _stmt -> unit list = function
@@ -298,7 +299,7 @@ module Make () = struct
 
 
 
-    (*  Per context and not (per interceptor schema or per interceptor activation) 
+    (**  Per context and not (per interceptor schema or per interceptor activation) 
         - p_onboard/intercepted_bridges are defined in a per interceptor schema base
     *)
     let generate_bridges place interceptor_name intercepted_schemas p_onboard st_onboard intercepted_bridges =
@@ -356,8 +357,8 @@ module Make () = struct
         per context since binding interceptor activation with intercepted_activations, trough b_onboard or b_in, is done inside factory
     *)
 
-    (* 
-        Returns a lambda that represents the interceptor factory,
+    (** 
+        @returns a lambda that represents the interceptor factory,
         lambda since the language do not support static method except at toplevel
         and some schemas/types used inside the interceptor factory might not be defined at top-level
         see whitepaper for more details 
@@ -450,7 +451,7 @@ module Make () = struct
 
 
     (*************** Step 4 - Ctx elimination  ******************)
-    (* 
+    (** 
         Get ride of ``with<Interceptor> ctx() { stmt }``
         see whitepaper for details
     *)

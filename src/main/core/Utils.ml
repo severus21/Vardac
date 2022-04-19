@@ -107,7 +107,7 @@ let scandir path wanted_ext =
 
 (***************************** Function manipulations *************************)
 
-(* Function composition, TODO put it in some Core file*)
+(** Function composition, TODO put it in some Core file*)
 let (<->) f g x = f(g(x));;
 
 

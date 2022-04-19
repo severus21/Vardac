@@ -1,7 +1,7 @@
 (* -------------------------------------------------------------------------- *)
 open Core
 
-(* Reading and parsing a file. *)
+(** Reading and parsing a file. *)
 let parse filename contents : Ast.program = 
     let lexbuf = Lexing.from_string contents in
     Error.set_filename lexbuf filename;

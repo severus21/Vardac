@@ -1,4 +1,4 @@
-Compspec, a compiler for XXX
+Compspec, a compiler for Varda 
 =====================================================================
 
 [User Manual](XXXX)
@@ -150,4 +150,14 @@ Groovy:       3.0.7
 Ant:          Apache Ant(TM) version 1.10.9 compiled on September 27 2020
 JVM:          11.0.12 (Debian 11.0.12+7-post-Debian-2)
 OS:           Linux 5.10.0-6-amd64 amd64
+```
+
+## Compile docs
+
+```
+make odoc
+open _build/default/_doc/_html/index.html
+
+add private lib
+dune build @doc-private
 ```

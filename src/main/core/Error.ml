@@ -1,11 +1,7 @@
 open Lexing
 
-(* 
-  A place can be a union of various files and positions
-  A place can concret -> referer to an existing file
-              abstract -> fname is just a description (e.g. a compilation pass)
-*)
 type loc = position * position
+
 type place = loc list               
 
 let forge_place filename startpos endpos : place=

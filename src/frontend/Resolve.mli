@@ -1,6 +1,9 @@
-(* resolve preprocessed commands : i.e include*)
-
-(* TODO[low] create a ResolveAst to use type system to hunt processing. 
+(**  resolve preprocessed commands
+    - use: resolve + cycle detection
+    - target: include
+  
+    ghost:
+    - remove ghost annotations or remove ghost item 
 *)
 
 val resolve_program: Ast.program -> Ast.program

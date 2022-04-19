@@ -1,4 +1,7 @@
+(** Provide metrics on the code written by the programmer in unput, the internal transformation, the generated code both for impl for modelisation. *)
+
 (* TODO https://sci-hub.mksa.top/10.1016/j.jss.2017.03.044 *)
+
 open Frontend.Ast
 open Core.AstUtils
 open Easy_logging
@@ -6,7 +9,7 @@ open Easy_logging
 let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
 type stats = {
-    ssc: int ref (* Source statement count *)
+    ssc: int ref (** Source statement count *)
     (* 
         PPterm + Derive + ghost not a statementonly static
         method + component not a statement just a container

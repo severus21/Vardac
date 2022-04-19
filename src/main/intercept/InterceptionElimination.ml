@@ -50,8 +50,8 @@ module Make (Args: TArgs) = struct
         let to_list set = List.of_seq (to_seq set)
     end
 
-    (*
-        Returns set of intercepted_ports of a schema 
+    (**
+        @returns set of intercepted_ports of a schema 
         Do not captures the ports of nested schemas - since they are hidden for the outside.
     *)
     let extract_intercepted_ports_of_schema (schema_struct : component_structure) : InterceptedPortSet.t = 
@@ -74,8 +74,8 @@ module Make (Args: TArgs) = struct
         let to_list set = List.of_seq (to_seq set)
     end
 
-    (*
-        Returns set of intercepted_outputports of a schema 
+    (**
+        @returns set of intercepted_outputports of a schema 
         Do not captures the ports of nested schemas - since they are hidden for the outside.
     *)
     let extract_intercepted_outputports_of_schema (schema_struct : component_structure) : InterceptedOutportSet.t = 
@@ -105,6 +105,7 @@ module Make (Args: TArgs) = struct
         intercepted_outputports_per_schema
 
     (*************** Step 1 - Activation onboarding block******************)
+
     let generate_onboard_index interceptor_info onboard_methods = 
         (* for a given interceptor *)
         let onboard_index = Hashtbl.create 16 in
@@ -118,7 +119,7 @@ module Make (Args: TArgs) = struct
 
         onboard_index
 
-    (*
+    (**
         method onboard_A for schema A
     *)
     let get_onboard_of_schema default_onboard onboard_index schema = 
@@ -127,7 +128,7 @@ module Make (Args: TArgs) = struct
         | None -> default_onboard 
 
     
-    (* branch: if flag == "Schema" ... *)
+    (** branch: if flag == "Schema" ... *)
     let generate_main_callback_branch interceptor_info default_onboard onboard_index (e_this_b_onboard, e_this_onboarded_activations) ((param_schema, e_param_schema), (param_s, e_param_s)) schema: stmt =
         let a_mt = mtype_of_ct (TActivationRef (mtype_of_cvar schema)) in 
         let e_onboard_A = e2_e (AccessExpr(
@@ -252,7 +253,7 @@ module Make (Args: TArgs) = struct
             None
         ))   
 
-    (*
+    (**
         - states and port related to onboarding
         - per schema onboarding policy
             - programer-defined onboard method -> have been injected earlier when inlining base interceptor into interceptor
@@ -368,8 +369,8 @@ module Make (Args: TArgs) = struct
 
     (*************** Step 2 - Onstartup and inline other base component citems ******************)
 
-    (*
-        return an hydrated copy of interceptor_info
+    (**
+        @return an hydrated copy of interceptor_info
     *)
     let include_base_citems interceptor_info (base_interceptor : component_structure) : interceptor_info * component_item list = 
         (*** Collect intells ***)
@@ -520,8 +521,8 @@ module Make (Args: TArgs) = struct
         && TypingUtils.is_subtype (mtype_of_st st_continuation.value) (mtype_of_st st3.value)
         && TypingUtils.is_subtype tmsg tmsg3  
 
-    (*
-        return if exists the msginterceptor function for [intercepted_bridge] at stage [i]
+    (**
+        @return if exists the msginterceptor function for [intercepted_bridge] at stage [i]
     *)
     let get_msginterceptor interceptor_info (msg_interceptors: method0 list) tb_intercepted_bridge i (tmsg, st_continuation) =
         let left_mt = tb_intercepted_bridge.in_type in
@@ -834,7 +835,7 @@ module Make (Args: TArgs) = struct
             on_startup = false;
         }
 
-    (*
+    (**
         @param i - n° of the stage. 0 == session init 
     *)
     let generate_skeleton_block_per_intercepted_bridge_per_st_stage  (flag_egress, generate_skeleton_callback_msg, generate_skeleton_callback_sessioninit) interceptor_info msg_interceptors session_interceptors b_intercepted this_b_out this_b_int tb_intercepted i st_stage = 

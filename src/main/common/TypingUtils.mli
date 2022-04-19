@@ -8,7 +8,7 @@ type tconstraint =
 [@@deriving show { with_path = false }]
 val mgu_solver : Error.place -> tconstraint list -> (Atom.t * main_type) list
 
-(* subtype S T returns true if S <: T, returns false otherwise *)
+(** subtype S T returns true if S <: T, returns false otherwise *)
 val is_subtype : main_type -> main_type -> bool
 
 (* try to unify the forall i.e. find the substution *)

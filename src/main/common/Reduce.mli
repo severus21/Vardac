@@ -1,4 +1,4 @@
-(*  
+(**  
     Transformation befor type inference/checking/reconstruction
         - binds contract and methods 
 *)

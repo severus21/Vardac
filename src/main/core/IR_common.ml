@@ -78,7 +78,7 @@ and session_type = _session_type placed
 
 and _component_type =
     | CompTUid of component_variable 
-    | TStruct of component_variable * main_type Atom.VMap.t (*types of states, methods, ports, ... and subcomponents *)
+    | TStruct of component_variable * main_type Atom.VMap.t (** types of states, methods, ports, ... and subcomponents *)
     (* Polymorphsim*)
     | TPolyCVar of component_variable
 and component_type = _component_type placed

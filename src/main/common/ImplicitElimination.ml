@@ -38,14 +38,16 @@ module Make (Args : Params ) : Sig = struct
             ) 
             (List.of_seq (Env.to_seq env))
 
-    (* Component name -> implicit set*)
+    (** Component name -> implicit set*)
     let implicits : (Atom.atom, Env.t) Hashtbl.t = Hashtbl.create 32  
-    (* component name -> list (component name of an inner spawn, already_binded variable of the scope of this spawn) *)
+
+    (** component name -> list (component name of an inner spawn, already_binded variable of the scope of this spawn) *)
     let inner_spawns : (Atom.atom, (component_expr * Atom.Set.t)list) Hashtbl.t  = Hashtbl.create 32
     (* (selector, rewriter) that should be applied globaly to rewrite spawn *)
+
     let spawn_rewritings = ref []
 
-    (* return name of intermediate states * citems *)
+    (** @return name of intermediate states * citems *)
     let rec rewrite_component_item place : _component_item -> _component_item = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
     let auto_place smth = {place = place; value=smth} in
@@ -89,7 +91,7 @@ module Make (Args : Params ) : Sig = struct
         | Some already ->  Hashtbl.add inner_spawns cdcl.name  (already @ spawns)
         );
         
-        (* Collect spawn rewriting with implicit *)
+        (** Collect spawn rewriting with implicit *)
         let select_spawn = function 
             | Spawn {c={value=VarCExpr name, _} as c; args; at} when name = cdcl.name -> true
             | Spawn {c={value=VarCExpr name, _}} -> logger#debug "spawn of %s in %s" (Atom.to_string name) (Atom.to_string cdcl.name); false
@@ -134,7 +136,7 @@ module Make (Args : Params ) : Sig = struct
     and rterm term = map_place rewrite_term term
 
 
-    (* Hidden implicit vars = implicit vars coming from implicit vars of inner spawn *)
+    (** Hidden implicit vars = implicit vars coming from implicit vars of inner spawn *)
     and compute_hidden_implicit_vars () =
         let fplace = (Error.forge_place "Core.Rewrite.compute_hidden_implicit_vars" 0 0) in
         let auto_fplace smth = {place = fplace; value=smth} in

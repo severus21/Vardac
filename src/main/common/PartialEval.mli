@@ -1,4 +1,4 @@
-(*  This module partially evalute [IR] into [IR]. It evaluates 
+(**  This module partially evalute [IR] into [IR]. It evaluates 
         - all const expr
         - all const component expr
 

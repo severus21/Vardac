@@ -1,12 +1,4 @@
-open Core
-open AstUtils
-open IR
-open Easy_logging
- 
-
-let logger = Logging.make_logger ("_1_ compspec") Debug [];;
-
-(*
+(**
     Cleansing
         ExpressionStmt EmptyExpr => EmptyStmt
         ExpressionStmt VarExpr _ => EmptyStmt
@@ -17,6 +9,15 @@ let logger = Logging.make_logger ("_1_ compspec") Debug [];;
     Post condition 
         No more EmptyExpr (otherwise they are not in ExpressionStmt => error)
 *)
+
+open Core
+open AstUtils
+open IR
+open Easy_logging
+ 
+
+let logger = Logging.make_logger ("_1_ compspec") Debug [];;
+
 
 
 let clean_program program = 

@@ -1,5 +1,4 @@
-
-(* cook the different pieces (ast, place ast) into the IR 
+(*** cook the different pieces (ast, place ast) into the IR 
     - translate string identifier to variable while preserving architect notation
 *)
 
@@ -12,10 +11,10 @@ module S = Ast
 (* The target calculus. *)
 module T = IR 
 
-(* Environments map strings to atoms. *)
+(*** Environments map strings to atoms. *)
 module Env = Map.Make(String)
 
-(* [bind env x] creates a fresh atom [a] and extends the environment [env]
+(** [bind env x] creates a fresh atom [a] and extends the environment [env]
    with a mapping of [x] to [a]. *)
 let bind env x =
     let a = Atom.fresh x in

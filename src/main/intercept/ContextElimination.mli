@@ -1,3 +1,7 @@
+(** Compile away the interception contexts
+    see. wiki/interception for intuition and technical details 
+*)
+
 open Core
 open IR
 open InterceptUtils

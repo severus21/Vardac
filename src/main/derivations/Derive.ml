@@ -3,7 +3,7 @@ open AstUtils
 open IR
  
 
-(* 
+(** 
     Extract derivation from AST - since derivations can be defined anywhere in the program 
     they will executed in collection order (i.e. "line order")
 *)

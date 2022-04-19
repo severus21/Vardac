@@ -2,9 +2,9 @@ open Core
 open IR
 open TypingUtils
 
-(*
-    Return program if ok (unmodified) - 
-    Raise error otherwise
+(**
+    @eturn program if ok (unmodified) - 
+    @raise error otherwise
 *)
 val tcheck_program : program -> program 
 include IRCompilationPass.Pass

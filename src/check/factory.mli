@@ -1,3 +1,5 @@
+(** Build and load verification plugins *)
+
 open Core
 open Cplugins
 open Plugin
@@ -6,6 +8,7 @@ open Plugin
     - param1 the plug reprensenting the plugin to register *)
 val register_cg_plugin : (module Plugin.Cg_plg) -> unit
 (* TODO print the list of currently codegen lg rt plugins
+
 (** Returns the list of currently loaded plugins
     @return the list of loaded plugins *)
 val get_plugins : unit -> Plugin.plug list
