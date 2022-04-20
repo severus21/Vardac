@@ -15,7 +15,7 @@ component KVServer {
 
     inport p_in :: bridge<Client, KVServer, p_kv> expecting (dual p_kv) = this.callback;
 
-    void callback (blabel msg, p_kv s) {
+    result<void, error> callback (blabel msg, p_kv s) {
         print("callback");
 
         if(true){
@@ -26,13 +26,13 @@ component KVServer {
         branch s on msg {
             | "get" => s -> { 
                 tuple<key, ?value.> tmp = receive(s);
-                fire(tmp._1, tmp._0);
+                fire(tmp._1, tmp._0)?;
             }
             | "put" => s -> {
                 tuple<tuple<key,value>, ?bool.> tmp = receive(s);
                 tuple<key, value> res = tmp._0; 
                 (*TODO put(res._0, res._1); *)
-                fire(tmp._1, true);
+                fire(tmp._1, true)?;
             }
         }
 
@@ -62,11 +62,11 @@ component Client {
         this.get(key("Key1"));
     }
 
-    void get(key k){
+    result<void, error> get(key k){
         session<p_kv> s = initiate_session_with(this.p_out, this.kv);
 
-        !key?value. s = select(s, "get");
-        ?value. s = fire(s, k);
+        !key?value. s = select(s, "get")?;
+        ?value. s = fire(s, k)?;
 
         (* We need this intermediate let since there is no unification yet for universal type and receive is universally quantified *)
         (* TODO maybe use polyapp *)
@@ -80,11 +80,11 @@ component Client {
         return ();//TODO current recv-elim can not return :')
     }
 
-    void put(key k, value v){
+    result<void, error> put(key k, value v){
         session<p_kv> s = initiate_session_with(this.p_out, this.kv);
 
-        !tuple<key, value>?bool. s = select(s, "put");
-        ?bool. s = fire(s, (k, v));
+        !tuple<key, value>?bool. s = select(s, "put")?;
+        ?bool. s = fire(s, (k, v))?;
 
         (*assert(receive(s, this.b)._0);*) //TODO assert do not exit
     }

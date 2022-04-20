@@ -1704,7 +1704,7 @@ module Make () = struct
                 T.annotations = [T.Visibility T.Public];
                 decorators = [];
                 v = {
-                    T.ret_type = {place; value = T.Atomic "void"}; (* removed by the is_constructor *)
+                    T.ret_type = {place; value = T.Atomic "Void"}; (* removed by the is_constructor *)
                     name;
                     body = T.AbstractImpl [{place; value  = constructor_body}];
                     args = args;

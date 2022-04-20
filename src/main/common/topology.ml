@@ -30,7 +30,7 @@ pp_ctype { AstUtils.place ; AstUtils.value}= match value with
     | TInt -> "int"
     | TFloat -> "float"
     | TStr -> "str"
-    | TVoid -> "void"
+    | TVoid -> "Void"
 end
 | TDict (mt1, mt2) -> "dict<"^(pp_mtype mt1)^", "^(pp_mtype mt2)^">"
 | TList mt -> "list<"^(pp_mtype mt)^">"

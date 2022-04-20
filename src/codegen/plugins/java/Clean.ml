@@ -145,24 +145,27 @@ function
         body = List.map citem cid.body
     }
 | MethodDeclaration m0 -> begin
-    let rec search_return flag stmt = 
-        flag || match stmt.value with
-        | BreakStmt | CommentsStmt _ | ContinueStmt | ExpressionStmt _ | EmptyStmt _ |NamedExpr _ | RawStmt _ -> false 
-        | BlockStmt stmts -> List.fold_left search_return flag stmts
-        | IfStmt (_, stmt1, stmt2_opt) ->
-            (search_return flag stmt1) ||
-            (match Option.map (search_return flag) stmt2_opt with | Some f -> f | None -> flag)
-        | ReturnStmt _ -> true
-        | ForStmt (_,_,_,stmt) -> search_return flag stmt 
-        | TryStmt (stmt, branches) ->
-            search_return flag stmt || (
-                List.fold_left (fun flag (_,_,stmt) -> flag || search_return flag stmt) flag branches
-            )
+    (** stmt list -> bool
+        Return should be the last stmt of method,
+        comments excepted
+    *)
+    let ends_by_return = function 
+        | [] -> false
+        | stmts -> begin
+            let rec aux = function
+                | [] -> false
+                | {value=BBStmt _} ::_ -> true (* External to Varda reach *)
+                | {value=ReturnStmt _} :: _ -> true
+                | {value=CommentsStmt _} :: stmts -> aux stmts 
+                | _::stmts -> false
+            in
+            aux (List.rev stmts)
+        end
     in
-
     let body = match m0.ret_type with
+        | None -> m0.body (* constructor *)
         | Some {value=TAtomic "Void"} ->
-            if (List.fold_left search_return false m0.body) then
+            if ends_by_return m0.body then
                 m0.body
             else ( 
                 (* Add a return since Void needs a return *)
@@ -170,6 +173,19 @@ function
                     auto_fplace (ReturnStmt (auto_fplace(RawExpr "null", auto_fplace (TAtomic "null"))))
                 ]
             )
+        | Some {value=ClassOrInterfaceType({value=TAtomic "Either"}, [t_left; {value=TAtomic "Void"}])} ->
+
+            if ends_by_return m0.body then
+                m0.body
+            else ( 
+                m0.body @ [
+                    auto_fplace (ReturnStmt (
+                        auto_fplace (RawExpr "Either.right(null)", auto_fplace TUnknown)
+                    ))
+                ]
+            )
+        | Some ret_type when Bool.not (ends_by_return m0.body) -> 
+            raise (Error.PlacedDeadbranchError (place, Printf.sprintf "Method has no return : %s \n %s" (Atom.to_string m0.name) (show_jtype ret_type)))
         | _ -> m0.body
     in
     let body = List.map cstmt body in
