@@ -6,7 +6,7 @@ open IRI.IRUtils
 
 open Jingoo
 
-let name = "Interface<Akka,gRPC>"
+let name = "gRPC"
 
 module Make (Arg : sig
     val build_dir : Fpath.t 
@@ -51,7 +51,10 @@ end) = struct
             ("msgs", Jg_types.Tlist messages)
         ] in
 
-        Jg_template.from_file proto_template ~models:models
+        let res = Jg_template.from_file proto_template ~models:models in
+        let oc = open_out (Fpath.to_string protofile) in
+        Printf.fprintf oc "%s" res; 
+        close_out oc
 
 
     let finish_program program =  

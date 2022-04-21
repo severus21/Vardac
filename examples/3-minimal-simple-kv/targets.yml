@@ -2,6 +2,7 @@
   codegen: 
     language: Java
     runtime: Akka
+    interface: gRPC
     mains: 
       local:
         bootstrap: TopLevel 

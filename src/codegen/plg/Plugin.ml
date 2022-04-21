@@ -1,8 +1,6 @@
 open Core
 open Core.Utils
 
-open Akka
-open Java
 open Jingoo
 
 (* The source calculus. *)
@@ -20,10 +18,12 @@ module type Rt_plg = sig
     
     module Prepare: IRICompilationPass.Pass
 
+    module Interfaces: Interface_factory.SigInterfaces
+
     module Finish: sig 
         type collected_state
         module Make : functor () -> sig
-            val cstate : Finish.collected_state ref
+            val cstate : collected_state ref
             val finish_program : S.program -> Ast.program
         end
     end

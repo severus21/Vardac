@@ -77,6 +77,7 @@ let rec cook_target ast env (target:S.target) : env * T.target =
             codegen = {
                 runtime_plg = target.value.codegen.runtime_plg;
                 language_plg = target.value.codegen.language_plg;
+                interface_plg = target.value.codegen.interface_plg;
                 mains = List.map snd (List.map (cook_maindef target.place ast env) target.value.codegen.mains);
             }
         }

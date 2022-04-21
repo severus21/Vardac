@@ -1,0 +1,10 @@
+(library
+    (name plg)
+    (public_name compspec.codegen.plg)
+    (modules :standard)
+    (libraries dune-site ounit2 easy_logging core dynlink jingoo)
+)
+
+(generate_sites_module
+ (module mysites)
+ (sites compspec))

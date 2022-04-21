@@ -1,3 +1,5 @@
+open Plg
+
 val name: string
 
 module Make (Arg: Plugin.CgArgSig) : sig 

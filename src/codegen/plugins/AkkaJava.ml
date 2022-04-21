@@ -2,6 +2,7 @@ open Core
 open Core.AstUtils
 open Jingoo
 open Easy_logging
+open Plg
 
 let name = "Akka<Java>"
 
@@ -1706,11 +1707,10 @@ module Make (Arg: Plugin.CgArgSig) = struct
     type plgstate = Rt.Finish.collected_state
     let plgstate = ref (Rt.Finish.empty_cstate ())
 
-    let finish_ir_program target build_dir (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
-
-        (* TODO tmp industrialize this using akka plugin for interfaces *)
-        let module RtInterfaceGenerator = (val Akka.Interface_factory.load_plugin "Interface<Akka,gRPC>") in
+    let finish_ir_program (target:Core.Target.target) build_dir (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
+        let module RtInterfaceGenerator = (val Akka.Interfaces.load_plugin target.value.codegen.interface_plg) in
         let module RtGenInterface = IRICompilationPass.Make(RtInterfaceGenerator.Make(struct let build_dir = build_dir end)) in
+
         let program = ir_program
             |> RtGenInterface.apply
             |> RtPrepare.apply

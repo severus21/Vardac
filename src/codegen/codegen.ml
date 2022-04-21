@@ -1,5 +1,6 @@
 open Core
 open AstUtils
+open Plg
 
 open Easy_logging
 
@@ -32,7 +33,7 @@ let codegen_program project_dir build_dir places (target2dependencies, target2he
     let headers = aux "headers" (Hashtbl.find_opt target2headers target.value.name) in
 
     let plug = Factory.load_plugin (dependencies, headers) target.value.codegen.runtime_plg target.value.codegen.language_plg in 
-    let module Plug = (val plug:Plugins.Plugin.Plug) in    
+    let module Plug = (val plug:Plugin.Plug) in    
 
     (* Generating the code *)
     logger#info "Init build directory \"%s\" with plugin external files"  (Fpath.to_string build_dir);

@@ -1,5 +1,6 @@
 open Core 
 open Plugins
+open Plg
 
 open Easy_logging
 
@@ -25,7 +26,7 @@ let display_available_plugins () =
     Printf.fprintf stdout "%d codegen plugin%s %s available:\n" n (if n>1 then "s" else "") (if n>1 then "are" else "is");
 
     let display_plug (key, value) = 
-        let module Plug = (val value:Plugins.Plugin.CCg_plg) in    
+        let module Plug = (val value:Plugin.CCg_plg) in    
         if Core.Config.debug () then
             Printf.fprintf stdout "- %s at key %s\n" Plug.name key
         else

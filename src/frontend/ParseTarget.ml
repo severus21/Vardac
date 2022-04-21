@@ -59,6 +59,11 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
                 |_ -> Error.error mock_place "Syntax error in [runtime] definition of target [%s]\n" name 
             in 
 
+            let interface : string = match Hashtbl.find table "interface" with
+                |`String x -> x 
+                |_ -> Error.error mock_place "Syntax error in [interface] definition of target [%s]\n" name 
+            in 
+
             let seen_no_main = ref [] in 
             let seen_laststage = ref [] in 
             let mains : RawTarget.maindef list = match Hashtbl.find table "mains" with
@@ -116,7 +121,11 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
             if List.length !seen_laststage > 1 then 
                 Error.error mock_place "magic bootstrap [laststage] has been used more than once inside target %s, culprits mains are:@ [%a]" name (Error.pp_list ", " (fun out x -> Format.fprintf out "%s" x)) !seen_laststage;
 
-                {RawTarget.language_plg=language; runtime_plg=runtime; mains=mains}  
+                {
+                    RawTarget.language_plg=language;
+                    runtime_plg=runtime;
+                    interface_plg=interface;
+                    mains=mains}  
             )
             |_ -> Error.error mock_place "Ill-formed target [%s]\n" name                
         in

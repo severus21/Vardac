@@ -10,6 +10,7 @@ type maindef = {
 and codegen_info = {
     runtime_plg: string; 
     language_plg: string;
+    interface_plg: string;
     mains: maindef list    
 }
 and _target = {
