@@ -3,7 +3,7 @@ target akka;
 impl headers java:{=
     import redis.clients.jedis.JedisPooled;
 =}
-impl dependencies java:{=
+impl dependencies gradle:{=
     implementation group: 'redis.clients', name: 'jedis', version: '4.2.1'
 =}
 
@@ -17,7 +17,7 @@ impl component KVServer {
         JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%port(current_place())%}});
         // Perform the GET request on key [k]
         return Integer.parseInt(jedis.get({{%k._0_%}}));
-=}
+    =}
 
     void put () java:{=
         // Open a socket to the local redis backend
