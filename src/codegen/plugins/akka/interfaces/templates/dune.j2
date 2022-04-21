@@ -1,0 +1,7 @@
+ (install
+  (section (site (compspec akka_interfaces_grpc)))
+  (files 
+   {% for location in locations %} ({{location.filename}} as {{location.filename}})
+   {% endfor %}
+  )
+ )

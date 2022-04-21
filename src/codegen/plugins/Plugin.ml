@@ -74,7 +74,7 @@ module type Cg_plg = sig
     type plgstate
     val plgstate: plgstate ref
     
-    val finish_ir_program : Core.Target.target -> S.program -> ((string * Fpath.t) * Lg.Ast.program) list 
+    val finish_ir_program : Core.Target.target -> Fpath.t -> S.program -> ((string * Fpath.t) * Lg.Ast.program) list 
     val output_program : Core.Target.target -> Fpath.t -> S.program -> unit
 
     val custom_template_rules : Core.Target.target -> (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) list

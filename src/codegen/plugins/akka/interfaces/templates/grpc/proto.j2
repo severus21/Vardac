@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.{{author}}.{{project_name}}.grpc";
+option java_outer_classname = "{{project_name[0]|capitalize}}{{substring(1,strlen(project_name), project_name)}}Proto";
+
+package {{project_name}};
+
+{% for service in services %}
+service {{service.name}} {
+    {% for rpc in service.rpcs %}
+    rpc {{rpc.name}} ({{rpc.msg_in}}) returns ({{rpc.msg_out}}){}
+    {% endfor %}
+}
+{% endfor %}
+
+{% for msg in msgs %}
+message {{msg.name}} {
+    {% for field in msg.fields %}
+    {{field.type}} {{field.name}} = {{loop.index}};
+    {% endfor %}
+}
+{% endfor %}

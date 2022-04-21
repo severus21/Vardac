@@ -1702,11 +1702,17 @@ module Make (Arg: Plugin.CgArgSig) = struct
     module RFinish = Rt.Finish.Make()
     module RtFinish = Rt.IRI2AstCompilationPass.Make(RFinish)
 
+
     type plgstate = Rt.Finish.collected_state
     let plgstate = ref (Rt.Finish.empty_cstate ())
 
-    let finish_ir_program target (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
+    let finish_ir_program target build_dir (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
+
+        (* TODO tmp industrialize this using akka plugin for interfaces *)
+        let module RtInterfaceGenerator = (val Akka.Interface_factory.load_plugin "Interface<Akka,gRPC>") in
+        let module RtGenInterface = IRICompilationPass.Make(RtInterfaceGenerator.Make(struct let build_dir = build_dir end)) in
         let program = ir_program
+            |> RtGenInterface.apply
             |> RtPrepare.apply
             |> RtFinish.apply
         in
@@ -1727,7 +1733,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
         let headers = auto_place (T.Raw headers) in
 
         ir_program
-        |> finish_ir_program target
+        |> finish_ir_program target build_dir
         |> List.map (function ((package_name, file), program) -> 
             let module Clean = Lg.Clean.Make(struct let filename = (Fpath.to_string file) end) in
             let module Clean = Lg.AstCompilationPass.Make(Clean) in

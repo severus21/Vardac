@@ -18,5 +18,5 @@
   (ocaml (>= 4.11.0))
   (menhir (>= 2.1))
  )
- (sites (share externals) (share templates))
+ (sites (share externals) (share templates) (share akka_interfaces_grpc))
 )

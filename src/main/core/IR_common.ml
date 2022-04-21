@@ -264,6 +264,7 @@ and method_annotation =
         kind: session_interceptor_kind;
     }
     | Onboard of component_variable list (* List of schemas that this function can onboard *)
+    | Expose
 
 and component_annotation = 
     | Capturable of {allowed_interceptors: component_variable list;}
