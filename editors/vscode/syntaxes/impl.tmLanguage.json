@@ -35,6 +35,9 @@
 			"include": "#javacode"
 		},
 		{
+			"include": "#gradlecode"
+		},
+		{
 			"include": "#vardacode"
 		}
 	],
@@ -270,7 +273,7 @@
                 {
                     "name": "java.block.sl",
                     "begin": "java:{=",
-                    "end": "=}",
+                    "end": "\\s*=}",
                     "patterns": [
 						{
                             "begin": "(^|\\G)(\\s*)(.*)",
@@ -279,6 +282,27 @@
 							"patterns": [
 								{
 									"include": "source.java"
+								}
+							]
+						}
+                    ]
+                }
+            ]
+        },
+		"gradlecode": {
+            "patterns": [
+                {
+                    "name": "gradle.block.sl",
+                    "begin": "gradle:{=",
+                    "end": "\\s*=}",
+                    "patterns": [
+						{
+                            "begin": "(^|\\G)(\\s*)(.*)",
+                            "while": "(^|\\G)(?!\\s*(=})\\s*$)",
+							"contentName": "meta.embedded.block.gradle",
+							"patterns": [
+								{
+									"include": "source.gradle"
 								}
 							]
 						}
