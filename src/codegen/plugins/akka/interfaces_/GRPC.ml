@@ -1,8 +1,7 @@
 (* TODO create interface/GRPC where interface/ list interface generation plugin with external world *)
 
 open Core
-open IRI
-open IRI.IRUtils
+open AstUtils
 
 open Jingoo
 
@@ -35,7 +34,7 @@ end) = struct
 
     type rpc = {
         name: Atom.t;
-        m: method0;
+        m: S.method0;
         in_type: Atom.t;
         out_type: Atom.t;
     }
@@ -57,25 +56,25 @@ end) = struct
         
         (* for each component returns (component_name, expose methods) *)
         let collector _ _ = function
-            | Component {value= ComponentStructure cstruct} -> 
+            | S.Component {value= S.ComponentStructure cstruct} -> 
                 [(cstruct.name, List.filter_map (function 
-                    | {value= Method m} when List.mem S.Expose m.value.annotations -> Some m
+                    | {value= S.Method m} when List.mem S.Expose m.value.annotations -> Some m
                     | _ -> None
                 ) cstruct.body)]
             | _ -> []
         in
 
-        let collected_elts = collect_term_program true selector collector program in
+        let collected_elts = IRI.IRUtils.collect_term_program true selector collector program in
 
         (** Create services *)
         List.iter (function (component_name, exported_methods) ->
 
-            let rpcs = List.map (function (m:method0) ->
+            let rpcs = List.map (function (m: S.method0) ->
 
                 (** Generates messages and store them in grpc_messages *)
 
                 let rec _gendef place = function
-                    | CType {value=TFlatType ft} -> begin 
+                    | S.CType {value=S.TFlatType ft} -> begin 
                         match ft with
                         | TStr -> "string"
                         | TInt -> "int64"
@@ -84,9 +83,9 @@ end) = struct
                         | TVoid -> "NullValue"
                         | _ -> Error.error place "Type unsupported for interface, should be a simple atomic type."
                     end
-                    | CType {value=TDict (mt1, mt2)} ->
+                    | S.CType {value=S.TDict (mt1, mt2)} ->
                         Printf.sprintf "map<%s,%s>" (gendef mt1)(gendef mt2)
-                    | CType {value=TList _} -> "ListValue"
+                    | S.CType {value=S.TList _} -> "ListValue"
                     | _ -> Error.error place "Type unsupported for interface, should be a simple atomic type."
                 and gendef x = map0_place _gendef x in
 
@@ -141,24 +140,6 @@ end) = struct
         (* TODO create multiple file *)
         let protofile = Fpath.add_seg protodir "proto.proto" in
 
-        let selector = function _ -> true in
-        
-        (* for each component returns (component_name, expose methods) *)
-        let collector _ _ = function
-            | Component {value= ComponentStructure cstruct} -> 
-                [(cstruct.name, List.filter_map (function 
-                    | {value= Method m} when List.mem S.Expose m.value.annotations -> Some m
-                    | _ -> None
-                ) cstruct.body)]
-            | _ -> []
-        in
-
-        
-
-        let collected_elts = collect_term_program true selector collector program in
-
-        let msgs = Hashtbl.create 16 in
-
         let encode_message (msg:msg) = 
             let encode_field field = 
                 Jg_types.Tobj [
@@ -204,10 +185,7 @@ end) = struct
         close_out oc
 
     (* Stage 2 - Implementing the services *)
-(*
-    let generate_service_implementation service_name component_name rpcs =
-        let impl_name = Atom.fresh ((Atom.value component_name)^"ServiceImpl") in
-
+    let generate_service_implementation service =
         (*let body = List.map (function (rpc, m) ->
             let msg_in_def = ... in
 
@@ -223,30 +201,42 @@ end) = struct
 
         let att_system = Atom.fresh "system" in
 
-        T.ClassOrInterfaceDeclaration {
-            isInterface = false;
-            name = impl_name; 
-            extended_types = [];
-            implemented_types = [ auto_fplace (T.TVar service_name) ];
-            body = [
-                auto_fplace (Stmt (auto_fplace (LetStmt (
-                    T.TRaw "ActorSystem", 
-                    auto_fplace (T.TVar att_system, auto_fplace T.TUnknown)
-                ))));
-            ];
+        auto_fplace {
+            T.annotations = [];     
+            decorators = [];
+            v = T.ClassOrInterfaceDeclaration {
+                isInterface = false;
+                name = service.impl_name; 
+                extended_types = [];
+                implemented_types = [ auto_fplace (T.TVar service.service_name) ];
+                body = [
+                    auto_fplace {
+                        T.annotations = [T.Visibility T.Private; T.Final];
+                        decorators = [];
+                        v = T.Stmt (auto_fplace (T.LetStmt (
+                            auto_fplace (T.TRaw "ActorSystem"), 
+                            att_system,
+                            None
+                        )));
+                    }
+                ];
+            }
         }
 
-    let generate_services_implementation =
-        List.map generate_service_implementation
-*)
+
+    (**
+        @return [ Akka program of the ServiceImpl ]
+    *)
+    let generate_services_implementation () =
+        List.map generate_service_implementation (List.of_seq (Hashtbl.to_seq_values grpc_services))
 
     (* Stage 3 - generate and bind to the HTTP part *)
 
 
-    let finish_program program =  
+    let finish_program program : T.program =  
         hydrate_grpc program;
         generate_protobuf_interfaces build_dir program;
-        program
+        (generate_services_implementation ())
 
     (*****************************************************)
     let name = "Akka.Interfaces.GRPC"

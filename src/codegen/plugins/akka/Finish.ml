@@ -1783,11 +1783,7 @@ module Make () = struct
             guardian_components = ref Atom.Set.empty (* hydrated in AkkaJava.ml *)
         };
 
-        { 
-            T.entrypoint = [];
-            T.system = ();
-            T.terms = terms   
-        }
+        terms   
 
     (*****************************************************)
     let name = "Akka.Finish"

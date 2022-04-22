@@ -2,7 +2,7 @@
     (name interfaces_)
     (public_name compspec.codegen.plugins.akka.interfaces_)
     (modules :standard)
-    (libraries dune-site ounit2 easy_logging core dynlink jingoo compspec.codegen.plg)
+    (libraries dune-site ounit2 easy_logging core dynlink jingoo compspec.codegen.plg compspec.codegen.plugins.akka.ast)
 )
 
 (generate_sites_module

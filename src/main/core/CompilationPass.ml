@@ -25,10 +25,11 @@ module Make(S:Arg)(T:Arg) = struct
         val apply_program : S.program -> T.program
         val postcondition : T.program -> T.program
     end
-
-    module Make (Pass: Pass) : sig
+    module type Pass2 = sig 
         val apply : S.program -> T.program
-    end = struct
+    end
+
+    module Make (Pass: Pass) : Pass2 = struct
         include Pass
 
 

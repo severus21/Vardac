@@ -208,10 +208,7 @@ and term = (_term annotated) placed
 and entrypoint = expr list
 (** Akka actor system *)
 and system =  unit  
-and program = {
-    entrypoint: entrypoint;
-    system: system;
-    terms: term list}
+and program = term list
 
 [@@deriving show { with_path = false }]
 

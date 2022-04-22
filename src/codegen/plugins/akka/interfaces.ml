@@ -3,8 +3,10 @@ open Plg.Interface_plugin
 
 open Easy_logging
 
+module TMP = Plg.Interface_plugin.Make(Ast)
+open TMP
 
-include Plg.Interface_factory.Make(struct
+include TMP.InterfaceFactory.Make(struct
     let logger = Logging.make_logger "_1_ compspec.codegen.Akka.Interfaces" Debug [];;
 
     let plugins : (string, (module Interface_plg)) Hashtbl.t = (Hashtbl.create 10)

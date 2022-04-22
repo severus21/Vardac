@@ -1,16 +1,12 @@
 open Core
 open Core.Utils
+open S_AST
 
 open Jingoo
 
 (* The source calculus. *)
 module S = IRI
 
-(** Runtime plugin interface *)
-module type S_Ast = sig
-    type program
-    type blackbox_term
-end;;
 
 module type Rt_plg = sig
     (*val name: string ifwe need the name we will have to load it from module Desc.name*)
@@ -18,7 +14,7 @@ module type Rt_plg = sig
     
     module Prepare: IRICompilationPass.Pass
 
-    module Interfaces: Interface_factory.SigInterfaces
+    module Interfaces: Interface_plugin.Make(Ast).InterfaceFactory.SigInterfaces
 
     module Finish: sig 
         type collected_state

@@ -336,7 +336,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 List.filter (function stage -> stage.ast <> []) (_group_per_stage_or_component [] terms)
             in
 
-            let stages = group_per_stage_or_component akka_program.terms in
+            let stages = group_per_stage_or_component akka_program in
 
             (**** Handle the nomain + laststage main ****)
             let generate_guardian name stmts : S.term = 
@@ -1708,14 +1708,15 @@ module Make (Arg: Plugin.CgArgSig) = struct
     let plgstate = ref (Rt.Finish.empty_cstate ())
 
     let finish_ir_program (target:Core.Target.target) build_dir (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
-        let module RtInterfaceGenerator = (val Akka.Interfaces.load_plugin target.value.codegen.interface_plg) in
-        let module RtGenInterface = IRICompilationPass.Make(RtInterfaceGenerator.Make(struct let build_dir = build_dir end)) in
+        let module RtGenInterface = (val Akka.Interfaces.load_and_make_pass target.value.codegen.interface_plg build_dir) in
 
         let program = ir_program
-            |> RtGenInterface.apply
             |> RtPrepare.apply
             |> RtFinish.apply
         in
+
+        let interface_program = RtGenInterface.apply ir_program in
+        let program = program @ interface_program in
 
         let module Akka2Java0 = MakeRt2Lg(struct
             let target = target
