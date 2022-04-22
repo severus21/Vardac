@@ -988,12 +988,13 @@ module Make(Arg:ArgSig) = struct
         register_gamma name fct_sign;
 
         env << [inner_env; env1; env2], {
-            annotations = List.map (function
-                | {value=S.MsgInterceptor {kind}} -> T.MsgInterceptor {kind}
-                | {value=S.SessionInterceptor {anonymous; kind}} -> T.SessionInterceptor {anonymous; kind}
-                | {value=S.Onboard xs} -> T.Onboard (List.map (cook_var_component env place) xs)
-                | a -> Error.error a.place "%s is not a method annotation!" (S.show_annotation a)
-            ) m.annotations; 
+            annotations = List.map (map0_place(fun place -> function
+                | S.MsgInterceptor {kind} -> T.MsgInterceptor {kind}
+                | S.SessionInterceptor {anonymous; kind} -> T.SessionInterceptor {anonymous; kind}
+                | S.Onboard xs -> T.Onboard (List.map (cook_var_component env place) xs)
+                | S.Expose -> T.Expose
+                | a -> Error.error place "%s is not a method annotation!" (S.show__annotation a)
+            )) m.annotations; 
             ghost = m.ghost;
             ret_type = ret_type;
             name;

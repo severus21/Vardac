@@ -24,8 +24,11 @@ impl component KVServer {
         JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%port(current_place())%}});
         // Perform the PUT request on key [k]
         return jedis.sadd({{%k._0_%}}, {{%v._0_%}}.toString()) == 0;
-=}
+    =}
 
+    int api_get () java:{=
+        return 1;
+    =}
 }
 
 impl component TopLevel {}

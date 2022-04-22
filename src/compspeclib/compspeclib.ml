@@ -26,7 +26,7 @@ module TypeInference4 = IRCompilationPass.Make(Common.TypeInference.Make())
 module EventAutoBoxing = IRCompilationPass.Make(Common.EventAutoBoxing.Make())
 
 let process_check build_dir places_file filename = 
-    let build_dir = Utils.refresh_or_create_build_dir build_dir in
+    let build_dir = Utils.refresh_or_create_dir build_dir in
     let project_dir = Fpath.parent (Fpath.v filename) in
 
     let places = Frontend.process_place places_file in
@@ -39,7 +39,7 @@ let process_check build_dir places_file filename =
 
 let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename filename = 
     (* Prepare dir *)
-    let build_dir = Utils.refresh_or_create_build_dir build_dir in
+    let build_dir = Utils.refresh_or_create_dir build_dir in
     Printf.eprintf "Codegeneration directory is \"%s\":\n" (Fpath.to_string build_dir);
     let project_dir = Fpath.parent (Fpath.v filename) in
 

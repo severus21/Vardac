@@ -19,7 +19,7 @@ service {{service.name}} {
 {% for msg in msgs %}
 message {{msg.name}} {
     {% for field in msg.fields %}
-    {{field.type}} {{field.name}} = {{loop.index}};
+    {{field.type}} {{field.name}} = {{field.id}};
     {% endfor %}
 }
 {% endfor %}

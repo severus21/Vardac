@@ -10,7 +10,7 @@ let display_available_plugins = Factory.display_available_plugins
 
 let codegen_program project_dir build_dir places (target2dependencies, target2headers) ((target, program):Core.Target.target * Core.IRI.program) : unit =
     let build_dir = Fpath.add_seg build_dir target.value.name in
-    Utils.refresh_or_create_build_dir build_dir;
+    Utils.refresh_or_create_dir build_dir;
 
     (* Loading the codegeneration plugin *)
     let aux error_name = function

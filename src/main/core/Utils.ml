@@ -113,14 +113,14 @@ let (<->) f g x = f(g(x));;
 
 (***************************** File manipulations *************************)
 
-let refresh_or_create_build_dir (build_dir:Fpath.t) = 
+let refresh_or_create_dir (build_dir:Fpath.t) = 
     match Bos.OS.Dir.delete ~must_exist:false ~recurse:true build_dir with
-    | Rresult.Error _ -> failwith "build_dir cleansing failure"
+    | Rresult.Error _ -> failwith "dir cleansing failure"
     | _ -> ();
 
     match Bos.OS.Dir.create build_dir with 
     | Rresult.Ok _ -> build_dir
-    | _ -> failwith "build_dir failed"
+    | _ -> failwith "dir failed"
   
   
 let create_directory_hierarchy (parentdir:Fpath.t): unit = 

@@ -45,6 +45,9 @@ component KVServer {
     }
     int _get(key k);
     bool put(key k, value v); 
+
+    @expose 
+    int api_get(string key);
 }
 
 component Client {

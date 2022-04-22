@@ -292,6 +292,7 @@ and _annotation =
         kind: IR.session_interceptor_kind;
     }
     | Onboard of variable list
+    | Expose
 and annotation = _annotation placed
 
 (** Preprocessor terms *)

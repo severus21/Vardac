@@ -7,6 +7,11 @@ build_{{name}}:
 
 build:{% for name in target_mains %} build_{{name}}{%endfor%}
 
+.PHONY:build_protobuf
+build_protobuf:
+	gradle wrapper
+	./gradlew build
+
 .PHONY: test
 test:
 	gradle test

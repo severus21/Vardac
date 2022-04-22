@@ -654,6 +654,13 @@ any_annotation_:
         match x with
         | "onboard" -> Onboard schemas 
         | "capturable" -> Capturable {allowed_interceptors = schemas; } 
+        | _ -> Core.Error.error [$loc] "Unknown annotation: %s" x 
+    }
+| AT x=LID
+    {
+        match x with
+        | "expose" -> Expose
+        | _ -> Core.Error.error [$loc] "Unknown annotation: %s" x 
     }
 
 %inline any_annotation:
