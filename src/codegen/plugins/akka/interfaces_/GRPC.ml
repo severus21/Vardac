@@ -186,20 +186,92 @@ end) = struct
 
     (* Stage 2 - Implementing the services *)
     let generate_service_implementation service =
-        (*let body = List.map (function (rpc, m) ->
-            let msg_in_def = ... in
-
-            (* Just call the method provided by the user 
-                TODO check that Assume that this is a state less method (in fact a function no this inside )   
-            *)
-            CallExpr(
-
-            )
-        
-        
-        ) rpcs in*)
-
         let att_system = Atom.fresh "system" in
+        let att_actor = Atom.fresh "actor" in
+        let constructor_arg_system = Atom.fresh "system" in
+
+        let body_rpcs = List.map (function rpc ->
+            let ct_msg_in = auto_fplace (T.TVar rpc.in_type) in
+            let a_msg_in = Atom.fresh "in" in
+            let ct_msg_out = auto_fplace (T.TVar rpc.out_type) in 
+
+            let a_intermediate_msg = Atom.fresh "message" in
+
+            auto_fplace {
+                T.annotations = [];
+                decorators = [];
+                v = T.MethodDeclaration (auto_fplace {
+                    T.annotations = [T.Visibility T.Public];
+                    decorators = [];
+                    v = {
+                        T.ret_type = auto_fplace (T.TParam (auto_fplace (T.TRaw "CompletionStage"), [ct_msg_out]));
+                        name = service.impl_name;
+                        args = [ (ct_msg_in, a_msg_in) ];
+                        is_constructor = false;
+                        body = AbstractImpl [
+                            auto_fplace (T.ReturnStmt(
+                                auto_fplace (T.CallExpr(
+                                    auto_fplace (T.AccessExpr(
+                                        (* ask(greeterActor, GreeterActor.GET_GREETING, Duration.ofSeconds(5)) *)
+                                        auto_fplace(T.CallExpr( 
+                                            auto_fplace( T.RawExpr "ask", auto_fplace T.TUnknown),
+                                            [
+                                                auto_fplace (T.AccessExpr(
+                                                    auto_fplace (T.This, auto_fplace T.TUnknown), 
+                                                    auto_fplace (T.VarExpr att_actor, auto_fplace T.TUnknown)
+                                                ), auto_fplace T.TUnknown);
+                                                (* TODO *)
+                                            ]
+                                        ),auto_fplace T.TUnknown),
+                                        auto_fplace( T.RawExpr "thenApply", auto_fplace T.TUnknown)
+                                    ), auto_fplace T.TUnknown),
+                                    [
+                                        (* message ->
+          HelloReply.newBuilder()
+            .setMessage(((GreeterActor.Greeting) message).greeting)
+            .build() *)
+                                        auto_fplace (T.LambdaExpr(
+                                            [
+                                                (* TODO should be an event of component_name *)
+                                                (auto_fplace T.TUnknown, a_intermediate_msg)
+                                            ],
+                                            auto_fplace (T.ReturnStmt(
+                                                auto_fplace( T.CallExpr (
+                                                    auto_fplace( T.AccessExpr(
+                                                        auto_fplace( T.CallExpr (
+                                                            auto_fplace( T.AccessExpr(
+                                                                auto_fplace( T.CallExpr (
+                                                                    auto_fplace (T.AccessExpr(
+                                                                        auto_fplace (T.VarExpr a_msg_in, auto_fplace T.TUnknown),
+                                                                        auto_fplace (T.RawExpr "newBuilder", auto_fplace T.TUnknown)
+                                                                    ), auto_fplace T.TUnknown),
+                                                                    []
+                                                                ), auto_fplace T.TUnknown),
+                                                                auto_fplace (T.RawExpr "setMessage", auto_fplace T.TUnknown)
+                                                            ), auto_fplace T.TUnknown),
+                                                            [
+                                                                auto_fplace (T.CastExpr(
+                                                                    auto_fplace (T.TRaw "EventTODO"),
+                                                                    auto_fplace (T.VarExpr a_intermediate_msg, auto_fplace T.TUnknown)
+                                                                ), auto_fplace T.TUnknown)
+
+                                                            ]
+                                                        ), auto_fplace T.TUnknown),
+                                                        auto_fplace (T.RawExpr "build", auto_fplace T.TUnknown)
+                                                    ), auto_fplace T.TUnknown),
+                                                    []
+                                                ), auto_fplace T.TUnknown)
+                                            ))
+                                        ), auto_fplace T.TUnknown)
+                                    ]
+                                ), auto_fplace T.TUnknown)
+                            ))
+                        ]
+                    }
+                });
+            }
+        ) service.rpcs in
+
 
         auto_fplace {
             T.annotations = [];     
@@ -218,8 +290,66 @@ end) = struct
                             att_system,
                             None
                         )));
-                    }
-                ];
+                    };
+                    auto_fplace {
+                        T.annotations = [T.Visibility T.Private; T.Final];
+                        decorators = [];
+                        v = T.Stmt (auto_fplace (T.LetStmt (
+                            auto_fplace (T.TRaw "ActorRef"), 
+                            att_actor,
+                            None
+                        )));
+                    };
+                    auto_fplace {
+                        T.annotations = [];
+                        decorators = [];
+                        v = T.MethodDeclaration (auto_fplace {
+                            T.annotations = [T.Visibility T.Public];
+                            decorators = [];
+                            v = {
+                                T.ret_type = auto_fplace T.TUnknown;
+                                name = service.impl_name;
+                                args = [auto_fplace (T.TRaw "ActorSystem"),constructor_arg_system];
+                                is_constructor = true;
+                                body = T.AbstractImpl [
+                                    auto_fplace (T.AssignExpr(
+                                        auto_fplace(T.AccessExpr(
+                                            auto_fplace(T.This, auto_fplace T.TUnknown),
+                                            auto_fplace (T.VarExpr att_system, auto_fplace T.TUnknown)
+                                        ), auto_fplace T.TUnknown),
+                                        auto_fplace(T.VarExpr constructor_arg_system, auto_fplace T.TUnknown)
+                                    ));
+                                    (* this.greeterActor = system.actorOf(GreeterActor.props("Hello"), "greeter"); *)
+                                    auto_fplace (T.AssignExpr(
+                                        auto_fplace(T.AccessExpr(
+                                            auto_fplace(T.This, auto_fplace T.TUnknown),
+                                            auto_fplace (T.VarExpr att_actor, auto_fplace T.TUnknown)
+                                        ), auto_fplace T.TUnknown),
+                                        auto_fplace(T.CallExpr (
+                                            auto_fplace(T.AccessExpr(
+                                                auto_fplace(T.This, auto_fplace T.TUnknown),
+                                                auto_fplace (T.VarExpr constructor_arg_system, auto_fplace T.TUnknown)
+                                            ), auto_fplace T.TUnknown),
+                                            [
+                                                auto_fplace(T.CallExpr (
+                                                    auto_fplace(T.AccessExpr(
+                                                        auto_fplace (T.VarExpr service.component_name, auto_fplace T.TUnknown),
+                                                        auto_fplace(T.RawExpr "props", auto_fplace T.TUnknown)
+                                                    ), auto_fplace T.TUnknown),
+                                                    [
+                                                        (* FIXME args for actor creation *)
+                                                    ]
+                                                ), auto_fplace T.TUnknown);
+                                                auto_fplace(T.LitExpr (auto_fplace(T.StringLit (Atom.to_string service.component_name))), auto_fplace T.TUnknown)
+                                            ]
+                                        ), auto_fplace T.TUnknown)
+                                    ))
+                                ]
+                            }
+                        });
+                    };
+
+                ] @ body_rpcs;
             }
         }
 
