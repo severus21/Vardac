@@ -8,7 +8,7 @@ module type SigArg = sig
 end;;
 
 module Make(Ast:S_Ast) = struct 
-    module CompilationPass = Core.CompilationPass.Make(Core.IRI)(Ast)
+    module CompilationPass = Core.CompilationPass.Make2(IRI)(Ast)(struct type acc = IRI.program end)
 
     module type Interface_plg = sig
         val name : string

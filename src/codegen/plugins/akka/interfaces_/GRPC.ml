@@ -9,6 +9,7 @@ let name = "gRPC"
 
 let fplace = (Error.forge_place ("Plg=Akka/interfaces/"^name) 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
+include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
 module Make (Arg : sig
     val build_dir : Fpath.t 
@@ -185,10 +186,13 @@ end) = struct
         close_out oc
 
     (* Stage 2 - Implementing the services *)
-    let generate_service_implementation service =
+    let generate_service_implementation program service =
         let att_system = Atom.fresh "system" in
         let att_actor = Atom.fresh "actor" in
         let constructor_arg_system = Atom.fresh "system" in
+
+
+        let service2actor_events = ref [] in
 
         let body_rpcs = List.map (function rpc ->
             let ct_msg_in = auto_fplace (T.TVar rpc.in_type) in
@@ -196,6 +200,22 @@ end) = struct
             let ct_msg_out = auto_fplace (T.TVar rpc.out_type) in 
 
             let a_intermediate_msg = Atom.fresh "message" in
+
+
+
+            let service2actor_event = auto_fplace {
+                T.vis = T.Public;
+                name = Atom.fresh "Service2Actor";
+                kind = T.Event;
+                args = [ ct_msg_in, Atom.fresh "value" ];
+            } in
+            let actor2service_event = auto_fplace {
+                T.vis = T.Public;
+                name = Atom.fresh "Actor2Service";
+                kind = T.Event;
+                args = [ ct_msg_out, Atom.fresh "value" ];
+            } in
+            service2actor_events := (rpc.m, service2actor_event, actor2service_event) :: !service2actor_events; 
 
             auto_fplace {
                 T.annotations = [];
@@ -205,7 +225,7 @@ end) = struct
                     decorators = [];
                     v = {
                         T.ret_type = auto_fplace (T.TParam (auto_fplace (T.TRaw "CompletionStage"), [ct_msg_out]));
-                        name = service.impl_name;
+                        name = Atom.fresh ("rpc"^(Atom.value rpc.name));
                         args = [ (ct_msg_in, a_msg_in) ];
                         is_constructor = false;
                         body = AbstractImpl [
@@ -220,7 +240,15 @@ end) = struct
                                                     auto_fplace (T.This, auto_fplace T.TUnknown), 
                                                     auto_fplace (T.VarExpr att_actor, auto_fplace T.TUnknown)
                                                 ), auto_fplace T.TUnknown);
-                                                (* TODO *)
+                                                (* Event Service2Actor *)
+                                                auto_fplace(T.NewExpr (
+                                                    auto_fplace( T.VarExpr service2actor_event.value.name, auto_fplace T.TUnknown),
+                                                    [ 
+                                                        auto_fplace (T.VarExpr a_msg_in, auto_fplace T.TUnknown)
+                                                    ]
+                                                ), auto_fplace T.TUnknown);
+                                                (* Timeout *)
+                                                auto_fplace (T.RawExpr "Duration.ofSeconds(5)", auto_fplace T.TUnknown)
                                             ]
                                         ),auto_fplace T.TUnknown),
                                         auto_fplace( T.RawExpr "thenApply", auto_fplace T.TUnknown)
@@ -251,7 +279,7 @@ end) = struct
                                                             ), auto_fplace T.TUnknown),
                                                             [
                                                                 auto_fplace (T.CastExpr(
-                                                                    auto_fplace (T.TRaw "EventTODO"),
+                                                                    auto_fplace (T.TVar actor2service_event.value.name),
                                                                     auto_fplace (T.VarExpr a_intermediate_msg, auto_fplace T.TUnknown)
                                                                 ), auto_fplace T.TUnknown)
 
@@ -273,7 +301,45 @@ end) = struct
         ) service.rpcs in
 
 
-        auto_fplace {
+
+        (* Add port for event in between service and actor *)
+        let program = IRI.IRUtils.rewrite_term_program 
+            (function 
+                | S.Component {value = ComponentStructure {name} } when name = service.component_name -> true 
+                |_ -> false) 
+            (fun _ -> function
+                | S.Component {place; value = ComponentStructure cstruct } when cstruct.name = service.component_name -> 
+                    let inports = List.map (function ((m, e1, e2):S.method0 * T._event Core.IR.placed * T._event Core.IR.placed) ->
+                        auto_fplace (S.Inport (auto_fplace ({
+                            S.name = Atom.fresh ("port_service2actor_"^(Atom.value e1.value.name));
+                            _disable_session = true;
+                            expecting_st = mtype_of_st (S.STRecv (mtype_of_ct (S.TVar e1.value.name), auto_fplace (S.STSend (mtype_of_ct (S.TVar e2.value.name), auto_fplace S.STEnd))));
+                            callback = e2_e (S.AccessExpr( 
+                                e2_e S.This, 
+                                e2var m.value.name
+                            ))
+                        }, auto_fplace S.EmptyMainType)))
+                    ) !service2actor_events in
+                    [
+                        (S.Component{
+                            place;
+                            value = S.ComponentStructure { cstruct with 
+                                body = cstruct.body @ inports    
+                            }
+                        })
+                    ]
+        ) program in
+
+        let events = List.map (function (m, e1, e2) -> 
+            let aux e = auto_fplace {
+                T.annotations = [];
+                decorators = [];
+                v= T.Event e
+            } in
+            (m, aux e1, aux e2)
+        ) !service2actor_events in
+
+        program, auto_fplace {
             T.annotations = [];     
             decorators = [];
             v = T.ClassOrInterfaceDeclaration {
@@ -283,7 +349,7 @@ end) = struct
                 implemented_types = [ auto_fplace (T.TVar service.service_name) ];
                 body = [
                     auto_fplace {
-                        T.annotations = [T.Visibility T.Private; T.Final];
+                        T.annotations = [T.Final];
                         decorators = [];
                         v = T.Stmt (auto_fplace (T.LetStmt (
                             auto_fplace (T.TRaw "ActorSystem"), 
@@ -292,7 +358,7 @@ end) = struct
                         )));
                     };
                     auto_fplace {
-                        T.annotations = [T.Visibility T.Private; T.Final];
+                        T.annotations = [T.Final];
                         decorators = [];
                         v = T.Stmt (auto_fplace (T.LetStmt (
                             auto_fplace (T.TRaw "ActorRef"), 
@@ -349,7 +415,7 @@ end) = struct
                         });
                     };
 
-                ] @ body_rpcs;
+                ] @ body_rpcs @ List.flatten (List.map (function (_, e1, e2) -> [e1; e2]) events);
             }
         }
 
@@ -357,16 +423,17 @@ end) = struct
     (**
         @return [ Akka program of the ServiceImpl ]
     *)
-    let generate_services_implementation () =
-        List.map generate_service_implementation (List.of_seq (Hashtbl.to_seq_values grpc_services))
+    let generate_services_implementation program =
+        List.fold_left_map generate_service_implementation program (List.of_seq (Hashtbl.to_seq_values grpc_services))
 
     (* Stage 3 - generate and bind to the HTTP part *)
 
 
-    let finish_program program : T.program =  
+    let finish_program program : (S.program * T.program) list =  
         hydrate_grpc program;
         generate_protobuf_interfaces build_dir program;
-        (generate_services_implementation ())
+        let iri_program, akka_terms = generate_services_implementation program in
+        [ iri_program, akka_terms ]
 
     (*****************************************************)
     let name = "Akka.Interfaces.GRPC"

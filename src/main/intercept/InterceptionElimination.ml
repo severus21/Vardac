@@ -310,6 +310,7 @@ module Make (Args: TArgs) = struct
                     e2_e This, 
                     e2var callback_onboard
                 ));
+                _disable_session = false;
             },
             auto_fplace EmptyMainType
         ))) in
@@ -859,6 +860,7 @@ module Make (Args: TArgs) = struct
                 e2_e This,
                 e2var callback_name
             ));
+            _disable_session = false;
         }, auto_fplace EmptyMainType))) in
 
 

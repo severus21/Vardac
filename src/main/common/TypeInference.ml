@@ -717,6 +717,7 @@ module Make () = struct
     and _tannot_port parent_opt place ((p, mt_p):_port*main_type) = {
         name = p.name;
         expecting_st = tannot_main_type parent_opt p.expecting_st;
+        _disable_session = p._disable_session;
         callback = tannot_expr parent_opt p.callback;
     } 
     and tannot_port parent_opt p = 

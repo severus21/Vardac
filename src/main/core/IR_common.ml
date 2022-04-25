@@ -242,7 +242,8 @@ and param = _param placed
 and _port = {
     name: component_variable;
     expecting_st: main_type;
-    callback: expr
+    callback: expr;
+    _disable_session: bool; (* for internal use only, when we need to add runtime port like without dynamic session mechanism *)
 }
 and port = (_port * main_type) placed
 

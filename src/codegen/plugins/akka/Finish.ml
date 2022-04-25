@@ -1230,7 +1230,16 @@ module Make () = struct
             let a_session = Atom.builtin "s" in
             let l_session = auto_place (T.VarExpr a_session, auto_place T.TUnknown) in
 
-            let add_case (port, st, remaining_st) (callback:T.expr) acc : T.stmt =
+            let add_case__disable_session (callback:T.expr) : T.stmt =
+                auto_place (T.ExpressionStmt (auto_place (
+                    T.CallExpr(
+                        callback,
+                        [ l_event; ]
+                    ), auto_place T.TUnknown
+                )))
+            in
+
+            let add_case__with_session (port, st, remaining_st) (callback:T.expr) acc : T.stmt =
                 auto_place (T.IfStmt (
                     auto_place (T.BinopExpr(
                         auto_place (T.BinopExpr (e_bridgeid l_event, AstUtils.StructuralEqual, bridgeid port), auto_place T.TUnknown),
@@ -1280,11 +1289,21 @@ module Make () = struct
                 ))
             in
 
+            let add_case (port, st, remaining_st) (callback:T.expr) acc : T.stmt =
+                if (fst (port : S.port).value)._disable_session then
+                    add_case__disable_session callback
+                else
+                    add_case__with_session (port, st, remaining_st) callback acc
+            in
+
             (* return Behaviors.same(); *)
             let ret_stmt = T.ReturnStmt (e_behaviors_same fplace) in
 
+            (*(if Bool.not _disable_session then*)
+                 [ add_check_session_validity () ] 
+                (*else [])*)
+            @ 
             [
-                add_check_session_validity ();
                 Hashtbl.fold add_case inner_env (auto_place (T.ExpressionStmt ((e_error_of fplace (e_get_context fplace) [
                     auto_place (T.LitExpr (auto_place(T.StringLit"Dispatcher does not caught message ")), auto_place T.TUnknown);
                     auto_place (T.CallExpr (

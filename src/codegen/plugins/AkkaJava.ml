@@ -1710,12 +1710,14 @@ module Make (Arg: Plugin.CgArgSig) = struct
     let finish_ir_program (target:Core.Target.target) build_dir (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
         let module RtGenInterface = (val Akka.Interfaces.load_and_make_pass target.value.codegen.interface_plg build_dir) in
 
+        let [ir_after_interface_program, interface_program] = RtGenInterface.apply ir_program in
+        let ir_program = ir_after_interface_program in
+
         let program = ir_program
             |> RtPrepare.apply
             |> RtFinish.apply
         in
 
-        let interface_program = RtGenInterface.apply ir_program in
         let program = program @ interface_program in
 
         let module Akka2Java0 = MakeRt2Lg(struct

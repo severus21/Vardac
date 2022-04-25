@@ -64,10 +64,12 @@ module Make2(S:Arg)(T:Arg)(Acc:sig type acc end) = struct
         val apply_program : S.program -> (Acc.acc * T.program) list
         val postcondition : T.program -> T.program
     end
-
-    module Make (Pass: Pass) : sig
+    
+    module type Pass2 = sig 
         val apply : S.program -> (Acc.acc * T.program) list
-    end = struct
+    end
+
+    module Make (Pass: Pass) : Pass2 = struct
         include Pass
 
         let apply program = 

@@ -369,6 +369,7 @@ module Make () : Sig = struct
                     e2var next_method.name
                 ));
                 expecting_st = mtype_of_st (STRecv (t_msg, st_continuation));
+                _disable_session = false;
             }, auto_fplace EmptyMainType) in
             let intermediate_ports = [intermediate_port] in
 

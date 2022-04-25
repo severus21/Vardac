@@ -176,6 +176,7 @@ module Make(Args:Args) : Sig = struct
                             auto_fplace (This, mtype_of_ct (TActivationRef (mtype_of_cvar cname))), 
                             auto_fplace (VarExpr callback.value.name, callback_sign)
                         ), callback_sign); 
+                        _disable_session = false;
                     }, mt_port))) in
 
 
