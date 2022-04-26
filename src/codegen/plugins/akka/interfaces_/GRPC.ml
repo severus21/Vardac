@@ -9,7 +9,8 @@ let name = "gRPC"
 
 let fplace = (Error.forge_place ("Plg=Akka/interfaces/"^name) 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
-include AstUtils2.Mtype.Make(struct let fplace = fplace end)
+module S_A2 = AstUtils2.Mtype.Make(struct let fplace = fplace end)
+module T_A2 = Ast.AstUtil2.Make(struct let fplace = fplace end)
 
 module Make (Arg : sig
     val build_dir : Fpath.t 
@@ -316,10 +317,10 @@ end) = struct
                         auto_fplace (S.Inport (auto_fplace ({
                             S.name = Atom.fresh ("port_service2actor_"^(Atom.value e1.value.name));
                             _disable_session = true;
-                            expecting_st = mtype_of_st (S.STRecv (mtype_of_ct (S.TVar e1.value.name), auto_fplace (S.STSend (mtype_of_ct (S.TVar e2.value.name), auto_fplace S.STEnd))));
-                            callback = e2_e (S.AccessExpr( 
-                                e2_e S.This, 
-                                e2var m.value.name
+                            expecting_st = S_A2.mtype_of_st (S.STRecv (S_A2.mtype_of_ct (S.TVar e1.value.name), auto_fplace (S.STSend (S_A2.mtype_of_ct (S.TVar e2.value.name), auto_fplace S.STEnd))));
+                            callback = S_A2.e2_e (S.AccessExpr( 
+                                S_A2.e2_e S.This, 
+                                S_A2.e2var m.value.name
                             ))
                         }, auto_fplace S.EmptyMainType)))
                     ) !service2actor_events in
@@ -390,14 +391,14 @@ end) = struct
                                     ));
                                     (* this.greeterActor = system.actorOf(GreeterActor.props("Hello"), "greeter"); *)
                                     auto_fplace (T.AssignExpr(
-                                        auto_fplace(T.AccessExpr(
-                                            auto_fplace(T.This, auto_fplace T.TUnknown),
-                                            auto_fplace (T.VarExpr att_actor, auto_fplace T.TUnknown)
-                                        ), auto_fplace T.TUnknown),
+                                        T_A2.e2_e (T.AccessExpr(
+                                            T_A2.e2_e T.This,
+                                            T_A2.e2var att_actor
+                                        )),
                                         auto_fplace(T.CallExpr (
                                             auto_fplace(T.AccessExpr(
-                                                auto_fplace(T.This, auto_fplace T.TUnknown),
-                                                auto_fplace (T.VarExpr constructor_arg_system, auto_fplace T.TUnknown)
+                                                T_A2.e2_e T.This,
+                                                T_A2.e2var constructor_arg_system
                                             ), auto_fplace T.TUnknown),
                                             [
                                                 auto_fplace(T.CallExpr (
@@ -409,7 +410,7 @@ end) = struct
                                                         (* FIXME args for actor creation *)
                                                     ]
                                                 ), auto_fplace T.TUnknown);
-                                                auto_fplace(T.LitExpr (auto_fplace(T.StringLit (Atom.to_string service.component_name))), auto_fplace T.TUnknown)
+                                                T_A2.e2_lit (T.StringLit (Atom.to_string service.component_name))
                                             ]
                                         ), auto_fplace T.TUnknown)
                                     ))
