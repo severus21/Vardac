@@ -45,6 +45,7 @@ end) = struct
         component_name: Atom.t;
         impl_name: Atom.t;
         rpcs: rpc list;
+        service_handler_instance: Atom.t;
     }
     let grpc_services : (Atom.t, service) Hashtbl.t = Hashtbl.create 32 
 
@@ -123,11 +124,13 @@ end) = struct
             match rpcs with
             | [] -> () 
             | _ -> 
+                let service_name = Atom.fresh ((Atom.value component_name)^"Service") in
                 let service = {
                     component_name;
-                    service_name = Atom.fresh ((Atom.value component_name)^"Service");
+                    service_name = service_name;
                     impl_name = Atom.fresh ((Atom.value component_name)^"ServiceImpl"); 
                     rpcs = rpcs;
+                    service_handler_instance = Atom.fresh (String.uncapitalize_ascii (Atom.value service_name));
                 } in
                 Hashtbl.add grpc_services service.service_name service
         ) collected_elts
@@ -426,14 +429,144 @@ end) = struct
     let generate_services_implementation program =
         List.fold_left_map generate_service_implementation program (List.of_seq (Hashtbl.to_seq_values grpc_services))
 
-    (* Stage 3 - generate and bind to the HTTP part *)
+    (* Stage 3 - generate and bind to the HTTP part 
+        generate one HTTP server for all the services
+    *)
+    let generate_gRPC_server services =
+        let main_server_name = Atom.fresh "MaingRPCServer" in
+        let att_system = Atom.fresh "sys" in
+        let local_mat = Atom.fresh "mat" in
+        let local_service_handlers = Atom.fresh "serviceHandlers" in
 
+        (*
+            Function<HttpRequest, CompletionStage<HttpResponse>> greeterService =
+            GreeterServiceHandlerFactory.create(new GreeterServiceImpl(mat), sys);   
+        *)
+        let spawn_service service : T.stmt = 
+            auto_fplace(
+                T.LetStmt (
+                    auto_fplace (T.TRaw "Function<HttpRequest, CompletionStage<HttpResponse>>"),
+                    service.service_handler_instance,
+                    Some (
+                        auto_fplace( T.CallExpr(
+                            auto_fplace (T.AccessExpr(    
+                                auto_fplace(T.RawExpr ((Atom.to_string service.service_name)^"HandlerFactory"), auto_fplace T.TUnknown),
+                                auto_fplace(T.RawExpr "create", auto_fplace T.TUnknown)
+                            ), auto_fplace T.TUnknown),
+                            [
+                                auto_fplace (T.NewExpr(
+                                    auto_fplace (T.VarExpr service.impl_name, auto_fplace T.TUnknown),
+                                    [
+                                        auto_fplace (T.VarExpr local_mat, auto_fplace T.TUnknown)
+                                    ]
+                                ), auto_fplace T.TUnknown);
+                                auto_fplace (T.VarExpr att_system, auto_fplace T.TUnknown);
+
+                            ]
+                        ), auto_fplace T.TUnknown)
+                    )
+                )
+            )
+        in
+
+        let spawn_materializer () = auto_fplace(
+            T.LetStmt (
+                auto_fplace (T.TRaw "Materializer"),
+                local_mat,
+                Some (auto_fplace (T.CallExpr( 
+                    auto_fplace (T.AccessExpr( 
+                        auto_fplace (T.CallExpr( 
+                            auto_fplace (T.RawExpr "SystemMaterializer.get", auto_fplace T.TUnknown),
+                            [ 
+                                auto_fplace (T.VarExpr att_system, auto_fplace T.TUnknown) 
+                            ]
+                        ), auto_fplace T.TUnknown),
+                        auto_fplace (T.RawExpr "materializer", auto_fplace T.TUnknown)
+                    ), auto_fplace T.TUnknown),
+                    []
+                ), auto_fplace T.TUnknown))
+            )
+        ) in
+
+        let rec _spawn_service_handlers = function 
+            | [] -> assert false; (* step 3 should have been skipped *) 
+            | [s] -> auto_fplace (T.VarExpr s.service_handler_instance, auto_fplace T.TUnknown)
+            | s1::s2::t ->
+                List.fold_left ( fun e1 s2 ->
+                    auto_fplace (T.CallExpr (
+                        auto_fplace (T.RawExpr "ServiceHandler.concatOrNotFound", auto_fplace T.TUnknown),
+                        [
+                            e1;
+                            auto_fplace (T.VarExpr s2.service_handler_instance, auto_fplace T.TUnknown);
+                        ]
+                    ), auto_fplace T.TUnknown)
+                )  (_spawn_service_handlers [s1]) (s2::t) 
+        and spawn_service_handlers services =
+            auto_fplace (T.LetStmt(
+                auto_fplace (T.TRaw "Function<HttpRequest, CompletionStage<HttpResponse>>"),
+                local_service_handlers,
+                Some ( _spawn_service_handlers services )
+            ))
+        in
+
+        auto_fplace {
+            T.annotations = [];     
+            decorators = [];
+            v = T.ClassOrInterfaceDeclaration {
+                isInterface = false;
+                name = main_server_name; 
+                extended_types = [ auto_fplace (T.TVar (Atom.builtin "GRPCServer")) ];
+                implemented_types = [];
+                body = [
+                    auto_fplace {
+                        T.annotations = [];
+                        decorators = [];
+                        v = T.MethodDeclaration (auto_fplace {
+                            T.annotations = [T.Visibility T.Public; T.Static];
+                            decorators = [T.Override];
+                            v = {
+                                T.ret_type = auto_fplace (T.TRaw "CompletionStage<ServerBinding>");
+                                name = Atom.builtin "run";
+                                args = [ (auto_fplace (T.TRaw "ActorSystem"), att_system) ];
+                                is_constructor = false;
+                                body = AbstractImpl( 
+                                    [ spawn_materializer () ]
+                                    @ List.map spawn_service services
+                                    @ [spawn_service_handlers services ]
+                                    @ [
+                                        (* Http.get(sys) .newServerAt("127.0.0.1", 8090) .bind(serviceHandlers) *)
+                                        auto_fplace (T.ReturnStmt (
+                                            auto_fplace (T.CallExpr(
+                                                auto_fplace (T.AccessExpr(
+                                                    auto_fplace (T.CallExpr(
+                                                        auto_fplace (T.RawExpr "Http.get", auto_fplace T.TUnknown),
+                                                        [
+                                                            auto_fplace (T.VarExpr att_system, auto_fplace T.TUnknown)
+                                                        ]
+                                                    ), auto_fplace T.TUnknown),
+                                                    auto_fplace (T.RawExpr "newServerAt(\"127.0.0.1\", 8090)", auto_fplace T.TUnknown)
+                                                ), auto_fplace T.TUnknown),
+                                                [
+                                                    auto_fplace (T.VarExpr local_service_handlers, auto_fplace T.TUnknown)
+                                                ]
+                                            ), auto_fplace T.TUnknown)
+                                        ))
+                                    ]
+                                )
+                            }
+                        })
+                    }
+
+                ]
+            }
+        }
 
     let finish_program program : (S.program * T.program) list =  
         hydrate_grpc program;
         generate_protobuf_interfaces build_dir program;
         let iri_program, akka_terms = generate_services_implementation program in
-        [ iri_program, akka_terms ]
+        let akka_term = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
+        [ iri_program, akka_terms@[akka_term] ]
 
     (*****************************************************)
     let name = "Akka.Interfaces.GRPC"
