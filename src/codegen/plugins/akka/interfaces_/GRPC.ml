@@ -16,9 +16,9 @@ module Make (Arg : sig
     val build_dir : Fpath.t 
 end) = struct
     let build_dir = Arg.build_dir
-    let [grpc_templates_location] =  Mysites.Sites.akka_interfaces_grpc
+    let [grpc_templates_location] =  Mysites.Sites.akka_interfaces_grpc_templates
     (* TODO add proto into module not in template*)
-    let proto_template = Fpath.to_string (List.fold_left Fpath.add_seg (Fpath.v grpc_templates_location) [ "grpc"; "proto.j2"])
+    let proto_template = Fpath.to_string (List.fold_left Fpath.add_seg (Fpath.v grpc_templates_location) [ "auto"; "grpc"; "proto.j2"])
 
     module S = IRI
     module T = Ast

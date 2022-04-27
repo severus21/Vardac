@@ -1,0 +1,7 @@
+ (install
+  (section (site (compspec akka_interfaces_grpc_externals)))
+  (files 
+    (auto/grpc/troloc as auto/grpc/troloc)
+   
+  )
+ )

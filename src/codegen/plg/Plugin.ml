@@ -103,6 +103,8 @@ module Make (Plg: Cg_plg) = struct
             - auto
             - custom
 
+        difference between custom and auto -> auto location is trivial computed and custom -> programmer provide specific location rules (not yet specific env for template)
+
         project_name/ (optional)
         - externals 
         ...
@@ -122,58 +124,6 @@ module Make (Plg: Cg_plg) = struct
         | Rresult.Error _ -> failwith "some error occurs when checking external/template existence"
 
     (******************************** External **********************************)
-        let auto_externals_dir = function
-        | None -> List.fold_left Fpath.add_seg (Fpath.v externals_location) [name; "auto"]
-        | Some root -> (* Load project specialized externals *)
-            List.fold_left Fpath.add_seg root ["externals"; name; "auto"]
-
-        let custom_externals_dir = function
-        | None -> List.fold_left Fpath.add_seg (Fpath.v externals_location) [name; "custom"]
-        | Some root -> (* Load project specialized externals *)
-            List.fold_left Fpath.add_seg root ["externals"; name; "custom"]
-
-
-        let preprocess_auto_external root build_dir external0 : (Fpath.t * Fpath.t) = 
-            let destfile = match Fpath.relativize (auto_externals_dir root) external0 with
-            | Some destfile -> destfile
-            | None -> external0 (* already relative to auto_external_dirs*) 
-            in
-            let destfile = Fpath.append build_dir  destfile in
-
-            (external0, destfile)
-
-        let preprocess_custom_external root (build_dir:Fpath.t) (external0, destfile) : (Fpath.t * Fpath.t) =
-            let external0 = Fpath.append (custom_externals_dir root) external0 in
-            let destfile = Fpath.append build_dir  destfile in
-            (external0, destfile)
-        let process_externals root build_dir = 
-            (* Since dune-site provide links and not files we need to manualy copy the content, we can not rely only on [FileUtil.cp]*)
-            let rec copy_external (src, dst) : unit = 
-                let src = FileUtil.readlink (Fpath.to_string src) in 
-                match (FileUtil.stat src).kind with
-                | FileUtil.File -> FileUtil.cp ~recurse:true [src] (Fpath.to_string dst)
-                | FileUtil.Dir -> begin
-                    FileUtil.mkdir (Fpath.to_string (snd(preprocess_auto_external root build_dir (Fpath.v src))));
-                    FileUtil.ls src 
-                    |> List.map Fpath.v
-                    |> List.map (preprocess_auto_external root build_dir)
-                    |> List.iter copy_external;
-                end
-            in
-            (* auto_externals *)
-            let _auto_externals_dir = auto_externals_dir root in
-            begin
-                match Bos.OS.Dir.exists _auto_externals_dir with 
-                | Rresult.Ok true ->  copy_external (preprocess_auto_external root build_dir _auto_externals_dir)
-                | Rresult.Ok false -> ()
-                | Rresult.Error _ -> failwith "error filesystem TODO"
-            end;
-
-            (* custom_externals *)
-            custom_external_rules ()
-            |> List.map (preprocess_custom_external root build_dir)
-            |> List.filter (function (path,_) -> filter_custom root path) 
-            |> List.iter copy_external
 
     (******************************** Templates **********************************)
 
@@ -249,9 +199,15 @@ module Make (Plg: Cg_plg) = struct
             |> List.filter (function (path,_,_) -> filter_custom root path) 
             |> List.iter resolve_template
 
+
+        module ExternalsHelper = ExternalsHelper.Make(struct 
+            let logger = logger
+            let name = name
+            let externals_location = externals_location 
+        end)
         let init_build_dir target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
-            process_externals None build_dir; (* Plugin wide *)
-            process_externals (Some project_dir) build_dir (* Project specific *)
+            ExternalsHelper.process_externals None build_dir (custom_external_rules ()); (* Plugin wide *)
+            ExternalsHelper.process_externals (Some project_dir) build_dir (custom_external_rules ()) (* Project specific *)
 
         let resolve_templates places target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
             process_templates places target None build_dir; (* Plugin wide *)
