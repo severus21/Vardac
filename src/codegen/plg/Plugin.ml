@@ -2,7 +2,6 @@ open Core
 open Core.Utils
 open S_AST
 
-open Jingoo
 
 (* The source calculus. *)
 module S = IRI
@@ -70,12 +69,12 @@ module type Cg_plg = sig
     type plgstate
     val plgstate: plgstate ref
     
-    val finish_ir_program : Core.Target.target -> Fpath.t -> S.program -> ((string * Fpath.t) * Lg.Ast.program) list 
-    val output_program : Core.Target.target -> Fpath.t -> S.program -> unit
+    val finish_ir_program : Core.Target.target -> Fpath.t -> Fpath.t -> S.program -> ((string * Fpath.t) * Lg.Ast.program) list 
+    val output_program : Core.Target.target -> Fpath.t -> Fpath.t -> S.program -> unit
 
-    val custom_template_rules : Core.Target.target -> (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) list
+    val custom_template_rules : unit -> (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) list
     val custom_external_rules : unit -> (Fpath.t * Fpath.t) list
-    val jingoo_env : Core.Target.target -> plgstate -> Core.IR.vplace list -> (string * Jingoo.Jg_types.tvalue) list
+    val auto_jingoo_env : Core.Target.target -> plgstate -> Core.IR.vplace list -> (string * Jingoo.Jg_types.tvalue) list
 end
 
 module type Plug = sig
@@ -116,100 +115,27 @@ module Make (Plg: Cg_plg) = struct
         - custom overides auto in project_name and lg4dc (independently)
 
     *)
-    let filter_custom root path =
-        match Bos.OS.Path.exists path with
-        | Rresult.Ok true -> true
-        | Rresult.Ok false when root <> None -> false
-        | Rresult.Ok false -> logger#error "plugin %s requires that %s exists" name (Fpath.to_string path); exit 1(* TODO handle it with a custom exception ?? *) 
-        | Rresult.Error _ -> failwith "some error occurs when checking external/template existence"
 
-    (******************************** External **********************************)
-
-    (******************************** Templates **********************************)
-
-        (* resolve and generate [auto] templates *)
-        let auto_templates_dir = function
-        | None -> List.fold_left Fpath.add_seg (Fpath.v templates_location) [name; "auto"]
-        | Some root -> (* Load project specialized templates *)
-            List.fold_left Fpath.add_seg root ["templates"; name; "auto"]
-        let custom_templates_dir  = function
-        | None -> List.fold_left Fpath.add_seg (Fpath.v templates_location) [name; "custom"]
-        | Some root -> (* Load project specialized templates *)
-            List.fold_left Fpath.add_seg root ["templates"; name; "custom"]
-
-        let resolve_template (template, env, destfile) : unit =
-            Utils.create_directory_hierarchy (Fpath.parent destfile);
-
-            let res = Jg_template.from_file (Fpath.to_string template) ~models:env in  
-            let oc = open_out (Fpath.to_string destfile) in
-            Printf.fprintf oc "%s" res; 
-            close_out oc
-
-        let preprocess_auto_template places target root build_dir template : (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) = 
-            let destfile = match Fpath.relativize (auto_templates_dir root) template with
-            | Some destfile -> destfile
-            | None -> template (* already relative to auto_template_dirs*) 
-            in
-            let destfile = (
-                if Fpath.has_ext "j2" template then 
-                    Fpath.rem_ext destfile
-                else
-                    destfile
-            ) in
-            let destfile = Fpath.append build_dir  destfile in
-
-            (template, jingoo_env target !plgstate places, destfile)
-
-        let preprocess_custom_template root build_dir (template, env, destfile) : (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) =
-            let template = Fpath.append (custom_templates_dir root) template in
-            let destfile = Fpath.append build_dir destfile in
-            (template, env, destfile)
-
-        (** @param root - empty for lg4dc or projec_name directory *)
-        let process_templates places target root build_dir = 
-            (* auto_templates *)
-            let _auto_templates_dir = auto_templates_dir root in
-
-
-            (* Collect templates and create intermediate directories *)
-            let rec explore path= 
-                match Bos.OS.Dir.exists (Fpath.v path) with 
-                | Rresult.Ok true ->
-                    Bos.OS.Dir.create (Fpath.v path);
-                    List.flatten (List.map explore (FileUtil.ls path)) 
-                | Rresult.Ok false -> [path]
-            in
-
-            begin
-                match Bos.OS.Dir.exists _auto_templates_dir with 
-                | Rresult.Ok true -> begin 
-                    FileUtil.ls (Fpath.to_string _auto_templates_dir)
-                    |> function x -> List.flatten (List.map explore x)
-                    |> List.map Fpath.v
-                    |> List.map (preprocess_auto_template places target root build_dir)
-                    |> List.iter resolve_template;
-                end
-                | Rresult.Ok false -> ()
-                | Rresult.Error _ -> failwith "error filesystem TODO"
-            end;
-
-            (* custom_templates *)
-            custom_template_rules target 
-            |> List.map (preprocess_custom_template root build_dir)
-            |> List.filter (function (path,_,_) -> filter_custom root path) 
-            |> List.iter resolve_template
-
-
-        module ExternalsHelper = ExternalsHelper.Make(struct 
+    (******************************** External & Templates **********************************)
+    let init_build_dir target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
+        let module ExternalsHelper = ExternalsHelper.Make(struct 
             let logger = logger
             let name = name
+            let build_dir = build_dir
             let externals_location = externals_location 
-        end)
-        let init_build_dir target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
-            ExternalsHelper.process_externals None build_dir (custom_external_rules ()); (* Plugin wide *)
-            ExternalsHelper.process_externals (Some project_dir) build_dir (custom_external_rules ()) (* Project specific *)
+        end) in
+        ExternalsHelper.process_externals None (custom_external_rules ()); (* Plugin wide *)
+        ExternalsHelper.process_externals (Some project_dir) (custom_external_rules ()) (* Project specific *)
 
-        let resolve_templates places target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
-            process_templates places target None build_dir; (* Plugin wide *)
-            process_templates places target (Some project_dir) build_dir (* Project specific *)
+    let resolve_templates places target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
+        let module TemplatesHelper = TemplatesHelper.Make(struct 
+            let logger = logger
+            let name = name
+            let build_dir = build_dir
+            let templates_location = templates_location 
+            let custom_template_rules = custom_template_rules () 
+        end) in
+        let jingoo_models = auto_jingoo_env target !plgstate places in
+        TemplatesHelper.process_templates None jingoo_models; (* Plugin wide *)
+        TemplatesHelper.process_templates (Some project_dir) jingoo_models (* Project specific *)
 end

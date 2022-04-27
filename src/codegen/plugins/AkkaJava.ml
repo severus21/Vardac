@@ -1707,11 +1707,15 @@ module Make (Arg: Plugin.CgArgSig) = struct
     type plgstate = Rt.Finish.collected_state
     let plgstate = ref (Rt.Finish.empty_cstate ())
 
-    let finish_ir_program (target:Core.Target.target) build_dir (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
-        let module RtGenInterface = (val Akka.Interfaces.load_and_make_pass target.value.codegen.interface_plg build_dir) in
+    let finish_ir_program (target:Core.Target.target) project_dir build_dir (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
+        let (module RtGenInterface), (module RtGenInterfacePass) = Akka.Interfaces.load_and_make target.value.codegen.interface_plg build_dir in
 
-        let [ir_after_interface_program, interface_program] = RtGenInterface.apply ir_program in
+        let [ir_after_interface_program, interface_program] = RtGenInterfacePass.apply ir_program in
         let ir_program = ir_after_interface_program in
+
+        (* Warning: must be called after exactly one apply, since it needs Module state *)
+        RtGenInterface.update_build_dir build_dir;
+        RtGenInterface.resolve_templates project_dir build_dir;
 
         let program = ir_program
             |> RtPrepare.apply
@@ -1732,11 +1736,11 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
 
     (** Output program*)
-    let output_program target build_dir ir_program =
+    let output_program target project_dir build_dir ir_program =
         let headers = auto_place (T.Raw headers) in
 
         ir_program
-        |> finish_ir_program target build_dir
+        |> finish_ir_program target project_dir build_dir
         |> List.map (function ((package_name, file), program) -> 
             let module Clean = Lg.Clean.Make(struct let filename = (Fpath.to_string file) end) in
             let module Clean = Lg.AstCompilationPass.Make(Clean) in
@@ -1747,7 +1751,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
         |> List.map (function (package_name, file, program) -> (package_name, file, headers :: program))
         |> List.iter (function (package_name, file, program) -> Lg.Output.output_program package_name (Fpath.append build_dir file) program)
 
-    let jingoo_env (target:Core.Target.target) (cstate:Rt.Finish.collected_state) places = 
+    let auto_jingoo_env (target:Core.Target.target) (cstate:Rt.Finish.collected_state) places = 
         let rec prepare_places parent_name : IR.vplace list -> (string * IR.vplace) list = function 
         | [] -> []
         | p::ps -> 
@@ -1762,36 +1766,30 @@ module Make (Arg: Plugin.CgArgSig) = struct
         let places = prepare_places "" places in
         
         [
-        ("compiler_version", Jg_types.Tstr Config.version);
-        ("compiler_debug", Jg_types.Tbool (Config.debug ()));
-        ("compiler_keep_ghost", Jg_types.Tbool (Config.keep_ghost ()));
+            ("target_mains", Jg_types.Tlist 
+                (List.map (function ({Core.Target.name;}:Core.Target.maindef) -> Jg_types.Tstr name) target.value.codegen.mains)
+            );
+            ("components", Jg_types.Tlist (
+                List.of_seq(Seq.map (function a -> Jg_types.Tstr (Atom.to_string a)) (Atom.Set.to_seq(!(cstate.collected_components))))
+            ));
+            ("components_command", Jg_types.Tlist (
+                List.of_seq(Seq.map (function a -> Jg_types.Tstr ((Atom.to_string a)^".Command")) (Atom.Set.to_seq(!(cstate.collected_components))))
+            ));
+            ("system_name", Jg_types.Tstr ( system_name));
+            ("vplaces", Jg_types.Tlist (
+                List.map (function ((key,vp):string * IR.vplace) -> 
+                    Jg_types.Tobj [
+                        "key", Jg_types.Tstr key;
+                        "vp", Jg_types.Tobj [
+                            "name", Jg_types.Tstr (Atom.hint vp.name)
+                        ] 
+                    ]
+                ) places
+            ));
+            ("dependencies", Jg_types.Tstr (dependencies));
+        ]
 
-        ("project_name", Jg_types.Tstr (Config.project_name ()));
-        ("author", Jg_types.Tstr (Config.author ()));
-        ("target_mains", Jg_types.Tlist 
-            (List.map (function ({Core.Target.name;}:Core.Target.maindef) -> Jg_types.Tstr name) target.value.codegen.mains)
-        );
-        ("components", Jg_types.Tlist (
-            List.of_seq(Seq.map (function a -> Jg_types.Tstr (Atom.to_string a)) (Atom.Set.to_seq(!(cstate.collected_components))))
-        ));
-        ("components_command", Jg_types.Tlist (
-            List.of_seq(Seq.map (function a -> Jg_types.Tstr ((Atom.to_string a)^".Command")) (Atom.Set.to_seq(!(cstate.collected_components))))
-        ));
-        ("system_name", Jg_types.Tstr ( system_name));
-        ("vplaces", Jg_types.Tlist (
-            List.map (function ((key,vp):string * IR.vplace) -> 
-                Jg_types.Tobj [
-                    "key", Jg_types.Tstr key;
-                    "vp", Jg_types.Tobj [
-                        "name", Jg_types.Tstr (Atom.hint vp.name)
-                    ] 
-                ]
-            ) places
-        ));
-        ("dependencies", Jg_types.Tstr (dependencies));
-    ]
-
-    let custom_template_rules target = [
+    let custom_template_rules () = [
     ]
     let custom_external_rules () = []
 end

@@ -16,9 +16,38 @@ module Make (Arg : sig
     val build_dir : Fpath.t 
 end) = struct
     let build_dir = Arg.build_dir
-    let [grpc_templates_location] =  Mysites.Sites.akka_interfaces_grpc_templates
-    (* TODO add proto into module not in template*)
-    let proto_template = Fpath.to_string (List.fold_left Fpath.add_seg (Fpath.v grpc_templates_location) [ "auto"; "grpc"; "proto.j2"])
+
+    (************ Externals & Templates ***************)
+
+    let [templates_location] =  Mysites.Sites.akka_interfaces_grpc_templates
+    let [externals_location] =  Mysites.Sites.akka_interfaces_grpc_externals
+
+    (* TODO add this to general utils *)
+    let l2f = function
+    | [] -> assert(false) 
+    | h::t -> List.fold_left Fpath.add_seg (Fpath.v h) t
+    
+    let custom_external_rules () = []
+    let proto_models = ref None
+    let custom_template_rules () = 
+        (* Check that state have been correctly hydrated first *)
+        assert(!proto_models <> None);      
+        [ 
+            (
+                l2f [templates_location; "auto"; "grpc"; "proto.j2"], 
+                Option.get !proto_models, 
+                l2f [Fpath.to_string build_dir; "src"; "main"; "protobuf"; "proto.proto"]
+            );
+            (
+                l2f [templates_location; "auto"; "grpc"; "GRPCServer.java.j2"], 
+                Option.get !proto_models, 
+                l2f [Fpath.to_string build_dir; "src"; "main"; failwith "TODO GRPC"]
+            )
+        ]
+
+    let auto_jingoo_env () = [] 
+
+    (**************************************************)
 
     module S = IRI
     module T = Ast
@@ -139,11 +168,12 @@ end) = struct
     (* Stage 1 - Generating protobuf interfaces and stubs 
         in src/main/protobuf/*.proto
     *)
-    let generate_protobuf_interfaces build_dir program =
-        let protodir = List.fold_left Fpath.add_seg build_dir ["src"; "main"; "protobuf"] in
+    let generate_protobuf_interfaces_env build_dir program =
+        (*let protodir = List.fold_left Fpath.add_seg build_dir ["src"; "main"; "protobuf"] in
         Core.Utils.refresh_or_create_dir protodir;
         (* TODO create multiple file *)
         let protofile = Fpath.add_seg protodir "proto.proto" in
+        *)
 
         let encode_message (msg:msg) = 
             let encode_field field = 
@@ -176,18 +206,19 @@ end) = struct
         let services = List.map encode_service (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
         let messages = List.map encode_message (List.of_seq (Hashtbl.to_seq_values grpc_messages)) in
         
-        let models = [
+        [
             ("project_name", Jg_types.Tstr (Config.project_name ()));
             ("author", Jg_types.Tstr (Config.author ()));
 
             ("services", Jg_types.Tlist services);
             ("msgs", Jg_types.Tlist messages)
-        ] in
+        ]
 
-        let res = Jg_template.from_file proto_template ~models:models in
+        (*let res = Jg_template.from_file (Fpath.to_string proto_template) ~models:models in
         let oc = open_out (Fpath.to_string protofile) in
         Printf.fprintf oc "%s" res; 
-        close_out oc
+        close_out oc*)
+
 
     (* Stage 2 - Implementing the services *)
     let generate_service_implementation program service =
@@ -564,7 +595,7 @@ end) = struct
 
     let finish_program program : (S.program * T.program) list =  
         hydrate_grpc program;
-        generate_protobuf_interfaces build_dir program;
+        proto_models := Some (generate_protobuf_interfaces_env build_dir program);
         let iri_program, akka_terms = generate_services_implementation program in
         let akka_term = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
         [ iri_program, akka_terms@[akka_term] ]

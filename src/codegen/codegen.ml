@@ -39,7 +39,7 @@ let codegen_program project_dir build_dir places (target2dependencies, target2he
     logger#info "Init build directory \"%s\" with plugin external files"  (Fpath.to_string build_dir);
     Plug.init_build_dir target project_dir build_dir;
     logger#info "Building ...";
-    let res = Plug.output_program target build_dir program in 
+    let res = Plug.output_program target project_dir build_dir program in 
     logger#info "Resolve templates (maydepend of the build collected state)";
     Plug.resolve_templates places target project_dir build_dir;
     res 

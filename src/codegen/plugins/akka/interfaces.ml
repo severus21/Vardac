@@ -9,10 +9,10 @@ open TMP
 include TMP.InterfaceFactory.Make(struct
     let logger = Logging.make_logger "_1_ compspec.codegen.Akka.Interfaces" Debug [];;
 
-    let plugins : (string, (module Interface_plg)) Hashtbl.t = (Hashtbl.create 10)
+    let plugins : (string, (module Interface_plg0)) Hashtbl.t = (Hashtbl.create 10)
 
-    let register_plugin (plug : (module Interface_plg)) =
-        let module M = (val plug : Interface_plg) in
+    let register_plugin (plug : (module Interface_plg0)) =
+        let module M = (val plug : Interface_plg0) in
     
         Hashtbl.add plugins M.name plug 
 
@@ -20,5 +20,5 @@ include TMP.InterfaceFactory.Make(struct
     (**************************Registering plugins********************************)
 
     (*TODO auto register by scandir / dynamic*)
-    let _ = register_plugin (module Interfaces_.GRPC: Interface_plg)
+    let _ = register_plugin (module Interfaces_.GRPC: Interface_plg0)
 end)
