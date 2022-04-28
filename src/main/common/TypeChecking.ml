@@ -338,8 +338,7 @@ and _tcheck_method place (m:_method0) =
     ()
 and tcheck_method (m:method0) = map0_place _tcheck_method m
 
-and _tcheck_state place = function 
-| StateDcl s ->
+and _tcheck_state place s = 
     tcheck_main_type s.type0;
     match s.body with
     | None -> ()

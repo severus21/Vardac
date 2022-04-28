@@ -269,8 +269,7 @@ and type_replace__custom_method0_body to_be_replaced by = function
 | BBImpl _ as mb -> mb 
 
 (** Template **)
-and _type_replace_state to_be_replaced by = function
-| StateDcl sdcl -> StateDcl {sdcl with
+and _type_replace_state to_be_replaced by sdcl = {sdcl with
     type0 = type_replace_main_type to_be_replaced by sdcl.type0;
     body = type_replace__state_dcl_body to_be_replaced by sdcl.body 
 }

@@ -257,7 +257,7 @@ module Make (Args : Params ) : Sig = struct
         let body = 
             (List.map (
                 function (mt, _, _, y) -> 
-                auto_fplace (State (auto_fplace (StateDcl {
+                auto_fplace (State (auto_fplace ({
                     ghost = false;
                     type0 = mt;
                     name = y;

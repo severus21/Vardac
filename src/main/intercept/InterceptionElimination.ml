@@ -276,12 +276,12 @@ module Make (Args: TArgs) = struct
                 e2_e This, 
                 e2var this_b_onboard
             )) in
-        let statedef_b_onboard = auto_fplace (State (auto_fplace (StateDcl {
+        let statedef_b_onboard = auto_fplace (State (auto_fplace {
             ghost = false;
             type0 = interceptor_info.onboard_info.b_onboard_mt;
             name = this_b_onboard;
             body = None;
-        }))) in
+        })) in
 
         let this_onboarded_activations = Atom.fresh "onboarded_activations" in 
         assert( interceptor_info.this_onboarded_activations = None );
@@ -293,7 +293,7 @@ module Make (Args: TArgs) = struct
             e2_e This, 
             e2var this_onboarded_activations
         )) in
-        let statedef_onboarded_activations = auto_fplace (State (auto_fplace (StateDcl {
+        let statedef_onboarded_activations = auto_fplace (State (auto_fplace ({
             ghost = false;
             type0 = mtype_of_ct (TDict (mtype_of_ft TActivationID, mtype_of_ct (TActivationRef (mt_internals_of fplace (Atom.Set.to_list interceptor_info.intercepted_schemas)))) );
             name = this_onboarded_activations;
@@ -394,13 +394,13 @@ module Make (Args: TArgs) = struct
 
         let inout_bridges_states = List.flatten (List.map ( function (b_out, b_in, b_mt) ->
             [ 
-                auto_fplace (State (auto_fplace (StateDcl {
+                auto_fplace (State (auto_fplace ({
                     ghost = false;
                     type0 = b_mt;
                     name = b_in;
                     body = None 
                 } )));
-                auto_fplace (State (auto_fplace (StateDcl {
+                auto_fplace (State (auto_fplace ({
                     ghost = false;
                     type0 = b_mt;
                     name = b_out;
@@ -487,25 +487,25 @@ module Make (Args: TArgs) = struct
                 (auto_fplace(DocComment "******************** Intercepted Sessions Handling Block ********************"))
             )));
 
-            auto_fplace (State (auto_fplace (StateDcl {
+            auto_fplace (State (auto_fplace ({
                 ghost = false;
                 type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TSessionID));
                 name = this_4external2internal;
                 body = Some (e2_e (Block2Expr (Dict, [])));
             })));
-            auto_fplace (State (auto_fplace (StateDcl {
+            auto_fplace (State (auto_fplace ({
                 ghost = false;
                 type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TSessionID));
                 name = this_4internal2external;
                 body = Some (e2_e (Block2Expr (Dict, [])));
             })));
-            auto_fplace (State (auto_fplace (StateDcl {
+            auto_fplace (State (auto_fplace ({
                 ghost = false;
                 type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TWildcard));
                 name = this_4external;
                 body = Some (e2_e (Block2Expr (Dict, [])));
             })));
-            auto_fplace (State (auto_fplace (StateDcl {
+            auto_fplace (State (auto_fplace ({
                 ghost = false;
                 type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TWildcard));
                 name = this_4internal;

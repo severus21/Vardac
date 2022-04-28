@@ -578,8 +578,8 @@ and peval_outport env place ((outport, mt_outport):_outport*main_type) =
     )
 and pe_outport env: outport -> env * outport = map2_place (peval_outport env)
 
-and peval_state env place = function 
-| StateDcl s -> env, StateDcl {s with 
+and peval_state env place s = 
+env, {s with 
     type0 = snd(pe_mtype env s.type0);
     body = Option.map (function e -> snd(pe_expr env e)) s.body
 } 

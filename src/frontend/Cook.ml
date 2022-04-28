@@ -342,7 +342,7 @@ module Make(Arg:ArgSig) = struct
         match value with
         | S.Term t -> cartography_term entry t
         | S.Method {value={on_startup; on_destroy}} when on_startup || on_destroy -> entry 
-        | S.Method {value={name}} | S.Inport {value={name;}} | S.Outport {value={name;}} | S.State {value=StateDcl{name;}} -> begin
+        | S.Method {value={name}} | S.Inport {value={name;}} | S.Outport {value={name;}} | S.State {value={name;}} -> begin
             match Env.find_opt name entry.inner with 
             | None -> { entry with
                 inner = Env.add name {place; value=register_this place name} entry.inner
@@ -869,8 +869,7 @@ module Make(Arg:ArgSig) = struct
     and cfdcl env: S.function_dcl -> env * T.function_dcl = map2_place (cook_function env)
 
     (************************************ Component *****************************)
-    and cook_state env place : S._state -> env * T._state = function
-    | S.StateDcl sdcl ->
+    and cook_state env place : S._state -> env * T._state = function sdcl ->
         let env1, type0 = cmtype env sdcl.type0 in 
         let new_env, y = bind_this env place sdcl.name in
         let ret_env, body = match sdcl.init_opt with
@@ -880,7 +879,7 @@ module Make(Arg:ArgSig) = struct
                 new_env << [env1; _env], Some e
         in
         
-        ret_env, T.StateDcl {
+        ret_env, {
                     ghost   = sdcl.ghost; 
                     type0   = type0;
                     name    = y;

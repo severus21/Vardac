@@ -190,12 +190,11 @@ and function_dcl = _function_dcl placed
 
 
 (************************************ Component *****************************)
-and _state = 
-    | StateDcl of  {
-        ghost: bool; 
-        type0: main_type; 
-        name: variable; 
-        init_opt: expr option}
+and _state = {
+    ghost: bool; 
+    type0: main_type; 
+    name: variable; 
+    init_opt: expr option}
 and state = _state placed
 
 and _param = main_type * variable

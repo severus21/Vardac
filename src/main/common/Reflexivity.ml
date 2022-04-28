@@ -42,7 +42,7 @@ let rewrite_program program =
                     value=ComponentStructure {
                         cstruct with
                             body = 
-                                ( auto_fplace (State (auto_fplace (StateDcl {
+                                ( auto_fplace (State (auto_fplace ({
                                     ghost = false;
                                     type0 = mtype_of_ct (TList (mtype_of_ct (TInport (mtype_of_st STBottom))));
                                     name = Atom.builtin "reflexivity_inports";

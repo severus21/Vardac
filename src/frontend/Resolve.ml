@@ -50,9 +50,7 @@ end
 | x -> x
 and rstmt stmt = map_place resolve_stmt stmt
 
-and resolve_state place : S._state -> T._state = function 
-| S.StateDcl sdcl -> T.StateDcl {sdcl with init_opt= Option.map rexpr sdcl.init_opt}
-| x -> x
+and resolve_state place : S._state -> T._state = function sdcl -> {sdcl with init_opt= Option.map rexpr sdcl.init_opt}
 
 and resolve_contract place (c:S._contract) : T._contract = 
 { c with    pre_binders= (List.map (function (mt,v,e) -> (mt,v, rexpr e)) c.pre_binders);  

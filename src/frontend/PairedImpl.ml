@@ -145,23 +145,23 @@ module Make (Arg: ArgSig) = struct
     let cook_bb_term name : S1.blackbox_term -> T.blackbox_term = map_place (cbb_term name)
 
     let rec paired_state parents place : S2._state -> T._state = function
-    | S2.StateDcl { ghost; type0; name; body=None} as s-> begin
+    | { ghost; type0; name; body=None} as s-> begin
         try 
             let key = List.rev ((Atom.hint name)::parents) in 
             mark_state key;
             let s_impl = Hashtbl.find state_impls key in
             let bb_impl = cook_bb_term name s_impl.value.body in
 
-            T.StateDcl { ghost; type0; name; body= T.InitBB bb_impl}
+            { ghost; type0; name; body= T.InitBB bb_impl}
         with Not_found -> 
             logger#warning "State %s is not initialized (neither abstract nor blackbox)" (Atom.to_string name);
-            T.StateDcl { ghost; type0; name; body=NoInit}
+            { ghost; type0; name; body=NoInit}
     end
-    | S2.StateDcl { ghost; type0; name; body=Some body} -> begin
+    | { ghost; type0; name; body=Some body} -> begin
         try 
             let bb_impl = Hashtbl.find state_impls (List.rev ((Atom.hint name)::parents))  in
             Error.error (place@bb_impl.place) "State has two implementations : one abstract and one blackbox"
-        with Not_found -> T.StateDcl { ghost; type0; name; body= T.InitExpr body } 
+        with Not_found -> { ghost; type0; name; body= T.InitExpr body } 
     end
     and ustate parents : IR.state -> T.state = map_place (paired_state parents)
 

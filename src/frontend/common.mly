@@ -442,15 +442,11 @@ any_function_:
 (************************************ Component *****************************)
 any_state_:
 | mt=any_type name=LID
-    { StateDcl { ghost=false; type0=mt; name=name; init_opt=None}}
+    { ({ ghost=false; type0=mt; name=name; init_opt=None}:_state) }
 | mt=any_type name=LID EQ e = any_expr
-    { StateDcl { ghost=false; type0=mt; name=name; init_opt=Some e}}
-(*| USE kind name
-    { StateAlias {ghost=false; kind=kind; type0= TODO; name=name}}*)
+    { { ghost=false; type0=mt; name=name; init_opt=Some e}}
 | GHOST s=any_state_
-    { match s with
-        | StateDcl s -> StateDcl {s with ghost=true}
-    }
+    { ({s with ghost=true}:_state) }
 %inline any_state:
   t = placed(any_state_)
     { t }
@@ -578,7 +574,7 @@ any_component_item_:
 | t = any_term
     { 
         match t.value with
-        | Stmt {place; value=LetStmt (mt, x, e)} -> State {place; value = StateDcl {
+        | Stmt {place; value=LetStmt (mt, x, e)} -> State {place; value = {
             ghost = false;
             type0 = mt;
             name = x;

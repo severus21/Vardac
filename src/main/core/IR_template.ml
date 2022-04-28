@@ -186,8 +186,7 @@ module Make (Params : IRParams) = struct
     include AstUtils
     include IR_common
 
-    type _state = 
-        | StateDcl of  {
+    type _state = {
             ghost: bool; 
             type0: main_type; 
             name: component_variable; 
@@ -500,8 +499,7 @@ module Make (Params : IRParams) = struct
         and collect_expr_outport parent_opt (already_binded:Atom.Set.t) selector collector p = 
             map0_place (collect_expr_outport_ parent_opt already_binded selector collector) p
 
-        and collect_expr_state_ parent_opt (already_binded:Atom.Set.t) selector collector place = function 
-        | StateDcl sdcl -> 
+        and collect_expr_state_ parent_opt (already_binded:Atom.Set.t) selector collector place sdcl = 
             let _, collected_elts1, fvars1 = collect_expr_mtype parent_opt already_binded selector collector sdcl.type0 in
             let _, collected_elts2, fvars2 = collect_expr_state_dcl_body parent_opt already_binded selector collector sdcl.body
             in
@@ -575,9 +573,7 @@ module Make (Params : IRParams) = struct
                     | Contract _ -> already_binded
                     | Method m -> Atom.Set.add m.value.name already_binded
                     | State s -> 
-                        Atom.Set.add(match s.value with 
-                        | StateDcl s -> s.name
-                    ) already_binded
+                        Atom.Set.add(s.value.name) already_binded
                     |Inport p -> Atom.Set.add (fst p.value).name already_binded
                     | Outport p -> Atom.Set.add (fst p.value).name already_binded
                     | Term t -> already_binded
@@ -683,11 +679,9 @@ module Make (Params : IRParams) = struct
         and collect_cexpr_outport parent_opt already_binded selector collector p = 
             map0_place (collect_cexpr_outport_ parent_opt already_binded selector collector) p
 
-        and collect_cexpr_state_ parent_opt already_binded selector collector place = function 
-        | StateDcl sdcl -> begin
+        and collect_cexpr_state_ parent_opt already_binded selector collector place sdcl =
             let _, collected_elts, _ = collect_cexpr_state_dcl_body parent_opt already_binded selector collector sdcl.body in
             collected_elts
-        end
         and collect_cexpr_state parent_opt already_binded selector collector s = 
             map0_place (collect_cexpr_state_ parent_opt  already_binded selector collector) s 
 
@@ -877,8 +871,7 @@ module Make (Params : IRParams) = struct
         and collect_type_outport parent_opt (already_binded:Atom.Set.t) selector collector p = 
             map0_place (collect_type_outport_ parent_opt already_binded selector collector) p
 
-        and collect_type_state_ parent_opt (already_binded:Atom.Set.t) selector collector place = function 
-        | StateDcl sdcl -> 
+        and collect_type_state_ parent_opt (already_binded:Atom.Set.t) selector collector place sdcl = 
             let _, collected_elts1, fvars1 = collect_type_mtype parent_opt already_binded selector collector sdcl.type0 in
             let _, collected_elts2, fvars2 = collect_type_state_dcl_body parent_opt already_binded selector collector sdcl.body in
 
@@ -1095,8 +1088,8 @@ module Make (Params : IRParams) = struct
             
         and rewrite_type_outport selector rewriter = map_place (rewrite_type_outport_ selector rewriter) 
 
-        and rewrite_type_state_  selector rewriter place = function 
-        | StateDcl sdcl -> StateDcl {
+        and rewrite_type_state_  selector rewriter place sdcl = 
+        {
             sdcl with 
                 type0 = rewrite_type_mtype selector rewriter sdcl.type0;
                 body = rewrite_type_state_dcl_body selector rewriter sdcl.body;
@@ -1186,8 +1179,7 @@ module Make (Params : IRParams) = struct
             
         and rewrite_expr_outport selector rewriter = map_place (rewrite_expr_outport_ selector rewriter) 
 
-        and rewrite_expr_state_  selector rewriter place = function 
-        | StateDcl sdcl -> StateDcl {
+        and rewrite_expr_state_  selector rewriter place sdcl = {
             sdcl with body = rewrite_expr_state_dcl_body selector rewriter sdcl.body;
         }
         and rewrite_expr_state selector rewriter = map_place (rewrite_expr_state_ selector rewriter) 
@@ -1815,8 +1807,7 @@ module Make (Params : IRParams) = struct
 
 
 
-        let rec _rename_state renaming place = function
-        | StateDcl s -> StateDcl {
+        let rec _rename_state renaming place s = { 
             ghost = s.ghost;
             type0 = rename_main_type renaming s.type0;
             name = renaming s.name;

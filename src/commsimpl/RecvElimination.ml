@@ -223,7 +223,7 @@ module Make () : Sig = struct
                 )) 
             in
 
-            let intermediate_state = auto_fplace (StateDcl {
+            let intermediate_state = auto_fplace ({
                 ghost = false;
                 type0 = intermediate_state_type;
                 name = intermediate_state_name;
@@ -593,7 +593,7 @@ module Make () : Sig = struct
             ([], []), [auto_place citem]
         else 
             (
-                List.map (function | {value=StateDcl s} -> s.name) intermediate_states,
+                List.map (function (s : state) -> s.value.name) intermediate_states,
                 List.map (function (p:port) -> (fst p.value).name) intermediate_ports
             ), 
             (List.map (function p-> auto_fplace (Inport p)) intermediate_ports) 
@@ -634,7 +634,7 @@ module Make () : Sig = struct
                     FIXME Atom.builtin -> Atom.fresh to preserve binder unicity
                 *)
                 let a_intermediate_states = Atom.builtin "intermediate_states" in
-                let intermediate_states_index = auto_place(State( auto_place(StateDcl { 
+                let intermediate_states_index = auto_place(State( auto_place({ 
                     ghost = false;
                     type0 = mtype_of_ct (TList(
                                 mtype_of_ct (TDict(
@@ -652,7 +652,7 @@ module Make () : Sig = struct
                     TODO REFACTOR: 
                     Maybe an option is just to maintain one port and to update the callback instead of create intermediate ports
                 *)
-                let registerd_sessions = auto_place(State( auto_place(StateDcl { 
+                let registerd_sessions = auto_place(State( auto_place({ 
                     ghost = false;
                     type0 = mtype_of_ct (TDict(
                         mtype_of_ft TUUID, 

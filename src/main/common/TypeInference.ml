@@ -188,12 +188,7 @@ module Make () = struct
     let typeof_outport p = 
         mtype_of_ct TOutport
 
-    let typeof_state s = 
-        match s.value with
-        | StateDcl sdcl -> sdcl.type0
-        | _ -> failwith "typeof_state state alias not supported"
-
-
+    let typeof_state s = s.value.type0
 
     (* Search for component definition
         We do not implement equi/iso recursive types
@@ -213,10 +208,10 @@ module Make () = struct
     | Outport p -> 
         register_expr_type (fst p.value).name (typeof_outport p);
         [(fst p.value).name, typeof_outport p]
-    | State ({value=StateDcl {name}} as s) -> 
+    | State s -> 
         logger#debug "state registration";
-        register_expr_type name (typeof_state s);
-        [name, typeof_state s]
+        register_expr_type s.value.name (typeof_state s);
+        [s.value.name, typeof_state s]
     | Term t -> scan_term parent_opt t 
     and scan_component_item parent_opt = map0_place (_scan_component_item parent_opt)
     and _scan_component parent_opt place = function
@@ -793,16 +788,14 @@ module Make () = struct
             value = _m
         }
 
-    and _tannot_state parent_opt place = function 
-    | StateDcl s -> 
+    and _tannot_state parent_opt place (s:_state) =
         (* Already registerd by shallow scan*)
-
-        StateDcl {
-        name = s.name;
-        ghost = s.ghost;
-        type0 = tannot_main_type parent_opt s.type0;
-        body = Option.map (tannot_expr parent_opt) s.body;
-    } 
+        {
+            name = s.name;
+            ghost = s.ghost;
+            type0 = tannot_main_type parent_opt s.type0;
+            body = Option.map (tannot_expr parent_opt) s.body;
+        } 
     and tannot_state parent_opt s = 
         let _s = _tannot_state parent_opt s.place s.value in
         {

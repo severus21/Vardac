@@ -717,9 +717,9 @@ module Make () = struct
     let fplace = (Error.forge_place "Plg=Akka/finish_state" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
     function 
-        | S.StateDcl {ghost; type0; name; body = S.InitExpr e} -> 
+        | {ghost; type0; name; body = S.InitExpr e} -> 
             T.LetStmt (fmtype type0, name, Some (fexpr e))
-        | S.StateDcl {ghost; type0; name; body = S.InitBB bb_term} -> 
+        | {ghost; type0; name; body = S.InitBB bb_term} -> 
             T.LetStmt (
                 fmtype type0, 
                 name, 
@@ -727,8 +727,7 @@ module Make () = struct
                     place = bb_term.place;
                     value = T.BBExpr (fbbterm bb_term), auto_place T.TUnknown
                 })
-        (*use global x as y;*)
-        | S.StateDcl { ghost; type0; name; body = S.NoInit} ->
+        | { ghost; type0; name; body = S.NoInit} ->
             T.LetStmt (fmtype type0, name, None)
     and fstate s : T.stmt = map_place finish_state s
 
