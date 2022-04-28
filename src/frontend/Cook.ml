@@ -241,7 +241,7 @@ module Make(Arg:ArgSig) = struct
         try
             let inner = (Env.find name env.current.this.rec_inner).value in
             let a_name = inner.name.value in
-            {env with 
+            { 
                 current = {
                     env.current with 
                         components=Env.add name a_name env.current.components;
@@ -349,6 +349,8 @@ module Make(Arg:ArgSig) = struct
             } 
             | Some p -> Error.error (p.place@place) "multiple definitions %s in the same component" name
         end
+        | S.Contract _ -> raise (PlacedDeadbranchError (place, "Contracts should have been paired with methods before!!"))
+        | S.Include _ -> raise (PlacedDeadbranchError (place, "Include should have been resolvec and eliminated before calling the Cook pass (see. Resolve.ml)"))
     and cartography_component_dcl ({place; value}: S.component_dcl) : iota_entry = 
     (* We do not explore the body of a component *)
     match value with
@@ -446,6 +448,7 @@ module Make(Arg:ArgSig) = struct
             | S.TList _ -> T.TList mt 
             | S.TOption _ -> T.TOption mt 
             | S.TSet _ -> T.TSet mt 
+            | _ -> assert(false)
         )
     | (S.TArrow (mt1, mt2) as ct) | (S.TDict (mt1, mt2) as ct) | (S.TResult (mt1, mt2) as ct) | (S.TUnion (mt1, mt2) as ct)-> 
         let env1, mt1 = cmtype env mt1 in
@@ -455,6 +458,7 @@ module Make(Arg:ArgSig) = struct
             | S.TDict _ -> T.TDict (mt1, mt2) 
             | S.TResult _ -> T.TResult (mt1, mt2)
             | S.TUnion _ -> T.TUnion (mt1, mt2)
+            | _ -> assert(false)
         )
     | S.TBridge {in_type; out_type; protocol } -> 
         let env1, in_type = cmtype env in_type in
@@ -498,6 +502,7 @@ module Make(Arg:ArgSig) = struct
         new_env, (match st0 with
             | S.STBranch _ -> T.STBranch entries            
             | S.STSelect _ -> T.STSelect entries            
+            | _ -> assert(false)
         )
     | S.STEnd  -> env, T.STEnd
     | (S.STRecv (mt, st) as st0) | (S.STSend (mt, st) as st0)  -> 
@@ -506,6 +511,7 @@ module Make(Arg:ArgSig) = struct
         env << [env1; env2], (match st0 with 
             | S.STRecv _ -> T.STRecv (mt, st) 
             | S.STSend _ -> T.STSend (mt, st)
+            | _ -> assert(false)
         )
     | S.STVar x  -> begin
         let y = cook_var_type env place x in
@@ -615,7 +621,6 @@ module Make(Arg:ArgSig) = struct
     *)
     and cook_expr env place e : env * (T._expr * T.main_type) = 
         let fplace = (Error.forge_place "Frontend.Cook.cook_expr" 0 0) in
-        let auto_place smth = {place = place; value=smth} in
         let auto_fplace smth = {place = fplace; value=smth} in
         let env, e =
             match e with 
@@ -831,7 +836,6 @@ module Make(Arg:ArgSig) = struct
     and cook_function env place : S._function_dcl -> env * T._function_dcl = 
     let fplace = (Error.forge_place "Coook.cook_function" 0 0) in
     let auto_place smth = {AstUtils.place = place; value=smth} in
-    let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
     function
     | f -> 
         let new_env, name = bind_expr env place f.name in
@@ -898,7 +902,6 @@ module Make(Arg:ArgSig) = struct
 
     and cook_contract env place (contract:S._contract): env * T._contract =
         let fplace = (Error.forge_place "Frontend.Cook.cook_contract" 0 0) in
-        let auto_place smth = {place = place; value=smth} in
         let auto_fplace smth = {place = fplace; value=smth} in
 
         let method_name = cook_var_this env place contract.method_name in
@@ -956,7 +959,6 @@ module Make(Arg:ArgSig) = struct
 
     and cook_method0 env place (m: S._method0) : env * T._method0 = 
     let fplace = (Error.forge_place "Coook.cook_method0" 0 0) in
-    let auto_place smth = {AstUtils.place = place; value=smth} in
     let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
         let name = 
             (* Onstartup/destrory has no name*)
@@ -1006,9 +1008,6 @@ module Make(Arg:ArgSig) = struct
     and cmethod0 env: S.method0 -> env * T.method0 = map2_place (cook_method0 env)
 
     and cook_port env place (port:S._port) : env * (T._port * T.main_type)=
-        let fplace = (Error.forge_place "Coook.cook_method0" 0 0) in
-        let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
-
         let new_env, name = bind_this env place port.name in
         let env1, expecting_st = cmtype env port.expecting_st in 
         let env2, callback = cexpr env port.callback in 
@@ -1017,9 +1016,6 @@ module Make(Arg:ArgSig) = struct
     and cport env: S.port -> env * T.port = map2_place (cook_port env)
 
     and cook_outport env place (outport:S._outport) : env * (T._outport * T.main_type)=
-        let fplace = (Error.forge_place "Coook.cook_method0" 0 0) in
-        let auto_fplace smth = {AstUtils.place = fplace; value=smth} in
-
         let new_env, name = bind_this env place outport.name in
         let env1, input_type = cmtype env outport.input_type in
         new_env << [env1; env1], ({ name; }, input_type)
@@ -1070,7 +1066,7 @@ module Make(Arg:ArgSig) = struct
         | None -> raise (Error.PlacedDeadbranchError (place, Printf.sprintf "Iota entry not found for %s" cdcl.name))
         in
 
-        let env = {env with 
+        let env = { 
             current = {env.current with 
                 implicits   = Env.fold (fun k v map -> Env.add k v map) (Env.map (fun v -> v.value) env.current.this.inner) env.current.implicits ; (* add binders of parent components in implicit map, iterate over env.currentcomponents and successively add it into env.current.implicits (NB args order differ with List.fold_left) - in order to mask variable if with inner scope if needed *)
                 this = this_entry 
@@ -1171,7 +1167,7 @@ module Make(Arg:ArgSig) = struct
             let cenv1, mt = cmtype env mt in
             new_env << [cenv1], [T.Typealias (y, Some mt)]
     end
-    | Typedef {value= ProtocolDef (x, mt) as tdef; place} -> 
+    | Typedef {value= ProtocolDef (x, mt); place} -> 
         let new_env1, y = bind_type env place x in
         (* We use resgister_expr y here in order to preserve atom identity between both the world of types and the world of values (type constructor for instance) *)
         let new_env2 = register_expr new_env1 place ~create_instance:false y in 
@@ -1191,7 +1187,7 @@ module Make(Arg:ArgSig) = struct
         new_env2 << [env3], [T.Typedef ({ place; value = 
         ProtocolDef (y, mt) })]
 
-    | Typedef {value= VPlaceDef (x, name) as tdef; place} -> begin 
+    | Typedef {value=VPlaceDef (x, name); place} -> begin 
         (* create a type x -> to be used as vplace<x> ...
         create a literal x 
         *)
@@ -1231,6 +1227,7 @@ module Make(Arg:ArgSig) = struct
         match tdef with 
             | ClassicalDef _ -> ClassicalDef (y, args, ())
             | EventDef _ -> EventDef (y, args, ())
+            | _ -> raise (DeadbranchError "This kind of type should have been previously matched by the parent pattern-matching stmt")
         })]
     | S.Derive derive ->
         let cenvs, cargs = List.split (List.map (ccexpr env) derive.cargs) in
@@ -1243,6 +1240,7 @@ module Make(Arg:ArgSig) = struct
             targs;
             eargs;
         }]
+    | S.Annotation _ -> raise (Error.PlacedDeadbranchError (place, "Annotation should have been paired before calling Cook!"))
         
     and cterm env: S.term -> env * T.term list = map2_places (cook_term env)
 

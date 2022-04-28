@@ -49,11 +49,6 @@ any_composed_type_:
             | [x] -> TOption x
             | _ -> Core.Error.error ct.place "Option type excepts exactly one type parameter, gets %d !" (List.length args)
         end
-        | TVar "vplace" -> begin
-            match args with
-            | [x] -> TVPlace x
-            | _ -> Core.Error.error ct.place "vplace type excepts exactly one type parameter, gets %d !" (List.length args)
-        end
         | TVar "result" -> begin
             match args with
             | x::y::[] -> TResult (x,y)
@@ -629,6 +624,7 @@ any_intercept_kind:
         | "egress" -> Core.IR.Egress 
         | "ingress" -> Ingress
         | "both" -> Both
+        | _ -> Error.error [$loc] "Undefined intercept kind: [%s]!" x
     }
 
 any_annotation_:
