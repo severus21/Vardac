@@ -10,8 +10,8 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 // gRPC services
-{% for s in grpc_services %}
-import {{s}}HandlerFactory;
+{% for s in services %}
+import {{author}}.{{project_name}}.grpc.{{s.name}}HandlerFactory;
 {% endfor %}
 
 import java.util.concurrent.CompletionStage;

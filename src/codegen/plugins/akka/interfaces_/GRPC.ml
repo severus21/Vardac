@@ -29,9 +29,11 @@ end) = struct
     
     let custom_external_rules () = []
     let proto_models = ref None
+    let http_server_models = ref None
     let custom_template_rules () = 
         (* Check that state have been correctly hydrated first *)
         assert(!proto_models <> None);      
+        assert(!http_server_models <> None);      
         [ 
             (
                 l2f [templates_location; "auto"; "grpc"; "proto.j2"], 
@@ -40,8 +42,8 @@ end) = struct
             );
             (
                 l2f [templates_location; "auto"; "grpc"; "GRPCServer.java.j2"], 
-                Option.get !proto_models, 
-                l2f [Fpath.to_string build_dir; "src"; "main"; failwith "TODO GRPC"]
+                Option.get !http_server_models, 
+                l2f [Fpath.to_string build_dir; "src"; "main"; "java"; "com"; "lg4dc"; "GRPCServer.java"]
             )
         ]
 
@@ -464,6 +466,19 @@ end) = struct
     (* Stage 3 - generate and bind to the HTTP part 
         generate one HTTP server for all the services
     *)
+    let generate_http_server_env services =
+        let encode_service service = 
+            Jg_types.Tobj [
+                ("name", Jg_types.Tstr (Atom.to_string service.service_name));
+            ]
+        in
+        let services = List.map encode_service (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
+
+        [
+            ("services", Jg_types.Tlist services);
+        ]
+
+
     let generate_gRPC_server services =
         let main_server_name = Atom.fresh "MaingRPCServer" in
         let att_system = Atom.fresh "sys" in
@@ -598,6 +613,7 @@ end) = struct
         proto_models := Some (generate_protobuf_interfaces_env build_dir program);
         let iri_program, akka_terms = generate_services_implementation program in
         let akka_term = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
+        http_server_models := Some (generate_http_server_env (List.of_seq (Hashtbl.to_seq_values grpc_services)));
         [ iri_program, akka_terms@[akka_term] ]
 
     (*****************************************************)
