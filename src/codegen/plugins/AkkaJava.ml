@@ -880,7 +880,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     {place = ct.place; value=T.VarExpr x, auto_place T.TUnknown}, 
                     {place = ct.place; value = T.VarExpr (Atom.builtin "class"), auto_place T.TUnknown}
                     )
-                | _ -> Error.error place "This not a Java class, can not get class name"
+                | _ -> Error.perror place "This not a Java class, can not get class name"
             end 
             | S.CurrentContext -> 
                 T.AppExpr (

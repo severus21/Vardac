@@ -120,7 +120,7 @@ module Make (Args:Params) : Sig = struct
             | CType {value=TVar x} -> [x] 
             | CType {value=TUnion (nt1, nt2)} -> (explore error_header nt1) @(explore error_header nt2) 
             | CompType {value=CompTUid cname} -> [cname] 
-            | _ -> Error.error (out_type.place) "bridge %s type parameter must be a component type (name, union, universal)" error_header
+            | _ -> Error.perror (out_type.place) "bridge %s type parameter must be a component type (name, union, universal)" error_header
         in
         let lefts = explore "fst" in_type in 
         let rights = explore "snd" out_type in 

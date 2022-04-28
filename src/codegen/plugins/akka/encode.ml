@@ -122,7 +122,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             )),
             [ k; v ]
         ) 
-        | _ -> Error.error place "add2dict takes three arguments"
+        | _ -> Error.perror place "add2dict takes three arguments"
     end
     | "remove2dict" -> begin 
         (* empty dict *)
@@ -134,7 +134,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             )),
             [ k ]
         ) 
-        | _ -> Error.error place "remove2dict takes two arguments"
+        | _ -> Error.perror place "remove2dict takes two arguments"
     end
     | "get2dict" -> begin 
         (* empty dict *)
@@ -146,7 +146,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             )),
             [ k ]
         ) 
-        | _ -> Error.error place "get2dict takes two arguments"
+        | _ -> Error.perror place "get2dict takes two arguments"
     end
     | "ip" -> begin
         match args with
@@ -157,7 +157,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             )),
             []
         ) 
-        | _ -> Error.error place "ip takes one argument"
+        | _ -> Error.perror place "ip takes one argument"
     end
     | "port" -> begin
         match args with
@@ -168,7 +168,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             )),
             []
         ) 
-        | _ -> Error.error place "port takes one argument"
+        | _ -> Error.perror place "port takes one argument"
     end
     | "dict" -> begin 
         (* empty dict *)
@@ -177,7 +177,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             e2var (Atom.builtin "HashMap"), 
             []
         ) 
-        | _ -> Error.error place "dict takes no arguments"
+        | _ -> Error.perror place "dict takes no arguments"
         end
     | "fire" -> begin 
         match args with
@@ -194,7 +194,7 @@ let encode_builtin_fct place name (args:T.expr list) =
                 e_this_dead_sessions place;
             ]
         ) 
-        | _ -> Error.error place "fire must take two arguments : place(session, message)"
+        | _ -> Error.perror place "fire must take two arguments : place(session, message)"
         end
     | "select" -> begin 
         match args with
@@ -211,7 +211,7 @@ let encode_builtin_fct place name (args:T.expr list) =
                 e_this_dead_sessions place;
             ]
         ) 
-        | _ -> Error.error place "select must take two arguments : place(session, message)"
+        | _ -> Error.perror place "select must take two arguments : place(session, message)"
         end
     | "first" -> begin
         match args with
@@ -219,7 +219,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             tuple, 
             e2var (Atom.builtin "_1")
             )
-        | _ -> Error.error place "first must take one argument"
+        | _ -> Error.perror place "first must take one argument"
     end
     | "second" -> begin
         match args with
@@ -227,7 +227,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             tuple, 
             e2var (Atom.builtin "_2")
             )
-        | _ -> Error.error place "second must take one argument"
+        | _ -> Error.perror place "second must take one argument"
     end
     | "listget" -> begin
         (* Vavr state at _1 and not _0 *)
@@ -239,7 +239,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             )),
             [n]
         )
-        | _ -> Error.error place "listget must take two argument"
+        | _ -> Error.perror place "listget must take two argument"
     end
     | "sessionid" -> begin
         match args with
@@ -250,7 +250,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             )),
             []
         )
-        | _ -> Error.error place "sessionid must take one argument"
+        | _ -> Error.perror place "sessionid must take one argument"
     end
     |"string_of_bridge" -> begin
         match args with
@@ -258,7 +258,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             e2_e (T.AccessExpr (b, e2var (Atom.builtin "toString"))),
             []
         )
-        | _ -> Error.error place "string_of_bridge must take one argument"
+        | _ -> Error.perror place "string_of_bridge must take one argument"
     end
     | "activationsat" -> begin
         (* TODO rename activationsat or componentsat in order to have same name in java and ocaml code*)
@@ -271,7 +271,7 @@ let encode_builtin_fct place name (args:T.expr list) =
                 at
             ]
         )
-        | _ -> Error.error place "activationsat must take one argument" 
+        | _ -> Error.perror place "activationsat must take one argument" 
     end
     | "placeof" -> begin
         match args with
@@ -279,22 +279,22 @@ let encode_builtin_fct place name (args:T.expr list) =
             e_lg4dc_placeof place,
             [ e_get_context place; activation ]
         )
-        | _ -> Error.error place "placeof must take one argument" 
+        | _ -> Error.perror place "placeof must take one argument" 
     end
     | "places" -> begin
         match args with
         | [] -> fst (e_lg4dc_places place).value
-        | _ -> Error.error place "places must take no argument" 
+        | _ -> Error.perror place "places must take no argument" 
     end
     | "current_place" -> begin
         match args with
         | [] -> fst (e_lg4dc_current_place place).value
-        | _ -> Error.error place "current_place must take no argument" 
+        | _ -> Error.perror place "current_place must take no argument" 
     end
     | "select_places" -> begin
         match args with
         | [vp; predicate] -> fst (e_lg4dc_select_places place vp predicate).value
-        | _ -> Error.error place "select_place must take two arguments" 
+        | _ -> Error.perror place "select_place must take two arguments" 
     end
     | "print" -> begin
         match args with
@@ -302,7 +302,7 @@ let encode_builtin_fct place name (args:T.expr list) =
                 e2var (Atom.builtin "System.out.println"),
                 [msg]
             )
-        | _ -> Error.error place "print must take one argument" 
+        | _ -> Error.perror place "print must take one argument" 
     end
     | "place_to_string" | "int_to_string" -> begin
         match args with
@@ -313,7 +313,7 @@ let encode_builtin_fct place name (args:T.expr list) =
             )),
             []
         )
-        | _ -> Error.error place "X_to_string takes one arg"
+        | _ -> Error.perror place "X_to_string takes one arg"
     end
     | "initiate_session_with" -> begin
         (* TODO i need to get the name of the type of the protocol 
@@ -332,7 +332,7 @@ let encode_builtin_fct place name (args:T.expr list) =
                     Misc.e_none place ; (* FIXME interception should change this*)
                 ]
             )
-        | _ -> Error.error place "first must take one argument"
+        | _ -> Error.perror place "first must take one argument"
     end
     | "pick" -> begin
         match args with 
@@ -341,7 +341,7 @@ let encode_builtin_fct place name (args:T.expr list) =
                 e2var (Atom.builtin "com.lg4dc.Utils.pick"),
                 [ dict ]
             )
-        | _ -> Error.error place "pick must take one argument"
+        | _ -> Error.perror place "pick must take one argument"
     end
     | "option_get" -> begin
         match args with 
@@ -353,11 +353,11 @@ let encode_builtin_fct place name (args:T.expr list) =
                 )),
                 [ ]
             )
-        | _ -> Error.error place "option_get must take one argument"
+        | _ -> Error.perror place "option_get must take one argument"
     end
-    | "sleep" -> Error.error place "In Akka, sleep must be convertible to a statement"
+    | "sleep" -> Error.perror place "In Akka, sleep must be convertible to a statement"
     | _ -> 
-        Error.error place "Akka.Finish do not yet support builtin function %s" name
+        Error.perror place "Akka.Finish do not yet support builtin function %s" name
 
 let is_stmt_builtin = function
 | "sleep" -> true
@@ -388,7 +388,7 @@ let encode_builtin_fct_as_stmt place name (args:T.expr list) =
                     );
                 ]
             )
-        | _ -> Error.error place "print must take one argument" 
+        | _ -> Error.perror place "print must take one argument" 
     end
 let encode_list place es = 
     let auto_place smth = {place; value=smth} in

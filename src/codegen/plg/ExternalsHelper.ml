@@ -51,6 +51,7 @@ end) = struct
                 |> List.map (preprocess_auto_external root)
                 |> List.iter copy_external;
             end
+            | _ -> Core.Error.error "Externals location [%s] is neither a file nor a directory !!" src
         in
         (* auto_externals *)
         let _auto_externals_dir = auto_externals_dir root in

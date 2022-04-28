@@ -157,7 +157,7 @@ let combine (env1:component_env) (env2: component_env) =
         
         let rec populate (key:string) (value:IR.typedef) env = 
             match Env.find_opt key env with
-            | Some {AstUtils.place; _} -> Error.error (place@value.place) "labels %s defined multiple times" key
+            | Some {AstUtils.place; _} -> Error.perror (place@value.place) "labels %s defined multiple times" key
             | None -> Env.add key value env
         in 
 
@@ -236,7 +236,7 @@ module Make(Arg:ArgSig) = struct
     (*****************************************************************************)
     let bind_component env place name =
         if is_builtin_component name then
-            error place "Component Keyword %s is reserved." name;
+            perror place "Component Keyword %s is reserved." name;
 
         try
             let inner = (Env.find name env.current.this.rec_inner).value in
@@ -249,7 +249,7 @@ module Make(Arg:ArgSig) = struct
                 };
                 component = { (fresh_component_env ()) with  name = a_name}
             }, a_name 
-        with Not_found -> Error.error place "Unbounded component"
+        with Not_found -> Error.perror place "Unbounded component"
 
     let hydrate_compoent_env_from_iota env entry = List.fold_left 
         (fun env name -> fst (bind_component env fplace name)) 
@@ -261,7 +261,7 @@ module Make(Arg:ArgSig) = struct
 
     let bind_expr env place x =
         if is_builtin_expr x then
-            error place "Keyword %s is reserved." x;
+            perror place "Keyword %s is reserved." x;
 
         let a = Atom.fresh x in
         { env with current = {env.current with 
@@ -270,7 +270,7 @@ module Make(Arg:ArgSig) = struct
 
     let register_expr env place ?create_instance:(create_instance=false) atom =
     if is_builtin_expr (Atom.hint atom) then
-        error place "Keyword %s is reserved." (Atom.hint atom);
+        perror place "Keyword %s is reserved." (Atom.hint atom);
 
         {   env with current = {
                 env.current with 
@@ -286,7 +286,7 @@ module Make(Arg:ArgSig) = struct
 
     let bind_type env place x =
     if is_builtin_type x then
-        error place "Type keyword %s is reserved." x;
+        perror place "Type keyword %s is reserved." x;
 
     let a = Atom.fresh x in
     { env with current = {env.current with types=Env.add x a env.current.types}}, a
@@ -299,7 +299,7 @@ module Make(Arg:ArgSig) = struct
         match  Env.find_opt key env.component.eventdef_from_labels with 
         | None -> ()
         | Some {AstUtils.place=inner_place; _} ->
-            Error.error (place@inner_place) "label %s is used multiple times" key
+            Error.perror (place@inner_place) "label %s is used multiple times" key
         end;
 
 
@@ -328,7 +328,7 @@ module Make(Arg:ArgSig) = struct
 
     let register_component place name = 
         if is_builtin_component name then
-            error place "Component Keyword %s is reserved." name;
+            perror place "Component Keyword %s is reserved." name;
 
         Atom.fresh name
     let register_this place x =
@@ -347,7 +347,7 @@ module Make(Arg:ArgSig) = struct
             | None -> { entry with
                 inner = Env.add name {place; value=register_this place name} entry.inner
             } 
-            | Some p -> Error.error (p.place@place) "multiple definitions %s in the same component" name
+            | Some p -> Error.perror (p.place@place) "multiple definitions %s in the same component" name
         end
         | S.Contract _ -> raise (PlacedDeadbranchError (place, "Contracts should have been paired with methods before!!"))
         | S.Include _ -> raise (PlacedDeadbranchError (place, "Include should have been resolvec and eliminated before calling the Cook pass (see. Resolve.ml)"))
@@ -368,7 +368,7 @@ module Make(Arg:ArgSig) = struct
         | None -> { entry with
             rec_inner = Env.add (Atom.value inner_entry.name.value) {place; value=inner_entry} entry.rec_inner
         } 
-        | Some p -> Error.error (p.place@place) "multiple definitions of component %s in the same scope" (Atom.value inner_entry.name.value)
+        | Some p -> Error.perror (p.place@place) "multiple definitions of component %s in the same scope" (Atom.value inner_entry.name.value)
     end
     | _ -> entry
 
@@ -402,7 +402,7 @@ module Make(Arg:ArgSig) = struct
                 try 
                     Env.find x env.implicits
                 with Not_found -> 
-                    error place "Unbound variable: %s" x
+                    perror place "Unbound variable: %s" x
             end
         )
     and cook_var_expr (env:env) = _cook_var_expr env.current
@@ -416,7 +416,7 @@ module Make(Arg:ArgSig) = struct
             try
                 Env.find x env.current.types
             with Not_found ->
-                error place "Unbound type variable: %s" x
+                perror place "Unbound type variable: %s" x
             )
         end
     and cook_var_component env place x = 
@@ -426,18 +426,18 @@ module Make(Arg:ArgSig) = struct
         try
             Env.find x env.current.components
         with Not_found ->
-            error place "Unbound component variable: %s" x
+            perror place "Unbound component variable: %s" x
         )
     and cook_var_derive env place x = 
         if is_builtin_derivation x then
             Atom.builtin x
         else 
-            error place "Unbound derivation: %s" x
+            perror place "Unbound derivation: %s" x
     and cook_var_this env place x = 
         try
             (Env.find x env.current.this.inner).value
         with Not_found ->
-            error place "Unbound this variable: %s" x
+            perror place "Unbound this variable: %s" x
     (************************************ Types **********************************)
     and cook_composed_type (env:env) place: S._composed_type -> env * T._composed_type = function
     | (S.TActivationRef mt as ct) | (S.TArray mt as ct) | (S.TList mt as ct) | (S.TOption mt as ct) | (S.TSet mt as ct) -> 
@@ -631,7 +631,7 @@ module Make(Arg:ArgSig) = struct
             | S.AccessExpr ({place=p_t; value=S.This}, {place=p_v; value=S.VarExpr v}) -> env, T.AccessExpr (
                 {place=p_t; value=T.This, auto_fplace T.EmptyMainType},
                 {place=p_v; value= T.VarExpr (cook_var_this env p_v v), auto_fplace T.EmptyMainType}) 
-            | S.AccessExpr ({place=_; value=S.This}, _) -> error place "Illformed [this] usage: should be this.<state_name/method_name>"
+            | S.AccessExpr ({place=_; value=S.This}, _) -> perror place "Illformed [this] usage: should be this.<state_name/method_name>"
             (* Method call / or attribute access *)
             | S.AccessExpr (({value=VarExpr a} as e1), ({value=VarExpr x} as e2)) -> begin
                 try begin
@@ -648,7 +648,7 @@ module Make(Arg:ArgSig) = struct
                                 e, 
                                 _cook_var_expr mock_entity_env place x
                             )
-                        with Not_found -> error place "Unbound variable: %s in %s" x (Atom.to_string cname)
+                        with Not_found -> perror place "Unbound variable: %s in %s" x (Atom.to_string cname)
                     end
                     | _ when Builtin.is_tuple_attr x ->
                         (* Type checking will check correctness afterwards *)
@@ -657,8 +657,8 @@ module Make(Arg:ArgSig) = struct
                         (* Type checking will check correctness afterwards *)
                             cook_inductive_attributes env place env1 e e2 x
                     (* TODO record content can be accessed too *)
-                    | _ -> error place "expression has no accessor (based on detected type)"
-                end with | Not_found -> error place "Variable %s not in gamma" a
+                    | _ -> perror place "expression has no accessor (based on detected type)"
+                end with | Not_found -> perror place "Variable %s not in gamma" a
             end
             | S.AccessExpr (e1, e2) -> 
                 let env1, e1 = cexpr env e1 in
@@ -684,7 +684,7 @@ module Make(Arg:ArgSig) = struct
                 let env1, e = cexpr env e in
                 env << [env1], T.UnopExpr (op, e) 
             | S.CallExpr (e1, es) when is_instance_expr env e1 -> 
-                List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) es;
+                List.iter (function e -> if is_instance_expr env e then perror place "constructor can not be aliased";) es;
 
                 let env1, e1 = cexpr env e1 in
                 let envs, es = List.split (List.map (cexpr env) es) in
@@ -696,7 +696,7 @@ module Make(Arg:ArgSig) = struct
 
                 env << (env1::envs), T.PolyApp (e, mts)
             | S.CallExpr (e1, es) -> 
-                List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) es;
+                List.iter (function e -> if is_instance_expr env e then perror place "constructor can not be aliased";) es;
 
                 let env1, e1 = cexpr env e1 in
                 let envs, es = List.split (List.map (cexpr env) es) in
@@ -704,7 +704,7 @@ module Make(Arg:ArgSig) = struct
                 env << (env1::envs), T.CallExpr (e1, es)
             | S.This -> env, T.This
             | S.Spawn spawn -> begin 
-                List.iter (function e -> if is_instance_expr env e then error place "constructor can not be aliased";) spawn.args;
+                List.iter (function e -> if is_instance_expr env e then perror place "constructor can not be aliased";) spawn.args;
 
                 let env1, c = ccexpr env spawn.c in
                 let env_args, args = List.split (List.map (cexpr env) spawn.args) in
@@ -755,7 +755,7 @@ module Make(Arg:ArgSig) = struct
         let env1, e = cexpr env e in 
         env << [env1], T.AssignThisExpr (y, e) 
     | S.LetStmt (mt, x, e) ->
-        if is_instance_expr env e then error place "constructor can not be aliased";
+        if is_instance_expr env e then perror place "constructor can not be aliased";
 
         let env1, mt = cmtype env mt in
         let env2, e = cexpr env e in
@@ -769,7 +769,7 @@ module Make(Arg:ArgSig) = struct
     | S.ContinueStmt -> env, T.ContinueStmt
     | S.ExitStmt i -> env, T.ExitStmt i
     | S.ForStmt (mt, x, e, stmt) ->
-        if is_instance_expr env e then error place "constructor can not be aliased";
+        if is_instance_expr env e then perror place "constructor can not be aliased";
 
         (* [new env] applies to [stmt] only and [stmt_env] does not applies outside the for*)
         let env0, mt = cmtype env mt in
@@ -994,7 +994,7 @@ module Make(Arg:ArgSig) = struct
                 | S.SessionInterceptor {anonymous; kind} -> T.SessionInterceptor {anonymous; kind}
                 | S.Onboard xs -> T.Onboard (List.map (cook_var_component env place) xs)
                 | S.Expose -> T.Expose
-                | a -> Error.error place "%s is not a method annotation!" (S.show__annotation a)
+                | a -> Error.perror place "%s is not a method annotation!" (S.show__annotation a)
             )) m.annotations; 
             ghost = m.ghost;
             ret_type = ret_type;
@@ -1076,11 +1076,11 @@ module Make(Arg:ArgSig) = struct
         (* Check that there is at most one constructor/destructor per component *)
         let constructors = List.filter (function |{AstUtils.value=S.Method m} when m.value.on_startup -> true | _-> false) cdcl.body in 
         if List.length constructors > 1 then
-            Error.error (List.flatten (List.map (function (item:S.component_item) -> item.place) constructors)) "multiple onstartup in component %s" cdcl.name;
+            Error.perror (List.flatten (List.map (function (item:S.component_item) -> item.place) constructors)) "multiple onstartup in component %s" cdcl.name;
 
         let destructors = List.filter (function |{AstUtils.value=S.Method m} when m.value.on_destroy -> true | _-> false) cdcl.body in 
         if List.length destructors > 1 then
-            Error.error (List.flatten (List.map (function (item:S.component_item) -> item.place) destructors)) "multiple ondestroy in component %s" cdcl.name;
+            Error.perror (List.flatten (List.map (function (item:S.component_item) -> item.place) destructors)) "multiple ondestroy in component %s" cdcl.name;
 
 
         (* Prepare env for mutual binding between components and methods/states *)
@@ -1098,7 +1098,7 @@ module Make(Arg:ArgSig) = struct
                 T.Capturable {
                     allowed_interceptors = List.map (cook_var_component env place) allowed_interceptors;
                 }
-            | a -> Error.error a.place "%s is not a component annotation!" (S.show_annotation a)
+            | a -> Error.perror a.place "%s is not a component annotation!" (S.show_annotation a)
         ) cdcl.annotations in
 
         new_env, T.ComponentStructure {target_name = UserDefined; annotations; name; body} 
@@ -1206,7 +1206,7 @@ module Make(Arg:ArgSig) = struct
                     ))
                 )
             ]
-        with Not_found -> Error.error place "vplace does not exists in configuration file"
+        with Not_found -> Error.perror place "vplace does not exists in configuration file"
     end
     
     (* Inductive type for now *)

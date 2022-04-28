@@ -544,7 +544,7 @@ module Make (Args: TArgs) = struct
         match List.filter filter msg_interceptors with
         | [] -> None
         | [ m ] -> Some m.value.name
-        | ms -> Error.error interceptor_info.base_interceptor_place "Multiple msg interceptors are defined for the same msg (+ context) in %s" (Atom.to_string interceptor_info.base_interceptor_name)
+        | ms -> Error.perror interceptor_info.base_interceptor_place "Multiple msg interceptors are defined for the same msg (+ context) in %s" (Atom.to_string interceptor_info.base_interceptor_name)
 
     let get_sessioninterceptor_anon  interceptor_info (session_interceptors: method0 list) tb_intercepted_bridge i (tmsg, st_continuation) = 
         let left_mt = tb_intercepted_bridge.in_type in
@@ -570,7 +570,7 @@ module Make (Args: TArgs) = struct
         match List.filter filter session_interceptors with
         | [] -> None
         | [ m ] -> Some m.value.name
-        | ms -> Error.error interceptor_info.base_interceptor_place "Multiple session interceptors, for non anonymous case, are defined for the same msg (+ context) in %s" (Atom.to_string interceptor_info.base_interceptor_name)
+        | ms -> Error.perror interceptor_info.base_interceptor_place "Multiple session interceptors, for non anonymous case, are defined for the same msg (+ context) in %s" (Atom.to_string interceptor_info.base_interceptor_name)
 
     let get_sessioninterceptor_not_anon interceptor_info (session_interceptors: method0 list) tb_intercepted_bridge i (tmsg, st_continuation) = 
         let left_mt = tb_intercepted_bridge.in_type in
@@ -591,7 +591,7 @@ module Make (Args: TArgs) = struct
         match List.filter filter session_interceptors with
         | [] -> None
         | [ m ] -> Some m.value.name 
-        | ms -> Error.error interceptor_info.base_interceptor_place "Multiple session interceptors, for non anonymous case, are defined for the same msg (+ context) in %s" (Atom.to_string interceptor_info.base_interceptor_name)
+        | ms -> Error.perror interceptor_info.base_interceptor_place "Multiple session interceptors, for non anonymous case, are defined for the same msg (+ context) in %s" (Atom.to_string interceptor_info.base_interceptor_name)
 
     let get_sessioninterceptor interceptor_info session_interceptors flag_anonymous tb_intercepted_bridge i (tmsg, st_continuation) =
         let session_interceptors = List.filter (function (m:method0) ->
@@ -727,7 +727,7 @@ module Make (Args: TArgs) = struct
             e2_e This, 
             match (get_sessioninterceptor_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation)) with
             | Some x_to -> e2var x_to
-            | None -> Error.error interceptor_info.base_interceptor_place "No @sessioninterceptor(true, ...) for bridge type %s" (show_tbridge tb_intercepted)
+            | None -> Error.perror interceptor_info.base_interceptor_place "No @sessioninterceptor(true, ...) for bridge type %s" (show_tbridge tb_intercepted)
         )) in
         let e_session_interceptor_by_activation = e2_e (AccessExpr ( 
             e2_e This, 
@@ -1330,7 +1330,7 @@ module Make (Args: TArgs) = struct
                         | [Capturable annot] -> 
                             Hashtbl.add all_schemas cstruct.name (Atom.Set.of_seq (List.to_seq annot.allowed_interceptors));
                             []
-                        | _ -> Error.error place "At most one capturable annotations per schema."
+                        | _ -> Error.perror place "At most one capturable annotations per schema."
                     end
                     | Component {value=ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} when Atom.hint functorname = "MakeInterceptor" && Atom.is_builtin functorname -> []| Component {value=ComponentAssign _ } -> failwith "componentassign are not yet supported by InterceptionElimination"
             ) program in
@@ -1343,12 +1343,12 @@ module Make (Args: TArgs) = struct
                     with Not_found -> failwith (Printf.sprintf "schema [%s] not found in [all_schemas]" (Atom.to_string schema))
                 in
                 if Bool.not (Atom.Set.mem base_interceptor_name allowed_interceptors) then    
-                    Error.error place "%s can not be intercepted by %s. To make it capturable add ```@capturable`` annotation to %s." (Atom.value schema) (Atom.value interceptor_info.base_interceptor_name) (Atom.value schema);
+                    Error.perror place "%s can not be intercepted by %s. To make it capturable add ```@capturable`` annotation to %s." (Atom.value schema) (Atom.value interceptor_info.base_interceptor_name) (Atom.value schema);
             ) interceptor_info.intercepted_schemas;
             
             [ generate_interceptor base_interceptor interceptor_info ]
         end
-        | _ -> Error.error place "Illformed MakeInterceptor functor: MakeInterceptor(BaseInterceptor, [intercepted_schemas])"
+        | _ -> Error.perror place "Illformed MakeInterceptor functor: MakeInterceptor(BaseInterceptor, [intercepted_schemas])"
     end
 
     let intercept_elim_program program =

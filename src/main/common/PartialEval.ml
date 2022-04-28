@@ -24,7 +24,7 @@ let stinline_collector parent_opt env {place; value} =
 match value with
 | SType {place; value=STInline x } -> 
     let parent = match parent_opt with | None -> "Toplevel" | Some p -> Atom.to_string p in
-    Error.error place "STInline remains in IR after parial evaluation : %s. Parent = %s" (Atom.to_string x) parent
+    Error.perror place "STInline remains in IR after parial evaluation : %s. Parent = %s" (Atom.to_string x) parent
 | _ -> []
 
 let check_program program : unit= 
@@ -121,7 +121,7 @@ let rec peval_composed_type env place : _composed_type -> env * _composed_type =
             out_type = (snd <-> pe_mtype env) out_type;
             protocol = protocol  
         }
-    | _ -> Error.error place "Third argument of Bridge<_,_,_> must be (partially-evaluated> to a session type\n%s" (show_main_type protocol)
+    | _ -> Error.perror place "Third argument of Bridge<_,_,_> must be (partially-evaluated> to a session type\n%s" (show_main_type protocol)
 end
 | TVPlace mt -> env, TVPlace ((snd <-> pe_mtype env) mt)
 | TForall (x, mt) -> env, TForall (x, snd (pe_mtype env mt))
@@ -154,7 +154,7 @@ and peval_stype env place : _session_type -> env * _session_type =
                 
                 env, st.value 
             (* FIXME do we want to have the place of the inline (current behviour) or the place of the typealias ??*)
-            | _ -> Error.error place "STInline parameter can not be resolved to a session types."
+            | _ -> Error.perror place "STInline parameter can not be resolved to a session types."
         with Not_found -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "Unbounded inline variable [%s], this should have been checked by the cook pass." (Atom.to_string x))))
     end
     | STDual st ->
@@ -195,7 +195,7 @@ and peval_mtype env place : _main_type -> env * _main_type = function
     (* TODO rename aux *)
     let rec aux already_seen x =
         if (Atom.Set.find_opt x already_seen) <> None then
-            Error.error place "cyclic type alias detected"
+            Error.perror place "cyclic type alias detected"
         ;
         let already_seen = Atom.Set.add x already_seen in
             
@@ -267,7 +267,7 @@ and peval_binop env place (e1: expr) (op: binop) (e2: expr) (mt_binop:main_type)
     | (LitExpr {value = IntLit i1; _}, _), Mult, (LitExpr {value = IntLit i2; _}, _) -> env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=IntLit (i1*i2)}, mt_binop)
     | (LitExpr {value = IntLit i1; _}, _), Divide, (LitExpr {value = IntLit i2; _}, _) -> 
         if i2 = 0 then
-            Error.error place "division by zero, partial evaluation can not continue"
+            Error.perror place "division by zero, partial evaluation can not continue"
         else
         env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=IntLit (i1/i2)}, mt_binop)
     (* Float computation *)
@@ -276,7 +276,7 @@ and peval_binop env place (e1: expr) (op: binop) (e2: expr) (mt_binop:main_type)
     | (LitExpr {value = FloatLit f1; _}, _), Mult, (LitExpr {value = FloatLit f2; _}, _) -> env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=FloatLit (f1*.f2)}, mt_binop)
     | (LitExpr {value = FloatLit f1; _}, _), Divide, (LitExpr {value = FloatLit f2; _}, _) -> 
         if f2 = 0. then
-            Error.error place "division by zero, partial evaluation can not continue"
+            Error.perror place "division by zero, partial evaluation can not continue"
         else
         env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value=FloatLit (f1/.f2)}, mt_binop)
     (* Equality *)
@@ -289,7 +289,7 @@ and peval_binop env place (e1: expr) (op: binop) (e2: expr) (mt_binop:main_type)
         | IntLit x, IntLit y -> x > y 
         | FloatLit x, FloatLit y -> x > y 
         | StringLit x, StringLit y -> x > y
-        | _ -> Error.error place "greater than is not implemented fot this type of literals"
+        | _ -> Error.perror place "greater than is not implemented fot this type of literals"
         )}, mt_binop)
     | (LitExpr {value = l1; _}, _), GreaterThanEqual, (LitExpr {value = l2; _}, _) ->
         env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
@@ -297,7 +297,7 @@ and peval_binop env place (e1: expr) (op: binop) (e2: expr) (mt_binop:main_type)
         | IntLit x, IntLit y -> x >= y 
         | FloatLit x, FloatLit y -> x >= y 
         | StringLit x, StringLit y -> x >= y
-        | _ -> Error.error place "greater than equal is not implemented fot this type of literals"
+        | _ -> Error.perror place "greater than equal is not implemented fot this type of literals"
         )}, mt_binop)
     | (LitExpr {value = l1; _}, _), LessThan, (LitExpr {value = l2; _}, _) ->
         env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
@@ -305,7 +305,7 @@ and peval_binop env place (e1: expr) (op: binop) (e2: expr) (mt_binop:main_type)
         | IntLit x, IntLit y -> x < y 
         | FloatLit x, FloatLit y -> x < y 
         | StringLit x, StringLit y -> x < y
-        | _ -> Error.error place "less than is not implemented fot this type of literals"
+        | _ -> Error.perror place "less than is not implemented fot this type of literals"
         )}, mt_binop)
     | (LitExpr {value = l1; _}, _), LessThanEqual, (LitExpr {value = l2; _}, _) ->
         env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit(
@@ -313,10 +313,10 @@ and peval_binop env place (e1: expr) (op: binop) (e2: expr) (mt_binop:main_type)
         | IntLit x, IntLit y -> x <= y 
         | FloatLit x, FloatLit y -> x <= y 
         | StringLit x, StringLit y -> x <= y
-        | _ -> Error.error place "less than equal is not implemented fot this type of literals"
+        | _ -> Error.perror place "less than equal is not implemented fot this type of literals"
         )}, mt_binop)
     (* TODO deal with list, dict and so on for equality *)
-    | (LitExpr {value = l1; _}, _), In, (BlockExpr (Block, _), _) -> Error.error place "right-hand side of in must be an iterable"
+    | (LitExpr {value = l1; _}, _), In, (BlockExpr (Block, _), _) -> Error.perror place "right-hand side of in must be an iterable"
     | (LitExpr {value = l1; _}, _), In, (BlockExpr (List, items), _) | (LitExpr {value = l1; _}, _), In, (BlockExpr (Set, items), _) -> 
         if is_terminal_expr e2.value then
             env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit (
@@ -324,7 +324,7 @@ and peval_binop env place (e1: expr) (op: binop) (e2: expr) (mt_binop:main_type)
             )}, mt_binop) 
         else
             env, (BinopExpr (e1, op, e2), mt_binop)
-    | (LitExpr {value = l1; _}, _), In, (BlockExpr (Tuple, _), _) -> Error.error place "right-hand side of in must be an iterable"
+    | (LitExpr {value = l1; _}, _), In, (BlockExpr (Tuple, _), _) -> Error.perror place "right-hand side of in must be an iterable"
     | (LitExpr {value = l1; _}, _), In, (Block2Expr (Dict, items), _) ->
         if is_terminal_expr e2.value then
             env, (LitExpr {place=Error.forge_place "peval_binop" 0 0; value= BoolLit (
@@ -342,7 +342,7 @@ match fct.value, args with
         protocol_name
     }, mt_ret)
 | (VarExpr name, _), _ when Atom.hint(name) = "bridge" ->
-    Error.error place "bridge should have exactly one argument - the protocol"
+    Error.perror place "bridge should have exactly one argument - the protocol"
 | _ -> env, (CallExpr (fct, args), mt_ret)
 
 and peval_expr env place (e, mt) :  env * (_expr * main_type) = 
@@ -520,8 +520,8 @@ and peval_contract env place contract =
 
     let clean_predicate = function
     | Some {AstUtils.value=(LitExpr {value=BoolLit true; _}, _); _} -> None
-    | Some {AstUtils.value=(LitExpr {value=BoolLit false; _}, _); place} -> Error.error place "ensures expresion has been evaluated to false" 
-    | Some {value=(LitExpr _,_); place} -> Error.error place "ensures expr has been evaluated to a non boolean literal"
+    | Some {AstUtils.value=(LitExpr {value=BoolLit false; _}, _); place} -> Error.perror place "ensures expresion has been evaluated to false" 
+    | Some {value=(LitExpr _,_); place} -> Error.perror place "ensures expr has been evaluated to a non boolean literal"
     | pred_opt -> pred_opt
     in
 
@@ -560,9 +560,9 @@ and peval_port env place (port, mt_port) =
     (* TODO Should be move to type checking *)
     begin
         match expecting_st.value with
-        | SType {value=STEnd; _} -> Error.error place "a port can not expect the end of a protocol, no message will be send"
+        | SType {value=STEnd; _} -> Error.perror place "a port can not expect the end of a protocol, no message will be send"
         | SType _ -> ()
-        | _ -> Error.error place "inport expecting value must be a session type"
+        | _ -> Error.perror place "inport expecting value must be a session type"
     end;
 
     env, ({ port with

@@ -19,7 +19,7 @@ let fresh_env () = ()
 let rec find_atom_citem place : string list -> Core.IR.component_item list -> Atom.atom = function 
 | [] -> raise (Error.DeadbranchError "empty clpath") 
 | name::clpath -> begin function
-    | [] -> Error.error place "atom not found %s" name
+    | [] -> Error.perror place "atom not found %s" name
     | {value=Method m;}::_  when Atom.hint m.value.name = name -> 
         assert(clpath = []);
         m.value.name
@@ -33,7 +33,7 @@ end
 and find_atom_term place : string list -> Core.IR.term list -> Atom.atom = function 
 | [] -> raise (Error.DeadbranchError "empty clpath") 
 | name::clpath -> begin function
-    | [] -> Error.error place "atom not found %s" name
+    | [] -> Error.perror place "atom not found %s" name
     | {value=Function f;}::_ when Atom.hint (f.value.name) = name -> 
         assert(clpath = []);
         f.value.name

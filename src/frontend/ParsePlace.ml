@@ -23,11 +23,11 @@ match Parse.parse filename str with
     | Ast.Stmt stmt -> begin
         match stmt.value with 
         | Ast.ExpressionStmt e -> e
-        | _ -> Error.error mock_place "Syntax error in [nbr_instances] of place [%s]: it must be a valid expression!!\n" name
+        | _ -> Error.perror mock_place "Syntax error in [nbr_instances] of place [%s]: it must be a valid expression!!\n" name
     end
-        | _ -> Error.error mock_place "Syntax error in [nbr_instances] of place [%s]: it must be a valid expression!!\n" name
+        | _ -> Error.perror mock_place "Syntax error in [nbr_instances] of place [%s]: it must be a valid expression!!\n" name
 end
-| _ -> Error.error mock_place "Syntax error in [nbr_instances] of place [%s]: it must be a valid expression!!\n" name
+| _ -> Error.perror mock_place "Syntax error in [nbr_instances] of place [%s]: it must be a valid expression!!\n" name
 
 let parse_features mock_place name table = 
     let features = Hashtbl.create 10 in
@@ -40,10 +40,10 @@ let parse_features mock_place name table =
         | `Bool b -> Hashtbl.add features k (string_of_bool b)
         | `Float f -> Hashtbl.add features k (string_of_float f)
         | `String s ->  Hashtbl.add features k s
-        | `A _ | `Null | `O _  -> Error.error mock_place "Syntax error in [features] definition of place [%s]\n" name 
+        | `A _ | `Null | `O _  -> Error.perror mock_place "Syntax error in [features] definition of place [%s]\n" name 
         ) table; 
         features
-    | _ -> Error.error mock_place "Syntax error in [features] definition of place [%s]\n" name 
+    | _ -> Error.perror mock_place "Syntax error in [features] definition of place [%s]\n" name 
 
 let rec _parse_vplaces filename current_place (v : Yaml.value) : Ast.vplace list =
 let mock_place : Error.place = Error.forge_place filename 0 0 in
@@ -52,14 +52,14 @@ match v with
 |`O body ->begin
     let table = tableof body in
 
-    let name = match Hashtbl.find table "place" with `String x -> x |_-> Error.error mock_place "Illformed place\n" in
+    let name = match Hashtbl.find table "place" with `String x -> x |_-> Error.perror mock_place "Illformed place\n" in
 
     let nbr_instances : Ast.expr = 
         match Hashtbl.find_opt table "nbr_instances" with 
 
         | None -> parse_nbr_instances filename mock_place name "1;"
         | Some `String x -> parse_nbr_instances filename mock_place name (x^";")
-        |_-> Error.error mock_place "Illformed place\n" 
+        |_-> Error.perror mock_place "Illformed place\n" 
     in
 
     let features =  parse_features mock_place name table in 
@@ -67,13 +67,13 @@ match v with
     let children = match Hashtbl.find_opt table "children" with 
         | None -> [] 
         | Some `A children ->  List.map (_parse_vplaces filename name) children  
-        |_ -> Error.error mock_place "Syntax error in [children] definition of place [%s]\n" name                
+        |_ -> Error.perror mock_place "Syntax error in [children] definition of place [%s]\n" name                
     in  
 
     [{  name; nbr_instances; features; children=List.flatten children}
     ]
 end
-|_ -> Error.error mock_place "Syntax error in places definition of place [%s]\n" current_place                
+|_ -> Error.perror mock_place "Syntax error in places definition of place [%s]\n" current_place                
 
 let parse_vplaces filename =
     filename

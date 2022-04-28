@@ -60,7 +60,7 @@ module Make(Args:Args) : Sig = struct
         let _, callers, _ = collect_expr_program Atom.Set.empty select_caller collect_caller program in
         let callers : Atom.atom list = List.map Option.get (List.filter (function x -> x <> None) callers) in 
         (if callers = [] then 
-            Error.error fplace "There is no RPC call for %s" (Atom.value cname) (* FIXME compute the correct place to improve error reporting *)
+            Error.perror fplace "There is no RPC call for %s" (Atom.value cname) (* FIXME compute the correct place to improve error reporting *)
         );
         let caller0::callers = callers in
 

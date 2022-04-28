@@ -39,7 +39,7 @@ let add_to_target target term =
     try 
         let ast = Hashtbl.find targets2ast target in 
         Hashtbl.replace targets2ast target (term::ast)
-    with | Not_found -> Error.error term.place "target %s is undefined" target 
+    with | Not_found -> Error.perror term.place "target %s is undefined" target 
 let rec split_toplvl_term (term:IRI.term) : unit =
 (* 
     - non component term are added to all targets

@@ -17,7 +17,7 @@ let branch_selector = function
 
 let branch_collector msg parent_opt place _ = 
     let parent = match parent_opt with | None -> "Toplevel" | Some p -> Atom.to_string p in
-    Error.error place "%s. Parent = %s" msg parent
+    Error.perror place "%s. Parent = %s" msg parent
 
 (***************************************************)
 

@@ -43,7 +43,7 @@ blackbox_body:
 
                 (Impl.Varda e)::(aux xs) 
             | (Str.Text code) :: xs-> (Impl.Text code)::(aux xs)
-            | _ -> Error.error [$loc] "Blackbox term is ill-formed!"
+            | _ -> Error.perror [$loc] "Blackbox term is ill-formed!"
         in
         aux tokens
     }

@@ -237,7 +237,7 @@ module Make (Args : Params ) : Sig = struct
 
         (* Must be done in pass2 since we need to detect the implicit variables introduced by calling spawn *)
         if implicit_vars <> [] && Target.is_guardian targets cdcl.name then
-            Error.error place "Guardian component can not have implicit variables - since there is no shared memory between instances of guardians\n@[<hov>%a@]" (Error.pp_list "\n" (fun out (mt, x) -> Format.fprintf out "- %s" (Atom.to_string x))) implicit_vars;
+            Error.perror place "Guardian component can not have implicit variables - since there is no shared memory between instances of guardians\n@[<hov>%a@]" (Error.pp_list "\n" (fun out (mt, x) -> Format.fprintf out "- %s" (Atom.to_string x))) implicit_vars;
 
         (* [(mt, implicit_x, explicit_x)]*)
         let implicit_vars = List.map (function (mt, x) -> (mt, x, (Atom.fresh ("local_"^(Atom.hint x))), (Atom.fresh ("explicit_"^(Atom.hint x))) )) implicit_vars in

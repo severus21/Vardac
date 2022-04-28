@@ -27,51 +27,51 @@ any_composed_type_:
         | TVar "array" -> begin
             match args with
             | [x] -> TArray x
-            | _ -> Core.Error.error ct.place "Array type excepts exactly one type parameter, gets %d !" (List.length args)
+            | _ -> Core.Error.perror ct.place "Array type excepts exactly one type parameter, gets %d !" (List.length args)
         end
         | TVar "dict" -> begin
             match args with
             | x::y::[] -> TDict (x,y)
-            | _ -> Core.Error.error ct.place "Dict type excepts exactly two type parameters (key * value), gets %d !" (List.length args)
+            | _ -> Core.Error.perror ct.place "Dict type excepts exactly two type parameters (key * value), gets %d !" (List.length args)
         end
         | TVar "list" -> begin
             match args with
             | [x] -> TList x
-            | _ -> Core.Error.error ct.place "List type excepts exactly one type parameter, gets %d !" (List.length args)
+            | _ -> Core.Error.perror ct.place "List type excepts exactly one type parameter, gets %d !" (List.length args)
         end
         | TVar "vplace" -> begin
             match args with
             | [x] -> TVPlace x
-            | _ -> Core.Error.error ct.place "Vplace type excepts exactly one type parameter, gets %d !" (List.length args)
+            | _ -> Core.Error.perror ct.place "Vplace type excepts exactly one type parameter, gets %d !" (List.length args)
         end
         | TVar "option" -> begin
             match args with
             | [x] -> TOption x
-            | _ -> Core.Error.error ct.place "Option type excepts exactly one type parameter, gets %d !" (List.length args)
+            | _ -> Core.Error.perror ct.place "Option type excepts exactly one type parameter, gets %d !" (List.length args)
         end
         | TVar "result" -> begin
             match args with
             | x::y::[] -> TResult (x,y)
-            | _ -> Core.Error.error ct.place "Result type excepts exactly two type parameters, gets %d !" (List.length args)
+            | _ -> Core.Error.perror ct.place "Result type excepts exactly two type parameters, gets %d !" (List.length args)
         end
         | TVar "set" -> begin
             match args with
             | [x] -> TSet x
-            | _ -> Core.Error.error ct.place "Result type excepts exactly one type parameter, gets %d !" (List.length args)
+            | _ -> Core.Error.perror ct.place "Result type excepts exactly one type parameter, gets %d !" (List.length args)
         end
         | TVar "bridge" -> begin
             match args with
             | [in_type; out_type; protocol] -> TBridge {in_type; out_type; protocol}
-            | _ -> Core.Error.error ct.place "Bridge type excepts exactly tree type parameters, gets %d !" (List.length args)
+            | _ -> Core.Error.perror ct.place "Bridge type excepts exactly tree type parameters, gets %d !" (List.length args)
         end
         | TVar "tuple" -> TTuple args
         | TVar "activation_ref" -> begin 
             match args with
             | [arg] -> TActivationRef arg 
-            | _ -> Core.Error.error ct.place "activation_ref except exactly one type parameter (a Component type)"
+            | _ -> Core.Error.perror ct.place "activation_ref except exactly one type parameter (a Component type)"
         end
         (* User defined parametrized types *)
-        | _ -> Core.Error.error ct.place "Unknow parametric constructor"
+        | _ -> Core.Error.perror ct.place "Unknow parametric constructor"
     }
 (* TODO other composed types *)
 %public %inline any_composed_type:
@@ -124,7 +124,7 @@ any_session_type_:
 {
     match t with
     | {value=SType _} | {value=CType {value=TVar _}} -> STDual t 
-    | _ -> Core.Error.error [$loc] "dual except exactly one type parameter (a session type)"
+    | _ -> Core.Error.perror [$loc] "dual except exactly one type parameter (a session type)"
 }
 
 %public %inline any_session_type:
@@ -346,7 +346,7 @@ any_stmt_:
     {   match lids with 
         | []  -> raise (Core.Error.PlacedDeadbranchError ([$loc], "parsing AssignThisExpr, should be a non empty list of lids"))
         | "this"::[v] -> AssignThisExpr (v, e)
-        | _ -> Core.Error.error [$loc] "Attribut assignement is only allowed for [this]: ``this.toto=1;``"
+        | _ -> Core.Error.perror [$loc] "Attribut assignement is only allowed for [this]: ``this.toto=1;``"
     }
 | v=LID EQ e=any_expr SEMICOLON
     { AssignExpr (v, e) }
@@ -392,7 +392,7 @@ any_stmt_:
     { 
         match y with
         | "anonymous" -> WithContextStmt (true, x, e, stmts) 
-        | _ -> Core.Error.error [$loc] "Wrong parameter for with stmt: %s" y
+        | _ -> Core.Error.perror [$loc] "Wrong parameter for with stmt: %s" y
     }
 
 
@@ -575,7 +575,7 @@ any_component_item_:
             name = x;
             init_opt = Some e
         }}
-        | Stmt _ -> Error.error [$loc] "Stmt can not be a component item"
+        | Stmt _ -> Error.perror [$loc] "Stmt can not be a component item"
         | Function _ -> failwith "Function can not be a component item"
         | _ -> Term t 
     }
@@ -624,7 +624,7 @@ any_intercept_kind:
         | "egress" -> Core.IR.Egress 
         | "ingress" -> Ingress
         | "both" -> Both
-        | _ -> Error.error [$loc] "Undefined intercept kind: [%s]!" x
+        | _ -> Error.perror [$loc] "Undefined intercept kind: [%s]!" x
     }
 
 any_annotation_:
@@ -633,26 +633,26 @@ any_annotation_:
     { 
         match x with 
         | "sessioninterceptor" -> SessionInterceptor {anonymous=b; kind}
-        | _ -> Core.Error.error [$loc] "Unknown annotation: %s" x 
+        | _ -> Core.Error.perror [$loc] "Unknown annotation: %s" x 
     }
 |AT x=LID LPAREN kind=any_intercept_kind RPAREN 
     { 
         match x with 
         | "msginterceptor" -> MsgInterceptor {kind}
-        | _ -> Core.Error.error [$loc] "Unknown annotation: %s" x 
+        | _ -> Core.Error.perror [$loc] "Unknown annotation: %s" x 
     }
 |AT x=LID LPAREN LBRACKET schemas=right_flexible_list(COMMA, UID) RBRACKET RPAREN
     { 
         match x with
         | "onboard" -> Onboard schemas 
         | "capturable" -> Capturable {allowed_interceptors = schemas; } 
-        | _ -> Core.Error.error [$loc] "Unknown annotation: %s" x 
+        | _ -> Core.Error.perror [$loc] "Unknown annotation: %s" x 
     }
 | AT x=LID
     {
         match x with
         | "expose" -> Expose
-        | _ -> Core.Error.error [$loc] "Unknown annotation: %s" x 
+        | _ -> Core.Error.perror [$loc] "Unknown annotation: %s" x 
     }
 
 %inline any_annotation:

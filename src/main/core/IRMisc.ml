@@ -105,7 +105,7 @@ let rec st_branch_of mt_st branch_label =
             try
                 let _, _st, _ = List.find (function (_label, _st, _) -> _label = blabel) branches in
                 _st
-            with Not_found -> Error.error mt_st.place "label [%s] not found in %s" (Atom.to_string blabel) (show_session_type st)
+            with Not_found -> Error.perror mt_st.place "label [%s] not found in %s" (Atom.to_string blabel) (show_session_type st)
         end
         | STDual st -> (* when called before partial evaluation *)
             st_branch_of {place=st.place; value=SType st} branch_label

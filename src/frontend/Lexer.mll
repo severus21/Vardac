@@ -259,7 +259,7 @@ rule entry = parse
     { try
         BOOLLITERAL (bool_of_string b)
       with Failure _ ->
-        error (place lexbuf) "invalid bool literal." }
+        perror (place lexbuf) "invalid bool literal." }
 | (lowercase identchar *) as s
 { try Hashtbl.find keywords s with Not_found -> LID s }
 | (uppercase identchar *) as s
@@ -268,12 +268,12 @@ rule entry = parse
     { try
         FLOATLITERAL (float_of_string f)
       with Failure _ ->
-        error (place lexbuf) "invalid float literal." }
+        perror (place lexbuf) "invalid float literal." }
 | "-"? digit+ as i
     { try
         INTLITERAL (int_of_string i)
       with Failure _ ->
-        error (place lexbuf) "invalid integer literal." }
+        perror (place lexbuf) "invalid integer literal." }
 | (lowercase identchar *)("."(lowercase identchar *))+ as x
     { ATTR (String.split_on_char '.' x)}
 | "\""(str_character* as str)"\"" 
@@ -296,7 +296,7 @@ rule entry = parse
 | eof
     { EOF }
 | _ as c
-    { error (place lexbuf) "unexpected character: '%c'." c }
+    { perror (place lexbuf) "unexpected character: '%c'." c }
 
 
 and aspeconelinecomment p = parse
@@ -314,7 +314,7 @@ and aspeccomment p = parse
 | newline as x
     { new_line lexbuf; (chars_of_string x)@(aspeccomment p lexbuf) }
 | eof
-    { error p "unterminated comment." }
+    { perror p "unterminated comment." }
 | _ as x
     { x::(aspeccomment p lexbuf) }
 and blackbox_body p = parse
@@ -323,7 +323,7 @@ and blackbox_body p = parse
 | newline as x
     { new_line lexbuf; (chars_of_string x)@(blackbox_body p lexbuf) }
 | eof
-    { error p "unterminated comment." }
+    { perror p "unterminated comment." }
 | _ as x
     { x::(blackbox_body p lexbuf) }
 
@@ -342,6 +342,6 @@ and ocamlcomment p = parse
 | newline
     { new_line lexbuf; ocamlcomment p lexbuf }
 | eof
-    { error p "unterminated comment." }
+    { perror p "unterminated comment." }
 | _
     { ocamlcomment p lexbuf }

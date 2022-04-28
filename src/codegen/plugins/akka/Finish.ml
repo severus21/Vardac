@@ -126,7 +126,7 @@ module Make () = struct
     let group_cdcl_by (citems:  S.component_item list) : items_grps =
         let dispatch grp (citem: S.component_item) = match citem.value with
             | S.Contract _ -> raise (Core.Error.PlacedDeadbranchError  (citem.place, "Contract term should have been remove from AST by the cook pass and binded to a method"))
-            | S.Include _ -> Core.Error.error citem.place "Include is not yet supported in Akka plg"
+            | S.Include _ -> Core.Error.perror citem.place "Include is not yet supported in Akka plg"
             | S.Method  m-> {grp with methods=m::grp.methods}
             | S.State f-> {grp with states=f::grp.states}
             | S.Inport p -> {grp with ports=p::grp.ports}
@@ -379,7 +379,7 @@ module Make () = struct
     | S.TStruct (x, _) -> 
         (* Structural types can not be encoded easily in Java *)
         T.TVar x
-    | S.TPolyCVar x -> Error.error place "TPolyCVar should have been reduce before reaching Akka ???"
+    | S.TPolyCVar x -> Error.perror place "TPolyCVar should have been reduce before reaching Akka ???"
     and fcctype ct : T.ctype = map_place finish_component_type ct
 
     and finish_mtype place : S._main_type -> T.ctype = 
@@ -413,7 +413,7 @@ module Make () = struct
         | S.BoolLit b -> T.BoolLit b
         | S.FloatLit f -> T.FloatLit f
         | S.IntLit i -> T.IntLit i
-        | S.LabelLit l -> Core.Error.error place "Label are not yet supported"
+        | S.LabelLit l -> Core.Error.perror place "Label are not yet supported"
         | S.StringLit str -> T.StringLit str
 
         | S.ActivationRef _ -> failwith "Activation info is not yet supported"
@@ -649,7 +649,7 @@ module Make () = struct
         | S.ExitStmt _ -> failwith "Exist is not yet supported"
         | S.ForStmt (mt,x,e,stmt) -> T.ForStmt(fmtype mt, x, fexpr e, fstmt stmt)
         | S.IfStmt (e, s1, s2_opt) -> T.IfStmt (fexpr e, fstmt s1, Option.map fstmt s2_opt)
-        | S.MatchStmt (_,_) -> Core.Error.error place "Match is not yet supported"
+        | S.MatchStmt (_,_) -> Core.Error.perror place "Match is not yet supported"
         | S.ReturnStmt e -> T.ReturnStmt (fexpr e) 
 
         (*S.*type name, type definition*)
@@ -1099,12 +1099,12 @@ module Make () = struct
                     | S.STBranch _ | S.STRecv _ -> () 
                     | st -> 
                         logger#error "%s" (S.show__session_type st);
-                        Core.Error.error (fst p.value).expecting_st.place "%s plugin: expecting type can only start by the reception of a message or of a label" plg_name
+                        Core.Error.perror (fst p.value).expecting_st.place "%s plugin: expecting type can only start by the reception of a message or of a label" plg_name
                 );
 
                 st, (event_name, st_continuation)
             end 
-            | _ -> Core.Error.error (fst p.value).expecting_st.place "%s plugin do not support main type for port expecting" plg_name  
+            | _ -> Core.Error.perror (fst p.value).expecting_st.place "%s plugin do not support main type for port expecting" plg_name  
             in
             
             let inner_env : (S.port * S.session_type * S.session_type, T.expr) Hashtbl.t= begin 
@@ -1118,7 +1118,7 @@ module Make () = struct
             (* check that key are not duplicated for the current event *)
             try
                 ignore (Hashtbl.find inner_env key);
-                Error.error (place@p.place) "Tuple (bridge, st) is not unique for the component %s" (Atom.hint name)
+                Error.perror (place@p.place) "Tuple (bridge, st) is not unique for the component %s" (Atom.hint name)
             with Not_found -> Hashtbl.add inner_env key (fexpr (fst p.value).callback)
         in
 
@@ -1734,7 +1734,7 @@ module Make () = struct
                 v = T.TemplateClass (fbbterm body)
             }
         }]
-    | S.Typedef {value = EventDef (v, _, Some body); _} -> Error.error place "eventdef with body is not yet supported by the akka.finish"
+    | S.Typedef {value = EventDef (v, _, Some body); _} -> Error.perror place "eventdef with body is not yet supported by the akka.finish"
     | S.Typedef {value = VPlaceDef x;} -> 
         (* Registration *)
         Hashtbl.add to_capitalize_variables x ();

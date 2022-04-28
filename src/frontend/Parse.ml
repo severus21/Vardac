@@ -10,7 +10,7 @@ let parse filename contents : Ast.program =
     with
     | Parser.Error ->
         raise (Error.SyntaxError (Error.place lexbuf))
-        (*Error.error (Error.place lexbuf) "Syntax error."*)
+        (*Error.perror (Error.place lexbuf) "Syntax error."*)
 
 let parse_expr filename contents : Ast.expr = 
     let lexbuf = Lexing.from_string contents in
@@ -20,7 +20,7 @@ let parse_expr filename contents : Ast.expr =
     with
     | Parser.Error ->
         raise (Error.SyntaxError (Error.place lexbuf))
-        (*Error.error (Error.place lexbuf) "Syntax error."*)
+        (*Error.perror (Error.place lexbuf) "Syntax error."*)
 
 let read filename : Ast.program =
     try

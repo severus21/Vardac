@@ -25,7 +25,7 @@ let check_seen_all seen_set htbl : unit =
     Hashtbl.iter (fun key (value: 'a AstUtils.placed) -> 
         match (SeenSet.find_opt key seen_set) with
         | Some _ -> ()
-        | None -> Error.error value.place "%s is not defined in the spec" (key_to_string key)
+        | None -> Error.perror value.place "%s is not defined in the spec" (key_to_string key)
     ) htbl
 
 let functions_seen = ref SeenSet.empty
@@ -107,7 +107,7 @@ module Make (Arg: ArgSig) = struct
                 T.language = language;
                 body = List.map (function 
                     | S1.Text t -> T.Text t
-                    | S1.Varda e -> Error.error e.place "varda expression can not be embedded into headers definitions"
+                    | S1.Varda e -> Error.perror e.place "varda expression can not be embedded into headers definitions"
                 ) body
             })
         in
@@ -160,7 +160,7 @@ module Make (Arg: ArgSig) = struct
     | { ghost; type0; name; body=Some body} -> begin
         try 
             let bb_impl = Hashtbl.find state_impls (List.rev ((Atom.hint name)::parents))  in
-            Error.error (place@bb_impl.place) "State has two implementations : one abstract and one blackbox"
+            Error.perror (place@bb_impl.place) "State has two implementations : one abstract and one blackbox"
         with Not_found -> { ghost; type0; name; body= T.InitExpr body } 
     end
     and ustate parents : IR.state -> T.state = map_place (paired_state parents)
@@ -181,7 +181,7 @@ module Make (Arg: ArgSig) = struct
                 { annotations; ghost; ret_type; name; args; body= T.AbstractImpl []; contract_opt; on_destroy; on_startup } 
             | _ when on_destroy || on_startup -> 
                 { annotations; ghost; ret_type; name; args; body= T.AbstractImpl []; contract_opt; on_destroy; on_startup } 
-            | _ -> Error.error place "Method \"%s\" has no implementation (neither abstract nor blackbox)" (Atom.hint name) 
+            | _ -> Error.perror place "Method \"%s\" has no implementation (neither abstract nor blackbox)" (Atom.hint name) 
         end
     end
     |{ annotations; ghost; ret_type; name; args; body= body; contract_opt; on_destroy; on_startup} -> begin 
@@ -189,7 +189,7 @@ module Make (Arg: ArgSig) = struct
             let key = List.rev ((Atom.hint name)::parents) in 
             mark_method key;
             let bb_impl = Hashtbl.find method_impls key in
-            Error.error (place@bb_impl.place) "Method has two implementations : one abstract and one blackbox"
+            Error.perror (place@bb_impl.place) "Method has two implementations : one abstract and one blackbox"
         with | Not_found -> { annotations; ghost; ret_type; name; args; body= T.AbstractImpl body; contract_opt; on_destroy; on_startup }
     end
     and umethod0 parents: S2.method0 -> T.method0 = map_place (paired_method0 parents)
@@ -233,14 +233,14 @@ module Make (Arg: ArgSig) = struct
             let bb_impl = cook_bb_term name f_impl.value.body in
 
             { ret_type; targs; name; args; body= T.BBImpl bb_impl }
-        with Not_found -> Error.error place "Function \"%s\" has no implementation (neither abstract nor blackbox)" (Atom.hint name) 
+        with Not_found -> Error.perror place "Function \"%s\" has no implementation (neither abstract nor blackbox)" (Atom.hint name) 
     end
     | { ret_type; name; targs; args; body= body } -> begin 
         try 
             let key = List.rev ((Atom.hint name)::parents) in 
             mark_function key;
             let bb_impl = Hashtbl.find function_impls key in
-            Error.error (place@bb_impl.place) "Function has two implementations : one abstract and one blackbox"
+            Error.perror (place@bb_impl.place) "Function has two implementations : one abstract and one blackbox"
         with | Not_found -> { ret_type; targs; name; args; body= T.AbstractImpl body }
     end
     and ufunction_dcl parents: S2.function_dcl -> T.function_dcl = map_place (paired_function_dcl parents)
@@ -259,14 +259,14 @@ module Make (Arg: ArgSig) = struct
             let bb_impl = cook_bb_term x t_impl.value.body in
 
             T.Typealias (x, BBTypealias bb_impl) 
-        with Not_found -> Error.error place "Typealias has no implementation (neither abstract nor blackbox)" 
+        with Not_found -> Error.perror place "Typealias has no implementation (neither abstract nor blackbox)" 
     end
     (* FIXME TODO we do not distinguish between classical type and event when checkin gsould be done by addint an event_impls*)
     | S2.Typealias (x, Some mt) -> begin
         try 
             let key = List.rev ((Atom.hint x)::parents) in
             let bb_impl = Hashtbl.find type_impls key in
-            Error.error (place@bb_impl.place) "Type alias has two implementations : one abstract and one blackbox"
+            Error.perror (place@bb_impl.place) "Type alias has two implementations : one abstract and one blackbox"
         with Not_found -> T.Typealias (x, AbstractTypealias mt) 
     end
     | S2.Typedef {value=ClassicalDef(x, args, ()); place} -> begin
@@ -292,7 +292,7 @@ module Make (Arg: ArgSig) = struct
             let bb_impl = cook_bb_term x t_impl.value.body in
 
             mark_type key;
-            Error.error (place@bb_impl.place) "an event can not have a blackbox implementation yet"
+            Error.perror (place@bb_impl.place) "an event can not have a blackbox implementation yet"
         with Not_found -> T.Typedef { 
             place; 
             value = EventDef (x, args, None) 
@@ -303,7 +303,7 @@ module Make (Arg: ArgSig) = struct
             let key = List.rev ((Atom.hint x)::parents) in
             let bb_impl = Hashtbl.find type_impls key in
             mark_type key;
-            Error.error (place@bb_impl.place) "a protocol can not have a blackbox implementation yet"
+            Error.perror (place@bb_impl.place) "a protocol can not have a blackbox implementation yet"
         with Not_found -> T.Typedef { 
             place; 
             value = ProtocolDef (x, mt) 
@@ -314,7 +314,7 @@ module Make (Arg: ArgSig) = struct
             let key = List.rev ((Atom.hint x)::parents) in
             let bb_impl = Hashtbl.find type_impls key in
             mark_type key;
-            Error.error (place@bb_impl.place) "a vplace can not have a blackbox implementation yet"
+            Error.perror (place@bb_impl.place) "a vplace can not have a blackbox implementation yet"
         with Not_found -> T.Typedef { 
             place; 
             value = VPlaceDef x 

@@ -11,7 +11,7 @@ and a_component_item citem : component_item = map_place (apair_component_item) c
 
 and apair_citems (acc_annotations : annotation list) : component_item list -> component_item list = function
 | [] -> []
-| [{place; value=Term {value=Annotation _}}] -> Error.error place "This annotation is linked to no term"
+| [{place; value=Term {value=Annotation _}}] -> Error.perror place "This annotation is linked to no term"
 | {value=Term {value=Annotation a1}} :: {value=Term {value=Annotation a2}} :: ts ->
     apair_citems (a2::a1::acc_annotations) ts
 | {value=Term {value=Annotation a}} :: {place=p_tcomp; value=Term {place=p_comp; value=Component {place = p_struct; value=ComponentStructure comp} }} :: ts ->
@@ -26,7 +26,7 @@ and apair_citems (acc_annotations : annotation list) : component_item list -> co
             annotations = List.rev (a::acc_annotations)
         }
     }} :: (apair_citems [] ts)
-| {place; value=Term {value=Annotation a}} :: _ :: ts -> Error.error place "Annotations are only supported for components or methods"
+| {place; value=Term {value=Annotation a}} :: _ :: ts -> Error.perror place "Annotations are only supported for components or methods"
 | t::ts -> t::(apair_citems [] ts)
 
 and apair_component_dcl place : _component_dcl -> _component_dcl = function  
@@ -48,12 +48,12 @@ and a_term t : term = map_place (apair_term) t
 
 and apair_terms acc_annotations : term list -> term list = function
 | [] -> []
-| [{place; value=Annotation a}] -> Error.error place "This annotation is linked to no term"
+| [{place; value=Annotation a}] -> Error.perror place "This annotation is linked to no term"
 | {value=Annotation a1} :: {value=Annotation a2} :: ts ->
     apair_terms (a2::a1::acc_annotations) ts
 | {value=Annotation a} :: {place=p_comp; value=Component {place=p_struct; value = ComponentStructure cdcl}} :: ts ->
     {place = p_comp; value=Component { place = p_struct; value= ComponentStructure {cdcl with annotations = List.rev (a::acc_annotations)}}} :: (apair_terms [] ts)
-| {place; value=Annotation a} :: _ :: ts -> Error.error place "Annotations are only supported for components"
+| {place; value=Annotation a} :: _ :: ts -> Error.perror place "Annotations are only supported for components"
 | t::ts -> t::(apair_terms [] ts)
 
 and apair_program program = 

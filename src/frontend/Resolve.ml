@@ -101,7 +101,7 @@ match value with
     | None -> 
         use_env := UseSet.add libfilename !use_env ;
         resolve_program (Parse.read libfilename)
-    | Some _ -> error place "Cyclic import detected: %s" libfilename
+    | Some _ -> perror place "Cyclic import detected: %s" libfilename
 
 and resolve_term {Core.AstUtils.place ; Core.AstUtils.value} : T.term list =
 match value with 

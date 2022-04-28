@@ -92,7 +92,7 @@ module Make () = struct
             | {place; value=Spawn spawn, _} -> begin 
                 match fst spawn.c.value with
                 | VarCExpr c -> [c]
-                | _ -> Error.error place "spawn first arg should have been reduce into a cexpr value (i.e. component name)"
+                | _ -> Error.perror place "spawn first arg should have been reduce into a cexpr value (i.e. component name)"
             end
             | _ -> []
         in 
@@ -136,7 +136,7 @@ module Make () = struct
             | LetStmt (_, x, {value=Spawn spawn, _}) -> begin 
                 match fst spawn.c.value with
                 | VarCExpr c -> [(c, x)]
-                | _ -> Error.error place "spawn first arg should have been reduce into a cexpr value (i.e. component name)"
+                | _ -> Error.perror place "spawn first arg should have been reduce into a cexpr value (i.e. component name)"
             end
             | _ -> []
         in 
@@ -493,7 +493,7 @@ module Make () = struct
 
             (* TODOC *)
             (* Sanity checks - i.e. detects that interception ctx is not used and raise an error *)
-            if Atom.Set.is_empty intercepted_schemas then Error.error place "Interception context intercepts no component schema !!";
+            if Atom.Set.is_empty intercepted_schemas then Error.perror place "Interception context intercepts no component schema !!";
 
             (*** Step b - Forge ctx headers ***)
             let (generated_bridges, (b_onboard, b_onboard_mt, b_onboard_let)) = generate_bridges place interceptor_name intercepted_schemas p_onboard (mtype_of_st st_onboard.value) intercepted_bridges in
@@ -624,7 +624,7 @@ module Make () = struct
                                 at = Option.map (function _ -> e2var p_of_a) spawn.at
                             }
                         end 
-                        | _ -> Error.error place "spawn first arg should have been reduce into a cexpr value (i.e. component name)"
+                        | _ -> Error.perror place "spawn first arg should have been reduce into a cexpr value (i.e. component name)"
                     end
                 in
 

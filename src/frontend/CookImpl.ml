@@ -48,7 +48,7 @@ match value with
     | Some target -> 
         let new_env, item = cook_component_impl place env {item with target = Some target} in
         new_env, [{place; value=T.ComponentImpl item}]
-    | None -> Error.error place "no default target defined and no target assigned to this component" 
+    | None -> Error.perror place "no default target defined and no target assigned to this component" 
 end
 | S.ComponentImpl impl -> 
     let env, item = cook_component_impl place env impl in
@@ -68,7 +68,7 @@ end
             | S.HeadersImpl _ -> T.HeadersImpl {target; body}
             | S.DependenciesImpl _ -> T.DependenciesImpl {target; body}
         }]
-    | None -> Error.error place "no default target defined and no target assigned to headers" 
+    | None -> Error.perror place "no default target defined and no target assigned to headers" 
 end
 
 let cook_program impl_terms =    

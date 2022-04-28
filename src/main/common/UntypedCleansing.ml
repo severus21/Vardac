@@ -62,7 +62,7 @@ module Make () = struct
                 | CType {place; value=TVar x} as mt0-> begin 
                     (* Cycle detection *)
                     if Atom.Set.mem x already_seen then
-                        Error.error place "cyclic type alias detected"
+                        Error.perror place "cyclic type alias detected"
                     else ();
 
                     let already_seen = Atom.Set.add x already_seen in
@@ -149,13 +149,13 @@ module Make () = struct
 
     let postcondition program = 
         (* Ensures there are no remaining Typealias *)
-        collect_term_program true (function | Typealias _ -> true | _-> false) (fun _ place _ -> Error.error place "Typealias remains after UntypeCleansing") program;
+        collect_term_program true (function | Typealias _ -> true | _-> false) (fun _ place _ -> Error.perror place "Typealias remains after UntypeCleansing") program;
 
         (* FIXME collect_type is not recursive yet *)
-        collect_stype_program Atom.Set.empty (function | STInline _ -> true | _-> false) (fun _ _ {place; _} -> Error.error place "STInline remains after STInline") program;
+        collect_stype_program Atom.Set.empty (function | STInline _ -> true | _-> false) (fun _ _ {place; _} -> Error.perror place "STInline remains after STInline") program;
 
         (* FIXME collect_type is not recursive yet *)
-        collect_stype_program Atom.Set.empty (function | STDual _ -> true | _-> false) (fun _ _ {place; _} -> Error.error place "STDual remains after STInline") program;
+        collect_stype_program Atom.Set.empty (function | STDual _ -> true | _-> false) (fun _ _ {place; _} -> Error.perror place "STDual remains after STInline") program;
 
         program 
 

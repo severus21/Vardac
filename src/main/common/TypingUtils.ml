@@ -142,12 +142,12 @@ let rec mgu_solver place = function
 | Equality ({value=CType{value=TVar x}},mt)::u -> 
     (* TODO change the return type for free_var *)
     let _, ftvars = free_tvars_mtype Atom.Set.empty mt in
-    if List.mem x ftvars then Error.error place "mgu_solver failure"
+    if List.mem x ftvars then Error.perror place "mgu_solver failure"
     else
         mgu_solver place (List.map (replace_type_tconstraint x (None, Some mt.value)) u) @ [x,mt]
 | Equality (mt1,({value=CType{value=TVar y}} as mt2))::u -> begin
    match mt1.value with
-    | CType{value=TVar _ } -> Error.error place "mgu_solver failure"
+    | CType{value=TVar _ } -> Error.perror place "mgu_solver failure"
     | _ -> mgu_solver place (Equality (mt2, mt1)::u)
 end
 (* TODO add specific support for type constructor *)
@@ -157,7 +157,7 @@ end
         Equality (mt1_b, mt2_b) ::
         u
     )
-| _ -> Error.error place "mgu_solver failure: unspecified behavior"
+| _ -> Error.perror place "mgu_solver failure: unspecified behavior"
 
 (* TODO 
     1. incorporate the flag return type in constraints

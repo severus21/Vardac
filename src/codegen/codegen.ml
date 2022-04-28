@@ -23,7 +23,7 @@ let codegen_program project_dir build_dir places (target2dependencies, target2he
                     List.map (function 
                         | Core.IRI.Text str -> 
                             Jingoo.Jg_template.from_string str  ~models:[]
-                        | Core.IRI.Varda e -> Error.error e.place "Varda expression is not supported inside headers"
+                        | Core.IRI.Varda e -> Error.perror e.place "Varda expression is not supported inside headers"
                     ) header.value.body
                 ) xs
         ))

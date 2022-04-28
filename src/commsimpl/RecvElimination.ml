@@ -19,7 +19,7 @@ let receive_selector = function
 
 let receive_collector msg parent_opt env e = 
     let parent = match parent_opt with | None -> "Toplevel" | Some p -> Atom.to_string p in
-    Error.error e.place "%s. Parent = %s" msg parent
+    Error.perror e.place "%s. Parent = %s" msg parent
 
 (*
     input [x_1; ... ; x_n]

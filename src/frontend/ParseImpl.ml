@@ -10,7 +10,7 @@ let parse filename contents : Ast_impl.program =
     with
     | ImplParser.Error ->
         raise (Error.SyntaxError (Error.place lexbuf))
-        (*Error.error (Error.place lexbuf) "Syntax error."*)
+        (*Error.perror (Error.place lexbuf) "Syntax error."*)
 
 let read filename : Ast_impl.program =
   try

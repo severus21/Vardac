@@ -115,7 +115,7 @@ module Make () = struct
     | UnpackOrPropagateResult, CType{value=TResult (ok,err)} -> ok
     (* TODO what if TForall TForall ... TForall TResult .. ??*)
     | UnpackOrPropagateResult, CType{value=TForall (x, {value=CType {value=TResult (ok, err)};})} -> ok 
-    | UnpackOrPropagateResult, t -> Error.error mt_e.place "%s" (show__main_type t)
+    | UnpackOrPropagateResult, t -> Error.perror mt_e.place "%s" (show__main_type t)
 
     let typeof_binop op mt_e1 mt_e2 = 
         let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
@@ -389,9 +389,9 @@ module Make () = struct
             | CompType {value=CompTUid name} -> begin 
                 match (typeof_var_cexpr name).value with 
                 |  CompType {value=TStruct (_, sign)} -> sign
-                | _ -> Error.error place "internal error when fetching structural type of component"
+                | _ -> Error.perror place "internal error when fetching structural type of component"
             end
-            | _ -> Error.error place "This expr has no attributes" 
+            | _ -> Error.perror place "This expr has no attributes" 
         in
 
         let ret_type = 
@@ -430,14 +430,14 @@ module Make () = struct
                         let aux targs i =
                             let n = List.length targs in
                             if n > i then List.nth targs i 
-                            else Error.error place "Can not access the %d elmts of inductive types, it has only %d parts" i n
+                            else Error.perror place "Can not access the %d elmts of inductive types, it has only %d parts" i n
                         in
 
                         match mt1 with
                         | CType{value=TVar t1} -> begin 
                             match (defof_tvar t1).value  with
                             | CType {value=TTuple targs} -> aux targs i 
-                            | _ -> Error.error e1.place "This not an inductive type (1)"
+                            | _ -> Error.perror e1.place "This not an inductive type (1)"
                         end
                         | CType {value=TTuple targs} -> aux targs i 
                         | CType {value=TFlatType TWildcard} ->
@@ -448,7 +448,7 @@ module Make () = struct
                             aux targs i  
                         end
                         | _ -> 
-                            Error.error e1.place "This not an inductive type (2)"
+                            Error.perror e1.place "This not an inductive type (2)"
                     end
                     | VarExpr x when Builtin.is_tuple_attr (Atom.value x) -> begin
                         let i = Builtin.pos_of_tuple_attr (Atom.value x) in
@@ -457,26 +457,26 @@ module Make () = struct
                         let aux targs i =
                             let n = List.length targs in
                             if n > i then List.nth targs i 
-                            else Error.error place "Can not access the %d elmts of tuple types, it has only %d parts" i n
+                            else Error.perror place "Can not access the %d elmts of tuple types, it has only %d parts" i n
                         in
 
                         match mt1 with
                         | CType{value=TVar t1} -> begin 
                             match (defof_tvar t1).value  with
                             | CType {value=TTuple targs} -> aux targs i 
-                            | _ -> Error.error e1.place "This not a type"
+                            | _ -> Error.perror e1.place "This not a type"
                         end
                         | CType {value=TTuple targs} -> aux targs i 
                         | CType {value=TFlatType TWildcard} ->
                             (* TODO generate constraints TTuple of length >= i *)
                             mtype_of_ft TWildcard
                         | _ -> 
-                            Error.error e1.place "This not a tuple"
+                            Error.perror e1.place "This not a tuple"
                     end
                     | VarExpr field -> 
                         (* TODO Clean this *)
                         mt_of_citem parent_opt place (snd e1.value) field
-                    | _ -> Error.error place "Invalid attribute"
+                    | _ -> Error.perror place "Invalid attribute"
 
                 in
                 
@@ -508,14 +508,14 @@ module Make () = struct
                     | _ when depth = 0 -> mt
                     | CType{value=TArrow (_, mt2)} -> ret_typeof (depth-1) mt2 
                     | CType{value=TForall(_, mt)} -> ret_typeof depth mt
-                    | _ -> Error.error place "Function [%s] expect %d args, not %d" (show_expr e) ((List.length es)-depth) (List.length es)
+                    | _ -> Error.perror place "Function [%s] expect %d args, not %d" (show_expr e) ((List.length es)-depth) (List.length es)
                 in
                 
                 (* Debug - at this point there is no call(..) that return lambda in kv.spec *)
                 assert( 
                     match (ret_typeof (List.length es) (snd e.value)).value with
                     | CType{value=TArrow _} -> 
-                        Error.error place "Should not be annotated with TArrow %d %s" (List.length es) (show_expr e);
+                        Error.perror place "Should not be annotated with TArrow %d %s" (List.length es) (show_expr e);
                         false
                     | _ -> true
                 );
@@ -528,12 +528,12 @@ module Make () = struct
                     | _ when depth = 0 -> mt
                     | CType{value=TArrow (_, mt2)} -> ret_typeof (depth-1) mt2 
                     | CType{value=TForall(_, mt)} -> ret_typeof depth mt
-                    | _ -> Error.error place "Type constructor expect %d args, not %d" ((List.length es)-depth) (List.length es)
+                    | _ -> Error.perror place "Type constructor expect %d args, not %d" ((List.length es)-depth) (List.length es)
                 in
                 NewExpr(e, es), ret_typeof (List.length es) (snd e.value)
             | This -> begin 
                 match parent_opt with
-                | None -> Error.error place "[this] can not be used outside component definition" 
+                | None -> Error.perror place "[this] can not be used outside component definition" 
                 | Some self -> This, auto_fplace( CompType (auto_fplace (CompTUid (self))))
             end
             | Spawn spawn -> 
@@ -597,7 +597,7 @@ module Make () = struct
                 | {value=CType{value=TForall (x, mt)}}, mt'::mts' ->
                     replace_type_main_type x (None, Some mt'.value) (apply (mt, mts'))
                 | mt, [] -> mt  
-                | mt,_ -> Error.error (place@mt.place) "Type specialization error"
+                | mt,_ -> Error.perror (place@mt.place) "Type specialization error"
                 in
                 (fst e.value, apply (mt, mts))
 
@@ -612,7 +612,7 @@ module Make () = struct
 
         (* TODO move this checks into TypeChecking*)
         (*if Bool.not (is_subtype (snd e.value) mt_x) then
-            Error.error place "Type error: types do not match";
+            Error.perror place "Type error: types do not match";
         *)
         
         AssignExpr (x, e)
@@ -622,7 +622,7 @@ module Make () = struct
 
         (* TODO move this checks into TypeChecking*)
         (*if Bool.not (is_subtype (snd e.value) mt_x) then
-            Error.error place "Type error: types do not match";
+            Error.perror place "Type error: types do not match";
         *)
         
         AssignThisExpr (x, e)
@@ -674,7 +674,7 @@ module Make () = struct
             (* TODO rewrite just find TVar *)
             | CType {value = TVar x} -> 
                 if Hashtbl.find_opt already_seen x <> None then
-                    Error.error place "cyclic type alias detected"
+                    Error.perror place "cyclic type alias detected"
                 else Hashtbl.add already_seen x ();
 
                 let mt = defof_tvar x in

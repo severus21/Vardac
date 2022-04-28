@@ -48,7 +48,7 @@ let apply_derive program {place; value=derive} =
             let module RPC = Core.IRCompilationPass.Make(RPC) in
 
             RPC.apply program
-        | _ -> Error.error place "Wrong arguments"
+        | _ -> Error.perror place "Wrong arguments"
 
     end
     | _ -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "Unknown derivation %s" (Atom.hint derive.name))))

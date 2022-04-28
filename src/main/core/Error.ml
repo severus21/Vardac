@@ -66,11 +66,17 @@ let display continuation header place format =
     Format.err_formatter 
     (header ^^ format ^^ "\n%!")
 
-let error place format =
+let perror place format =
   display
     (fun _ -> exit 1)
     "Error: "
     place format
+
+  let error format = 
+    Format.kfprintf
+    (fun _ -> exit 1)
+      Format.err_formatter 
+      ("Error: " ^^ format ^^ "\n%!")
 
 let plog_warning (logger:Easy_logging.Logging.logger) place (format:('a, unit, string, unit) format4) = 
   logger#warning "%s\n" (show place);
@@ -81,8 +87,8 @@ exception DeadbranchError of string
 exception PlacedDeadbranchError of place * string 
 
 let error_of_syntax_error = function
-| SyntaxError p -> error p "Syntax error : unable to parse!"
-| PlacedDeadbranchError (p,msg) -> error p "%s" msg
+| SyntaxError p -> perror p "Syntax error : unable to parse!"
+| PlacedDeadbranchError (p,msg) -> perror p "%s" msg
 | e -> raise e
 
 

@@ -116,12 +116,12 @@ end) = struct
                         | TFloat -> "float"
                         | TBool -> "bool"
                         | TVoid -> "NullValue"
-                        | _ -> Error.error place "Type unsupported for interface, should be a simple atomic type."
+                        | _ -> Error.perror place "Type unsupported for interface, should be a simple atomic type."
                     end
                     | S.CType {value=S.TDict (mt1, mt2)} ->
                         Printf.sprintf "map<%s,%s>" (gendef mt1)(gendef mt2)
                     | S.CType {value=S.TList _} -> "ListValue"
-                    | _ -> Error.error place "Type unsupported for interface, should be a simple atomic type."
+                    | _ -> Error.perror place "Type unsupported for interface, should be a simple atomic type."
                 and gendef x = map0_place _gendef x in
 
                 let to_field i ({value=mt,x}) : msg_field = 
