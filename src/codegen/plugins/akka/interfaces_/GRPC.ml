@@ -503,12 +503,9 @@ end) = struct
                             [
                                 T_A2.e2_e (T.NewExpr(
                                     T_A2.e2var service.impl_name,
-                                    [
-                                        T_A2.e2var local_mat
-                                    ]
+                                    [ T_A2.e2var local_mat ]
                                 ));
                                 T_A2.e2var att_system;
-
                             ]
                         ))
                     )
@@ -524,9 +521,7 @@ end) = struct
                     T_A2.e2_e (T.AccessExpr( 
                         T_A2.e2_e (T.CallExpr( 
                             T_A2.e2_e (T.RawExpr "SystemMaterializer.get"),
-                            [ 
-                                T_A2.e2var att_system
-                            ]
+                            [ T_A2.e2var att_system ]
                         )),
                         T_A2.e2_e (T.RawExpr "materializer")
                     )),
@@ -542,10 +537,7 @@ end) = struct
                 List.fold_left ( fun e1 s2 ->
                     T_A2.e2_e (T.CallExpr (
                         T_A2.e2_e (T.RawExpr "ServiceHandler.concatOrNotFound"),
-                        [
-                            e1;
-                            T_A2.e2var s2.service_handler_instance;
-                        ]
+                        [ e1; T_A2.e2var s2.service_handler_instance; ]
                     ))
                 )  (_spawn_service_handlers [s1]) (s2::t) 
         and spawn_service_handlers services =
@@ -587,15 +579,11 @@ end) = struct
                                                 T_A2.e2_e (T.AccessExpr(
                                                     T_A2.e2_e (T.CallExpr(
                                                         T_A2.e2_e (T.RawExpr "Http.get"),
-                                                        [
-                                                            T_A2.e2var att_system
-                                                        ]
+                                                        [ T_A2.e2var att_system ]
                                                     )),
                                                     T_A2.e2_e (T.RawExpr "newServerAt(\"127.0.0.1\", 8090)")
                                                 )),
-                                                [
-                                                    T_A2.e2var local_service_handlers
-                                                ]
+                                                [ T_A2.e2var local_service_handlers ]
                                             ))
                                         ))
                                     ]
