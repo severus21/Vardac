@@ -268,69 +268,68 @@ end) = struct
                         is_constructor = false;
                         body = AbstractImpl [
                             auto_fplace (T.ReturnStmt(
-                                auto_fplace (T.CallExpr(
-                                    auto_fplace (T.AccessExpr(
+                                T_A2.e2_e (T.CallExpr(
+                                    T_A2.e2_e (T.AccessExpr(
                                         (* ask(greeterActor, GreeterActor.GET_GREETING, Duration.ofSeconds(5)) *)
-                                        auto_fplace(T.CallExpr( 
-                                            auto_fplace( T.RawExpr "ask", auto_fplace T.TUnknown),
+                                        T_A2.e2_e(T.CallExpr( 
+                                            T_A2.e2_e( T.RawExpr "ask"),
                                             [
-                                                auto_fplace (T.AccessExpr(
-                                                    auto_fplace (T.This, auto_fplace T.TUnknown), 
-                                                    auto_fplace (T.VarExpr att_actor, auto_fplace T.TUnknown)
-                                                ), auto_fplace T.TUnknown);
+                                                T_A2.e2_e (T.AccessExpr(
+                                                    T_A2.e2_e T.This, 
+                                                    T_A2.e2var att_actor
+                                                ));
                                                 (* Event Service2Actor *)
-                                                auto_fplace(T.NewExpr (
-                                                    auto_fplace( T.VarExpr service2actor_event.value.name, auto_fplace T.TUnknown),
+                                                T_A2.e2_e (T.NewExpr (
+                                                    T_A2.e2var service2actor_event.value.name,
                                                     [ 
-                                                        auto_fplace (T.VarExpr a_msg_in, auto_fplace T.TUnknown)
+                                                        T_A2.e2var a_msg_in
                                                     ]
-                                                ), auto_fplace T.TUnknown);
+                                                ));
                                                 (* Timeout *)
-                                                auto_fplace (T.RawExpr "Duration.ofSeconds(5)", auto_fplace T.TUnknown)
+                                                T_A2.e2_e (T.RawExpr "Duration.ofSeconds(5)")
                                             ]
-                                        ),auto_fplace T.TUnknown),
-                                        auto_fplace( T.RawExpr "thenApply", auto_fplace T.TUnknown)
-                                    ), auto_fplace T.TUnknown),
+                                        )),
+                                        T_A2.e2_e (T.RawExpr "thenApply")
+                                    )),
                                     [
                                         (* message ->
           HelloReply.newBuilder()
             .setMessage(((GreeterActor.Greeting) message).greeting)
             .build() *)
-                                        auto_fplace (T.LambdaExpr(
+                                        T_A2.e2_e (T.LambdaExpr(
                                             [
                                                 (* TODO should be an event of component_name *)
                                                 (auto_fplace T.TUnknown, a_intermediate_msg)
                                             ],
                                             auto_fplace (T.ReturnStmt(
-                                                auto_fplace( T.CallExpr (
-                                                    auto_fplace( T.AccessExpr(
-                                                        auto_fplace( T.CallExpr (
-                                                            auto_fplace( T.AccessExpr(
-                                                                auto_fplace( T.CallExpr (
-                                                                    auto_fplace (T.AccessExpr(
-                                                                        auto_fplace (T.VarExpr a_msg_in, auto_fplace T.TUnknown),
-                                                                        auto_fplace (T.RawExpr "newBuilder", auto_fplace T.TUnknown)
-                                                                    ), auto_fplace T.TUnknown),
+                                                T_A2.e2_e (T.CallExpr (
+                                                    T_A2.e2_e (T.AccessExpr(
+                                                        T_A2.e2_e (T.CallExpr (
+                                                            T_A2.e2_e (T.AccessExpr(
+                                                                T_A2.e2_e (T.CallExpr (
+                                                                    T_A2.e2_e (T.AccessExpr(
+                                                                        T_A2.e2var a_msg_in,
+                                                                        T_A2.e2_e (T.RawExpr "newBuilder")
+                                                                    )),
                                                                     []
-                                                                ), auto_fplace T.TUnknown),
-                                                                auto_fplace (T.RawExpr "setMessage", auto_fplace T.TUnknown)
-                                                            ), auto_fplace T.TUnknown),
+                                                                )),
+                                                                T_A2.e2_e (T.RawExpr "setMessage")
+                                                            )),
                                                             [
-                                                                auto_fplace (T.CastExpr(
+                                                                T_A2.e2_e (T.CastExpr(
                                                                     auto_fplace (T.TVar actor2service_event.value.name),
-                                                                    auto_fplace (T.VarExpr a_intermediate_msg, auto_fplace T.TUnknown)
-                                                                ), auto_fplace T.TUnknown)
-
+                                                                    T_A2.e2var a_intermediate_msg
+                                                                ))
                                                             ]
-                                                        ), auto_fplace T.TUnknown),
-                                                        auto_fplace (T.RawExpr "build", auto_fplace T.TUnknown)
-                                                    ), auto_fplace T.TUnknown),
+                                                        )),
+                                                        T_A2.e2_e (T.RawExpr "build")
+                                                    )),
                                                     []
-                                                ), auto_fplace T.TUnknown)
+                                                ))
                                             ))
-                                        ), auto_fplace T.TUnknown)
+                                        ))
                                     ]
-                                ), auto_fplace T.TUnknown)
+                                ))
                             ))
                         ]
                     }
@@ -417,11 +416,11 @@ end) = struct
                                 is_constructor = true;
                                 body = T.AbstractImpl [
                                     auto_fplace (T.AssignExpr(
-                                        auto_fplace(T.AccessExpr(
-                                            auto_fplace(T.This, auto_fplace T.TUnknown),
-                                            auto_fplace (T.VarExpr att_system, auto_fplace T.TUnknown)
-                                        ), auto_fplace T.TUnknown),
-                                        auto_fplace(T.VarExpr constructor_arg_system, auto_fplace T.TUnknown)
+                                        T_A2.e2_e (T.AccessExpr(
+                                            T_A2.e2_e T.This,
+                                            T_A2.e2var att_system
+                                        )),
+                                        T_A2.e2var constructor_arg_system
                                     ));
                                     (* this.greeterActor = system.actorOf(GreeterActor.props("Hello"), "greeter"); *)
                                     auto_fplace (T.AssignExpr(
@@ -429,24 +428,24 @@ end) = struct
                                             T_A2.e2_e T.This,
                                             T_A2.e2var att_actor
                                         )),
-                                        auto_fplace(T.CallExpr (
-                                            auto_fplace(T.AccessExpr(
+                                        T_A2.e2_e (T.CallExpr (
+                                            T_A2.e2_e (T.AccessExpr(
                                                 T_A2.e2_e T.This,
                                                 T_A2.e2var constructor_arg_system
-                                            ), auto_fplace T.TUnknown),
+                                            )),
                                             [
-                                                auto_fplace(T.CallExpr (
-                                                    auto_fplace(T.AccessExpr(
-                                                        auto_fplace (T.VarExpr service.component_name, auto_fplace T.TUnknown),
-                                                        auto_fplace(T.RawExpr "props", auto_fplace T.TUnknown)
-                                                    ), auto_fplace T.TUnknown),
+                                                T_A2.e2_e (T.CallExpr (
+                                                    T_A2.e2_e (T.AccessExpr(
+                                                        T_A2.e2var service.component_name,
+                                                        T_A2.e2_e (T.RawExpr "props")
+                                                    )),
                                                     [
                                                         (* FIXME args for actor creation *)
                                                     ]
-                                                ), auto_fplace T.TUnknown);
+                                                ));
                                                 T_A2.e2_lit (T.StringLit (Atom.to_string service.component_name))
                                             ]
-                                        ), auto_fplace T.TUnknown)
+                                        ))
                                     ))
                                 ]
                             }
@@ -496,22 +495,22 @@ end) = struct
                     auto_fplace (T.TRaw "Function<HttpRequest, CompletionStage<HttpResponse>>"),
                     service.service_handler_instance,
                     Some (
-                        auto_fplace( T.CallExpr(
-                            auto_fplace (T.AccessExpr(    
-                                auto_fplace(T.RawExpr ((Atom.to_string service.service_name)^"HandlerFactory"), auto_fplace T.TUnknown),
-                                auto_fplace(T.RawExpr "create", auto_fplace T.TUnknown)
-                            ), auto_fplace T.TUnknown),
+                        T_A2.e2_e (T.CallExpr(
+                            T_A2.e2_e (T.AccessExpr(    
+                                T_A2.e2_e (T.RawExpr ((Atom.to_string service.service_name)^"HandlerFactory")),
+                                T_A2.e2_e (T.RawExpr "create")
+                            )),
                             [
-                                auto_fplace (T.NewExpr(
-                                    auto_fplace (T.VarExpr service.impl_name, auto_fplace T.TUnknown),
+                                T_A2.e2_e (T.NewExpr(
+                                    T_A2.e2var service.impl_name,
                                     [
-                                        auto_fplace (T.VarExpr local_mat, auto_fplace T.TUnknown)
+                                        T_A2.e2var local_mat
                                     ]
-                                ), auto_fplace T.TUnknown);
-                                auto_fplace (T.VarExpr att_system, auto_fplace T.TUnknown);
+                                ));
+                                T_A2.e2var att_system;
 
                             ]
-                        ), auto_fplace T.TUnknown)
+                        ))
                     )
                 )
             )
@@ -521,18 +520,18 @@ end) = struct
             T.LetStmt (
                 auto_fplace (T.TRaw "Materializer"),
                 local_mat,
-                Some (auto_fplace (T.CallExpr( 
-                    auto_fplace (T.AccessExpr( 
-                        auto_fplace (T.CallExpr( 
-                            auto_fplace (T.RawExpr "SystemMaterializer.get", auto_fplace T.TUnknown),
+                Some (T_A2.e2_e (T.CallExpr( 
+                    T_A2.e2_e (T.AccessExpr( 
+                        T_A2.e2_e (T.CallExpr( 
+                            T_A2.e2_e (T.RawExpr "SystemMaterializer.get"),
                             [ 
-                                auto_fplace (T.VarExpr att_system, auto_fplace T.TUnknown) 
+                                T_A2.e2var att_system
                             ]
-                        ), auto_fplace T.TUnknown),
-                        auto_fplace (T.RawExpr "materializer", auto_fplace T.TUnknown)
-                    ), auto_fplace T.TUnknown),
+                        )),
+                        T_A2.e2_e (T.RawExpr "materializer")
+                    )),
                     []
-                ), auto_fplace T.TUnknown))
+                )))
             )
         ) in
 
@@ -541,13 +540,13 @@ end) = struct
             | [s] -> auto_fplace (T.VarExpr s.service_handler_instance, auto_fplace T.TUnknown)
             | s1::s2::t ->
                 List.fold_left ( fun e1 s2 ->
-                    auto_fplace (T.CallExpr (
-                        auto_fplace (T.RawExpr "ServiceHandler.concatOrNotFound", auto_fplace T.TUnknown),
+                    T_A2.e2_e (T.CallExpr (
+                        T_A2.e2_e (T.RawExpr "ServiceHandler.concatOrNotFound"),
                         [
                             e1;
-                            auto_fplace (T.VarExpr s2.service_handler_instance, auto_fplace T.TUnknown);
+                            T_A2.e2var s2.service_handler_instance;
                         ]
-                    ), auto_fplace T.TUnknown)
+                    ))
                 )  (_spawn_service_handlers [s1]) (s2::t) 
         and spawn_service_handlers services =
             auto_fplace (T.LetStmt(
@@ -584,20 +583,20 @@ end) = struct
                                     @ [
                                         (* Http.get(sys) .newServerAt("127.0.0.1", 8090) .bind(serviceHandlers) *)
                                         auto_fplace (T.ReturnStmt (
-                                            auto_fplace (T.CallExpr(
-                                                auto_fplace (T.AccessExpr(
-                                                    auto_fplace (T.CallExpr(
-                                                        auto_fplace (T.RawExpr "Http.get", auto_fplace T.TUnknown),
+                                            T_A2.e2_e (T.CallExpr(
+                                                T_A2.e2_e (T.AccessExpr(
+                                                    T_A2.e2_e (T.CallExpr(
+                                                        T_A2.e2_e (T.RawExpr "Http.get"),
                                                         [
-                                                            auto_fplace (T.VarExpr att_system, auto_fplace T.TUnknown)
+                                                            T_A2.e2var att_system
                                                         ]
-                                                    ), auto_fplace T.TUnknown),
-                                                    auto_fplace (T.RawExpr "newServerAt(\"127.0.0.1\", 8090)", auto_fplace T.TUnknown)
-                                                ), auto_fplace T.TUnknown),
+                                                    )),
+                                                    T_A2.e2_e (T.RawExpr "newServerAt(\"127.0.0.1\", 8090)")
+                                                )),
                                                 [
-                                                    auto_fplace (T.VarExpr local_service_handlers, auto_fplace T.TUnknown)
+                                                    T_A2.e2var local_service_handlers
                                                 ]
-                                            ), auto_fplace T.TUnknown)
+                                            ))
                                         ))
                                     ]
                                 )

@@ -7,6 +7,8 @@ open Misc
 
 let plg_name = "Akka"
 let logger = Logging.make_logger ("_1_ compspec.plg."^plg_name) Debug [];;
+let fplace = (Error.forge_place ("plg."^plg_name^".Encode") 0 0) 
+include Ast.AstUtil2.Make(struct let fplace = fplace end)
 
 (* The source calculus. *)
 module S = IR 
@@ -45,23 +47,17 @@ let rec _encode_builtin_access place e name =
 
         T.AccessExpr (
             e, 
-            auto_place (
-                T.VarExpr (Atom.builtin (Printf.sprintf "_%d" i)), 
-                auto_place T.TUnknown
-            )
+            e2var (Atom.builtin (Printf.sprintf "_%d" i))
         )
     end
     | _ when Builtin.is_inductive_attr name -> begin
         let i = Builtin.pos_of_inductive_attr name in
 
         T.CallExpr (
-            auto_place (T.AccessExpr (
+            e2_e (T.AccessExpr (
                 e, 
-                auto_place (
-                    T.VarExpr (Atom.builtin (Printf.sprintf "_%d_" i)), 
-                    auto_place T.TUnknown
-                )
-            ), auto_place T.TUnknown),
+                e2var (Atom.builtin (Printf.sprintf "_%d_" i))
+            )),
             []
         )
     end
@@ -70,7 +66,7 @@ and encode_builtin_access place e name =
     let auto_place t = {place; value=t} in 
 
     if PlgBuiltin.is_builtin_expr name then 
-        T.AccessExpr(e, auto_place (T.VarExpr (Atom.builtin name), auto_place T.TUnknown))
+        T.AccessExpr(e, e2var (Atom.builtin name))
     else _encode_builtin_access place e name
 
 let encode_builtin_fct place name (args:T.expr list) =
@@ -81,10 +77,10 @@ let encode_builtin_fct place name (args:T.expr list) =
     | "activationid" -> begin
         match args with
         | [a] -> T.CallExpr(
-                auto_place (T.AccessExpr(
+                e2_e (T.AccessExpr(
                     a,
-                    auto_place(T.VarExpr (Atom.builtin "activationId"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown),
+                    e2var (Atom.builtin "activationId")
+            )),
             []
         )
     end
@@ -92,10 +88,10 @@ let encode_builtin_fct place name (args:T.expr list) =
         match args with
         | [port; bridge] -> 
             T.CallExpr(
-                    auto_place (T.AccessExpr(
-                        auto_place (T.This, auto_place T.TUnknown),
-                        auto_place(T.VarExpr (Atom.builtin "bind_in"), auto_place T.TUnknown)
-                ), auto_place T.TUnknown),
+                e2_e (T.AccessExpr(
+                    e2_e T.This,
+                    e2var (Atom.builtin "bind_in")
+                )),
                 [ 
                     port; 
                     bridge 
@@ -106,10 +102,10 @@ let encode_builtin_fct place name (args:T.expr list) =
         match args with
         | [port; bridge] -> 
             T.CallExpr(
-                    auto_place (T.AccessExpr(
-                        auto_place (T.This, auto_place T.TUnknown),
-                        auto_place(T.VarExpr (Atom.builtin "bind_out"), auto_place T.TUnknown)
-                ), auto_place T.TUnknown),
+                e2_e (T.AccessExpr(
+                    e2_e T.This,
+                    e2var (Atom.builtin "bind_out")
+                )),
                 [ 
                     port; 
                     bridge 
@@ -120,10 +116,10 @@ let encode_builtin_fct place name (args:T.expr list) =
         (* empty dict *)
         match args with
         | [dict; k; v] -> T.CallExpr( 
-            auto_place (T.AccessExpr (
+            e2_e (T.AccessExpr (
                 dict, 
-                auto_place(T.VarExpr (Atom.builtin "put"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown),
+                e2var (Atom.builtin "put")
+            )),
             [ k; v ]
         ) 
         | _ -> Error.error place "add2dict takes three arguments"
@@ -132,10 +128,10 @@ let encode_builtin_fct place name (args:T.expr list) =
         (* empty dict *)
         match args with
         | [dict; k] -> T.CallExpr( 
-            auto_place(T.AccessExpr (
+            e2_e (T.AccessExpr (
                 dict, 
-                auto_place( T.VarExpr (Atom.builtin "remove"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown),
+                e2var (Atom.builtin "remove")
+            )),
             [ k ]
         ) 
         | _ -> Error.error place "remove2dict takes two arguments"
@@ -144,10 +140,10 @@ let encode_builtin_fct place name (args:T.expr list) =
         (* empty dict *)
         match args with
         | [dict; k] -> T.CallExpr( 
-            auto_place (T.AccessExpr (
+            e2_e (T.AccessExpr (
                 dict, 
-                auto_place (T.VarExpr (Atom.builtin "get"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown),
+                e2var (Atom.builtin "get")
+            )),
             [ k ]
         ) 
         | _ -> Error.error place "get2dict takes two arguments"
@@ -155,10 +151,10 @@ let encode_builtin_fct place name (args:T.expr list) =
     | "ip" -> begin
         match args with
         | [place] -> T.CallExpr( 
-            auto_place (T.AccessExpr (
+            e2_e (T.AccessExpr (
                 place, 
-                auto_place (T.VarExpr (Atom.builtin "getHost"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown),
+                e2var (Atom.builtin "getHost")
+            )),
             []
         ) 
         | _ -> Error.error place "ip takes one argument"
@@ -166,10 +162,10 @@ let encode_builtin_fct place name (args:T.expr list) =
     | "port" -> begin
         match args with
         | [place] -> T.CallExpr( 
-            auto_place (T.AccessExpr (
+            e2_e (T.AccessExpr (
                 place, 
-                auto_place (T.VarExpr (Atom.builtin "getPort"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown),
+                e2var (Atom.builtin "getPort")
+            )),
             []
         ) 
         | _ -> Error.error place "port takes one argument"
@@ -178,8 +174,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         (* empty dict *)
         match args with
         | [] -> T.NewExpr( 
-            auto_place (T.VarExpr (Atom.builtin "HashMap"), auto_place T.TUnknown
-            ), 
+            e2var (Atom.builtin "HashMap"), 
             []
         ) 
         | _ -> Error.error place "dict takes no arguments"
@@ -187,10 +182,10 @@ let encode_builtin_fct place name (args:T.expr list) =
     | "fire" -> begin 
         match args with
         | [ session; msg ] -> T.CallExpr( 
-            auto_place (T.AccessExpr (
+            e2_e (T.AccessExpr (
                 session, 
-                auto_place (T.VarExpr (Atom.builtin "fire"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown),
+                e2var (Atom.builtin "fire")
+            )),
             [ 
                 msg; 
                 e_get_context place;
@@ -204,10 +199,10 @@ let encode_builtin_fct place name (args:T.expr list) =
     | "select" -> begin 
         match args with
         | [ session; label ] -> T.CallExpr( 
-            auto_place (T.AccessExpr (
+            e2_e (T.AccessExpr (
                 session, 
-                auto_place (T.VarExpr (Atom.builtin "select"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown),
+                e2var (Atom.builtin "select")
+            )),
             [ 
                 label; 
                 e_get_context place;
@@ -222,7 +217,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         match args with
         | [ tuple ] ->  T.AccessExpr (
             tuple, 
-            auto_place (T.VarExpr (Atom.builtin "_1"), auto_place T.TUnknown)
+            e2var (Atom.builtin "_1")
             )
         | _ -> Error.error place "first must take one argument"
     end
@@ -230,7 +225,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         match args with
         | [ tuple ] ->  T.AccessExpr (
             tuple, 
-            auto_place (T.VarExpr (Atom.builtin "_2"), auto_place T.TUnknown)
+            e2var (Atom.builtin "_2")
             )
         | _ -> Error.error place "second must take one argument"
     end
@@ -238,10 +233,10 @@ let encode_builtin_fct place name (args:T.expr list) =
         (* Vavr state at _1 and not _0 *)
         match args with
         | [ l; n]-> T.CallExpr(
-            auto_place(T.AccessExpr (
+            e2_e (T.AccessExpr (
                 l, 
-                auto_place (T.VarExpr (Atom.builtin "get"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown),
+                e2var (Atom.builtin "get")
+            )),
             [n]
         )
         | _ -> Error.error place "listget must take two argument"
@@ -249,10 +244,10 @@ let encode_builtin_fct place name (args:T.expr list) =
     | "sessionid" -> begin
         match args with
         | [ s ] ->  T.CallExpr(
-            auto_place (T.AccessExpr (
+            e2_e (T.AccessExpr (
                 s, 
-                auto_place (T.VarExpr (Atom.builtin "get_id"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown),
+                e2var (Atom.builtin "get_id")
+            )),
             []
         )
         | _ -> Error.error place "sessionid must take one argument"
@@ -260,7 +255,7 @@ let encode_builtin_fct place name (args:T.expr list) =
     |"string_of_bridge" -> begin
         match args with
         | [ b ] ->  T.CallExpr(
-            auto_place (T.AccessExpr (b, auto_place (T.VarExpr (Atom.builtin "toString"), auto_place T.TUnknown)), auto_place T.TUnknown),
+            e2_e (T.AccessExpr (b, e2var (Atom.builtin "toString"))),
             []
         )
         | _ -> Error.error place "string_of_bridge must take one argument"
@@ -304,7 +299,7 @@ let encode_builtin_fct place name (args:T.expr list) =
     | "print" -> begin
         match args with
         | [ msg ] -> T.CallExpr (
-                auto_place (T.VarExpr (Atom.builtin "System.out.println"), auto_place T.TUnknown),
+                e2var (Atom.builtin "System.out.println"),
                 [msg]
             )
         | _ -> Error.error place "print must take one argument" 
@@ -312,10 +307,10 @@ let encode_builtin_fct place name (args:T.expr list) =
     | "place_to_string" | "int_to_string" -> begin
         match args with
         | [p] -> T.CallExpr(
-            auto_place(T.AccessExpr (
+            e2_e (T.AccessExpr (
                 p,
-                auto_place(T.RawExpr "toString", auto_place T.TUnknown)
-            ), auto_place T.TUnknown),
+                e2_e (T.RawExpr "toString")
+            )),
             []
         )
         | _ -> Error.error place "X_to_string takes one arg"
@@ -327,12 +322,12 @@ let encode_builtin_fct place name (args:T.expr list) =
         match args with
         | [ outport; right ] ->  
             T.CallExpr (
-                auto_place (T.AccessExpr (outport, auto_place (T.VarExpr (Atom.builtin "initiate_session_with"), auto_place T.TUnknown)), auto_place T.TUnknown),
+                e2_e (T.AccessExpr (outport, e2var (Atom.builtin "initiate_session_with"))),
                 [
-                    auto_place(T.CastExpr(
+                    e2_e (T.CastExpr(
                         auto_place (T.TVar (Atom.builtin "ActivationRef")), (* TODO can we move cast elsewhere ?*)
                         Misc.e_get_self_activation place (Misc.e_get_context place)
-                    ), auto_place T.TUnknown);
+                    ));
                     right;
                     Misc.e_none place ; (* FIXME interception should change this*)
                 ]
@@ -343,7 +338,7 @@ let encode_builtin_fct place name (args:T.expr list) =
         match args with 
         | [ dict ] ->
             T.CallExpr(
-                auto_place (T.VarExpr (Atom.builtin "com.lg4dc.Utils.pick"), auto_place T.TUnknown),
+                e2var (Atom.builtin "com.lg4dc.Utils.pick"),
                 [ dict ]
             )
         | _ -> Error.error place "pick must take one argument"
@@ -352,10 +347,10 @@ let encode_builtin_fct place name (args:T.expr list) =
         match args with 
         | [ opt ] ->
             T.CallExpr(
-                auto_place (T.AccessExpr( 
+                e2_e (T.AccessExpr( 
                     opt,
-                    auto_place (T.VarExpr (Atom.builtin "get"), auto_place T.TUnknown)
-                ), auto_place T.TUnknown),
+                    e2var (Atom.builtin "get")
+                )),
                 [ ]
             )
         | _ -> Error.error place "option_get must take one argument"
@@ -380,16 +375,16 @@ let encode_builtin_fct_as_stmt place name (args:T.expr list) =
             let e = Atom.fresh "e" in
             T.TryStmt(
                 auto_place(T.ExpressionStmt(
-                    auto_place(T.CallExpr (
-                        auto_place (T.RawExpr "Thread.sleep", auto_place T.TUnknown), 
+                    e2_e (T.CallExpr (
+                        e2_e (T.RawExpr "Thread.sleep"), 
                         [duration]
-                    ), auto_place T.TUnknown)
+                    ))
                 )),
                 [
                     (
                         auto_place(T.Atomic "Exception"), 
                         e, 
-                        auto_place(T.ExpressionStmt(auto_place(T.RawExpr "System.out.println(e)", auto_place T.TUnknown)))
+                        auto_place(T.ExpressionStmt(e2_e (T.RawExpr "System.out.println(e)")))
                     );
                 ]
             )

@@ -11,6 +11,7 @@ let logger = Logging.make_logger ("_1_ compspec.plg."^plg_name) Debug [];;
 
 let fplace = (Error.forge_place ("plg."^plg_name^".Finish") 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
+include Ast.AstUtil2.Make(struct let fplace = fplace end)
 
 (* The source calculus. *)
 module S = IRI 
@@ -276,7 +277,7 @@ module Make () = struct
     in
 
     function 
-        | S.STEnd -> T.NewExpr (auto_place (T.VarExpr (a_ASTStype_of "End"), auto_place T.TUnknown), []), auto_place T.TUnknown
+        | S.STEnd -> T.NewExpr (e2var (a_ASTStype_of "End"), []), auto_place T.TUnknown
         (* With guard *)
         | (S.STSend ({place=p_mt; value=S.ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) | (S.STRecv ({place=p_mt; value=S.ConstrainedType (mt, (guard_headers, guard_opt))}, st) as st0) -> begin 
 
@@ -294,17 +295,15 @@ module Make () = struct
                     constructor,
                     [
                         e_ASTStype_MsgT_of place (
-                            auto_place(
-                                T.CallExpr(
-                                    auto_place (T.AccessExpr(
-                                        auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.builtin "class"), auto_place T.TUnknown)), auto_place T.TUnknown),
-                                        auto_place (T.RawExpr "toString", auto_place T.TUnknown)
-                                    ), auto_place T.TUnknown),
-                                    []
-                                ), auto_place T.TUnknown
-                            )
+                            e2_e (T.CallExpr(
+                                e2_e (T.AccessExpr(
+                                    e2_e (T.AccessExpr (encodectype ct, e2var (Atom.builtin "class"))),
+                                    e2_e (T.RawExpr "toString")
+                                )),
+                                []
+                            ))
                         );
-                        auto_place (Encode.encode_list place encoded_headers, auto_place T.TUnknown);  
+                        e2_e (Encode.encode_list place encoded_headers);  
                         fvstype st
                     ]
                 ), auto_place T.TUnknown 
@@ -324,17 +323,15 @@ module Make () = struct
                     constructor,
                     [
                         e_ASTStype_MsgT_of place (
-                            auto_place(
-                                T.CallExpr(
-                                    auto_place (T.AccessExpr(
-                                        auto_place (T.AccessExpr (encodectype ct, auto_place (T.VarExpr (Atom.builtin "class"), auto_place T.TUnknown)), auto_place T.TUnknown),
-                                        auto_place (T.RawExpr "toString", auto_place T.TUnknown)
-                                    ), auto_place T.TUnknown),
-                                    []
-                                ), auto_place T.TUnknown
-                            )
+                            e2_e (T.CallExpr(
+                                e2_e (T.AccessExpr(
+                                    e2_e (T.AccessExpr (encodectype ct, e2var (Atom.builtin "class"))),
+                                    e2_e (T.RawExpr "toString")
+                                )),
+                                []
+                            ))
                         );
-                        auto_place (Encode.encode_list place [], auto_place T.TUnknown);  
+                        e2_e (Encode.encode_list place []);  
                         fvstype st
                     ]
                 ), auto_place T.TUnknown
@@ -350,19 +347,19 @@ module Make () = struct
             T.NewExpr (
                 constructor,
                 [
-                    auto_place (T.BlockExpr (
+                    e2_e (T.BlockExpr (
                         AstUtils.List,
-                        List.map (function (label, st, _) -> auto_place (T.BlockExpr (
+                        List.map (function (label, st, _) -> e2_e (T.BlockExpr (
                             AstUtils.Tuple, 
                             [ 
                                 e_ASTStype_MsgT_of place (
-                                    auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string label))), auto_place T.TUnknown) 
+                                    e2_lit (T.StringLit (Atom.to_string label)) 
                                 );
-                                auto_place (Encode.encode_list place [], auto_place T.TUnknown);  
+                                e2_e (Encode.encode_list place []);  
                                 fvstype st 
                             ]
-                        ), auto_place T.TUnknown)) xs
-                    ), auto_place T.TUnknown)
+                        ))) xs
+                    ))
                 ]
             ), auto_place T.TUnknown
         | S.STVar _ -> failwith "Not yet supported" 
@@ -372,7 +369,7 @@ module Make () = struct
         | S.STWildcard -> 
             (* FIXME TODO WARNING dirty hack since we do not have working mgu to unify receive bridge type with concrete type
             then temporaly we return STEnd encoding *)
-            T.NewExpr (auto_place (T.VarExpr (a_ASTStype_of "End"), auto_place T.TUnknown), []), auto_place T.TUnknown
+            T.NewExpr ( e2var (a_ASTStype_of "End"), []), auto_place T.TUnknown
             (* The correct behaviour is *)
             (* raise (Error.PlacedDeadbranchError (place, "STWildcard should have been concretized during type inference.")) *)
     and fvstype st : T.expr = map_place finishv_stype st
@@ -445,16 +442,16 @@ module Make () = struct
         fst (e_bridge_of_protocol place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown))).value 
         | S.LitExpr {value=S.BLabelLit l; place=lit_place} -> 
             T.NewExpr( 
-                auto_place(T.RawExpr "LabelEvent", auto_place T.TUnknown), 
-                [ auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string l))), auto_place T.TUnknown)]
+                e2_e (T.RawExpr "LabelEvent"), 
+                [ e2_lit (T.StringLit (Atom.to_string l))]
             )
         | S.LitExpr {value=S.StaticBridge b; place=lit_place} -> 
-            fst (e_static_bridge_of_protocol place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown)) b.id).value
+            fst (e_static_bridge_of_protocol place (e2var b.protocol_name) b.id).value
         | S.LitExpr {value=S.VPlace vp} -> begin 
             T.CallExpr (
-                auto_place(T.VarExpr (Atom.builtin "VPlaces.get"), auto_place T.TUnknown),
+                e2var (Atom.builtin "VPlaces.get"),
                 [
-                    auto_place (T.LitExpr(auto_place(T.StringLit (Atom.hint vp.name))), auto_place T.TUnknown)
+                    e2_lit (T.StringLit (Atom.hint vp.name))
                 ]
             )
         end
@@ -476,24 +473,22 @@ module Make () = struct
         | S.This -> T.This
         | S.Spawn {c; args; at=None} ->
             T.ActivationRef{
-                schema = auto_place (T.LitExpr ( auto_place (T.StringLit (Atom.to_string (IRMisc.schema_of c)))), auto_place T.TUnknown);
-                actor_ref = auto_place (T.Spawn {
-                    context = auto_place (T.CurrentContext, auto_place T.TUnknown);  
-                    actor_expr= auto_place (T.CallExpr(
-                        auto_place (T.VarExpr (Atom.builtin "spawn")
-                        , auto_place T.TUnknown),
-                        [auto_place (T.CallExpr (
-                            auto_place (T.AccessExpr (
+                schema = e2_lit (T.StringLit (Atom.to_string (IRMisc.schema_of c)));
+                actor_ref = e2_e (T.Spawn {
+                    context = e2_e T.CurrentContext;  
+                    actor_expr= e2_e (T.CallExpr(
+                        e2var (Atom.builtin "spawn"),
+                        [ e2_e (T.CallExpr (
+                            e2_e (T.AccessExpr (
                                     fcexpr c,
-                                    auto_place (T.VarExpr (Atom.builtin "create")
-                                    , auto_place T.TUnknown)
-                                ), auto_place T.TUnknown),
+                                    e2var (Atom.builtin "create")
+                                )),
                                 e_this_guardian fplace
                                 :: List.map fexpr args
                             )
-                        , auto_place T.TUnknown)] @ [ auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))), auto_place T.TUnknown)]
-                    ), auto_place T.TUnknown)
-                }, auto_place T.TUnknown)
+                        )] @ [ e2_lit (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))]
+                    ))
+                })
             }
         | S.Spawn {c; args; at=Some at} ->
             (*
@@ -515,11 +510,11 @@ module Make () = struct
 
             (* TODO ?? DUplicated with AkkaJAva [arg_lambda] ?? *)
             let runnable = 
-            auto_place (T.LambdaExpr (
+            e2_e (T.LambdaExpr (
                 [auto_place T.TUnknown, a_guardian],
                 auto_place (T.BlockStmt [
                     auto_place (T.ReturnStmt (
-                        auto_place (T.LambdaExpr (
+                        e2_e (T.LambdaExpr (
                             [
                                 (* ActorContext<author.project_name.a14.C33.Command> *)
                                 auto_place (
@@ -538,74 +533,74 @@ module Make () = struct
                             ],
                             auto_place (T.BlockStmt [
                                 auto_place (T.ReturnStmt (
-                                    auto_place(T.CallExpr(
+                                    e2_e(T.CallExpr(
                                         e_behaviors_with_timers fplace,
                                         [
-                                            auto_place (T.LambdaExpr (
+                                            e2_e (T.LambdaExpr (
                                                 [auto_place T.TUnknown, a_timers],
                                                 auto_place (T.BlockStmt [
                                                     auto_place (T.ExpressionStmt (
                                                     e_debug_of 
                                                         place 
-                                                        (auto_place (T.VarExpr a_context, auto_place T.TUnknown)) 
+                                                        (e2var a_context) 
                                                         [
-                                                            auto_place (T.LitExpr (auto_place (T.StringLit ("SpawnAT::create"))), auto_place T.TUnknown)
+                                                            e2_lit (T.StringLit ("SpawnAT::create"));
                                                         ]
                                                     ));
-                                                    auto_place (T.ReturnStmt (auto_place (
-                                                        T.NewExpr (
+                                                    auto_place (T.ReturnStmt (
+                                                        e2_e (T.NewExpr (
                                                             fcexpr c,
                                                             (
-                                                                List.map (function x -> auto_place (T.VarExpr x, auto_place T.TUnknown)) (a_context
+                                                                List.map (function x -> e2var x) (a_context
                                                                 ::a_timers
                                                                 ::a_guardian
                                                                 ::[]
                                                             )
                                                             @(List.map fexpr args))
 
-                                                        ), auto_place T.TUnknown
-                                                    )));
+                                                        ))
+                                                    ));
                                                 ])
-                                            ), auto_place T.TUnknown)
+                                            ))
                                         ]
-                                ), auto_place T.TUnknown)))
+                                ))))
                             ])
-                        ), auto_place T.TUnknown)
+                        ))
                     ))
                 ])
-            ), auto_place T.TUnknown) in
+            )) in
         
             T.ActivationRef {
-                schema = auto_place (T.LitExpr ( auto_place (T.StringLit (Atom.to_string (IRMisc.schema_of c)))), auto_place T.TUnknown);
+                schema = e2_lit (T.StringLit (Atom.to_string (IRMisc.schema_of c)));
                 actor_ref = 
-                auto_place(T.CallExpr(
+                e2_e (T.CallExpr(
                     e_lg4dc_spawnat fplace,
                     [
                         e_get_context place;
                         e_this_guardian fplace;
                         runnable;
-                        auto_place (T.LitExpr (auto_place (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))), auto_place T.TUnknown);
-                        auto_place (T.LitExpr (auto_place T.VoidLit), auto_place T.TUnknown);
+                        e2_lit (T.StringLit (Atom.to_string (Atom.fresh "actor_name")));
+                        e2_lit T.VoidLit;
                         fexpr at;
                     ]
-                ), auto_place T.TUnknown)
+                ))
             }
         | S.BoxCExpr _ -> failwith "finish_expr BoxCexpr is not yet supported"
                 
         | S.OptionExpr None -> T.CallExpr (
-            auto_place (T.VarExpr (Atom.builtin "Optional.empty"), auto_place T.TUnknown),
+            e2var (Atom.builtin "Optional.empty"),
             []
         )  
         | S.OptionExpr (Some e) -> T.CallExpr (
-            auto_place (T.VarExpr (Atom.builtin "Optional.of"), auto_place T.TUnknown),
+            e2var (Atom.builtin "Optional.of"),
             [fexpr e]
         )  
         | S.ResultExpr (None, Some err) ->  T.CallExpr (
-            auto_place (T.VarExpr (Atom.builtin "Either.left"), auto_place T.TUnknown),
+            e2var (Atom.builtin "Either.left"),
             [fexpr err]
         ) 
         | S.ResultExpr (Some ok, None) -> T.CallExpr (
-            auto_place (T.VarExpr (Atom.builtin "Either.right"), auto_place T.TUnknown),
+            e2var (Atom.builtin "Either.right"),
             [fexpr ok]
         ) 
         | S.ResultExpr (_,_) -> raise (Core.Error.PlacedDeadbranchError (place, "finish_expr : a result expr can not be Ok and Err at the same time."))
@@ -631,10 +626,10 @@ module Make () = struct
         | S.AssignExpr (x, e) -> T.AssignExpr (auto_place (T.VarExpr x, auto_place T.TUnknown), fexpr e)
         | S.AssignThisExpr (x, e) -> 
             T.AssignExpr ( 
-                auto_place (T.AccessExpr (
-                    auto_place (T.This, auto_place T.TUnknown),
-                    auto_place (T.VarExpr x, auto_place T.TUnknown))
-                , auto_place T.TUnknown),
+                e2_e (T.AccessExpr (
+                    e2_e T.This,
+                    e2var x
+                )),
                 fexpr e)        
         | S.LetStmt (mt, x, e) ->  
             (* 
@@ -1012,7 +1007,7 @@ module Make () = struct
                 stmts = [ auto_place(T.LetStmt (
                     auto_place (T.Atomic "String"),
                     a_schema,
-                    Some (auto_place(T.LitExpr (auto_place (T.StringLit (Atom.to_string name))), auto_place T.TUnknown))
+                    Some (e2_lit (T.StringLit (Atom.to_string name)))
                 ))]
             };
             (* Set<UUID> frozen_sessions = new HashSet();*)
@@ -1020,7 +1015,7 @@ module Make () = struct
                 stmts = [ auto_place(T.LetStmt (
                     auto_place (T.TSet(auto_place( T.Atomic "UUID"))),
                     a_frozen_sessions,
-                    Some (auto_place(T.BlockExpr(Core.AstUtils.Set, []), auto_place T.TUnknown))
+                    Some (e2_e (T.BlockExpr(Core.AstUtils.Set, [])))
                 ))]
             };
             (* Set<UUID> dead_sessions = new HashSet() *)
@@ -1028,7 +1023,7 @@ module Make () = struct
                 stmts = [ auto_place(T.LetStmt (
                     auto_place (T.TSet(auto_place( T.Atomic "UUID"))),
                     a_dead_sesison,
-                    Some (auto_place(T.BlockExpr(Core.AstUtils.Set, []), auto_place T.TUnknown))
+                    Some ( e2_e(T.BlockExpr(Core.AstUtils.Set, [])))
                 ))]
             };
         ] @ states in
@@ -1045,10 +1040,10 @@ module Make () = struct
                         auto_place( T.Atomic "OutPort"),
                         _p.name,
                         Some (
-                            auto_place (T.NewExpr(
-                                auto_place (T.RawExpr "OutPort", auto_place T.TUnknown),
+                            e2_e (T.NewExpr(
+                                e2_e (T.RawExpr "OutPort"),
                                 []
-                            ), auto_place T.TUnknown)    
+                            ))    
                         )
                     ))]
                 }
@@ -1066,13 +1061,13 @@ module Make () = struct
                         auto_place( T.Atomic "InPort"),
                         _p.name,
                         Some (
-                            auto_place (T.NewExpr(
-                                auto_place (T.RawExpr "InPort", auto_place T.TUnknown),
+                            e2_e (T.NewExpr(
+                                e2_e (T.RawExpr "InPort"),
                                 [
                                     fvstype (match _p.expecting_st.value with
                                     | S.SType st -> st)
                                 ]
-                            ), auto_place T.TUnknown)    
+                            ))    
                         )
                     ))]
                 }
@@ -1134,43 +1129,23 @@ module Make () = struct
         let generate_event_receiver (event_name:Atom.atom) (inner_env:(S.port * S.session_type * S.session_type, T.expr) Hashtbl.t) : T.stmt list =
             (* Helpers *)
             let bridgeid (port: S.port) =
-                auto_place (T.CallExpr (
-                    auto_place (T.AccessExpr (
-                        auto_place (T.AccessExpr (
-                            auto_place (T.This, auto_place T.TUnknown),
-                            auto_place (T.VarExpr
-                                (fst port.value).name,
-                                auto_place T.TUnknown)
-                        ), auto_place T.TUnknown),
-                        auto_place (T.RawExpr "get_binded_bridge_id", auto_place T.TUnknown)
-                    ), auto_place T.TUnknown),
+                e2_e (T.CallExpr (
+                    e2_e (T.AccessExpr (
+                        e2_e (T.AccessExpr (
+                            e2_e T.This,
+                            e2var (fst port.value).name
+                        )),
+                        e2_e (T.RawExpr "get_binded_bridge_id")
+                    )),
                     []
-                ), auto_place T.TUnknown)
+                ))
             in
-            let e_bridgeid e = auto_place (T.AccessExpr (
-                e,
-                auto_place (T.VarExpr (Atom.builtin "bridge_id"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown) in
-            let e_sessionid e = auto_place (T.AccessExpr (
-                e,
-                auto_place (T.VarExpr (Atom.builtin "session_id"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown) in
-            let e_replyto e = auto_place (T.AccessExpr (
-                e,
-                auto_place (T.VarExpr (Atom.builtin "replyTo"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown) in
-            let e_remaining_step e = auto_place (T.AccessExpr (
-                e,
-                auto_place (T.VarExpr (Atom.builtin "st"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown) in
-            let e_init_stage e = auto_place (T.AccessExpr (
-                e,
-                auto_place (T.VarExpr (Atom.builtin "init_stage"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown) in
-            let e_hidden_right e = auto_place (T.AccessExpr (
-                e,
-                auto_place (T.VarExpr (Atom.builtin "hidden_right"), auto_place T.TUnknown)
-            ), auto_place T.TUnknown) in
+            let e_bridgeid e = e2_e (T.AccessExpr (e, e2var (Atom.builtin "bridge_id"))) in
+            let e_sessionid e = e2_e (T.AccessExpr (e, e2var (Atom.builtin "session_id"))) in
+            let e_replyto e = e2_e (T.AccessExpr (e, e2var (Atom.builtin "replyTo"))) in
+            let e_remaining_step e = e2_e (T.AccessExpr (e, e2var (Atom.builtin "st"))) in
+            let e_init_stage e = e2_e (T.AccessExpr (e, e2var (Atom.builtin "init_stage"))) in
+            let e_hidden_right e = e2_e (T.AccessExpr (e, e2var (Atom.builtin "hidden_right"))) in
 
 
             (* Handle frozen/timeout session
@@ -1188,13 +1163,13 @@ module Make () = struct
             *)
             let add_check_session_validity ()=
                 auto_place (T.IfStmt(
-                    auto_place(T.UnopExpr(
+                    e2_e(T.UnopExpr(
                         Core.AstUtils.Not,    
-                        auto_place (T.CallExpr(
-                            auto_place (T.AccessExpr(
-                                auto_place (T.VarExpr (Atom.builtin "Handlers"), auto_place T.TUnknown),
-                                auto_place (T.VarExpr (Atom.builtin "is_session_alive"), auto_place T.TUnknown)
-                            ), auto_place T.TUnknown),
+                        e2_e (T.CallExpr(
+                            e2_e (T.AccessExpr(
+                                e2var (Atom.builtin "Handlers"),
+                                e2var (Atom.builtin "is_session_alive")
+                            )),
                             [ 
                                 e_cast fplace "ActorContext" (e_get_context fplace);
                                 e_cast fplace "ActivationRef" (e_get_self_activation fplace (e_get_context fplace));
@@ -1203,8 +1178,8 @@ module Make () = struct
                                 e_sessionid l_event; 
                                 e_replyto l_event;
                             ]
-                        ), auto_place T.TUnknown)
-                    ), auto_place T.TUnknown),
+                        ))
+                    )),
                     auto_place(T.BlockStmt [
                         auto_place(T.ReturnStmt (e_behaviors_same fplace)) 
                     ]),
@@ -1228,62 +1203,62 @@ module Make () = struct
             *)
 
             let a_session = Atom.builtin "s" in
-            let l_session = auto_place (T.VarExpr a_session, auto_place T.TUnknown) in
+            let l_session = e2var a_session in
 
             let add_case__disable_session (callback:T.expr) : T.stmt =
-                auto_place (T.ExpressionStmt (auto_place (
-                    T.CallExpr(
+                auto_place (T.ExpressionStmt (
+                    e2_e (T.CallExpr(
                         callback,
                         [ l_event; ]
-                    ), auto_place T.TUnknown
-                )))
+                    ))
+                ))
             in
 
             let add_case__with_session (port, st, remaining_st) (callback:T.expr) acc : T.stmt =
                 auto_place (T.IfStmt (
-                    auto_place (T.BinopExpr(
-                        auto_place (T.BinopExpr (e_bridgeid l_event, AstUtils.StructuralEqual, bridgeid port), auto_place T.TUnknown),
+                    e2_e (T.BinopExpr(
+                        e2_e (T.BinopExpr (e_bridgeid l_event, AstUtils.StructuralEqual, bridgeid port)),
                         AstUtils.And,
-                        auto_place (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, fvstype (IRMisc.dual st)), auto_place T.TUnknown)
-                    ), auto_place T.TUnknown),
+                        e2_e (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, fvstype (IRMisc.dual st)))
+                    )),
                     auto_place (T.BlockStmt [
                         auto_place (T.LetStmt (
                             t_lg4dc_session place,
                             a_session,
-                            Some (auto_place (T.NewExpr(
+                            Some ( e2_e (T.NewExpr(
                                 e_lg4dc_session place,
                                 [
                                     e_bridgeid l_event;
-                                    auto_place (T.CastExpr(
+                                    e2_e (T.CastExpr(
                                         auto_place (T.TVar (Atom.builtin "ActivationRef")),
                                         e_get_self_activation place (e_get_context place)
-                                    ), auto_place T.TUnknown);
+                                    ));
                                     e_replyto l_event;
                                     fvstype remaining_st;
                                     e_init_stage l_event;
                                     e_hidden_right l_event;
-                                    auto_place (T.AccessExpr(
-                                        auto_place (T.This, auto_place T.TUnknown),
-                                        auto_place (T.VarExpr (fst port.value).name, auto_place T.TUnknown)
-                                    ), auto_place T.TUnknown)
+                                    e2_e (T.AccessExpr(
+                                        e2_e T.This,
+                                        e2var (fst port.value).name
+                                    ))
                                 ]
-                            ), auto_place T.TUnknown))
+                            )))
                         ));
-                        auto_place (T.ExpressionStmt (auto_place (
-                            T.CallExpr(
+                        auto_place (T.ExpressionStmt (
+                            e2_e (T.CallExpr(
                                 e_setid_of_session fplace a_session,
                                 [ e_sessionid l_event]
-                            ), auto_place T.TUnknown
-                        )));
+                            ))
+                        ));
                         auto_place (T.ExpressionStmt (
                             e_apply_headers fplace l_session
                         ));
-                        auto_place (T.ExpressionStmt (auto_place (
-                            T.CallExpr(
+                        auto_place (T.ExpressionStmt (
+                            e2_e (T.CallExpr(
                                 callback,
                                 [ l_event; l_session ]
-                            ), auto_place T.TUnknown
-                        )))
+                            ))
+                        ))
                     ]),
                     Some acc
                 ))
@@ -1305,14 +1280,14 @@ module Make () = struct
             @ 
             [
                 Hashtbl.fold add_case inner_env (auto_place (T.ExpressionStmt ((e_error_of fplace (e_get_context fplace) [
-                    auto_place (T.LitExpr (auto_place(T.StringLit"Dispatcher does not caught message ")), auto_place T.TUnknown);
-                    auto_place (T.CallExpr (
-                        auto_place(T.AccessExpr(
+                    e2_lit (T.StringLit"Dispatcher does not caught message ");
+                    e2_e (T.CallExpr (
+                        e2_e (T.AccessExpr(
                             l_event,
-                            auto_place (T.RawExpr "toString", auto_place T.TUnknown)
-                        ), auto_place T.TUnknown),
+                            e2_e (T.RawExpr "toString")
+                        )),
                         []
-                    ), auto_place T.TUnknown);
+                    ));
                 ]))));
                 auto_place ret_stmt
             ]
@@ -1334,13 +1309,13 @@ module Make () = struct
                         {place; value=T.VarExpr (Atom.builtin "onMessage"), auto_place T.TUnknown}, 
                         [
                             {place; value=T.ClassOf (auto_place (T.TVar (Atom.builtin event_name))), auto_place T.TUnknown};
-                            auto_place (T.LambdaExpr (
+                            e2_e (T.LambdaExpr (
                                 [
                                     auto_place T.TUnknown, l_event_name 
                                 ],
                                 auto_place(T.BlockStmt [
-                                    auto_place(T.ExpressionStmt(auto_place(T.CallExpr(
-                                        auto_place (T.VarExpr (Atom.builtin handler), auto_place T.TUnknown),
+                                    auto_place(T.ExpressionStmt(e2_e(T.CallExpr(
+                                        e2var (Atom.builtin handler),
                                         [
                                             e_get_context fplace;
                                             e_get_self_activation place (e_get_context fplace);
@@ -1350,12 +1325,12 @@ module Make () = struct
                                             e_this_intermediate_states fplace;
                                             l_event
                                         ]
-                                    ), auto_place T.TUnknown)));
+                                    ))));
                                     auto_place(T.ReturnStmt(
                                         e_behaviors_same fplace
                                     ))
                                 ])
-                            ), auto_place T.TUnknown)
+                            ))
                         ]
                     ), auto_place T.TUnknown}
                 ), auto_place T.TUnknown}
@@ -1396,10 +1371,10 @@ module Make () = struct
                         {place; value=T.VarExpr (Atom.builtin "onMessage"), auto_place T.TUnknown}, 
                         [
                             {place; value=T.ClassOf (auto_place (T.TVar event_name)), auto_place T.TUnknown};
-                            auto_place (T.AccessMethod (
-                                auto_place (T.This, auto_place T.TUnknown),
+                            e2_e (T.AccessMethod (
+                                e2_e T.This,
                                 _m_name
-                            ), auto_place T.TUnknown)
+                            ))
                         ]
                     ), auto_place T.TUnknown}
                 ), auto_place T.TUnknown}, _m::acc_methods)
@@ -1502,8 +1477,8 @@ module Make () = struct
                     body = T.AbstractImpl [
                         auto_fplace (T.ReturnStmt (
                             auto_fplace (T.AccessExpr(
-                                auto_fplace (T.This, auto_fplace T.TUnknown),
-                                auto_fplace (T.VarExpr name, auto_fplace T.TUnknown)
+                                e2_e T.This,
+                                e2var name
                             ), ct)
                         ))
                     ];
@@ -1605,8 +1580,8 @@ module Make () = struct
         (*** Helpers ***)
         let l_st = Atom.builtin "st" in
         let this_st = T.AccessExpr (
-            auto_place (T.This, auto_place T.TUnknown), 
-            auto_place (T.VarExpr l_st, auto_place T.TUnknown)
+            e2_e T.This, 
+            e2var l_st
         ) in
 
         (* com.lg4dc.Protocol *)
