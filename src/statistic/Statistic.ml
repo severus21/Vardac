@@ -33,6 +33,12 @@ function
 | MatchStmt (_, branches) -> 
     incr global_stats.ssc;
     List.iter (function (_, stmt) -> analyze_stmt stmt) branches
+| BranchStmt {branches;} ->
+    incr global_stats.ssc;
+    List.iter (function (stmt) -> analyze_stmt stmt) (List.map (function b -> b.body) branches)
+| BlockStmt stmts | WithContextStmt (_,_,_, stmts) -> 
+    incr global_stats.ssc;
+    List.iter (function (stmt) -> analyze_stmt stmt)stmts  
 | GhostStmt _ -> failwith "What to do with ghost ???"
 
 and analyze_stmt (stmt:stmt) = map0_place _analyze_stmt stmt
@@ -45,7 +51,7 @@ and _analyze_component_item place = function
     if c.invariant <> None then incr global_stats.ssc;
 | State _ -> incr global_stats.ssc
 | Method m -> List.iter analyze_stmt m.value.abstract_impl
-|Inport _ -> incr global_stats.ssc
+| Inport _ | Outport _-> incr global_stats.ssc
 | Term t -> analyze_term t
 | Include _ -> incr global_stats.ssc
 and analyze_component_item (citem:component_item) = map0_place _analyze_component_item citem
@@ -59,6 +65,7 @@ and _analyze_term place = function
 | Comments _ -> ()
 | PPTerm _ -> ()
 | Stmt stmt -> analyze_stmt stmt
+| Annotation _ -> ()
 | Component c -> analyze_component_dcl c
 | Function fdcl -> List.iter analyze_stmt fdcl.value.abstract_impl 
 | Typealias _ | Typedef _ -> incr global_stats.ssc

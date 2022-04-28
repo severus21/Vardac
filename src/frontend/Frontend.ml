@@ -63,4 +63,4 @@ let to_impl gamma gamma_types sealed_envs targets filename program =
     |> function ast -> logger#sinfo "Impl AST is built"; ast 
     |> dump "Impl" Impl.show_program
     |> PairedImpl.paired_program targets program
-    |> function (headers, program) -> dump "IRI - IR-with-implemented" IRI.show_program program; (headers, program)
+    |> function (headers, program) -> headers, (dump "IRI - IR-with-implemented" IRI.show_program program)

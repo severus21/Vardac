@@ -880,6 +880,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     {place = ct.place; value=T.VarExpr x, auto_place T.TUnknown}, 
                     {place = ct.place; value = T.VarExpr (Atom.builtin "class"), auto_place T.TUnknown}
                     )
+                | _ -> Error.error place "This not a Java class, can not get class name"
             end 
             | S.CurrentContext -> 
                 T.AppExpr (
@@ -914,7 +915,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     auto_place(T.VarExpr(Atom.builtin "ArrayList"), auto_place T.TUnknown),
                     []
                 ) 
-                | List when es <> []  -> T.AppExpr(
+                | List -> T.AppExpr(
                     auto_place(T.VarExpr(Atom.builtin "List.of"), auto_place T.TUnknown),
                     List.map fexpr es
                 )
@@ -934,6 +935,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     auto_place(T.VarExpr(Atom.builtin "Tuple.of"), auto_place T.TUnknown),
                     List.map fexpr es
                 )
+                | Block -> raise (Error.PlacedDeadbranchError (place, "Block expr should have been compiled away!"))
             end
             | S.Block2Expr (b, ees) -> begin
                 match b with
@@ -941,7 +943,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     auto_place(T.VarExpr(Atom.builtin "HashMap"), auto_place T.TUnknown),
                     []
                 ) 
-                | Dict when ees <> []  -> 
+                | Dict -> 
                     let es = List.map (function (e1, e2) -> auto_place (S.BlockExpr(AstUtils.Tuple, [e1; e2]), auto_place S.TUnknown) ) ees in
                     T.AccessExpr(
                         fexpr (auto_place(S.BlockExpr (AstUtils.List, es),  auto_place S.TUnknown)),
@@ -983,8 +985,17 @@ module Make (Arg: Plugin.CgArgSig) = struct
             | S.VarExpr x -> T.VarExpr x             
             | S.NewExpr (e, es) -> T.NewExpr (fexpr e, List.map fexpr es)             
             | S.RawExpr str -> T.RawExpr str
+            | S.BBExpr bbterm -> T.BBExpr (fbbterm bbterm) 
         ), fctype ct
         and fexpr expr : T.expr = map_place finish_expr expr
+
+        and finish_bbterm place {S.language; body} = 
+            List.map (
+                function 
+                | S.Text t -> T.Text t
+                | S.Varda e -> T.Varda (fexpr e)
+            ) body
+        and fbbterm bbterm: T.blackbox_term = (map_place finish_bbterm) bbterm
 
         and finish_stmt place : S._stmt -> T._stmt = 
         let fplace = place@(Error.forge_place "Plg=AkkaJava/finish_stmt" 0 0) in
@@ -1656,7 +1667,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 let external_annotations = finish_annotations annotations in
                 let external_decorators = finish_decorators decorators in
 
-                let ({value=(T.Body body);} as m) = (fmethod false false m) in
+                let ({value=(T.Body body);}) = (fmethod false false m) in
 
                 T.Body { body with
                     value = { body.value with
@@ -1714,7 +1725,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
         let ir_program = ir_after_interface_program in
 
         (* Warning: must be called after exactly one apply, since it needs Module state *)
-        RtGenInterface.update_build_dir build_dir;
+        RtGenInterface.update_build_dir project_dir build_dir;
         RtGenInterface.resolve_templates project_dir build_dir;
 
         let program = ir_program

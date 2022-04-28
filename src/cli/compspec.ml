@@ -116,4 +116,5 @@ let () =
         if !list_check_plg then Check.display_available_plugins ();
         ()
     end
+    | _ -> Printf.fprintf stderr "Unknown action [%s]" !action
 
