@@ -198,6 +198,7 @@ and _expr =
     | ResultExpr of (expr option * expr option) (* Ok, Err *)
     | BlockExpr of block * expr list
     | Block2Expr of block2 * (expr * expr) list
+    | RawExpr of string (* not interpreted *)
 and expr = (_expr * main_type) placed
 
 and branch_stmt = {branch_label: literal; branch_s: expr_variable; body: stmt}
@@ -319,7 +320,7 @@ let rec collect_expr_expr_ parent_opt (already_binded:Atom.Set.t) selector colle
     | (VarExpr x) | (ImplicitVarExpr x) when Atom.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, [] 
     | (VarExpr x) | (ImplicitVarExpr x) when Atom.is_builtin x -> already_binded, collected_elts0, [] 
     | (VarExpr x) | (ImplicitVarExpr x)-> already_binded, collected_elts0, [mt, x]
-    | BridgeCall _ | BoxCExpr _ | EmptyExpr | LitExpr _ | OptionExpr None | ResultExpr (None, None) |This -> already_binded, collected_elts0, []
+    | BridgeCall _ | BoxCExpr _ | EmptyExpr | LitExpr _ | OptionExpr None | ResultExpr (None, None) | RawExpr _ | This -> already_binded, collected_elts0, []
     | AccessExpr (e1, {value=VarExpr _, _}) -> (* TODO AccessExpr : expr * Atom.t *)
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e1 in
         already_binded, collected_elts1, fvars1

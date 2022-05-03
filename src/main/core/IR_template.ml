@@ -1348,7 +1348,7 @@ module Make (Params : IRParams) = struct
             let rewrite_exprstmts_expr = rewrite_exprstmts_expr parent_opt selector rewriter in
             match e with  
             | _ when selector e -> rewriter parent_opt mt_e e
-            | EmptyExpr | VarExpr _ -> [], (e,mt_e)
+            | EmptyExpr | VarExpr _ | RawExpr _ -> [], (e,mt_e)
             | ActivationAccessExpr (cname, e, mname) ->
                 let stmts, e = rewrite_exprstmts_expr e in
                 stmts, (ActivationAccessExpr (cname, e, mname), mt_e)

@@ -238,15 +238,24 @@ end) = struct
                 T.vis = T.Public;
                 name = Atom.fresh "Service2Actor";
                 kind = T.Event;
-                args = [ ct_msg_in, Atom.fresh "value" ];
+                args = [ 
+                    (ct_msg_in, Atom.fresh "value");
+                    (auto_fplace (T.TVar service.impl_name), Atom.fresh "replyTo")
+                ];
             } in
             let actor2service_event = auto_fplace {
                 T.vis = T.Public;
                 name = Atom.fresh "Actor2Service";
                 kind = T.Event;
-                args = [ ct_msg_out, Atom.fresh "value" ];
+                args = [ 
+                    (ct_msg_out, Atom.fresh "value");
+                    (auto_fplace (T.TVar service.component_name), Atom.fresh "replyTo")
+                ];
             } in
-            service2actor_events := (rpc.m, service2actor_event, actor2service_event) :: !service2actor_events; 
+            service2actor_events := (
+                rpc.m, 
+                (service2actor_event, Hashtbl.find grpc_messages rpc.in_type), (actor2service_event, Hashtbl.find grpc_messages rpc.out_type)
+            ) :: !service2actor_events; 
 
             auto_fplace {
                 T.annotations = [];
@@ -339,7 +348,7 @@ end) = struct
                 |_ -> false) 
             (fun _ -> function
                 | S.Component {place; value = ComponentStructure cstruct } when cstruct.name = service.component_name -> 
-                    let inports = List.map (function ((m, e1, e2):S.method0 * T._event Core.IR.placed * T._event Core.IR.placed) ->
+                    let inports = List.map (function ((m, (e1, proto_msg1), (e2, proto_msg2)):S.method0 * (T._event Core.IR.placed * msg) * (T._event Core.IR.placed * msg)) ->
                         (* Resolve includes *)
                         let resolve x = 
                             let x = Atom.refresh_value x ((Atom.to_string service.impl_name)^"."^(Atom.value x)) in
@@ -348,16 +357,96 @@ end) = struct
                         let e1_rname = resolve e1.value.name in
                         let e2_rname = resolve e2.value.name in
 
-                        auto_fplace (S.Inport (auto_fplace ({
+
+                        (**
+                        callback(e):
+                            res = this.custom_callback(e.getX1(), ..., getXn()) X_i fields of Protobuf msg    
+                            e.replyTo.tell(.tell(TrucMsg(res), getSelf())
+                        *)
+                        let lambda_e = Atom.fresh "e" in
+                        let callback = auto_fplace {
+                            S.annotations = [];
+                            ghost = false;
+                            ret_type = S_A2.mtype_of_ft Core.AstUtils.TVoid;
+                            name = Atom.fresh "callback";
+                            args = [ auto_fplace(S_A2.mtype_of_var e1_rname, lambda_e) ];
+                            contract_opt = None;
+                            on_destroy = false;
+                            on_startup = false;
+                            body = S.AbstractImpl [ auto_fplace (S.ExpressionStmt (
+                                S_A2.e2_e (S.CallExpr(
+                                    S_A2.e2_e (S.AccessExpr(
+                                        S_A2.e2_e (S.AccessExpr(
+                                            S_A2.e2var lambda_e,
+                                            S_A2.e2_e (S.RawExpr ("replyTo"))
+                                        )),
+                                        S_A2.e2_e (S.RawExpr ("tell"))
+                                    )),
+                                    [
+                                        S_A2.e2_e (S.CallExpr(
+                                            S_A2.e2var e2_rname,
+                                            [
+                                                (*HelloReply.newBuilder()
+                                                .setY_i(res).build*)
+                                                S_A2.e2_e (S.CallExpr(
+                                                    S_A2.e2_e (S.AccessExpr(
+                                                        S_A2.e2_e (S.CallExpr(
+                                                            S_A2.e2_e (S.AccessExpr(
+                                                                S_A2.e2_e (S.AccessExpr(
+                                                                    S_A2.e2var proto_msg2.name,
+                                                                    S_A2.e2_e (S.RawExpr ("newBuilder"))
+                                                                )),
+                                                                match proto_msg2.fields with
+                                                                | [f] -> S_A2.e2var f.name
+                                                                | _ -> failwith "wrong number of gRPC message fields for response"
+                                                            )),
+                                                            [ 
+                                                                S_A2.e2_e (S.CallExpr(
+                                                                    S_A2.e2_e (S.AccessExpr( 
+                                                                        S_A2.e2_e S.This, 
+                                                                        S_A2.e2var m.value.name
+                                                                    )),
+                                                                    List.map (function (f:msg_field) -> 
+                                                                        S_A2.e2_e (S.CallExpr(
+                                                                            S_A2.e2_e (S.AccessExpr( 
+                                                                                S_A2.e2_e (S.AccessExpr( 
+                                                                                    S_A2.e2var lambda_e,
+                                                                                    S_A2.e2_e (S.RawExpr "value")
+                                                                                )),
+                                                                                S_A2.e2_e (S.RawExpr (
+                                                                                    Printf.sprintf "get%s" (String.capitalize_ascii (Atom.to_string f.name))
+                                                                                ))
+                                                                            )),
+                                                                            []
+                                                                        ))
+                                                                    ) proto_msg1.fields
+                                                                ))
+                                                            ]
+                                                        )),
+                                                        S_A2.e2_e (S.RawExpr ("build"))
+                                                    )),
+                                                    []
+                                                ))
+                                            ]
+                                        ));
+                                        S_A2.e2_e (S.RawExpr ("getSelf()"))
+                                    ]
+                                ))
+                            ))];
+                        } in
+
+                        auto_fplace(S.Method callback), auto_fplace (S.Inport (auto_fplace ({
                             S.name = Atom.fresh ("port_service2actor_"^(Atom.value e1.value.name));
                             _disable_session = true;
                             expecting_st = S_A2.mtype_of_st (S.STRecv (S_A2.mtype_of_ct (S.TVar e1_rname), auto_fplace (S.STSend (S_A2.mtype_of_ct (S.TVar e2_rname), auto_fplace S.STEnd))));
-                            callback = S_A2.e2_e (S.AccessExpr( 
-                                S_A2.e2_e S.This, 
-                                S_A2.e2var m.value.name
-                            ))
+                            callback = S_A2.e2_e (S.AccessExpr(
+                                S_A2.e2_e S.This,
+                                S_A2.e2var callback.value.name
+                            )); 
                         }, auto_fplace S.EmptyMainType)))
                     ) !service2actor_events in
+
+                    let callbacks, inports = List.split inports in
                     
                     let props = auto_fplace (S.Method (auto_fplace{
                         S.annotations = [];
@@ -394,13 +483,13 @@ end) = struct
                         (S.Component{
                             place;
                             value = S.ComponentStructure { cstruct with 
-                                body = cstruct.body @ inports    
+                                body = cstruct.body @ callbacks @ inports    
                             }
                         })
                     ]
         ) program in
 
-        let events = List.map (function (m, e1, e2) -> 
+        let events = List.map (function (m, (e1, _), (e2, _)) -> 
             let aux e = auto_fplace {
                 T.annotations = [];
                 decorators = [];
@@ -408,7 +497,7 @@ end) = struct
             } in
             (m, aux e1, aux e2)
         ) !service2actor_events in
-        let events = List.flatten (List.map (function (_,e1,e2)-> [e1;e2]) events) in
+        let events = List.flatten (List.map (function (_,e1, e2)-> [e1;e2]) events) in
 
         program, auto_fplace {
                 T.annotations = [];     

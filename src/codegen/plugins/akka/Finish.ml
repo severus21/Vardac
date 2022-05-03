@@ -470,6 +470,7 @@ module Make () = struct
                 Encode.encode_builtin_fct e1.place (Atom.value x) (List.map fexpr es)
             | _ -> T.NewExpr (fexpr e1, List.map fexpr es)
         end
+        | S.RawExpr x -> T.RawExpr x
         | S.This -> T.This
         | S.Spawn {c; args; at=None} ->
             T.ActivationRef{
