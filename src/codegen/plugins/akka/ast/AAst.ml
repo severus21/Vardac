@@ -193,10 +193,12 @@ and _term =
     name: variable;
     extended_types: ctype list;
     implemented_types: ctype list;
-    body: term list} 
+    body: term list;
+    imports: string list (*specific imports*)
+} 
 | MethodDeclaration of method0
 | RawClass of variable * blackbox_term 
-| TemplateClass of blackbox_term 
+| RawTerm of blackbox_term
 | Stmt of stmt 
 
 (** Akka structure *)

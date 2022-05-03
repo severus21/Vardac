@@ -225,6 +225,7 @@ and _apply_rename_term rename_binders (renaming : Atom.atom -> Atom.atom ) place
         | Class x -> Class (renaming x) 
         | ClassOrInterfaceDeclaration cdcl -> ClassOrInterfaceDeclaration
             {
+                imports = cdcl.imports;
                 isInterface = cdcl.isInterface; 
                 name = if rename_binders then renaming cdcl.name else cdcl.name;
                 extended_types = List.map (apply_rename_ctype renaming) cdcl.extended_types;
@@ -236,8 +237,8 @@ and _apply_rename_term rename_binders (renaming : Atom.atom -> Atom.atom ) place
         | Import s -> Import s 
         | MethodDeclaration m0 -> MethodDeclaration (apply_rename_method0 rename_binders renaming m0)
         | RawClass (x,raw) -> RawClass (renaming x, raw)
+        | RawTerm raw -> RawTerm raw
         | Stmt stmt -> Stmt (apply_rename_stmt rename_binders renaming stmt)
-        | TemplateClass raw -> TemplateClass raw 
 }
 and apply_rename_term rename_binders renaming t = apply_rename_place (_apply_rename_term rename_binders renaming) t 
 

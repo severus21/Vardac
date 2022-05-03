@@ -2,7 +2,6 @@
   (section (site (compspec akka_interfaces_grpc_templates)))
   (files 
     (auto/grpc/proto.j2 as auto/grpc/proto.j2)
-    (auto/grpc/GRPCServer.java.j2 as auto/grpc/GRPCServer.java.j2)
    
   )
  )

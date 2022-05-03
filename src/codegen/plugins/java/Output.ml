@@ -267,6 +267,7 @@ and output_item out : _str_items -> unit = function
     | Stmt stmt -> ostmt out stmt 
     | JType jt -> ojtype out jt 
     | Raw str -> pp_print_string out str
+    | BBItem bbitem -> obbterm out bbitem
 and oitem out : str_items -> unit = function item ->
     match Config.provenance_lvl () with
     | Config.None -> output_item out item.value
@@ -316,6 +317,20 @@ let output_program package_name outpath items : unit =
         JModule (mock_placed(ImportDirective "akka.cluster.ClusterEvent"));
         JModule (mock_placed(ImportDirective "akka.cluster.typed.Cluster"));
         JModule (mock_placed(ImportDirective "akka.cluster.typed.Subscribe"));
+
+        (* gRPC imports *)
+        JModule (mock_placed(ImportDirective "akka.grpc.javadsl.ServiceHandler"));
+        JModule (mock_placed(ImportDirective "akka.http.javadsl.model.HttpRequest"));
+        JModule (mock_placed(ImportDirective "akka.http.javadsl.model.HttpResponse"));
+        JModule (mock_placed(ImportDirective "java.util.concurrent.CompletionStage"));
+        JModule (mock_placed(ImportDirective "akka.http.javadsl.Http"));
+        JModule (mock_placed(ImportDirective "com.typesafe.config.Config"));
+        JModule (mock_placed(ImportDirective "com.typesafe.config.ConfigFactory"));
+        JModule (mock_placed(ImportDirective "akka.stream.SystemMaterializer"));
+        JModule (mock_placed(ImportDirective "akka.stream.Materializer"));
+        JModule (mock_placed(ImportDirective "akka.http.javadsl.ServerBinding"));
+        JModule (mock_placed(ImportDirective "akka.actor.typed.ActorSystem"));
+        JModule (mock_placed(ImportDirective "akka.actor.typed.javadsl.AskPattern"));
 
         (* Other dependencies *)
         JModule (mock_placed(ImportDirective "io.vavr.*"));

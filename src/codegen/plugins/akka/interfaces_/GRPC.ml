@@ -30,22 +30,15 @@ end) = struct
     
     let custom_external_rules () = []
     let proto_models = ref None
-    let http_server_models = ref None
     let custom_template_rules () = 
         (* Check that state have been correctly hydrated first *)
         assert(!proto_models <> None);      
-        assert(!http_server_models <> None);      
         [ 
             (
                 l2f [templates_location; "auto"; "grpc"; "proto.j2"], 
                 Option.get !proto_models, 
                 l2f [Fpath.to_string build_dir; "src"; "main"; "protobuf"; "proto.proto"]
             );
-            (
-                l2f [templates_location; "auto"; "grpc"; "GRPCServer.java.j2"], 
-                Option.get !http_server_models, 
-                l2f [Fpath.to_string build_dir; "src"; "main"; "java"; "com"; "lg4dc"; "GRPCServer.java"]
-            )
         ]
 
     let auto_jingoo_env () = [] 
@@ -272,7 +265,7 @@ end) = struct
                                     T_A2.e2_e (T.AccessExpr(
                                         (* ask(greeterActor, GreeterActor.GET_GREETING, Duration.ofSeconds(5)) *)
                                         T_A2.e2_e(T.CallExpr( 
-                                            T_A2.e2_e( T.RawExpr "ask"),
+                                            T_A2.e2_e( T.RawExpr "AskPattern.ask"),
                                             [
                                                 T_A2.e2_e (T.AccessExpr(
                                                     T_A2.e2_e T.This, 
@@ -347,16 +340,56 @@ end) = struct
             (fun _ -> function
                 | S.Component {place; value = ComponentStructure cstruct } when cstruct.name = service.component_name -> 
                     let inports = List.map (function ((m, e1, e2):S.method0 * T._event Core.IR.placed * T._event Core.IR.placed) ->
+                        (* Resolve includes *)
+                        let resolve x = 
+                            let x = Atom.refresh_value x ((Atom.to_string service.impl_name)^"."^(Atom.value x)) in
+                            Atom.refresh_hint x ((Atom.to_string service.impl_name)^"."^(Atom.hint x))
+                        in
+                        let e1_rname = resolve e1.value.name in
+                        let e2_rname = resolve e2.value.name in
+
                         auto_fplace (S.Inport (auto_fplace ({
                             S.name = Atom.fresh ("port_service2actor_"^(Atom.value e1.value.name));
                             _disable_session = true;
-                            expecting_st = S_A2.mtype_of_st (S.STRecv (S_A2.mtype_of_ct (S.TVar e1.value.name), auto_fplace (S.STSend (S_A2.mtype_of_ct (S.TVar e2.value.name), auto_fplace S.STEnd))));
+                            expecting_st = S_A2.mtype_of_st (S.STRecv (S_A2.mtype_of_ct (S.TVar e1_rname), auto_fplace (S.STSend (S_A2.mtype_of_ct (S.TVar e2_rname), auto_fplace S.STEnd))));
                             callback = S_A2.e2_e (S.AccessExpr( 
                                 S_A2.e2_e S.This, 
                                 S_A2.e2var m.value.name
                             ))
                         }, auto_fplace S.EmptyMainType)))
                     ) !service2actor_events in
+                    
+                    let props = auto_fplace (S.Method (auto_fplace{
+                        S.annotations = [];
+                        ghost = false;
+                        ret_type = S_A2.mtype_of_var (Atom.builtin "Props");
+                        name = Atom.builtin "props";
+                        args = []; (*TODO args for constructor*)
+                        contract_opt = None;
+                        on_startup = false;
+                        on_destroy = false;
+                        body = S.AbstractImpl [
+                            auto_fplace (S.ReturnStmt(
+                                S_A2.e2_e (S.CallExpr(
+                                    S_A2.e2var (Atom.builtin "Props.create"),
+                                    [
+                                        S_A2.e2_e (S.AccessExpr (
+                                            S_A2.e2var service.component_name,
+                                            S_A2.e2var (Atom.builtin "class")
+                                        ));
+                                        S_A2.e2_e (S.LambdaExpr (
+                                            [],
+                                            S_A2.e2_e (S.CallExpr(
+                                                S_A2.e2var service.component_name,
+                                                [] (*TODO add args*)
+                                            ))
+                                        ))
+                                    ]
+                                ))
+                            ))
+                        ]
+                    })) in
+
                     [
                         (S.Component{
                             place;
@@ -375,87 +408,93 @@ end) = struct
             } in
             (m, aux e1, aux e2)
         ) !service2actor_events in
+        let events = List.flatten (List.map (function (_,e1,e2)-> [e1;e2]) events) in
 
         program, auto_fplace {
-            T.annotations = [];     
-            decorators = [];
-            v = T.ClassOrInterfaceDeclaration {
-                isInterface = false;
-                name = service.impl_name; 
-                extended_types = [];
-                implemented_types = [ auto_fplace (T.TVar service.service_name) ];
-                body = [
-                    auto_fplace {
-                        T.annotations = [T.Final];
-                        decorators = [];
-                        v = T.Stmt (auto_fplace (T.LetStmt (
-                            auto_fplace (T.TRaw "ActorSystem"), 
-                            att_system,
-                            None
-                        )));
-                    };
-                    auto_fplace {
-                        T.annotations = [T.Final];
-                        decorators = [];
-                        v = T.Stmt (auto_fplace (T.LetStmt (
-                            auto_fplace (T.TRaw "ActorRef"), 
-                            att_actor,
-                            None
-                        )));
-                    };
-                    auto_fplace {
-                        T.annotations = [];
-                        decorators = [];
-                        v = T.MethodDeclaration (auto_fplace {
-                            T.annotations = [T.Visibility T.Public];
+                T.annotations = [];     
+                decorators = [];
+                v = T.ClassOrInterfaceDeclaration {
+                    imports = [ (Printf.sprintf "%s.%s.grpc.*" (Config.author ()) (Config.project_name ()))
+                    ];
+                    isInterface = false;
+                    name = service.impl_name; 
+                    extended_types = [];
+                    implemented_types = [ auto_fplace (T.TVar service.service_name) ];
+                    body = 
+                        events @ [
+                        auto_fplace {
+                            T.annotations = [T.Final];
                             decorators = [];
-                            v = {
-                                T.ret_type = auto_fplace T.TUnknown;
-                                name = service.impl_name;
-                                args = [auto_fplace (T.TRaw "ActorSystem"),constructor_arg_system];
-                                is_constructor = true;
-                                body = T.AbstractImpl [
-                                    auto_fplace (T.AssignExpr(
-                                        T_A2.e2_e (T.AccessExpr(
-                                            T_A2.e2_e T.This,
-                                            T_A2.e2var att_system
-                                        )),
-                                        T_A2.e2var constructor_arg_system
-                                    ));
-                                    (* this.greeterActor = system.actorOf(GreeterActor.props("Hello"), "greeter"); *)
-                                    auto_fplace (T.AssignExpr(
-                                        T_A2.e2_e (T.AccessExpr(
-                                            T_A2.e2_e T.This,
-                                            T_A2.e2var att_actor
-                                        )),
-                                        T_A2.e2_e (T.CallExpr (
+                            v = T.Stmt (auto_fplace (T.LetStmt (
+                                auto_fplace (T.TRaw "ActorSystem"), 
+                                att_system,
+                                None
+                            )));
+                        };
+                        auto_fplace {
+                            T.annotations = [T.Final];
+                            decorators = [];
+                            v = T.Stmt (auto_fplace (T.LetStmt (
+                                auto_fplace (T.TRaw "ActorRef"), 
+                                att_actor,
+                                None
+                            )));
+                        };
+                        auto_fplace {
+                            T.annotations = [];
+                            decorators = [];
+                            v = T.MethodDeclaration (auto_fplace {
+                                T.annotations = [T.Visibility T.Public];
+                                decorators = [];
+                                v = {
+                                    T.ret_type = auto_fplace T.TUnknown;
+                                    name = service.impl_name;
+                                    args = [auto_fplace (T.TRaw "ActorSystem"),constructor_arg_system];
+                                    is_constructor = true;
+                                    body = T.AbstractImpl [
+                                        auto_fplace (T.AssignExpr(
                                             T_A2.e2_e (T.AccessExpr(
                                                 T_A2.e2_e T.This,
-                                                T_A2.e2var constructor_arg_system
+                                                T_A2.e2var att_system
                                             )),
-                                            [
-                                                T_A2.e2_e (T.CallExpr (
+                                            T_A2.e2var constructor_arg_system
+                                        ));
+                                        (* this.greeterActor = system.actorOf(GreeterActor.props("Hello"), "greeter"); *)
+                                        auto_fplace (T.AssignExpr(
+                                            T_A2.e2_e (T.AccessExpr(
+                                                T_A2.e2_e T.This,
+                                                T_A2.e2var att_actor
+                                            )),
+                                            T_A2.e2_e (T.CallExpr (
+                                                T_A2.e2_e (T.AccessExpr(
                                                     T_A2.e2_e (T.AccessExpr(
-                                                        T_A2.e2var service.component_name,
-                                                        T_A2.e2_e (T.RawExpr "props")
+                                                        T_A2.e2_e T.This,
+                                                        T_A2.e2var constructor_arg_system
                                                     )),
-                                                    [
-                                                        (* FIXME args for actor creation *)
-                                                    ]
-                                                ));
-                                                T_A2.e2_lit (T.StringLit (Atom.to_string service.component_name))
-                                            ]
+                                                    T_A2.e2_e (T.RawExpr "actorOf")
+                                                )),
+                                                [
+                                                    T_A2.e2_e (T.CallExpr (
+                                                        T_A2.e2_e (T.AccessExpr(
+                                                            T_A2.e2var service.component_name,
+                                                            T_A2.e2_e (T.RawExpr "props")
+                                                        )),
+                                                        [
+                                                            (* FIXME args for actor creation *)
+                                                        ]
+                                                    ));
+                                                    T_A2.e2_lit (T.StringLit (Atom.to_string service.component_name))
+                                                ]
+                                            ))
                                         ))
-                                    ))
-                                ]
-                            }
-                        });
-                    };
+                                    ]
+                                }
+                            });
+                        };
 
-                ] @ body_rpcs @ List.flatten (List.map (function (_, e1, e2) -> [e1; e2]) events);
+                    ] @ body_rpcs;
+                }
             }
-        }
-
 
     (**
         @return [ Akka program of the ServiceImpl ]
@@ -466,19 +505,6 @@ end) = struct
     (* Stage 3 - generate and bind to the HTTP part 
         generate one HTTP server for all the services
     *)
-    let generate_http_server_env services =
-        let encode_service service = 
-            Jg_types.Tobj [
-                ("name", Jg_types.Tstr (Atom.to_string service.service_name));
-            ]
-        in
-        let services = List.map encode_service (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
-
-        [
-            ("services", Jg_types.Tlist services);
-        ]
-
-
     let generate_gRPC_server services =
         let main_server_name = Atom.fresh "MaingRPCServer" in
         let att_system = Atom.fresh "sys" in
@@ -552,17 +578,49 @@ end) = struct
             T.annotations = [];     
             decorators = [];
             v = T.ClassOrInterfaceDeclaration {
+                imports = List.map (function service -> 
+                    Printf.sprintf 
+                        "%s.%s.grpc.%sHandlerFactory"
+                        (Config.author ())
+                        (Config.project_name ())
+                        (Atom.to_string service.service_name)
+                ) services;
                 isInterface = false;
                 name = main_server_name; 
-                extended_types = [ auto_fplace (T.TVar (Atom.builtin "GRPCServer")) ];
+                extended_types = [];
                 implemented_types = [];
                 body = [
                     auto_fplace {
                         T.annotations = [];
                         decorators = [];
+                        v = T.RawTerm (auto_fplace {
+                            T.language = None;
+                            body = [
+                                T.Text {|
+    public static void main(String[] args) throws Exception {
+        // important to enable HTTP/2 in ActorSystem's config
+        Config conf = ConfigFactory.parseString("akka.http.server.preview.enable-http2 = on")
+                .withFallback(ConfigFactory.defaultApplication());
+
+        // Akka ActorSystem Boot
+        ActorSystem sys = ActorSystem.create("HelloWorld", conf);
+
+        run(sys).thenAccept(binding -> {
+            System.out.println("gRPC server bound to: " + binding.localAddress());
+        });
+
+        // ActorSystem threads will keep the app alive until `system.terminate()` is called
+    } 
+                               |} 
+                            ];
+                        })
+                    };
+                    auto_fplace {
+                        T.annotations = [];
+                        decorators = [];
                         v = T.MethodDeclaration (auto_fplace {
                             T.annotations = [T.Visibility T.Public; T.Static];
-                            decorators = [T.Override];
+                            decorators = [];
                             v = {
                                 T.ret_type = auto_fplace (T.TRaw "CompletionStage<ServerBinding>");
                                 name = Atom.builtin "run";
@@ -577,11 +635,14 @@ end) = struct
                                         auto_fplace (T.ReturnStmt (
                                             T_A2.e2_e (T.CallExpr(
                                                 T_A2.e2_e (T.AccessExpr(
-                                                    T_A2.e2_e (T.CallExpr(
-                                                        T_A2.e2_e (T.RawExpr "Http.get"),
-                                                        [ T_A2.e2var att_system ]
+                                                    T_A2.e2_e (T.AccessExpr(
+                                                        T_A2.e2_e (T.CallExpr(
+                                                            T_A2.e2_e (T.RawExpr "Http.get"),
+                                                            [ T_A2.e2var att_system ]
+                                                        )),
+                                                        T_A2.e2_e (T.RawExpr "newServerAt(\"127.0.0.1\", 8090)")
                                                     )),
-                                                    T_A2.e2_e (T.RawExpr "newServerAt(\"127.0.0.1\", 8090)")
+                                                    T_A2.e2_e (T.RawExpr "bind")
                                                 )),
                                                 [ T_A2.e2var local_service_handlers ]
                                             ))
@@ -601,7 +662,6 @@ end) = struct
         proto_models := Some (generate_protobuf_interfaces_env build_dir program);
         let iri_program, akka_terms = generate_services_implementation program in
         let akka_term = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
-        http_server_models := Some (generate_http_server_env (List.of_seq (Hashtbl.to_seq_values grpc_services)));
         [ iri_program, akka_terms@[akka_term] ]
 
     (*****************************************************)

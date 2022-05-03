@@ -1622,6 +1622,7 @@ module Make () = struct
                 T.annotations = [T.Visibility T.Public];
                 decorators = [];
                 v = T.ClassOrInterfaceDeclaration {
+                    imports = [];
                     isInterface = false;
                     extended_types = [t_lg4dc_protocol place];
                     implemented_types = [];
@@ -1715,6 +1716,7 @@ module Make () = struct
                 T.annotations = [T.Visibility T.Public];
                 decorators = [];
                 v = T.ClassOrInterfaceDeclaration {
+                    imports = [];
                     isInterface = false;
                     extended_types = [];
                     implemented_types = [];
@@ -1731,7 +1733,7 @@ module Make () = struct
             value = {
                 T.annotations = [];
                 T.decorators = [];
-                v = T.TemplateClass (fbbterm body)
+                v = T.RawTerm (fbbterm body)
             }
         }]
     | S.Typedef {value = EventDef (v, _, Some body); _} -> Error.perror place "eventdef with body is not yet supported by the akka.finish"
@@ -1745,6 +1747,7 @@ module Make () = struct
                 T.decorators = [];
                 v = begin
                    T.ClassOrInterfaceDeclaration {
+                       imports = [];
                        isInterface = false;
                        name = x;
                        extended_types = [];

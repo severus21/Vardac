@@ -96,6 +96,8 @@ let copy_upper a =
 
 let refresh_hint a hint =
   {a with hint = hint}
+let refresh_value a value =
+  {a with value = value}
 (* -------------------------------------------------------------------------- *)
 
 (* Comparison of atoms. *)

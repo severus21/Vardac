@@ -39,6 +39,11 @@ module Make (Arg: Plugin.CgArgSig) = struct
         val target:Core.Target.target 
         val cstate:Rt.Finish.collected_state
     end) = struct
+        (** Inner state *)
+        let current_imports = ref []
+
+        (** Exported state *)
+
         let cstate : Rt.Finish.collected_state ref = ref (Rt.Finish.empty_cstate ())
 
         let rename_cstate renaming = 
@@ -180,6 +185,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     S.annotations = [S.Visibility S.Public];
                     decorators = [];
                     v = S.ClassOrInterfaceDeclaration {
+                        imports = [];
                         isInterface = false;
                         name = Atom.builtin (String.capitalize_ascii name);
                         extended_types = [];
@@ -247,6 +253,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                     S.annotations = [S.Visibility S.Public];
                                     decorators = [];
                                     v = S.ClassOrInterfaceDeclaration {
+                                        imports = [];
                                         isInterface = false;
                                         name = stage.name;
                                         extended_types = [];
@@ -1646,6 +1653,8 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 }
             )
             | ClassOrInterfaceDeclaration cdcl -> begin
+                if cdcl.imports <> [] then current_imports := cdcl.imports @ !current_imports;
+
                 T.Body { 
                     place;
                     value = {
@@ -1690,7 +1699,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     }
                 }
             }
-            | TemplateClass bbterm -> T.BBItem (fbbterm []bbterm)  
+            | RawTerm bbterm -> T.BBItem (fbbterm [] bbterm)  
         and fterm ?(is_cl_toplevel=false) t : T.str_items = map_place (finish_term is_cl_toplevel) t
 
         let finish_program (program:Akka.Ast.program) : ((string * Fpath.t) * Java.Ast.program) list = 
@@ -1698,7 +1707,13 @@ module Make (Arg: Plugin.CgArgSig) = struct
             (*TODO finish entrypoint/system*)
             program
             |> split_akka_ast_to_files Arg.target
-            |> List.map (function package_name, file, terms -> (package_name, file), List.map fterm terms)
+            |> List.map (function package_name, file, terms -> 
+                current_imports := [];
+                let terms = List.map fterm terms in
+                let imports = List.map (function x -> auto_place (T.JModule (auto_place (T.ImportDirective x)))) !current_imports in
+
+                (package_name, file), imports@terms
+            )
 
         (*****************************************************)
         let displayed_pass_shortdescription = "Codegen Language AST"

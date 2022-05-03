@@ -23,6 +23,7 @@ val copy: atom -> atom
 val copy_upper: atom -> atom
 
 val refresh_hint : atom -> string -> atom
+val refresh_value : atom -> string -> atom
 
 (* Comparison of atoms. *)
 
