@@ -7,11 +7,17 @@ RUN opam init --auto-setup -vv --disable-sandboxing --compiler=4.07.0
 RUN echo "eval `opam config env`" >> ~/.bashrc
 
 #ENV truc value
-
-COPY . dsl/ 
-RUN bash dsl/requirements.sh 
+COPY . /varda 
+WORKDIR /varda
+RUN bash requirements.sh 
 #RUN Used to execute a command during the build process of the docker image.
 #RUN eval $(opam env) && make test 
 
 #CMD Used for executing commands when we build a new container from the docker image.
-CMD cd dsl && opam list && eval $(opam env) && make runtests 
+CMD cd varda && opam list && eval $(opam env) && make runtests 
+
+# TODO use this docker to compile (e.g. for reproductibility artifact):
+# bind mount volume /my/code/path && /my/generated/code/path
+# argument for container ...
+# run compiler in container
+# get things into /my/generated/code/path
