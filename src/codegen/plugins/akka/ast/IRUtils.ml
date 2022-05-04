@@ -189,7 +189,8 @@ and _apply_rename_event rename_binders (renaming : Atom.atom -> Atom.atom) place
     args = List.map (function (ct, x) ->
         apply_rename_ctype renaming ct,
         renaming x
-    ) e.args
+    ) e.args;
+    imports = e.imports;
 }
 and apply_rename_event rename_binders renaming e = apply_rename_place (_apply_rename_event rename_binders renaming) e 
 

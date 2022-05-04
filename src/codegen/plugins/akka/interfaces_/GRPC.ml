@@ -241,6 +241,7 @@ end) = struct
                     (ct_msg_in, Atom.fresh "value");
                     (auto_fplace (T.Atomic "ActorRef"), Atom.fresh "replyTo")
                 ];
+                imports = [ (Printf.sprintf "%s.%s.grpc.*" (Config.author ()) (Config.project_name ()))];
             } in
             let actor2service_event = auto_fplace {
                 T.vis = T.Public;
@@ -249,6 +250,7 @@ end) = struct
                     (ct_msg_out, Atom.fresh "value");
                     (auto_fplace (T.ActorRef (auto_fplace (T.TVar service.component_name))), Atom.fresh "replyTo")
                 ];
+                imports = [ (Printf.sprintf "%s.%s.grpc.*" (Config.author ()) (Config.project_name ()))];
             } in
             service2actor_events := (
                 rpc.m, 
@@ -260,10 +262,10 @@ end) = struct
                 decorators = [];
                 v = T.MethodDeclaration (auto_fplace {
                     T.annotations = [T.Visibility T.Public];
-                    decorators = [];
+                    decorators = [T.Override];
                     v = {
                         T.ret_type = auto_fplace (T.TParam (auto_fplace (T.TRaw "CompletionStage"), [ct_msg_out]));
-                        name = Atom.fresh ("rpc"^(Atom.value rpc.name));
+                        name = rpc.name; (* should be exaclty the same name than in proto.proto *)
                         args = [ (ct_msg_in, a_msg_in) ];
                         is_constructor = false;
                         body = AbstractImpl [
@@ -278,15 +280,28 @@ end) = struct
                                                     T_A2.e2_e T.This, 
                                                     T_A2.e2var att_actor
                                                 ));
-                                                (* Event Service2Actor *)
-                                                T_A2.e2_e (T.NewExpr (
-                                                    T_A2.e2var service2actor_event.value.name,
-                                                    [ 
-                                                        T_A2.e2var a_msg_in
-                                                    ]
-                                                ));
+                                                (* replytTo -> Event Service2Actor *)
+                                                begin 
+                                                    let reply_to = Atom.fresh "replyTo" in
+                                                    T_A2.e2_e (T.LambdaExpr (
+                                                        [ (auto_fplace (T.TRaw ""), reply_to)],
+                                                        auto_fplace (T.ReturnStmt (
+                                                            T_A2.e2_e (T.NewExpr (
+                                                                T_A2.e2var service2actor_event.value.name,
+                                                                [ 
+                                                                    T_A2.e2var a_msg_in;
+                                                                    T_A2.e2var reply_to;
+                                                                ]
+                                                            ))
+                                                        ))
+                                                    ))
+                                                end;
                                                 (* Timeout *)
-                                                T_A2.e2_e (T.RawExpr "Duration.ofSeconds(5)")
+                                                T_A2.e2_e (T.RawExpr "Duration.ofSeconds(5)");
+                                                T_A2.e2_e (T.AccessExpr(
+                                                    T_A2.e2_e (T.AccessExpr (T_A2.e2_e T.This, T_A2.e2var att_system)),
+                                                    T_A2.e2_e (T.RawExpr "scheduler()")
+                                                ));
                                             ]
                                         )),
                                         T_A2.e2_e (T.RawExpr "thenApply")
@@ -298,8 +313,7 @@ end) = struct
             .build() *)
                                         T_A2.e2_e (T.LambdaExpr(
                                             [
-                                                (* TODO should be an event of component_name *)
-                                                (auto_fplace T.TUnknown, a_intermediate_msg)
+                                                (auto_fplace (T.TVar actor2service_event.value.name), a_intermediate_msg)
                                             ],
                                             auto_fplace (T.ReturnStmt(
                                                 T_A2.e2_e (T.CallExpr (
@@ -320,9 +334,9 @@ end) = struct
                                                                 | _ -> raise (Core.Error.DeadbranchError "Ill-formed ProtoMsgOut")
                                                             )),
                                                             [
-                                                                T_A2.e2_e (T.CastExpr(
-                                                                    auto_fplace (T.TVar actor2service_event.value.name),
-                                                                    T_A2.e2var a_intermediate_msg
+                                                                T_A2.e2_e (T.AccessExpr(
+                                                                    T_A2.e2var a_intermediate_msg,
+                                                                    T_A2.e2_e (T.RawExpr "_0_()")
                                                                 ));
                                                             ]
                                                         )),
@@ -351,15 +365,6 @@ end) = struct
             (fun _ -> function
                 | S.Component {place; value = ComponentStructure cstruct } when cstruct.name = service.component_name -> 
                     let inports = List.map (function ((m, (e1, proto_msg1), (e2, proto_msg2)):S.method0 * (T._event Core.IR.placed * msg) * (T._event Core.IR.placed * msg)) ->
-                        (* Resolve includes *)
-                        let resolve x = 
-                            let x = Atom.refresh_value x ((Atom.to_string service.impl_name)^"."^(Atom.value x)) in
-                            Atom.refresh_hint x ((Atom.to_string service.impl_name)^"."^(Atom.hint x))
-                        in
-                        let e1_rname = resolve e1.value.name in
-                        let e2_rname = resolve e2.value.name in
-
-
                         (**
                         callback(e):
                             res = this.custom_callback(e.getX1(), ..., getXn()) X_i fields of Protobuf msg    
@@ -371,7 +376,7 @@ end) = struct
                             ghost = false;
                             ret_type = S_A2.mtype_of_ft Core.AstUtils.TVoid;
                             name = Atom.fresh "callback";
-                            args = [ auto_fplace(S_A2.mtype_of_var e1_rname, lambda_e) ];
+                            args = [ auto_fplace(S_A2.mtype_of_var e1.value.name, lambda_e) ];
                             contract_opt = None;
                             on_destroy = false;
                             on_startup = false;
@@ -386,7 +391,7 @@ end) = struct
                                     )),
                                     [
                                         S_A2.e2_e (S.NewExpr(
-                                            S_A2.e2var e2_rname,
+                                            S_A2.e2var e2.value.name,
                                             [
                                                 (*HelloReply.newBuilder()
                                                 .setY_i(res).build*)
@@ -441,7 +446,7 @@ end) = struct
                         auto_fplace(S.Method callback), auto_fplace (S.Inport (auto_fplace ({
                             S.name = Atom.fresh ("port_service2actor_"^(Atom.value e1.value.name));
                             _disable_session = true;
-                            expecting_st = S_A2.mtype_of_st (S.STRecv (S_A2.mtype_of_ct (S.TVar e1_rname), auto_fplace (S.STSend (S_A2.mtype_of_ct (S.TVar e2_rname), auto_fplace S.STEnd))));
+                            expecting_st = S_A2.mtype_of_st (S.STRecv (S_A2.mtype_of_ct (S.TVar e1.value.name), auto_fplace (S.STSend (S_A2.mtype_of_ct (S.TVar e2.value.name), auto_fplace S.STEnd))));
                             callback = S_A2.e2_e (S.AccessExpr(
                                 S_A2.e2_e S.This,
                                 S_A2.e2var callback.value.name
@@ -451,42 +456,13 @@ end) = struct
 
                     let callbacks, inports = List.split inports in
                     
-                    let props = auto_fplace (S.Method (auto_fplace{
-                        S.annotations = [];
-                        ghost = false;
-                        ret_type = S_A2.mtype_of_var (Atom.builtin "Props");
-                        name = Atom.builtin "props";
-                        args = []; (*TODO args for constructor*)
-                        contract_opt = None;
-                        on_startup = false;
-                        on_destroy = false;
-                        body = S.AbstractImpl [
-                            auto_fplace (S.ReturnStmt(
-                                S_A2.e2_e (S.CallExpr(
-                                    S_A2.e2var (Atom.builtin "Props.create"),
-                                    [
-                                        S_A2.e2_e (S.AccessExpr (
-                                            S_A2.e2var service.component_name,
-                                            S_A2.e2var (Atom.builtin "class")
-                                        ));
-                                        S_A2.e2_e (S.LambdaExpr (
-                                            [],
-                                            S_A2.e2_e (S.CallExpr(
-                                                S_A2.e2var service.component_name,
-                                                [] (*TODO add args*)
-                                            ))
-                                        ))
-                                    ]
-                                ))
-                            ))
-                        ]
-                    })) in
-
                     [
                         (S.Component{
                             place;
                             value = S.ComponentStructure { cstruct with 
-                                imports = cstruct.imports @ [ (Printf.sprintf "%s.%s.grpc.*" (Config.author ()) (Config.project_name ()))];
+                                imports = cstruct.imports @ [ 
+                                    (Printf.sprintf "%s.%s.grpc.*" (Config.author ()) (Config.project_name ()));
+                                ];
                                 body = cstruct.body @ callbacks @ inports    
                             }
                         })
@@ -503,18 +479,20 @@ end) = struct
         ) !service2actor_events in
         let events = List.flatten (List.map (function (_,e1, e2)-> [e1;e2]) events) in
 
-        program, auto_fplace {
+        program, (events, auto_fplace {
                 T.annotations = [];     
                 decorators = [];
                 v = T.ClassOrInterfaceDeclaration {
-                    imports = [ (Printf.sprintf "%s.%s.grpc.*" (Config.author ()) (Config.project_name ()))
+                    imports = [ 
+                        "akka.actor.typed.Props";
+                        (Printf.sprintf "%s.%s.grpc.*" (Config.author ()) (Config.project_name ()))
                     ];
                     isInterface = false;
                     name = service.impl_name; 
                     extended_types = [];
                     implemented_types = [ auto_fplace (T.TVar service.service_name) ];
                     body = 
-                        events @ [
+                        [
                         auto_fplace {
                             T.annotations = [T.Final];
                             decorators = [];
@@ -552,29 +530,62 @@ end) = struct
                                             )),
                                             T_A2.e2var constructor_arg_system
                                         ));
-                                        (* this.greeterActor = system.actorOf(GreeterActor.props("Hello"), "greeter"); *)
+                                        (* this.greeterActor = AskPattern.ask(
+        system,
+        replyTo ->
+            new SpawnProtocol.Spawn<>(HelloWorld.create(), "greeter", Props.empty(), replyTo),
+        timeout,
+        system.scheduler()).toCompletableFuture().get(); *)
                                         auto_fplace (T.AssignExpr(
                                             T_A2.e2_e (T.AccessExpr(
                                                 T_A2.e2_e T.This,
                                                 T_A2.e2var att_actor
                                             )),
-                                            T_A2.e2_e (T.CallExpr (
+                                            T_A2.e2_e (T.CastExpr(
+                                                auto_fplace (T.TRaw "ActorRef"),
                                                 T_A2.e2_e (T.AccessExpr(
-                                                    T_A2.e2var constructor_arg_system,
-                                                    T_A2.e2_e (T.RawExpr "actorOf")
-                                                )),
-                                                [
                                                     T_A2.e2_e (T.CallExpr (
-                                                        T_A2.e2_e (T.AccessExpr(
-                                                            T_A2.e2var service.component_name,
-                                                            T_A2.e2_e (T.RawExpr "props")
-                                                        )),
+                                                        T_A2.e2_e (T.RawExpr "AskPattern.ask"),
                                                         [
-                                                            (* FIXME args for actor creation *)
+                                                            T_A2.e2_e (T.AccessExpr( 
+                                                                T_A2.e2_e T.This,
+                                                                T_A2.e2var att_system
+                                                            ));
+                                                            begin
+                                                                let reply_to = Atom.fresh "replyTo" in
+                                                                T_A2.e2_e (T.LambdaExpr(
+                                                                    [
+                                                                        auto_fplace (T.TRaw ""), reply_to
+                                                                    ],
+                                                                    auto_fplace (T.ReturnStmt(
+                                                                        T_A2.e2_e(T.NewExpr(
+                                                                            T_A2.e2_e (T.RawExpr "SpawnProtocol.Spawn<>"),
+                                                                            [
+                                                                                T_A2.e2_e (T.CallExpr(
+                                                                                    T_A2.e2_e(T.AccessExpr (
+                                                                                        T_A2.e2var service.component_name,
+                                                                                        T_A2.e2_e (T.RawExpr "create")
+                                                                                    )),
+                                                                                    [] (*TODO args*)
+                                                                                ));
+                                                                                T_A2.e2_lit (T.StringLit (Atom.to_string service.component_name));
+                                                                                T_A2.e2_e (T.RawExpr "Props.empty()");
+                                                                                T_A2.e2var reply_to;
+                                                                            ]
+                                                                        ))
+                                                                    ))
+                                                                ))
+                                                            end;
+                                                            (* Timeout *)
+                                                            T_A2.e2_e (T.RawExpr "Duration.ofSeconds(5)");
+                                                            T_A2.e2_e (T.AccessExpr(
+                                                                T_A2.e2_e (T.AccessExpr (T_A2.e2_e T.This, T_A2.e2var att_system)),
+                                                                T_A2.e2_e (T.RawExpr "scheduler()")
+                                                            ));
                                                         ]
-                                                    ));
-                                                    T_A2.e2_lit (T.StringLit (Atom.to_string service.component_name))
-                                                ]
+                                                    )),
+                                                    T_A2.e2_e (T.RawExpr "toCompletableFuture().get()")
+                                                ))
                                             ))
                                         ))
                                     ]
@@ -584,7 +595,7 @@ end) = struct
 
                     ] @ body_rpcs;
                 }
-            }
+            })
 
     (**
         @return [ Akka program of the ServiceImpl ]
@@ -598,7 +609,6 @@ end) = struct
     let generate_gRPC_server services =
         let main_server_name = Atom.fresh "MaingRPCServer" in
         let att_system = Atom.fresh "sys" in
-        let local_mat = Atom.fresh "mat" in
         let local_service_handlers = Atom.fresh "serviceHandlers" in
 
         (*
@@ -619,7 +629,7 @@ end) = struct
                             [
                                 T_A2.e2_e (T.NewExpr(
                                     T_A2.e2var service.impl_name,
-                                    [ T_A2.e2var local_mat ]
+                                    [ T_A2.e2var att_system; ]
                                 ));
                                 T_A2.e2var att_system;
                             ]
@@ -629,6 +639,7 @@ end) = struct
             )
         in
 
+        (* TODO remove it
         let spawn_materializer () = auto_fplace(
             T.LetStmt (
                 auto_fplace (T.TRaw "Materializer"),
@@ -644,7 +655,7 @@ end) = struct
                     []
                 )))
             )
-        ) in
+        ) in*)
 
         let rec _spawn_service_handlers = function 
             | [] -> assert false; (* step 3 should have been skipped *) 
@@ -717,8 +728,7 @@ end) = struct
                                 args = [ (auto_fplace (T.TRaw "ActorSystem"), att_system) ];
                                 is_constructor = false;
                                 body = AbstractImpl( 
-                                    [ spawn_materializer () ]
-                                    @ List.map spawn_service services
+                                    List.map spawn_service services
                                     @ [spawn_service_handlers services ]
                                     @ [
                                         (* Http.get(sys) .newServerAt("127.0.0.1", 8090) .bind(serviceHandlers) *)
@@ -750,9 +760,11 @@ end) = struct
     let finish_program program : (S.program * T.program) list =  
         hydrate_grpc program;
         proto_models := Some (generate_protobuf_interfaces_env build_dir program);
-        let iri_program, akka_terms = generate_services_implementation program in
+        let iri_program, res = generate_services_implementation program in
+        let events, akka_terms = List.split res in 
+        let events = List.flatten events in
         let akka_term = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
-        [ iri_program, akka_terms@[akka_term] ]
+        [ iri_program, events@akka_terms@[akka_term] ]
 
     (*****************************************************)
     let name = "Akka.Interfaces.GRPC"

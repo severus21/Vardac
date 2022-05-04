@@ -136,7 +136,8 @@ and method0 = (_method0 annotated) placed
 and _event = {
     vis: visibility;
     name: variable;
-    args: (ctype * variable) list
+    args: (ctype * variable) list;
+    imports: string list (*specific imports*)
 }
 
 and event = _event placed

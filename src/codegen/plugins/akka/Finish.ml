@@ -404,6 +404,7 @@ module Make () = struct
     }
     | S.CompType ct -> fcctype ct
     | S.EmptyMainType -> {place; value=T.TUnknown}
+    | S.TRaw x -> {place; value=T.TRaw x}
     and fmtype : S.main_type ->  T.ctype = function mt -> finish_mtype mt.place mt.value
 
     (************************************ Literals *****************************)
@@ -671,7 +672,8 @@ module Make () = struct
                     name= name;
                     args=List.mapi ( fun i mt ->
                         fmtype mt, Atom.builtin ("value"^(string_of_int i))
-                    ) mts
+                    ) mts;
+                    imports = [];
                 }
             }
 
@@ -1554,7 +1556,8 @@ module Make () = struct
                 value = {
                     T.vis=T.Public; 
                     name= name;
-                    args= []
+                    args= [];
+                    imports = [];
                 }
             }:: (extract_events st_next.place (k+1) st_next.value)
         | (S.STSend _ as t)| (STRecv _ as t)-> failwith "toto"
@@ -1565,7 +1568,8 @@ module Make () = struct
                     value = {
                         T.vis = T.Public; 
                         name = label;
-                        args = []
+                        args= [];
+                        imports = [];
                     }
                 }
             in

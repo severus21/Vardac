@@ -92,6 +92,7 @@ and _main_type =
     (* Dynamic (or not) contraints*)
     | ConstrainedType of main_type * applied_constraint 
     (*gadt contraints: type -> bool *)
+    | TRaw of string
 and main_type = _main_type placed
 
 (******************************** Constraints ********************************)
@@ -387,6 +388,7 @@ and collect_expr_mtype_ parent_opt already_binded selector collector place = fun
 | SType st -> already_binded, [], []
 | CompType cmt ->already_binded, [], []
 | ConstrainedType _ ->already_binded, [], []
+| TRaw _ ->already_binded, [], []
 and collect_expr_mtype parent_opt (already_binded:Atom.Set.t) selector collector mt =       
     map0_place (collect_expr_mtype_ parent_opt already_binded selector collector) mt 
 and free_vars_mtype already_binded mt =

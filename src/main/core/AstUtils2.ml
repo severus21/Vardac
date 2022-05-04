@@ -20,6 +20,8 @@ module Mtype = struct
             auto_fplace(CType(auto_fplace (TVar x)))
         let mtype_poly_of_var x = 
             auto_fplace(CType(auto_fplace (TPolyVar x)))
+        let mtype_of_raw x = 
+            auto_fplace(TRaw x)
 
         let mtype_of_svar x = 
             auto_fplace(SType(auto_fplace (STInline x)))
