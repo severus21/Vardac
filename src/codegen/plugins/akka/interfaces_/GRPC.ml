@@ -126,12 +126,12 @@ end) = struct
                 in 
 
                 let in_msg = {
-                    name = Atom.fresh "ProtoMsg";
+                    name = Atom.fresh "ProtoMsgIn";
                     fields = List.mapi to_field m.value.args;
                 } in
                 let out_msg = {
-                    name = Atom.fresh "ProtoMsg";
-                    fields = List.mapi to_field [auto_fplace (m.value.ret_type, Atom.fresh "ret_value")];
+                    name = Atom.fresh "ProtoMsgOut";
+                    fields = List.mapi to_field [auto_fplace (m.value.ret_type, Atom.fresh "RetValue")];
                 } in
 
                 Hashtbl.add grpc_messages in_msg.name in_msg; 
@@ -237,19 +237,17 @@ end) = struct
             let service2actor_event = auto_fplace {
                 T.vis = T.Public;
                 name = Atom.fresh "Service2Actor";
-                kind = T.Event;
                 args = [ 
                     (ct_msg_in, Atom.fresh "value");
-                    (auto_fplace (T.TVar service.impl_name), Atom.fresh "replyTo")
+                    (auto_fplace (T.Atomic "ActorRef"), Atom.fresh "replyTo")
                 ];
             } in
             let actor2service_event = auto_fplace {
                 T.vis = T.Public;
                 name = Atom.fresh "Actor2Service";
-                kind = T.Event;
                 args = [ 
                     (ct_msg_out, Atom.fresh "value");
-                    (auto_fplace (T.TVar service.component_name), Atom.fresh "replyTo")
+                    (auto_fplace (T.ActorRef (auto_fplace (T.TVar service.component_name))), Atom.fresh "replyTo")
                 ];
             } in
             service2actor_events := (
@@ -296,7 +294,7 @@ end) = struct
                                     [
                                         (* message ->
           HelloReply.newBuilder()
-            .setMessage(((GreeterActor.Greeting) message).greeting)
+            .setX_i((m.i).greeting)
             .build() *)
                                         T_A2.e2_e (T.LambdaExpr(
                                             [
@@ -310,18 +308,22 @@ end) = struct
                                                             T_A2.e2_e (T.AccessExpr(
                                                                 T_A2.e2_e (T.CallExpr (
                                                                     T_A2.e2_e (T.AccessExpr(
-                                                                        T_A2.e2var a_msg_in,
+                                                                        T_A2.e2var rpc.out_type,
                                                                         T_A2.e2_e (T.RawExpr "newBuilder")
                                                                     )),
                                                                     []
                                                                 )),
-                                                                T_A2.e2_e (T.RawExpr "setMessage")
+                                                                let msg = Hashtbl.find grpc_messages rpc.out_type in
+                                                                match msg.fields with
+                                                                | [f] when Atom.hint f.name = "RetValue" -> 
+                                                                    T_A2.e2_e (T.RawExpr ("set"^(Atom.to_string f.name))) 
+                                                                | _ -> raise (Core.Error.DeadbranchError "Ill-formed ProtoMsgOut")
                                                             )),
                                                             [
                                                                 T_A2.e2_e (T.CastExpr(
                                                                     auto_fplace (T.TVar actor2service_event.value.name),
                                                                     T_A2.e2var a_intermediate_msg
-                                                                ))
+                                                                ));
                                                             ]
                                                         )),
                                                         T_A2.e2_e (T.RawExpr "build")
@@ -378,12 +380,12 @@ end) = struct
                                     S_A2.e2_e (S.AccessExpr(
                                         S_A2.e2_e (S.AccessExpr(
                                             S_A2.e2var lambda_e,
-                                            S_A2.e2_e (S.RawExpr ("replyTo"))
+                                            S_A2.e2_e (S.RawExpr ("_1_()"))
                                         )),
                                         S_A2.e2_e (S.RawExpr ("tell"))
                                     )),
                                     [
-                                        S_A2.e2_e (S.CallExpr(
+                                        S_A2.e2_e (S.NewExpr(
                                             S_A2.e2var e2_rname,
                                             [
                                                 (*HelloReply.newBuilder()
@@ -397,7 +399,8 @@ end) = struct
                                                                     S_A2.e2_e (S.RawExpr ("newBuilder()"))
                                                                 )),
                                                                 match proto_msg2.fields with
-                                                                | [f] -> S_A2.e2var f.name
+                                                                | [f] -> 
+                                                                    S_A2.e2_e (S.RawExpr (Printf.sprintf "set%s" (String.capitalize_ascii (Atom.to_string f.name))))
                                                                 | _ -> failwith "wrong number of gRPC message fields for response"
                                                             )),
                                                             [ 
@@ -411,7 +414,7 @@ end) = struct
                                                                             S_A2.e2_e (S.AccessExpr( 
                                                                                 S_A2.e2_e (S.AccessExpr( 
                                                                                     S_A2.e2var lambda_e,
-                                                                                    S_A2.e2_e (S.RawExpr "value")
+                                                                                    S_A2.e2_e (S.RawExpr "_0_()")
                                                                                 )),
                                                                                 S_A2.e2_e (S.RawExpr (
                                                                                     Printf.sprintf "get%s" (String.capitalize_ascii (Atom.to_string f.name))
@@ -426,10 +429,10 @@ end) = struct
                                                         S_A2.e2_e (S.RawExpr ("build"))
                                                     )),
                                                     []
-                                                ))
+                                                ));
+                                                S_A2.e2_e (S.RawExpr ("getContext().getSelf()"))
                                             ]
                                         ));
-                                        S_A2.e2_e (S.RawExpr ("getSelf()"))
                                     ]
                                 ))
                             ))];
@@ -557,10 +560,7 @@ end) = struct
                                             )),
                                             T_A2.e2_e (T.CallExpr (
                                                 T_A2.e2_e (T.AccessExpr(
-                                                    T_A2.e2_e (T.AccessExpr(
-                                                        T_A2.e2_e T.This,
-                                                        T_A2.e2var constructor_arg_system
-                                                    )),
+                                                    T_A2.e2var constructor_arg_system,
                                                     T_A2.e2_e (T.RawExpr "actorOf")
                                                 )),
                                                 [

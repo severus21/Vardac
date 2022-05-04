@@ -133,17 +133,12 @@ and _method0 = {
 and method0 = (_method0 annotated) placed
 (************************************ Akka Actors **********************************)
 
-(** Akka specific primitives *)
-and event_kind = 
-    | Command 
-    | Event
-
 and _event = {
     vis: visibility;
     name: variable;
-    kind: event_kind; 
     args: (ctype * variable) list
 }
+
 and event = _event placed
 
 and _state = {

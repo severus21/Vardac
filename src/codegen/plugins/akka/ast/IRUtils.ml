@@ -186,7 +186,6 @@ and _apply_rename_event rename_binders (renaming : Atom.atom -> Atom.atom) place
 {
     vis = e.vis;
     name = if rename_binders then renaming e.name else e.name;
-    kind = e.kind; 
     args = List.map (function (ct, x) ->
         apply_rename_ctype renaming ct,
         renaming x

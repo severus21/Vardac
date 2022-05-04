@@ -668,9 +668,8 @@ module Make () = struct
                 place = inner_place; 
                 value = {
                     T.vis=T.Public; 
-                    T.name= name;
-                    T.kind=T.Event; 
-                    T.args=List.mapi ( fun i mt ->
+                    name= name;
+                    args=List.mapi ( fun i mt ->
                         fmtype mt, Atom.builtin ("value"^(string_of_int i))
                     ) mts
                 }
@@ -1085,6 +1084,7 @@ module Make () = struct
         (* Step1 - create {event_name: {(port, st, remaining_step i.e st) ->  callback}} *)
         let env : (Atom.atom, (S.port * S.session_type * S.session_type, T.expr) Hashtbl.t) Hashtbl.t = Hashtbl.create 16 in
         let hydrate_env (p: S.port) = 
+
             let expecting_st, (msg_type, remaining_st) = match (fst p.value).expecting_st.value with 
             | S.SType st -> begin
                 let t_msg, st_continuation = IRMisc.msgcont_of_st st in
@@ -1120,7 +1120,8 @@ module Make () = struct
             try
                 ignore (Hashtbl.find inner_env key);
                 Error.perror (place@p.place) "Tuple (bridge, st) is not unique for the component %s" (Atom.hint name)
-            with Not_found -> Hashtbl.add inner_env key (fexpr (fst p.value).callback)
+            with Not_found -> 
+                Hashtbl.add inner_env key (fexpr (fst p.value).callback)
         in
 
         List.iter hydrate_env grp_items.ports;
@@ -1413,8 +1414,8 @@ module Make () = struct
             event Pong implements C.Command for all C that can receive a Pong event
         *)
 
-        Hashtbl.iter (fun event _ -> logger#warning ">>> %s %s" (Atom.to_string event) (Atom.to_string name);add_event_e2rs event name) env;
-        
+        Hashtbl.iter (fun event _ -> logger#warning ">i>> %s %s" (Atom.to_string event) (Atom.to_string name);add_event_e2rs event name) env;
+
         (***** Building methods *****)
         let methods = receiver_methods @ (List.flatten (List.map (fmethod name) grp_items.methods)) in 
         
@@ -1552,9 +1553,8 @@ module Make () = struct
                 *)
                 value = {
                     T.vis=T.Public; 
-                    T.name= name;
-                    T.kind=T.Event; 
-                    T.args= []
+                    name= name;
+                    args= []
                 }
             }:: (extract_events st_next.place (k+1) st_next.value)
         | (S.STSend _ as t)| (STRecv _ as t)-> failwith "toto"
@@ -1564,9 +1564,8 @@ module Make () = struct
                     place; 
                     value = {
                         T.vis = T.Public; 
-                        T.name = label;
-                        T.kind = T.Event; 
-                        T.args = []
+                        name = label;
+                        args = []
                     }
                 }
             in

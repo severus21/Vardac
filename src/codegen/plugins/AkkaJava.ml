@@ -1037,7 +1037,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             | s when s.persistent -> failwith "TODO finish _state with persistency" 
             | s -> List.map (function x -> {place = state.place; value=T.Stmt x}) (List.map fstmt s.stmts)
 
-        and finish_event place ({vis; name; kind; args}: S._event) :  T._str_items = 
+        and finish_event place ({vis; name;  args}: S._event) :  T._str_items = 
             let fplace = place@(Error.forge_place "Plg=AkkaJava/finish_event" 0 0) in
             let auto_place smth = {place = fplace; value=smth} in
 
@@ -1749,7 +1749,6 @@ module Make (Arg: Plugin.CgArgSig) = struct
             |> RtPrepare.apply
             |> RtFinish.apply
         in
-
         let program = program @ interface_program in
 
         let module Akka2Java0 = MakeRt2Lg(struct
