@@ -198,22 +198,21 @@ module Make () = struct
         | S.TInport mt -> 
             logger#warning "TODO TInport parameter type is not yet encoded in Java";
             T.TRaw "InPort"
+        | S.TInductive mts -> T.TTuple (List.map (fun x -> (fmtype x)) mts)
     and fctype ct :  T.ctype = map_place finish_ctype ct
 
     (* Represent an ST object in Java type *)
     and finish_stype place : S._session_type -> T._ctype = function 
         | S.STEnd -> T.TVar (Atom.builtin "Protocol.STEnd") 
         | (S.STSend (mt, st) as st0) | (S.STRecv (mt, st) as st0) -> begin 
-            match fmtype mt with
-            | ct ->
-                T.TParam (
-                    {
-                        place;
-                        value =  T.TVar (Atom.builtin (match st0 with | S.STSend _ -> "Protocol.STSend" | STRecv _ -> "Protocol.STRecv"))
-                    },
-                    [ct; fstype st]
-                )
-            | _ -> raise (Core.Error.PlacedDeadbranchError (mt.place, "finish_stype : STSend/STRecv type should not be a session type."))
+            let ct = fmtype mt in 
+            T.TParam (
+                {
+                    place;
+                    value =  T.TVar (Atom.builtin (match st0 with | S.STSend _ -> "Protocol.STSend" | STRecv _ -> "Protocol.STRecv"))
+                },
+                [ct; fstype st]
+            )
         end
         | (S.STBranch xs as st0) | (S.STSelect xs as st0) ->
             let rec built_t_hlist = function

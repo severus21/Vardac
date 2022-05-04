@@ -26,9 +26,15 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
     let system_name = "system"^(String.capitalize_ascii (Config.project_name ())) 
 
-    (* TODO FIXME each plugin should have its own sites - separate compilation one day - now at least templates .... inside the plugin directory not toplevel templates/externals*)
-    let [templates_location] = Mysites.Sites.templates
-    let [externals_location] = Mysites.Sites.externals
+    (* TODO move all templates externals into akka/templates_sites *)
+    let templates_location = 
+        match Mysites.Sites.templates with
+        | [templates_location] -> templates_location
+        | _ -> raise (Error.DeadbranchError "templates site not found for Akka plugin")
+    let externals_location = 
+        match Mysites.Sites.externals with
+        | [externals_location] -> externals_location
+        | _ -> raise (Error.DeadbranchError "templates site not found for Akka plugin")
 
     let fplace = (Error.forge_place "Plg=AkkaJava" 0 0)
     let auto_place smth = {place = fplace; value=smth}
@@ -376,6 +382,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                                 ) 
                                                 (function 
                                                 |CurrentContext -> S.VarExpr (Atom.builtin "context")
+                                                | _ -> raise (Error.DeadbranchError "selector prevents accessing this branch")
                                                 )
                                             )
                                             stmts
@@ -489,6 +496,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         | [] -> []
                         | stage::stages when stage.name = mdef.bootstrap -> 
                             assert( List.length stage.ast = 1);
+
                             let {place; value={annotations; decorators; v=S.Actor guardian}} = List.hd stage.ast in
 
                             let rec change_constructor : S.method0 list -> S.method0 list = function
@@ -547,9 +555,11 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 in
 
                 let add_main_classes stages = match Atom.hint mdef.entrypoint with
-                    | "no_main" -> 
-                        let _stages, [laststage] = split_list (List.length stages - 1) stages in
-                        _stages @ [add_no_main mdef laststage]
+                    | "no_main" -> begin
+                        match split_list (List.length stages - 1) stages with
+                        | _stages, [laststage] -> _stages @ [add_no_main mdef laststage]
+                        | _ -> raise (Error.DeadbranchError "no last stage found") 
+                    end
                     | _ -> 
                         let selector = function 
                             | {S.v=S.MethodDeclaration x} -> x.value.v.name = mdef.entrypoint 
@@ -598,15 +608,18 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     sub_stages = subothers;
                     ast = others_t;
                 } in
-                let current_mains = List.map (function ({value={S.v=S.ClassOrInterfaceDeclaration cid}} as t) -> {
-                    kind = MainStage;
-                    name = cid.name;
-                    sub_stages = [];
-                    ast = [t];
-                    imports = [];
-                    file = None;
-                    package_name = None;
-                }) mains_t in
+                let current_mains = List.map (function 
+                    |({value={S.v=S.ClassOrInterfaceDeclaration cid}} as t) -> {
+                        kind = MainStage;
+                        name = cid.name;
+                        sub_stages = [];
+                        ast = [t];
+                        imports = [];
+                        file = None;
+                        package_name = None;
+                    }
+                    | _ -> raise (Error.DeadbranchError "ill-formed main")
+                ) mains_t in
                 
                 let mains, others = extract_main_stages stages in
 
@@ -834,14 +847,13 @@ module Make (Arg: Plugin.CgArgSig) = struct
             | S.TVar v -> T.TVar v
             | S.TRaw str -> T.TAtomic str
             | S.TUnknown -> T.TUnknown
+            | S.TBB bbterm -> T.TBB (fbbterm bbterm)
         and fctype ct : T.jtype = map_place finish_ctype ct
 
+        and finish_unop = Fun.id 
+        and finish_binop = Fun.id 
 
-
-        let finish_unop = Fun.id 
-        let finish_binop = Fun.id 
-
-        let rec finish_literal place : S._literal -> T._literal= function
+        and finish_literal place : S._literal -> T._literal= function
             | S.VoidLit -> T.VoidLit
             | S.BoolLit b -> T.BoolLit b
             | S.FloatLit f -> T.FloatLit f
@@ -1681,7 +1693,11 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 let external_annotations = finish_annotations annotations in
                 let external_decorators = finish_decorators decorators in
 
-                let ({value=(T.Body body);}) = (fmethod false false m) in
+                let body = 
+                    match fmethod false false m with
+                    | ({value=(T.Body body);}) -> body 
+                    | _ -> raise (Error.DeadbranchError "fmethod impl prevents accessing this branch")
+                in
 
                 T.Body { body with
                     value = { body.value with
@@ -1741,7 +1757,11 @@ module Make (Arg: Plugin.CgArgSig) = struct
     let finish_ir_program (target:Core.Target.target) project_dir build_dir (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
         let (module RtGenInterface), (module RtGenInterfacePass) = Akka.Interfaces.load_and_make target.value.codegen.interface_plg build_dir in
 
-        let [ir_after_interface_program, interface_program] = RtGenInterfacePass.apply ir_program in
+        let ir_after_interface_program, interface_program = 
+            match RtGenInterfacePass.apply ir_program with
+            | [ir_after_interface_program, interface_program] -> ir_after_interface_program, interface_program
+            | _ -> failwith "RtGenInterfacePass returns an ill-formed results"
+        in
         let ir_program = ir_after_interface_program in
 
         (* Warning: must be called after exactly one apply, since it needs Module state *)

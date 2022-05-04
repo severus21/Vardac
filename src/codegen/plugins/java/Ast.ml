@@ -114,6 +114,7 @@ and _jtype =
     | TAccess of jtype * jtype
     | TArray of jtype (* string[] *)
     | TUnknown
+    | TBB of blackbox_term
 and jtype = _jtype placed
 
 and _str_items =

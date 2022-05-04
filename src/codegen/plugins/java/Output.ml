@@ -255,6 +255,7 @@ and output_jtype place out : _jtype -> unit = function
     (* TODO uncomment
         raise (Error.PlacedDeadbranchError (place, "TUnknown can not be translated to Java code - it should have been resolved to a concrete type first or this is a mock type annotation that should not be translated to Java code."))
     *)
+    | TBB bbterm -> obbterm out bbterm
 and ojtype out : jtype -> unit = function jt ->
     match Config.provenance_lvl () with
     | Config.None | Config.Medium -> output_jtype jt.place out jt.value

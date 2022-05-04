@@ -39,10 +39,10 @@ let is_builtin_component _ = false
 (************** Extraction *****************)
 let pos_of_tuple_attr x =
     assert(is_tuple_attr x);
-    int_of_string (Str.replace_first re_tuple_attr "\1" x)
+    int_of_string (Str.replace_first re_tuple_attr {|\1|} x)
 let pos_of_inductive_attr x =
     assert(is_inductive_attr x);
-    int_of_string (Str.replace_first re_inductive_attr "\1" x)
+    int_of_string (Str.replace_first re_inductive_attr {|\1|} x)
 
 let sig_of_builtin_inductive_type ft = 
     assert(is_builtin_inductive_type ft);

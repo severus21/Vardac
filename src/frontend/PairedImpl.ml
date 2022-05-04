@@ -332,11 +332,13 @@ module Make (Arg: ArgSig) = struct
         collect_term_program
             true
             (function | Component {value = S2.ComponentStructure _ } -> true | _ -> false)
-            (fun parents place -> function | Component { value = S2.ComponentStructure {target_name; name}} -> 
-                let key = List.rev ((Atom.hint name)::(List.map Atom.hint parents)) in
-                logger#debug "%s <-> %s" (Atom.to_string name) (List.fold_left (fun x y -> x^"::"^y)"" key);
-                Hashtbl.add name2key name key;
-                []
+            (fun parents place -> function 
+                | Component { value = S2.ComponentStructure {target_name; name}} -> 
+                    let key = List.rev ((Atom.hint name)::(List.map Atom.hint parents)) in
+                    logger#debug "%s <-> %s" (Atom.to_string name) (List.fold_left (fun x y -> x^"::"^y)"" key);
+                    Hashtbl.add name2key name key;
+                    []
+                | _ -> raise (DeadbranchError "selector prevents accessing this branch")
             ) terms;
 
         let program = List.map (uterm []) terms in

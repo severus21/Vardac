@@ -1426,14 +1426,16 @@ and rewrite_stype_stype selector rewriter = map_place (_rewrite_stype_stype sele
 and rewrite_stype_mtype selector rewriter =
 rewrite_type_mtype 
     (function | SType _ -> true | _-> false)
-    (function | SType st -> 
-        SType (rewrite_stype_stype selector rewriter st)
+    (function 
+        | SType st -> SType (rewrite_stype_stype selector rewriter st)
+        | _ -> raise (Error.DeadbranchError "selector prevents accessing this branch")
     )
 and rewrite_stype_aconstraint selector rewriter =
 rewrite_type_aconstraint 
     (function | SType _ -> true | _-> false) 
-    (function | SType st -> 
-        SType (rewrite_stype_stype selector rewriter st)
+    (function 
+        | SType st -> SType (rewrite_stype_stype selector rewriter st)
+        | _ -> raise (Error.DeadbranchError "selector prevents accessing this branch")
     )
 
 (*****************************************************)
@@ -1513,16 +1515,17 @@ equal_place _equal_mtype mt1 mt2
 (* return flag * variable to replace for equality of the second argument*)
 and _equal_header = function
 | UseMetadata (mt1, x1), UseMetadata (mt2, x2) ->
-    equal_mtype mt1 mt2, (x1,x2)
-| SetTimer x1, SetTimer x2 -> true, (x1, x2)
-| SetFireTimer (x1, i1), SetFireTimer (x2, i2) -> i1 = i2, (x1, x2)
+    equal_mtype mt1 mt2, Some (x1,x2)
+| SetTimer x1, SetTimer x2 -> true, Some (x1, x2)
+| SetFireTimer (x1, i1), SetFireTimer (x2, i2) -> i1 = i2, Some (x1, x2)
+| _ -> false, None
 and equal_header (h1, h2) = 
 equal_place _equal_header h1 h2
 
 and equal_applied_constraint (hs1, g1_opt) (hs2, g2_opt) = 
     let tmp = List.map equal_header (List.combine hs1 hs2) in
     let flag = List.exists (function | (false,_)-> false | _ -> true) tmp in
-    let vars = snd(List.split tmp) in
+    let vars = List.filter_map Fun.id (snd(List.split tmp)) in
     
     let g2_opt' : constraints option = Option.map (function g2 ->
         {
@@ -1609,6 +1612,7 @@ and _equal_cexpr = function
     List.equal equal_cexpr cesa  cesb
 | UnboxCExpr e1, UnboxCExpr e2 -> equal_expr e1 e2
 | AnyExpr e1, AnyExpr e2 -> equal_expr e1 e2
+| _ -> false 
 and equal_cexpr ce1 ce2 = 
 (=) ce1 ce2 ||
 _equal_cexpr ((fst ce1.value), (fst ce2.value))

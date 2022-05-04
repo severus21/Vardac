@@ -57,7 +57,7 @@ module Make () : Sig = struct
 
 
     let rewritor place = function 
-    | BranchStmt {s; label; branches} ->
+    | BranchStmt {s; label; branches} -> begin
         let mt_st = snd s.value in
 
         let local_res = Atom.fresh "res" in
@@ -107,6 +107,8 @@ module Make () : Sig = struct
         ]
         (*** Compile away each branch ***)
         @ (List.map (elim_branch mt_st e_local_label e_local_s) branches) 
+    end
+    | _ -> raise (Error.DeadbranchError "selector prevents accessing this branch")
 
     (*****************************************************)
     let name = "Commsimpl.BranchElimination"

@@ -288,7 +288,6 @@ module Make(Args:Args) : Sig = struct
             List.iter process_method rpc_methods;
 
 
-            let prefix = Printf.sprintf "%s__" (Atom.to_string cname) in
             (* RPC Inner port *)
             let full_expecting_st = auto_fplace (STBranch (List.of_seq (Seq.map (function entry ->
                 (entry.l_selector, entry.expecting_st, None)    

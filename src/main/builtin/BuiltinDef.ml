@@ -10,8 +10,8 @@ let builtin_inductive_types = [
 ]
 
 (********** Regexp selector **********)
-let re_tuple_attr = Str.regexp "^_\([0-9]\)$"
-let re_inductive_attr = Str.regexp "^_\([0-9]\)_$"
+let re_tuple_attr = Str.regexp {|^_\([0-9]\)$|}
+let re_inductive_attr = Str.regexp {|^_\([0-9]\)_$|}
 
 (********** White list selector **********)
     

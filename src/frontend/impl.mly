@@ -24,7 +24,7 @@ blackbox_body:
 | b = BLACKBOX_BODY 
     { 
         let body = String.trim b in
-        let varda_regexp = Str.regexp "{{%\|%}}" in
+        let varda_regexp = Str.regexp "{{%\\|%}}" in
         let tokens = Str.full_split varda_regexp body in
 
         (* debug only *)

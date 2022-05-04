@@ -32,6 +32,7 @@ let clean_program program =
         | ExpressionStmt {value=EmptyExpr, _} -> [EmptyStmt] 
         | ExpressionStmt {value=VarExpr _, _} -> [EmptyStmt] 
         | BlockStmt [stmt] -> [stmt.value]
+        | _ -> raise (Error.DeadbranchError "selector prevents accessing this branch")
     in
 
     rewrite_stmt_program true stmt_selector stmt_rewriter program    
@@ -53,9 +54,10 @@ let postcondition program =
 
     let collector parent_opt env = function
         | {place; value=EmptyExpr, _} ->  raise (Error.PlacedDeadbranchError (place, "EmptyExpr reamins in IR after cleansing, i.e. it is used otherwise than inside ExpressionStmt EmptyExpr"))
+        | _ -> raise (Error.DeadbranchError "selector prevents accessing this branch")
     in
 
-    collect_expr_program Atom.Set.empty selector collector program;
+    ignore(collect_expr_program Atom.Set.empty selector collector program);
 
     program
 let apply_program = clean_program
