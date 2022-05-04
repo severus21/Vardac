@@ -947,7 +947,7 @@ module Make () = struct
 
 
     and finish_component_dcl place : S._component_dcl -> T.actor list = function
-    | S.ComponentStructure {name; body} -> begin 
+    | S.ComponentStructure {name; body; imports} -> begin 
         (* Registration *)
         Hashtbl.add to_capitalize_variables name ();
         collected_components := Atom.Set.add name !collected_components;
@@ -1426,6 +1426,7 @@ module Make () = struct
                 T.extended_types = [];
                 implemented_types = [];
                 is_guardian = false;
+                imports = imports;
                 name;
                 methods; 
                 states;

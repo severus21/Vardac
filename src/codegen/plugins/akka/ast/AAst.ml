@@ -175,6 +175,7 @@ and _actor = {
     events: event list; 
     nested_items: term list;
     static_items: term list; (* class (not actor), typedef *)
+    imports: string list (*specific imports*)
 }
 and actor = _actor placed
 (************************************ Akka streams **********************************)

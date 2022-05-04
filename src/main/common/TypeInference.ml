@@ -839,7 +839,8 @@ module Make () = struct
         target_name = cdcl.target_name;
         annotations = cdcl.annotations;
         name = cdcl.name;
-        body =  body (* TODO first pass allow mutual recursive function ?? - only from header *)
+        body =  body; (* TODO first pass allow mutual recursive function ?? - only from header *)
+        imports = cdcl.imports
     } 
     | ComponentAssign {name; value} -> ComponentAssign {
         name = name;

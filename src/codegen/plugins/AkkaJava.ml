@@ -355,6 +355,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         implemented_types = [];
                         is_guardian = true;
                         name = name;
+                        imports = [];
                         methods = [
                             auto_place {
                                 S.decorators = [];
@@ -1305,7 +1306,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             ) bbterm.body
         and fbbterm models : S.blackbox_term -> T.blackbox_term = map_place (finish_bbterm models)
 
-        and finish_actor place ({is_guardian; extended_types; implemented_types; name; methods; states; events; nested_items; static_items; receiver}: S._actor): T._str_items =
+        and finish_actor place ({is_guardian; extended_types; implemented_types; name; methods; states; events; nested_items; static_items; receiver; imports}: S._actor): T._str_items =
             let fplace = place@(Error.forge_place "Plg=Akka/finish_actor" 0 0) in
             let auto_place smth = {place = fplace; value=smth} in
 
@@ -1320,7 +1321,8 @@ module Make (Arg: Plugin.CgArgSig) = struct
             (* TODO add to a guardian_components *)
 
 
-
+            (* Collect specific import *)
+            if imports <> [] then current_imports := imports @ !current_imports;
 
 
             (** FIXME public/protected/private should parametrized*)

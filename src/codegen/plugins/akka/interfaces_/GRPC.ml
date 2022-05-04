@@ -394,7 +394,7 @@ end) = struct
                                                             S_A2.e2_e (S.AccessExpr(
                                                                 S_A2.e2_e (S.AccessExpr(
                                                                     S_A2.e2var proto_msg2.name,
-                                                                    S_A2.e2_e (S.RawExpr ("newBuilder"))
+                                                                    S_A2.e2_e (S.RawExpr ("newBuilder()"))
                                                                 )),
                                                                 match proto_msg2.fields with
                                                                 | [f] -> S_A2.e2var f.name
@@ -483,6 +483,7 @@ end) = struct
                         (S.Component{
                             place;
                             value = S.ComponentStructure { cstruct with 
+                                imports = cstruct.imports @ [ (Printf.sprintf "%s.%s.grpc.*" (Config.author ()) (Config.project_name ()))];
                                 body = cstruct.body @ callbacks @ inports    
                             }
                         })

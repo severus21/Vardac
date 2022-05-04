@@ -1230,6 +1230,7 @@ module Make (Args: TArgs) = struct
             target_name = SameAs base_interceptor.name; 
             annotations = base_interceptor.annotations;
             name = interceptor_info.name;
+            imports = base_interceptor.imports;
             body = 
                 onboard_block
                 @ inlined_onstartup_block

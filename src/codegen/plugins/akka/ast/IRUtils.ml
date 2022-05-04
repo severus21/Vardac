@@ -213,6 +213,7 @@ and _apply_rename_actor rename_binders (renaming : Atom.atom -> Atom.atom) place
     events = List.map (apply_rename_event rename_binders renaming) a.events; 
     nested_items = List.map (apply_rename_term rename_binders renaming) a.nested_items;
     static_items = List.map (apply_rename_term rename_binders renaming) a.static_items;
+    imports = a.imports;
 }
 and apply_rename_actor rename_binders renaming a = apply_rename_place (_apply_rename_actor rename_binders renaming) a 
 

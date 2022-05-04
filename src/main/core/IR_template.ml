@@ -235,7 +235,9 @@ module Make (Params : IRParams) = struct
         target_name: target_name; 
         annotations: component_annotation list;
         name: component_variable; 
-        body: component_item list}
+        body: component_item list;
+        imports: string list; (* specific imports only use into IRI *)
+    }
 
     and _component_dcl = 
         | ComponentAssign of {
@@ -1843,11 +1845,12 @@ module Make (Params : IRParams) = struct
             name = renaming name;
             value =rename_component_expr renaming value;
         }
-        | ComponentStructure {target_name; annotations; name; body} -> ComponentStructure {
+        | ComponentStructure {target_name; annotations; name; body; imports} -> ComponentStructure {
             target_name = target_name;
             annotations = List.map (rename_component_annotation renaming) annotations;
             name = renaming name;
-            body = List.map (rename_component_item renaming) body
+            body = List.map (rename_component_item renaming) body;
+            imports;
         }
         and rename_component_dcl renaming = map_place (_rename_component_dcl (protect_renaming renaming))
 
