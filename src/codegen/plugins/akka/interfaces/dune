@@ -1,6 +1,6 @@
 (library
-    (name interfaces_)
-    (public_name compspec.codegen.plugins.akka.interfaces_)
+    (name interfaces)
+    (public_name compspec.codegen.plugins.akka.interfaces)
     (modules :standard)
     (libraries dune-site ounit2 easy_logging core dynlink jingoo compspec.codegen.plg compspec.codegen.plugins.akka.ast compspec.codegen.plugins.akka.misc)
 )

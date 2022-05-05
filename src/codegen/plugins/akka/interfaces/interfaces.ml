@@ -20,5 +20,5 @@ include TMP.InterfaceFactory.Make(struct
     (**************************Registering plugins********************************)
 
     (*TODO auto register by scandir / dynamic*)
-    let _ = register_plugin (module Interfaces_.GRPC: Interface_plg0)
+    let _ = register_plugin (module GRPC: Interface_plg0)
 end)
