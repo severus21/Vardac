@@ -672,7 +672,7 @@ module Make () = struct
                     args=List.mapi ( fun i mt ->
                         fmtype mt, Atom.builtin ("value"^(string_of_int i))
                     ) mts;
-                    imports = [];
+                    headers = [];
                 }
             }
 
@@ -947,7 +947,7 @@ module Make () = struct
 
 
     and finish_component_dcl place : S._component_dcl -> T.actor list = function
-    | S.ComponentStructure {name; body; imports} -> begin 
+    | S.ComponentStructure {name; body; headers} -> begin 
         (* Registration *)
         Hashtbl.add to_capitalize_variables name ();
         collected_components := Atom.Set.add name !collected_components;
@@ -1428,7 +1428,7 @@ module Make () = struct
                 T.extended_types = [];
                 implemented_types = [];
                 is_guardian = false;
-                imports = imports;
+                headers = headers;
                 name;
                 methods; 
                 states;
@@ -1556,7 +1556,7 @@ module Make () = struct
                     T.vis=T.Public; 
                     name= name;
                     args= [];
-                    imports = [];
+                    headers = [];
                 }
             }:: (extract_events st_next.place (k+1) st_next.value)
         | (S.STSend _ as t)| (STRecv _ as t)-> failwith "toto"
@@ -1568,7 +1568,7 @@ module Make () = struct
                         T.vis = T.Public; 
                         name = label;
                         args= [];
-                        imports = [];
+                        headers = [];
                     }
                 }
             in
@@ -1626,7 +1626,7 @@ module Make () = struct
                 T.annotations = [T.Visibility T.Public];
                 decorators = [];
                 v = T.ClassOrInterfaceDeclaration {
-                    imports = [];
+                    headers = [];
                     isInterface = false;
                     extended_types = [t_lg4dc_protocol place];
                     implemented_types = [];
@@ -1720,7 +1720,7 @@ module Make () = struct
                 T.annotations = [T.Visibility T.Public];
                 decorators = [];
                 v = T.ClassOrInterfaceDeclaration {
-                    imports = [];
+                    headers = [];
                     isInterface = false;
                     extended_types = [];
                     implemented_types = [];
@@ -1751,7 +1751,7 @@ module Make () = struct
                 T.decorators = [];
                 v = begin
                    T.ClassOrInterfaceDeclaration {
-                       imports = [];
+                       headers = [];
                        isInterface = false;
                        name = x;
                        extended_types = [];

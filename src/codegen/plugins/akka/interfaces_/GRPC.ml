@@ -241,7 +241,7 @@ end) = struct
                     (ct_msg_in, Atom.fresh "value");
                     (auto_fplace (T.Atomic "ActorRef"), Atom.fresh "replyTo")
                 ];
-                imports = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
+                headers = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
             } in
             let actor2service_event = auto_fplace {
                 T.vis = T.Public;
@@ -250,7 +250,7 @@ end) = struct
                     (ct_msg_out, Atom.fresh "value");
                     (auto_fplace (T.ActorRef (auto_fplace (T.TVar service.component_name))), Atom.fresh "replyTo")
                 ];
-                imports = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
+                headers = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
             } in
             service2actor_events := (
                 rpc.m, 
@@ -451,7 +451,7 @@ end) = struct
                         (S.Component{
                             place;
                             value = S.ComponentStructure { cstruct with 
-                                imports = cstruct.imports @ [ 
+                                headers = cstruct.headers @ [ 
                                     (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()));
                                 ];
                                 body = cstruct.body @ callbacks @ inports    
@@ -474,7 +474,7 @@ end) = struct
                 T.annotations = [];     
                 decorators = [];
                 v = T.ClassOrInterfaceDeclaration {
-                    imports = [ 
+                    headers = [ 
                         "import akka.actor.typed.Props;";
                         (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))
                     ];
@@ -670,7 +670,7 @@ end) = struct
             T.annotations = [];     
             decorators = [];
             v = T.ClassOrInterfaceDeclaration {
-                imports = List.map (function service -> 
+                headers = List.map (function service -> 
                     Printf.sprintf 
                         "import %s.%s.grpc.%sHandlerFactory;"
                         (Config.author ())

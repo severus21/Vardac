@@ -208,7 +208,7 @@ module Make (Arg: ArgSig) = struct
     and ucitem parents: S2.component_item -> T.component_item  = map_place (paired_component_item parents)
 
     and paired_component_dcl parents place : S2._component_dcl -> T._component_dcl = function
-    | S2.ComponentStructure {target_name; name; annotations; body; imports} -> begin 
+    | S2.ComponentStructure {target_name; name; annotations; body; headers} -> begin 
         let key = match target_name with 
             | UserDefined -> Hashtbl.find name2key name 
             | SameAs as_name -> 
@@ -225,8 +225,7 @@ module Make (Arg: ArgSig) = struct
                 annotations; 
                 name; 
                 body; 
-                imports = ( 
-                    if imports <> [] then raise (Error.PlacedDeadbranchError (place, "imports of components should not be set before converting IR to IRI")); 
+                headers =  
                     match Hashtbl.find_opt componentheaders_impls (List.rev ((Atom.hint name)::parents)) with
                     | None -> []
                     | Some {place; value={body=headers}} -> 
@@ -234,7 +233,6 @@ module Make (Arg: ArgSig) = struct
                             | S1.Text t -> t 
                             | S1.Varda _ -> Error.perror place "headers can not contain Varda templating code") 
                         headers
-                )
             }
         with | Not_found -> raise (Error.PlacedDeadbranchError (place, Printf.sprintf "A target should have been assign to component [%s]." (List.fold_left (fun x y -> if x <> "" then x^"::"^y else y) "" key)))
     end

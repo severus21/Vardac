@@ -15,6 +15,7 @@ and ir_state_dcl_body = expr option
 and ir_custom_method0_body = stmt list 
 and ir_typealias_body = main_type option
 and ir_typedef_body = unit
+and ir_component_headers = unit
 [@@deriving show { with_path = false }]
 
 module Params : (
@@ -23,7 +24,8 @@ module Params : (
         type _state_dcl_body = ir_state_dcl_body and 
         type _custom_method0_body = ir_custom_method0_body and
         type _typealias_body = ir_typealias_body and
-        type _typedef_body = ir_typedef_body
+        type _typedef_body = ir_typedef_body and
+        type component_headers = ir_component_headers
 ) = struct
     module Variable = Atom
     type target_name = ir_target_name 
@@ -31,6 +33,7 @@ module Params : (
     and _custom_method0_body = ir_custom_method0_body
     and _typealias_body = ir_typealias_body
     and _typedef_body = ir_typedef_body
+    and component_headers = ir_component_headers
     [@@deriving show { with_path = false }]
 
     let collect_type_state_dcl_body 

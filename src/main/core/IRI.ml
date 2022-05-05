@@ -28,6 +28,7 @@ and iri_typealias_body =
 | AbstractTypealias of main_type
 | BBTypealias of blackbox_term 
 and iri_typedef_body = blackbox_term option 
+and iri_component_headers = string list
 [@@deriving show { with_path = false }]
 
 
@@ -49,7 +50,8 @@ module Params : (
         type _state_dcl_body = iri_state_dcl_body and 
         type _custom_method0_body = iri_custom_method0_body and 
         type _typealias_body = iri_typealias_body and
-        type _typedef_body = iri_typedef_body
+        type _typedef_body = iri_typedef_body and
+        type component_headers = iri_component_headers
 ) = struct
     module Variable = Atom
     type target_name = iri_target_name
@@ -57,6 +59,7 @@ module Params : (
     and _custom_method0_body = iri_custom_method0_body 
     and _typealias_body = iri_typealias_body
     and _typedef_body = iri_typedef_body
+    and component_headers = iri_component_headers
     [@@deriving show { with_path = false }]
 
     let collect_type_state_dcl_body 

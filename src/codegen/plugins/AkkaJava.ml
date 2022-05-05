@@ -46,7 +46,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
         val cstate:Rt.Finish.collected_state
     end) = struct
         (** Inner state *)
-        let current_imports = ref []
+        let current_headers = ref []
 
         (** Exported state *)
 
@@ -191,7 +191,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     S.annotations = [S.Visibility S.Public];
                     decorators = [];
                     v = S.ClassOrInterfaceDeclaration {
-                        imports = [];
+                        headers = [];
                         isInterface = false;
                         name = Atom.builtin (String.capitalize_ascii name);
                         extended_types = [];
@@ -259,7 +259,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                     S.annotations = [S.Visibility S.Public];
                                     decorators = [];
                                     v = S.ClassOrInterfaceDeclaration {
-                                        imports = [];
+                                        headers = [];
                                         isInterface = false;
                                         name = stage.name;
                                         extended_types = [];
@@ -361,7 +361,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         implemented_types = [];
                         is_guardian = true;
                         name = name;
-                        imports = [];
+                        headers = [];
                         methods = [
                             auto_place {
                                 S.decorators = [];
@@ -1049,12 +1049,12 @@ module Make (Arg: Plugin.CgArgSig) = struct
             | s when s.persistent -> failwith "TODO finish _state with persistency" 
             | s -> List.map (function x -> {place = state.place; value=T.Stmt x}) (List.map fstmt s.stmts)
 
-        and finish_event place ({vis; name;  args; imports}: S._event) :  T._str_items = 
+        and finish_event place ({vis; name;  args; headers}: S._event) :  T._str_items = 
             let fplace = place@(Error.forge_place "Plg=AkkaJava/finish_event" 0 0) in
             let auto_place smth = {place = fplace; value=smth} in
 
             (* Collect specific import *)
-            if imports <> [] then current_imports := imports @ !current_imports;
+            current_headers := headers @ !current_headers;
 
             let generate_field (ct, x) = 
                 {
@@ -1321,7 +1321,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             ) bbterm.body
         and fbbterm models : S.blackbox_term -> T.blackbox_term = map_place (finish_bbterm models)
 
-        and finish_actor place ({is_guardian; extended_types; implemented_types; name; methods; states; events; nested_items; static_items; receiver; imports}: S._actor): T._str_items =
+        and finish_actor place ({is_guardian; extended_types; implemented_types; name; methods; states; events; nested_items; static_items; receiver; headers}: S._actor): T._str_items =
             let fplace = place@(Error.forge_place "Plg=Akka/finish_actor" 0 0) in
             let auto_place smth = {place = fplace; value=smth} in
 
@@ -1337,7 +1337,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
 
             (* Collect specific import *)
-            if imports <> [] then current_imports := imports @ !current_imports;
+            current_headers := headers @ !current_headers;
 
 
             (** FIXME public/protected/private should parametrized*)
@@ -1670,7 +1670,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 }
             )
             | ClassOrInterfaceDeclaration cdcl -> begin
-                if cdcl.imports <> [] then current_imports := cdcl.imports @ !current_imports;
+                current_headers := cdcl.headers @ !current_headers;
 
                 T.Body { 
                     place;
@@ -1729,11 +1729,11 @@ module Make (Arg: Plugin.CgArgSig) = struct
             program
             |> split_akka_ast_to_files Arg.target
             |> List.map (function package_name, file, terms -> 
-                current_imports := [];
+                current_headers := [];
                 let terms = List.map fterm terms in
                 let imports = List.map (function x ->
                     auto_place (T.BBItem( auto_place [T.Text x]))
-                    ) !current_imports 
+                    ) !current_headers 
                 in
 
                 (package_name, file), imports@terms

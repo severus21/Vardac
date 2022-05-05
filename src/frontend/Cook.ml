@@ -1101,7 +1101,7 @@ module Make(Arg:ArgSig) = struct
             | a -> Error.perror a.place "%s is not a component annotation!" (S.show_annotation a)
         ) cdcl.annotations in
 
-        new_env, T.ComponentStructure {target_name = UserDefined; annotations; name; body; imports = []} 
+        new_env, T.ComponentStructure {target_name = UserDefined; annotations; name; body; headers = ()} 
     | S.ComponentAssign cdcl -> 
         let new_env, name = bind_component env place cdcl.name in
         let env = {env with component = new_env.component } in

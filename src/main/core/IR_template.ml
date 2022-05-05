@@ -11,16 +11,19 @@ module type IRParams = sig
     type _custom_method0_body
     type _typealias_body
     type _typedef_body
+    type component_headers
     val show_target_name :  target_name -> Ppx_deriving_runtime.string
     val show__typealias_body :  _typealias_body -> Ppx_deriving_runtime.string
     val show__typedef_body :  _typedef_body -> Ppx_deriving_runtime.string
     val show__state_dcl_body :  _state_dcl_body -> Ppx_deriving_runtime.string
     val show__custom_method0_body : _custom_method0_body ->  Ppx_deriving_runtime.string
+    val show_component_headers : component_headers ->  Ppx_deriving_runtime.string
     val pp_target_name : Ppx_deriving_runtime.Format.formatter -> target_name -> Ppx_deriving_runtime.unit
     val pp__typealias_body : Ppx_deriving_runtime.Format.formatter -> _typealias_body -> Ppx_deriving_runtime.unit
     val pp__typedef_body : Ppx_deriving_runtime.Format.formatter -> _typedef_body -> Ppx_deriving_runtime.unit
     val pp__state_dcl_body : Ppx_deriving_runtime.Format.formatter -> _state_dcl_body -> Ppx_deriving_runtime.unit
     val pp__custom_method0_body : Ppx_deriving_runtime.Format.formatter -> _custom_method0_body -> Ppx_deriving_runtime.unit
+    val pp_component_headers : Ppx_deriving_runtime.Format.formatter -> component_headers -> Ppx_deriving_runtime.unit
 
     val collect_type_state_dcl_body : 
     Atom.atom option ->
@@ -149,16 +152,19 @@ module Make (Params : IRParams) = struct
     type _custom_method0_body = Params._custom_method0_body
     type _typealias_body = Params._typealias_body
     type _typedef_body = Params._typedef_body
+    type component_headers = Params.component_headers
     let show_target_name = Params.show_target_name
     let show__typealias_body = Params.show__typealias_body
     let show__typedef_body = Params.show__typedef_body
     let show__state_dcl_body = Params.show__state_dcl_body
     let show__custom_method0_body = Params.show__custom_method0_body
+    let show_component_headers = Params.show_component_headers
     let pp_target_name = Params.pp_target_name
     let pp__typealias_body = Params.pp__typealias_body
     let pp__typedef_body = Params.pp__typedef_body
     let pp__state_dcl_body = Params.pp__state_dcl_body
     let pp__custom_method0_body = Params.pp__custom_method0_body
+    let pp_component_headers = Params.pp_component_headers
 
     let collect_type_state_dcl_body x = Params.collect_type_state_dcl_body x
     let rewrite_type_state_dcl_body x = Params.rewrite_type_state_dcl_body x 
@@ -236,7 +242,7 @@ module Make (Params : IRParams) = struct
         annotations: component_annotation list;
         name: component_variable; 
         body: component_item list;
-        imports: string list; (* specific imports only use into IRI *)
+        headers: component_headers;
     }
 
     and _component_dcl = 
@@ -1845,12 +1851,12 @@ module Make (Params : IRParams) = struct
             name = renaming name;
             value =rename_component_expr renaming value;
         }
-        | ComponentStructure {target_name; annotations; name; body; imports} -> ComponentStructure {
+        | ComponentStructure {target_name; annotations; name; body; headers} -> ComponentStructure {
             target_name = target_name;
             annotations = List.map (rename_component_annotation renaming) annotations;
             name = renaming name;
             body = List.map (rename_component_item renaming) body;
-            imports;
+            headers;
         }
         and rename_component_dcl renaming = map_place (_rename_component_dcl (protect_renaming renaming))
 

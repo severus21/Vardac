@@ -137,7 +137,7 @@ and _event = {
     vis: visibility;
     name: variable;
     args: (ctype * variable) list;
-    imports: string list (*specific imports*)
+    headers: string list (*specific headers*)
 }
 
 and event = _event placed
@@ -171,7 +171,7 @@ and _actor = {
     events: event list; 
     nested_items: term list;
     static_items: term list; (* class (not actor), typedef *)
-    imports: string list (*specific imports*)
+    headers: string list (*specific headers*)
 }
 and actor = _actor placed
 (************************************ Akka streams **********************************)
@@ -191,7 +191,7 @@ and _term =
     extended_types: ctype list;
     implemented_types: ctype list;
     body: term list;
-    imports: string list (*specific imports*)
+    headers: string list (*specific headers*)
 } 
 | MethodDeclaration of method0
 | RawClass of variable * blackbox_term 
