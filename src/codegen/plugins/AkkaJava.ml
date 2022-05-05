@@ -24,7 +24,6 @@ module Make (Arg: Plugin.CgArgSig) = struct
     (* The target calculus. *)
     module T = Lg.Ast 
 
-    let system_name = "system"^(String.capitalize_ascii (Config.project_name ())) 
 
     (* TODO move all templates externals into akka/templates_sites *)
     let templates_location = 
@@ -173,7 +172,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                 ), auto_place S.TUnknown),
                                 []
                             ), auto_place S.TUnknown);
-                            auto_place (S.LitExpr (auto_place (S.StringLit system_name)), auto_place S.TUnknown);
+                            auto_place (S.LitExpr (auto_place (S.StringLit Akka.Misc.system_name)), auto_place S.TUnknown);
                             auto_place (S.CallExpr (
                                 auto_place (S.AccessExpr(
                                     auto_place (S.VarExpr (Atom.builtin "AbstractMain"), auto_place S.TUnknown),
@@ -1314,12 +1313,13 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
         and finish_bbterm models place (bbterm:S._blackbox_term) = 
             List.map (function
-                | S.Text str -> 
-                    let str = Jg_template.from_string str  ~models:models in
-                    T.Text str
+                | S.Text str -> T.Text str
                 | S.Varda e ->  T.Varda (fexpr e)
+                | S.Template (str, inner_models) -> 
+                    let str = Jg_template.from_string str ~models:(inner_models@models) in
+                    T.Text str
             ) bbterm.body
-        and fbbterm models : S.blackbox_term -> T.blackbox_term = map_place (finish_bbterm models)
+        and fbbterm models : S.blackbox_term -> T.blackbox_term = map_place (finish_bbterm (models@TemplatesHelper.default_jingoo_models))
 
         and finish_actor place ({is_guardian; extended_types; implemented_types; name; methods; states; events; nested_items; static_items; receiver; headers}: S._actor): T._str_items =
             let fplace = place@(Error.forge_place "Plg=Akka/finish_actor" 0 0) in
@@ -1828,7 +1828,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             ("components_command", Jg_types.Tlist (
                 List.of_seq(Seq.map (function a -> Jg_types.Tstr ((Atom.to_string a)^".Command")) (Atom.Set.to_seq(!(cstate.collected_components))))
             ));
-            ("system_name", Jg_types.Tstr ( system_name));
+            ("system_name", Jg_types.Tstr ( Akka.Misc.system_name));
             ("vplaces", Jg_types.Tlist (
                 List.map (function ((key,vp):string * IR.vplace) -> 
                     Jg_types.Tobj [

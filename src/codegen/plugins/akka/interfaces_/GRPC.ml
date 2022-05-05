@@ -679,7 +679,7 @@ end) = struct
                 ) services;
                 isInterface = false;
                 name = main_server_name; 
-                extended_types = [];
+                extended_types = [Misc.t_lg4dc_abstract_system fplace];
                 implemented_types = [];
                 body = [
                     auto_fplace {
@@ -688,14 +688,17 @@ end) = struct
                         v = T.RawTerm (auto_fplace {
                             T.language = None;
                             body = [
-                                T.Text {|
+                                T.Template ({|
     public static void main(String[] args) throws Exception {
         // important to enable HTTP/2 in ActorSystem's config
         Config conf = ConfigFactory.parseString("akka.http.server.preview.enable-http2 = on")
                 .withFallback(ConfigFactory.defaultApplication());
 
         // Akka ActorSystem Boot
-        ActorSystem sys = ActorSystem.create("HelloWorld", conf);
+        ActorSystem sys = ActorSystem.create(
+            {{author}}.{{project_name}}.{{main_server_name}}.create(), 
+            "{{system_name}}",
+            conf);
 
         run(sys).thenAccept(binding -> {
             System.out.println("gRPC server bound to: " + binding.localAddress());
@@ -703,7 +706,33 @@ end) = struct
 
         // ActorSystem threads will keep the app alive until `system.terminate()` is called
     } 
-                               |} 
+    
+    static public Behavior<SpawnProtocol.Command> create() {
+        return create(null,  null);
+    }
+   
+    static public Behavior<SpawnProtocol.Command> create( String name, Wait wait) {
+        return Behaviors.setup(
+            (context) -> {
+                return Behaviors.withTimers(
+                    (timers) -> {
+                        context.getLog().debug( "{{main_server_name}}::create");
+                        return new {{main_server_name}}(context, timers, name, wait);
+                    } );
+            } );
+    }
+
+    public {{main_server_name}}( 
+        ActorContext<SpawnProtocol.Command> context, 
+        TimerScheduler<SpawnProtocol.Command> timers, 
+        String name, 
+        Wait wait) {
+        super(context,  timers,  name,  wait);
+    }
+                               |}, [
+                                    "system_name", Jg_types.Tstr Misc.system_name;
+                                    "main_server_name", Jg_types.Tstr (Atom.to_string main_server_name);
+                               ])
                             ];
                         })
                     };

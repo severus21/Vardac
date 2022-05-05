@@ -111,6 +111,7 @@ and 'a annotated = {
 and blackbox_body = 
 | Text of string
 | Varda of expr 
+| Template of (string * (string * Jingoo.Jg_types.tvalue) list)
 
 and _blackbox_term = {
     language: string option;

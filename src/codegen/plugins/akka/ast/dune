@@ -3,5 +3,5 @@
     (public_name compspec.codegen.plugins.akka.ast)
     (preprocess (pps ppx_deriving.show ppx_deriving.enum ppx_import ppx_fields_conv))
     (modules :standard)
-    (libraries ounit2 easy_logging compspec.core)
+    (libraries ounit2 easy_logging compspec.core jingoo)
 )

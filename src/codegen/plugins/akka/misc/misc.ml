@@ -2,6 +2,7 @@ open Core
 open Utils
 open AstUtils
 
+let system_name = "system"^(String.capitalize_ascii (Config.project_name ())) 
 let lg4dc_package = "com.lg4dc"
 
 (* Helper name *)
