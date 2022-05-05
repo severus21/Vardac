@@ -28,6 +28,7 @@ let rec cook_item_impl env place : S._component_item_impl -> env * T._component_
     name = mstate.name;
     body = mstate.body;
 }
+| S.ComponentHeadersImpl body -> env, T.ComponentHeadersImpl body
 and citem_impl env :  S.component_item_impl -> env * T.component_item_impl = map2_place (cook_item_impl env)
 
 and cook_component_impl place env (cimpl:S.component_impl) :  env * T.component_impl = 

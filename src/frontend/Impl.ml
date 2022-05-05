@@ -34,6 +34,7 @@ and state_impl = {
 and _component_item_impl = 
     | MethodImpl of method_impl 
     | StateImpl of state_impl 
+    | ComponentHeadersImpl of blackbox_term
 and component_item_impl = _component_item_impl placed
 
 and component_impl = { target: string; name: variable; body: component_item_impl list}

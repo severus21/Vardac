@@ -40,6 +40,8 @@ let states_seen = ref SeenSet.empty
 let mark_state key = 
     states_seen := SeenSet.add key !states_seen
 let state_impls : (string list, S1.state_impl  AstUtils.placed) Hashtbl.t = Hashtbl.create 256
+
+let componentheaders_impls : (string list, S1.blackbox_term) Hashtbl.t = Hashtbl.create 256
 let types_seen = ref SeenSet.empty
 let mark_type key = 
     types_seen := SeenSet.add key !types_seen
@@ -93,6 +95,7 @@ module Make (Arg: ArgSig) = struct
     match value with
     | S1.MethodImpl m -> Hashtbl.add method_impls (parents@m.name) {place; value=m}
     | S1.StateImpl s ->  Hashtbl.add state_impls (parents@s.name) {place; value=s}
+    | S1.ComponentHeadersImpl s -> Hashtbl.add componentheaders_impls parents s
 
     and scan_term parents ({place; value} : S1.term) = 
     match value with
@@ -214,11 +217,25 @@ module Make (Arg: ArgSig) = struct
                 with Not_found -> failwith (Printf.sprintf "[%s].target = SameAs [%s].target, [%s].target can not be a SameAs indirection" (Atom.to_string name) (Atom.to_string as_name) (Atom.to_string as_name))
         in
 
-
         try 
             let target_name = Hashtbl.find component2target key in
             let body = List.map (ucitem ((Atom.hint name)::parents)) body in
-            T.ComponentStructure {target_name; annotations; name; body; imports}
+            T.ComponentStructure {
+                target_name; 
+                annotations; 
+                name; 
+                body; 
+                imports = ( 
+                    if imports <> [] then raise (Error.PlacedDeadbranchError (place, "imports of components should not be set before converting IR to IRI")); 
+                    match Hashtbl.find_opt componentheaders_impls (List.rev ((Atom.hint name)::parents)) with
+                    | None -> []
+                    | Some {place; value={body=headers}} -> 
+                        List.map (function
+                            | S1.Text t -> t 
+                            | S1.Varda _ -> Error.perror place "headers can not contain Varda templating code") 
+                        headers
+                )
+            }
         with | Not_found -> raise (Error.PlacedDeadbranchError (place, Printf.sprintf "A target should have been assign to component [%s]." (List.fold_left (fun x y -> if x <> "" then x^"::"^y else y) "" key)))
     end
     | S2.ComponentAssign {name; value} -> T.ComponentAssign {name; value} 

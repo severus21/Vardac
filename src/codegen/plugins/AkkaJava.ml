@@ -1731,7 +1731,10 @@ module Make (Arg: Plugin.CgArgSig) = struct
             |> List.map (function package_name, file, terms -> 
                 current_imports := [];
                 let terms = List.map fterm terms in
-                let imports = List.map (function x -> auto_place (T.JModule (auto_place (T.ImportDirective x)))) !current_imports in
+                let imports = List.map (function x ->
+                    auto_place (T.BBItem( auto_place [T.Text x]))
+                    ) !current_imports 
+                in
 
                 (package_name, file), imports@terms
             )

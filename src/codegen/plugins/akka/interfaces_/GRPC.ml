@@ -241,7 +241,7 @@ end) = struct
                     (ct_msg_in, Atom.fresh "value");
                     (auto_fplace (T.Atomic "ActorRef"), Atom.fresh "replyTo")
                 ];
-                imports = [ (Printf.sprintf "%s.%s.grpc.*" (Config.author ()) (Config.project_name ()))];
+                imports = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
             } in
             let actor2service_event = auto_fplace {
                 T.vis = T.Public;
@@ -250,7 +250,7 @@ end) = struct
                     (ct_msg_out, Atom.fresh "value");
                     (auto_fplace (T.ActorRef (auto_fplace (T.TVar service.component_name))), Atom.fresh "replyTo")
                 ];
-                imports = [ (Printf.sprintf "%s.%s.grpc.*" (Config.author ()) (Config.project_name ()))];
+                imports = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
             } in
             service2actor_events := (
                 rpc.m, 
@@ -452,7 +452,7 @@ end) = struct
                             place;
                             value = S.ComponentStructure { cstruct with 
                                 imports = cstruct.imports @ [ 
-                                    (Printf.sprintf "%s.%s.grpc.*" (Config.author ()) (Config.project_name ()));
+                                    (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()));
                                 ];
                                 body = cstruct.body @ callbacks @ inports    
                             }
@@ -475,8 +475,8 @@ end) = struct
                 decorators = [];
                 v = T.ClassOrInterfaceDeclaration {
                     imports = [ 
-                        "akka.actor.typed.Props";
-                        (Printf.sprintf "%s.%s.grpc.*" (Config.author ()) (Config.project_name ()))
+                        "import akka.actor.typed.Props;";
+                        (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))
                     ];
                     isInterface = false;
                     name = service.impl_name; 
@@ -672,7 +672,7 @@ end) = struct
             v = T.ClassOrInterfaceDeclaration {
                 imports = List.map (function service -> 
                     Printf.sprintf 
-                        "%s.%s.grpc.%sHandlerFactory"
+                        "import %s.%s.grpc.%sHandlerFactory;"
                         (Config.author ())
                         (Config.project_name ())
                         (Atom.to_string service.service_name)

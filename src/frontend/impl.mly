@@ -88,6 +88,8 @@ any_component_item_impl:
     { m }
 | s = any_state_impl
     { s }
+| HEADERS body = any_blackbox_term
+    { {place=[$loc]; value=ComponentHeadersImpl body }}
 
 any_component_impl:
 | IMPL COMPONENT name=right_flexible_list(DOUBLE_COLON, UID) LCURLYBRACKET body=flexible_sequence(any_component_item_impl) RCURLYBRACKET 
