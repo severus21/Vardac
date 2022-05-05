@@ -545,23 +545,30 @@ end) = struct
                         DEFAULT_TIMEOUT,
                         {{actorSystem}}.scheduler());
 
-        //TODO handle exception
-        // blocking call
-        Set<ActorRef<{{componentName}}.Command>> listing = result.toCompletableFuture().get().getServiceInstances(key);
-        if (listing.isEmpty()) {
-            if (++{{retry}} < DEFAULT_MAX_RETRY + 1) {
-                final long timeout = DEFAULT_RETRY_TIMEOUT * {{retry}};
-                {{actorSystem}}.log().info("{{implName}}::getActor() retry " + {{retry}} + "/" + DEFAULT_MAX_RETRY + ", timeout=" + timeout);
-                // sleep and retry
-                Thread.sleep(timeout);
-                {{getActor}}({{actorSystem}}, {{retry}});
+        try {
+            // blocking call
+            Set<ActorRef<{{componentName}}.Command>> listing = result.toCompletableFuture().get().getServiceInstances(key);
+            if (listing.isEmpty()) {
+                if (++{{retry}} < DEFAULT_MAX_RETRY + 1) {
+                    final long timeout = DEFAULT_RETRY_TIMEOUT * {{retry}};
+                    {{actorSystem}}.log().info("{{implName}}::getActor() retry " + {{retry}} + "/" + DEFAULT_MAX_RETRY + ", timeout=" + timeout);
+                    // sleep and retry
+                    Thread.sleep(timeout);
+                    {{getActor}}({{actorSystem}}, {{retry}});
+                } else {
+                    throw new RuntimeException("Could not find TransactionManager after " + DEFAULT_MAX_RETRY + " retries.");
+                }
             } else {
-                throw new RuntimeException("Could not find TransactionManager after " + DEFAULT_MAX_RETRY + " retries.");
+                actor = listing.iterator().next();    // TODO: if more than 1 result, use closest
+                {{actorSystem}}.log().info("{{implName}}::getActor(): found {{componentName}} " + actor +
+                        " out of " + listing.size());
             }
-        } else {
-            actor = listing.iterator().next();    // TODO: if more than 1 result, use closest
-            {{actorSystem}}.log().info("{{implName}}::getActor(): found {{componentName}} " + actor +
-                    " out of " + listing.size());
+        } catch (java.util.concurrent.ExecutionException e) {
+            assert(false);
+            //TODO
+        } catch (java.lang.InterruptedException e) {
+            assert(false);
+            //TODO
         }
 
         return actor;
@@ -592,77 +599,27 @@ end) = struct
                                     name = service.impl_name;
                                     args = [auto_fplace (T.TRaw "ActorSystem"),constructor_arg_system];
                                     is_constructor = true;
-                                    body = T.AbstractImpl [
-                                        auto_fplace (T.AssignExpr(
-                                            T_A2.e2_e (T.AccessExpr(
-                                                T_A2.e2_e T.This,
-                                                T_A2.e2var att_system
-                                            )),
-                                            T_A2.e2var constructor_arg_system
-                                        ));
-                                        (* this.greeterActor = AskPattern.ask(
-        system,
-        replyTo ->
-            new SpawnProtocol.Spawn<>(HelloWorld.create(), "greeter", Props.empty(), replyTo),
-        timeout,
-        system.scheduler()).toCompletableFuture().get(); *)
-                                        auto_fplace (T.AssignExpr(
-                                            T_A2.e2_e (T.AccessExpr(
-                                                T_A2.e2_e T.This,
-                                                T_A2.e2var att_actor
-                                            )),
-                                            T_A2.e2_e (T.CastExpr(
-                                                auto_fplace (T.TRaw "ActorRef"),
-                                                T_A2.e2_e (T.AccessExpr(
-                                                    T_A2.e2_e (T.CallExpr (
-                                                        T_A2.e2_e (T.RawExpr "AskPattern.ask"),
-                                                        [
-                                                            T_A2.e2_e (T.AccessExpr( 
-                                                                T_A2.e2_e T.This,
-                                                                T_A2.e2var att_system
-                                                            ));
-                                                            begin
-                                                                let reply_to = Atom.fresh "replyTo" in
-                                                                T_A2.e2_e (T.LambdaExpr(
-                                                                    [
-                                                                        auto_fplace (T.TRaw ""), reply_to
-                                                                    ],
-                                                                    auto_fplace (T.ReturnStmt(
-                                                                        T_A2.e2_e(T.NewExpr(
-                                                                            T_A2.e2_e (T.RawExpr "SpawnProtocol.Spawn<>"),
-                                                                            [
-                                                                                T_A2.e2_e (T.CallExpr(
-                                                                                    T_A2.e2var get_actor,
-                                                                                    [
-                                                                                        T_A2.e2var constructor_arg_system;
-                                                                                        T_A2.e2_lit (T.IntLit 0);
-                                                                                    ]
-                                                                                ));
-                                                                                T_A2.e2_lit (T.StringLit (Atom.to_string service.component_name));
-                                                                                T_A2.e2_e (T.RawExpr "Props.empty()");
-                                                                                T_A2.e2var reply_to;
-                                                                            ]
-                                                                        ))
-                                                                    ))
-                                                                ))
-                                                            end;
-                                                            (* Timeout *)
-                                                            T_A2.e2_e (T.RawExpr "Duration.ofSeconds(5)");
-                                                            T_A2.e2_e (T.AccessExpr(
-                                                                T_A2.e2_e (T.AccessExpr (T_A2.e2_e T.This, T_A2.e2var att_system)),
-                                                                T_A2.e2_e (T.RawExpr "scheduler()")
-                                                            ));
-                                                        ]
-                                                    )),
-                                                    T_A2.e2_e (T.RawExpr "toCompletableFuture().get()")
-                                                ))
-                                            ))
-                                        ))
-                                    ]
+                                    body = T.BBImpl (auto_fplace {
+                                        T.language = None;
+                                        body = [
+                                            T.Template(
+                                                {|
+    this.{{att_system}} = {{arg_system}};
+    this.{{att_actor}} = {{getActor}}({{arg_system}},  0);
+                                                |},
+                                                [
+                                                    "att_system", Jg_types.Tstr (Atom.to_string att_system);
+                                                    "att_actor", Jg_types.Tstr (Atom.to_string att_actor);
+                                                    "arg_system", Jg_types.Tstr (Atom.to_string constructor_arg_system);
+                                                    "getActor", Jg_types.Tstr (Atom.to_string get_actor);
+                                                    "componentName", Jg_types.Tstr (Atom.to_string service.component_name);
+                                                ]
+                                            )
+                                        ]
+                                    });
                                 }
-                            });
+                            })
                         };
-
                     ] @ body_rpcs;
                 }
             })
