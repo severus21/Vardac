@@ -470,12 +470,16 @@ end) = struct
         ) !service2actor_events in
         let events = List.flatten (List.map (function (_,e1, e2)-> [e1;e2]) events) in
 
+        let get_actor = Atom.fresh "getActor" in
+
         program, (events, auto_fplace {
                 T.annotations = [];     
                 decorators = [];
                 v = T.ClassOrInterfaceDeclaration {
                     headers = [ 
                         "import akka.actor.typed.Props;";
+                        "import akka.cluster.typed.Cluster;";
+                        "import akka.actor.typed.receptionist.ServiceKey;";
                         (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))
                     ];
                     isInterface = false;
@@ -502,6 +506,81 @@ end) = struct
                                 None
                             )));
                         };
+                        (
+                            let local_arg_system = Atom.fresh "system" in
+                            let local_arg_retry = Atom.fresh "retry" in
+                            auto_fplace {
+                                T.annotations = [];
+                                decorators = [];
+                                v = T.MethodDeclaration (auto_fplace {
+                                    T.annotations = [T.Visibility T.Public];
+                                    decorators = [];
+                                    v = {
+                                        T.ret_type = auto_fplace (T.Atomic "ActorRef");
+                                        name = get_actor;
+                                        args = [
+                                            auto_fplace (T.TRaw "ActorSystem"), local_arg_system;
+                                            auto_fplace (T.TRaw "int"), local_arg_retry
+                                        ];
+                                        is_constructor = false;
+                                        body = T.BBImpl (auto_fplace {
+                                            T.language = None;
+                                            body = [
+                                                T.Template(
+                                                    {|
+        assert (null != {{actorSystem}});
+
+        int DEFAULT_MAX_RETRY = 5;
+        long DEFAULT_RETRY_TIMEOUT = 500;   // in ms
+        Duration DEFAULT_TIMEOUT = Duration.ofSeconds(3);
+
+        ActorRef actor = null;
+
+        Cluster cluster = Cluster.get({{actorSystem}});
+        assert (null != cluster);
+        ServiceKey key = PlaceDiscovery.activationsServiceKeyOf(cluster.selfMember().address());
+        CompletionStage<Receptionist.Listing> result =
+                AskPattern.ask({{actorSystem}}.receptionist(),
+                        (ActorRef<Receptionist.Listing> replyTo) -> Receptionist.find(key, replyTo),
+                        DEFAULT_TIMEOUT,
+                        {{actorSystem}}.scheduler());
+
+        //TODO handle exception
+        // blocking call
+        Set<ActorRef<{{componentName}}.Command>> listing = result.toCompletableFuture().get().getServiceInstances(key);
+        if (listing.isEmpty()) {
+            if (++{{retry}} < DEFAULT_MAX_RETRY + 1) {
+                final long timeout = DEFAULT_RETRY_TIMEOUT * {{retry}};
+                {{actorSystem}}.log().info("{{implName}}::getActor() retry " + {{retry}} + "/" + DEFAULT_MAX_RETRY + ", timeout=" + timeout);
+                // sleep and retry
+                Thread.sleep(timeout);
+                {{getActor}}({{actorSystem}}, {{retry}});
+            } else {
+                throw new RuntimeException("Could not find TransactionManager after " + DEFAULT_MAX_RETRY + " retries.");
+            }
+        } else {
+            actor = listing.iterator().next();    // TODO: if more than 1 result, use closest
+            {{actorSystem}}.log().info("{{implName}}::getActor(): found {{componentName}} " + actor +
+                    " out of " + listing.size());
+        }
+
+        return actor;
+                                                    |}, 
+                                                    [
+                                                        "actorSystem", Jg_types.Tstr (Atom.to_string local_arg_system);
+                                                        "componentName", Jg_types.Tstr (Atom.to_string service.component_name);
+                                                        "implName", Jg_types.Tstr (Atom.to_string service.impl_name);
+                                                        "getActor", Jg_types.Tstr (Atom.to_string get_actor);
+                                                        "retry", Jg_types.Tstr (Atom.to_string local_arg_retry);
+                                                    ]
+                                                )
+                                            ]
+                                        })
+                                        
+                                    }
+                                })
+                            }
+                        );
                         auto_fplace {
                             T.annotations = [];
                             decorators = [];
@@ -553,11 +632,11 @@ end) = struct
                                                                             T_A2.e2_e (T.RawExpr "SpawnProtocol.Spawn<>"),
                                                                             [
                                                                                 T_A2.e2_e (T.CallExpr(
-                                                                                    T_A2.e2_e(T.AccessExpr (
-                                                                                        T_A2.e2var service.component_name,
-                                                                                        T_A2.e2_e (T.RawExpr "create")
-                                                                                    )),
-                                                                                    [] (*TODO args*)
+                                                                                    T_A2.e2var get_actor,
+                                                                                    [
+                                                                                        T_A2.e2var constructor_arg_system;
+                                                                                        T_A2.e2_lit (T.IntLit 0);
+                                                                                    ]
                                                                                 ));
                                                                                 T_A2.e2_lit (T.StringLit (Atom.to_string service.component_name));
                                                                                 T_A2.e2_e (T.RawExpr "Props.empty()");
