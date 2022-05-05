@@ -17,7 +17,7 @@ module type Rt_plg = sig
 
     module Finish: sig 
         type collected_state
-        module Make : functor () -> sig
+        module Make : functor (Arg:sig val target:Target.target end) -> sig
             val cstate : collected_state ref
             val finish_program : S.program -> Ast.program
         end
@@ -74,14 +74,14 @@ module type Cg_plg = sig
 
     val custom_template_rules : unit -> (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) list
     val custom_external_rules : unit -> (Fpath.t * Fpath.t) list
-    val auto_jingoo_env : Core.Target.target -> plgstate -> Core.IR.vplace list -> (string * Jingoo.Jg_types.tvalue) list
+    val auto_jingoo_env : plgstate -> Core.IR.vplace list -> (string * Jingoo.Jg_types.tvalue) list
 end
 
 module type Plug = sig
     include Cg_plg
 
     val init_build_dir : Core.Target.target -> Fpath.t -> Fpath.t -> unit
-    val resolve_templates : Core.IR.vplace list -> Core.Target.target -> Fpath.t -> Fpath.t -> unit
+    val resolve_templates : Core.IR.vplace list -> Fpath.t -> Fpath.t -> unit
 end
 
 module type CCg_plg = sig
@@ -127,7 +127,7 @@ module Make (Plg: Cg_plg) = struct
         ExternalsHelper.process_externals None (custom_external_rules ()); (* Plugin wide *)
         ExternalsHelper.process_externals (Some project_dir) (custom_external_rules ()) (* Project specific *)
 
-    let resolve_templates places target (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
+    let resolve_templates places (project_dir:Fpath.t) (build_dir: Fpath.t) : unit = 
         let module TemplatesHelper = TemplatesHelper.Make(struct 
             let logger = logger
             let name = name
@@ -135,7 +135,7 @@ module Make (Plg: Cg_plg) = struct
             let templates_location = templates_location 
             let custom_template_rules = custom_template_rules () 
         end) in
-        let jingoo_models = auto_jingoo_env target !plgstate places in
+        let jingoo_models = auto_jingoo_env !plgstate places in
         TemplatesHelper.process_templates None jingoo_models; (* Plugin wide *)
         TemplatesHelper.process_templates (Some project_dir) jingoo_models (* Project specific *)
 end

@@ -40,8 +40,8 @@ let codegen_program project_dir build_dir places (target2dependencies, target2he
     Plug.init_build_dir target project_dir build_dir;
     logger#info "Building ...";
     let res = Plug.output_program target project_dir build_dir program in 
-    logger#info "Resolve templates (maydepend of the build collected state)";
-    Plug.resolve_templates places target project_dir build_dir;
+    logger#info "Resolve templates (maydepend of the build collected state and target information (add main and guardian))";
+    Plug.resolve_templates places project_dir build_dir;
     res 
 
 let codegen project_dir (build_dir:Fpath.t) places targets ((target2dependencies, target2headers), program) = 

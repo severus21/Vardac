@@ -493,60 +493,68 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     | _ -> 
                         let rec update_guardian = function
                         | [] -> []
-                        | stage::stages when stage.name = mdef.bootstrap -> 
+                        | stage::stages when stage.name = mdef.bootstrap -> begin 
                             assert( List.length stage.ast = 1);
 
-                            let {place; value={annotations; decorators; v=S.Actor guardian}} = List.hd stage.ast in
+                            match List.hd stage.ast with 
+                            | {place; value={annotations; decorators; v=S.ClassOrInterfaceDeclaration guardian}} -> begin
+                                (* guardian like added by interface plgs*)
+                                let ast = {place; value={S.annotations; decorators; v=S.ClassOrInterfaceDeclaration guardian}} in
+                                let stage = { stage with ast = [ast]} in
+                                stage::stages
+                            end
+                            | {place; value={annotations; decorators; v=S.Actor guardian}} -> begin
 
-                            let rec change_constructor : S.method0 list -> S.method0 list = function
-                            | [] -> []
-                            | m::ms when m.value.v.is_constructor ->
-                                let m = { m with
-                                    value = { m.value with
-                                        annotations = m.value.annotations;
-                                        v = { m.value.v with
-                                            S.ret_type = auto_place (S.Atomic "Void");
-                                            name = m.value.v.name;
-                                            args = 
-                                                (auto_place (S.Atomic "String"), Atom.builtin "name")
-                                                :: (auto_place (S.Atomic "Wait"), Atom.builtin "wait")
-                                                :: m.value.v.args;
-                                            is_constructor = true;
-                                            body = match m.value.v.body with
-                                            | AbstractImpl stmts -> AbstractImpl (
-                                                List.map 
-                                                    (S.rewriteexpr_stmt (function 
-                                                        |CurrentContext -> true 
-                                                        |_-> false
-                                                        ) 
-                                                        (function 
-                                                        |CurrentContext -> S.VarExpr (Atom.builtin "context")
+
+                                let rec change_constructor : S.method0 list -> S.method0 list = function
+                                | [] -> []
+                                | m::ms when m.value.v.is_constructor ->
+                                    let m = { m with
+                                        value = { m.value with
+                                            annotations = m.value.annotations;
+                                            v = { m.value.v with
+                                                S.ret_type = auto_place (S.Atomic "Void");
+                                                name = m.value.v.name;
+                                                args = 
+                                                    (auto_place (S.Atomic "String"), Atom.builtin "name")
+                                                    :: (auto_place (S.Atomic "Wait"), Atom.builtin "wait")
+                                                    :: m.value.v.args;
+                                                is_constructor = true;
+                                                body = match m.value.v.body with
+                                                | AbstractImpl stmts -> AbstractImpl (
+                                                    List.map 
+                                                        (S.rewriteexpr_stmt (function 
+                                                            |CurrentContext -> true 
+                                                            |_-> false
+                                                            ) 
+                                                            (function 
+                                                            |CurrentContext -> S.VarExpr (Atom.builtin "context")
+                                                            )
                                                         )
-                                                    )
-                                                    stmts 
-                                            )
-                                            | b -> b
+                                                        stmts 
+                                                )
+                                                | b -> b
+                                            }
+                                        }  
+                                    } in
+                                    m::ms
+                                | m::ms -> m::(change_constructor ms)
+                                in
+                                let guardian = {
+                                    guardian with 
+                                        value = {guardian.value with 
+                                            is_guardian = true;
+                                            extended_types = [Rt.Misc.t_lg4dc_abstract_system fplace];
+                                            methods = change_constructor guardian.value.methods;
                                         }
-                                    }  
-                                } in
-                                m::ms
-                            | m::ms -> m::(change_constructor ms)
-                            in
-
-                            
-                            let guardian = {
-                                guardian with 
-                                    value = {guardian.value with 
-                                        is_guardian = true;
-                                        extended_types = [Rt.Misc.t_lg4dc_abstract_system fplace];
-                                        methods = change_constructor guardian.value.methods;
                                     }
-                                }
-                            in
+                                in
 
-                            let ast = {place; value={S.annotations; decorators; v=S.Actor guardian}} in
-                            let stage = { stage with ast = [ast]} in
-                            stage::stages
+                                let ast = {place; value={S.annotations; decorators; v=S.Actor guardian}} in
+                                let stage = { stage with ast = [ast]} in
+                                stage::stages
+                            end
+                        end
                         | stage::stages -> stage:: (update_guardian stages)
                         in
 
@@ -1750,21 +1758,27 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
     (*****************************************************)
     module RtPrepare = Core.IRICompilationPass.Make(Rt.Prepare)
-    module RFinish = Rt.Finish.Make()
-    module RtFinish = Rt.IRI2AstCompilationPass.Make(RFinish)
 
 
     type plgstate = Rt.Finish.collected_state
     let plgstate = ref (Rt.Finish.empty_cstate ())
 
     let finish_ir_program (target:Core.Target.target) project_dir build_dir (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
-        let (module RtGenInterface), (module RtGenInterfacePass) = Akka.Interfaces.load_and_make target.value.codegen.interface_plg build_dir in
 
-        let ir_after_interface_program, interface_program = 
+        let module RFinish = Rt.Finish.Make(struct let target = target end) in
+        let module RtFinish = Rt.IRI2AstCompilationPass.Make(RFinish) in
+
+        let (module RtGenInterface), (module RtGenInterfacePass) = Akka.Interfaces.load_and_make target.value.codegen.interface_plg build_dir target in
+
+        let target, ir_after_interface_program, interface_program = 
             match RtGenInterfacePass.apply ir_program with
-            | [ir_after_interface_program, interface_program] -> ir_after_interface_program, interface_program
+            | [(target, ir_after_interface_program), interface_program] -> target, ir_after_interface_program, interface_program
             | _ -> failwith "RtGenInterfacePass returns an ill-formed results"
         in
+
+        (* Add new compilation targets, must be set before calling resolve_templates *)
+        (!RFinish.cstate).target <- Some target;
+
         let ir_program = ir_after_interface_program in
 
         (* Warning: must be called after exactly one apply, since it needs Module state *)
@@ -1804,7 +1818,12 @@ module Make (Arg: Plugin.CgArgSig) = struct
         |> List.map (function (package_name, file, program) -> (package_name, file, headers :: program))
         |> List.iter (function (package_name, file, program) -> Lg.Output.output_program package_name (Fpath.append build_dir file) program)
 
-    let auto_jingoo_env (target:Core.Target.target) (cstate:Rt.Finish.collected_state) places = 
+    let auto_jingoo_env (cstate:Rt.Finish.collected_state) places = 
+        let target:Core.Target.target = 
+            try Option.get cstate.target 
+            with Invalid_argument _ -> failwith "[akka] target has not been set into cstate before calling auto_jinja_env"
+        in
+
         let rec prepare_places parent_name : IR.vplace list -> (string * IR.vplace) list = function 
         | [] -> []
         | p::ps -> 

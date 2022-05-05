@@ -15,8 +15,9 @@ module T_A2 = Ast.AstUtil2.Make(struct let fplace = fplace end)
 
 module Make (Arg : sig
     val build_dir : Fpath.t 
+    val target : Target.target
 end) = struct
-    let build_dir = Arg.build_dir
+    include Arg
 
     (************ Externals & Templates ***************)
 
@@ -702,7 +703,24 @@ end) = struct
             ))
         in
 
-        auto_fplace {
+        let grpc_main = Atom.fresh "grpc_main" in
+
+        (* Add HTTP endpoint to target *)
+        let target = {
+            place = fplace@target.place;
+            value = { target.value with
+            Target.codegen = {target.value.codegen with 
+                mains = 
+                    {
+                        Target.name = "gRPCServer";
+                        bootstrap = main_server_name;
+                        entrypoint = grpc_main;
+                    } :: target.value.codegen.mains
+            }
+        }} in
+
+
+        target, auto_fplace {
             T.annotations = [];     
             decorators = [];
             v = T.ClassOrInterfaceDeclaration {
@@ -725,7 +743,7 @@ end) = struct
                             T.language = None;
                             body = [
                                 T.Template ({|
-    public static void main(String[] args) throws Exception {
+    public static void {{grpc_main}}(String[] args) throws Exception {
         // important to enable HTTP/2 in ActorSystem's config
         Config conf = ConfigFactory.parseString("akka.http.server.preview.enable-http2 = on")
                 .withFallback(ConfigFactory.defaultApplication());
@@ -768,6 +786,7 @@ end) = struct
                                |}, [
                                     "system_name", Jg_types.Tstr Misc.system_name;
                                     "main_server_name", Jg_types.Tstr (Atom.to_string main_server_name);
+                                    "grpc_main", Jg_types.Tstr (Atom.to_string grpc_main);
                                ])
                             ];
                         })
@@ -813,14 +832,14 @@ end) = struct
             }
         }
 
-    let finish_program program : (S.program * T.program) list =  
+    let finish_program program =  
         hydrate_grpc program;
         proto_models := Some (generate_protobuf_interfaces_env build_dir program);
         let iri_program, res = generate_services_implementation program in
         let events, akka_terms = List.split res in 
         let events = List.flatten events in
-        let akka_term = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
-        [ iri_program, events@akka_terms@[akka_term] ]
+        let target, akka_term = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
+        [ (target, iri_program), events@akka_terms@[akka_term] ]
 
     (*****************************************************)
     let name = "Akka.Interfaces.GRPC"

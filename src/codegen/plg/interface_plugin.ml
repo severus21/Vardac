@@ -5,10 +5,11 @@ open S_AST
 (** Runtime plugin interface *)
 module type SigArg = sig
     val build_dir : Fpath.t 
+    val target : Target.target
 end;;
 
 module Make(Ast:S_Ast) = struct 
-    module CompilationPass = Core.CompilationPass.Make2(IRI)(Ast)(struct type acc = IRI.program end)
+    module CompilationPass = Core.CompilationPass.Make2(IRI)(Ast)(struct type acc = Target.target * IRI.program end)
 
     module type Interface__plg = sig 
         val name : string
@@ -96,9 +97,9 @@ module Make(Ast:S_Ast) = struct
                     (module P:Interface_plg0) 
                 with Not_found -> logger#error "Codegeneration plugin %s not found" key; raise Not_found 
 
-            let load_and_make name build_dir : (module Interface_plg) *  (module CompilationPass.Pass2) = 
+            let load_and_make name build_dir target : (module Interface_plg) *  (module CompilationPass.Pass2) = 
                 let module Plg = (val load_plugin name) in
-                let module Plg1 : Interface__plg = Plg.Make(struct let build_dir = build_dir end) in
+                let module Plg1 : Interface__plg = Plg.Make(struct let build_dir = build_dir let target = target end) in
                 let module Plg2 : Interface_plg = MMake(Plg1) in
                 (module Plg2:Interface_plg), (module CompilationPass.Make(Plg2):CompilationPass.Pass2)
         end

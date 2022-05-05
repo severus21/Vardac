@@ -22,6 +22,7 @@ module T = Ast
 
 (*** Global state *)
 type collected_state = {
+    mutable target : Core.Target.target option;
     event2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
     collected_components: Atom.Set.t ref;
     guardian_components: Atom.Set.t ref
@@ -38,12 +39,13 @@ let print_cstate cstate =
     ) cstate.event2receptionists
 
 let empty_cstate () : collected_state = {
+    target = None;
     event2receptionists = Hashtbl.create 0;
     collected_components = ref Atom.Set.empty;
     guardian_components = ref Atom.Set.empty
 }
 
-module Make () = struct
+module Make (Arg: sig val target:Target.target end) = struct
 
     (* Use to remove type alias introduced by *.impl. Varda type aliasing have been compiled away during UntypedCleansing pass *)
     let typealias = Hashtbl.create 32
@@ -1778,6 +1780,7 @@ module Make () = struct
         rename_collected_state (make_capitalize_renaming);  
        
         cstate := {
+            target = Some (match !cstate.target with |None -> Arg.target |Some target -> target);
             event2receptionists;
             collected_components;
             guardian_components = ref Atom.Set.empty (* hydrated in AkkaJava.ml *)
