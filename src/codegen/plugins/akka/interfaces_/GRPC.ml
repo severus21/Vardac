@@ -257,6 +257,9 @@ end) = struct
                 (service2actor_event, Hashtbl.find grpc_messages rpc.in_type), (actor2service_event, Hashtbl.find grpc_messages rpc.out_type)
             ) :: !service2actor_events; 
 
+
+            let event2protomsg = Atom.fresh "unpack" in
+
             auto_fplace {
                 T.annotations = [];
                 decorators = [];
@@ -269,6 +272,32 @@ end) = struct
                         args = [ (ct_msg_in, a_msg_in) ];
                         is_constructor = false;
                         body = AbstractImpl [
+                            auto_fplace (T.LetStmt(
+                                auto_fplace (T.TParam(
+                                    auto_fplace (T.TRaw "Function"),
+                                    [
+                                        auto_fplace (T.TVar actor2service_event.value.name);
+                                        ct_msg_out
+                                    ]
+                                )),
+                                event2protomsg,
+                                Some(
+                                    T_A2.e2_e (T.LambdaExpr(
+                                        [
+                                            (auto_fplace (T.TVar actor2service_event.value.name), a_intermediate_msg)
+                                        ],
+                                        auto_fplace (T.ReturnStmt(
+                                            T_A2.e2_e (T.CallExpr (
+                                                T_A2.e2_e (T.AccessExpr(
+                                                    T_A2.e2var a_intermediate_msg,
+                                                    T_A2.e2_e (T.RawExpr "_0_")
+                                                )),
+                                                []
+                                            ))
+                                        ))
+                                    ))
+                                )
+                            ));
                             auto_fplace (T.ReturnStmt(
                                 T_A2.e2_e (T.CallExpr(
                                     T_A2.e2_e (T.AccessExpr(
@@ -307,45 +336,7 @@ end) = struct
                                         T_A2.e2_e (T.RawExpr "thenApply")
                                     )),
                                     [
-                                        (* message ->
-          HelloReply.newBuilder()
-            .setX_i((m.i).greeting)
-            .build() *)
-                                        T_A2.e2_e (T.LambdaExpr(
-                                            [
-                                                (auto_fplace (T.TVar actor2service_event.value.name), a_intermediate_msg)
-                                            ],
-                                            auto_fplace (T.ReturnStmt(
-                                                T_A2.e2_e (T.CallExpr (
-                                                    T_A2.e2_e (T.AccessExpr(
-                                                        T_A2.e2_e (T.CallExpr (
-                                                            T_A2.e2_e (T.AccessExpr(
-                                                                T_A2.e2_e (T.CallExpr (
-                                                                    T_A2.e2_e (T.AccessExpr(
-                                                                        T_A2.e2var rpc.out_type,
-                                                                        T_A2.e2_e (T.RawExpr "newBuilder")
-                                                                    )),
-                                                                    []
-                                                                )),
-                                                                let msg = Hashtbl.find grpc_messages rpc.out_type in
-                                                                match msg.fields with
-                                                                | [f] when Atom.hint f.name = "RetValue" -> 
-                                                                    T_A2.e2_e (T.RawExpr ("set"^(Atom.to_string f.name))) 
-                                                                | _ -> raise (Core.Error.DeadbranchError "Ill-formed ProtoMsgOut")
-                                                            )),
-                                                            [
-                                                                T_A2.e2_e (T.AccessExpr(
-                                                                    T_A2.e2var a_intermediate_msg,
-                                                                    T_A2.e2_e (T.RawExpr "_0_()")
-                                                                ));
-                                                            ]
-                                                        )),
-                                                        T_A2.e2_e (T.RawExpr "build")
-                                                    )),
-                                                    []
-                                                ))
-                                            ))
-                                        ))
+                                        T_A2.e2var event2protomsg
                                     ]
                                 ))
                             ))
@@ -612,13 +603,13 @@ end) = struct
         let local_service_handlers = Atom.fresh "serviceHandlers" in
 
         (*
-            Function<HttpRequest, CompletionStage<HttpResponse>> greeterService =
+            akka.japi.function.Function<HttpRequest, CompletionStage<HttpResponse>> greeterService =
             GreeterServiceHandlerFactory.create(new GreeterServiceImpl(mat), sys);   
         *)
         let spawn_service service : T.stmt = 
             auto_fplace(
                 T.LetStmt (
-                    auto_fplace (T.TRaw "Function<HttpRequest, CompletionStage<HttpResponse>>"),
+                    auto_fplace (T.TRaw "akka.japi.function.Function<HttpRequest, CompletionStage<HttpResponse>>"),
                     service.service_handler_instance,
                     Some (
                         T_A2.e2_e (T.CallExpr(
@@ -669,7 +660,7 @@ end) = struct
                 )  (_spawn_service_handlers [s1]) (s2::t) 
         and spawn_service_handlers services =
             auto_fplace (T.LetStmt(
-                auto_fplace (T.TRaw "Function<HttpRequest, CompletionStage<HttpResponse>>"),
+                auto_fplace (T.TRaw "akka.japi.function.Function<HttpRequest, CompletionStage<HttpResponse>>"),
                 local_service_handlers,
                 Some ( _spawn_service_handlers services )
             ))
