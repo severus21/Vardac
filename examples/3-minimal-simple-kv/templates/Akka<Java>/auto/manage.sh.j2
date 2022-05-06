@@ -1,0 +1,30 @@
+#!/bin/bash
+
+MAIN=$1
+shift
+
+for i in "$@"; do
+  case $i in
+    -*|--*)
+      echo "Unknown option $i"
+      exit 1
+      ;;
+    *)
+      ;;
+  esac
+done
+
+LIBS=build/libs
+
+case $MAIN in
+{% for name in target_mains %}
+    {% if substring (0, 14, name) == "MaingRPCServer" %}
+grpc)
+    java -enableassertions -jar $LIBS/{{name}}.jar -ip 127.0.0.1 -p 25521 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp Cloud
+    {% else %}
+{{name}})
+    java -enableassertions -jar $LIBS/{{name}}.jar -ip 127.0.0.1 -p 25520 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp Cloud
+    {%endif%}
+;;
+{% endfor %}
+esac

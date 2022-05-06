@@ -164,6 +164,7 @@ function
     in
     let body = match m0.ret_type with
         | None -> m0.body (* constructor *)
+        | Some {value=TAtomic "void"} -> m0.body
         | Some {value=TAtomic "Void"} ->
             if ends_by_return m0.body then
                 m0.body

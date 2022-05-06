@@ -703,8 +703,6 @@ end) = struct
             ))
         in
 
-        let grpc_main = Atom.fresh "grpc_main" in
-
         (* Add HTTP endpoint to target *)
         let target = {
             place = fplace@target.place;
@@ -712,9 +710,9 @@ end) = struct
             Target.codegen = {target.value.codegen with 
                 mains = 
                     {
-                        Target.name = "gRPCServer";
+                        Target.name = Atom.to_string main_server_name;
                         bootstrap = main_server_name;
-                        entrypoint = grpc_main;
+                        entrypoint = Atom.builtin "main";
                     } :: target.value.codegen.mains
             }
         }} in
@@ -743,10 +741,10 @@ end) = struct
                             T.language = None;
                             body = [
                                 T.Template ({|
-    public static void {{grpc_main}}(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
         // important to enable HTTP/2 in ActorSystem's config
         Config conf = ConfigFactory.parseString("akka.http.server.preview.enable-http2 = on")
-                .withFallback(ConfigFactory.defaultApplication());
+                .withFallback(AbstractMain.get_config(args));
 
         // Akka ActorSystem Boot
         ActorSystem sys = ActorSystem.create(
@@ -786,7 +784,6 @@ end) = struct
                                |}, [
                                     "system_name", Jg_types.Tstr Misc.system_name;
                                     "main_server_name", Jg_types.Tstr (Atom.to_string main_server_name);
-                                    "grpc_main", Jg_types.Tstr (Atom.to_string grpc_main);
                                ])
                             ];
                         })
