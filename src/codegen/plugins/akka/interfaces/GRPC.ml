@@ -443,6 +443,7 @@ end) = struct
                                 S_A2.e2_e S.This,
                                 S_A2.e2var callback.value.name
                             )); 
+                            _children = [];
                         }, auto_fplace S.EmptyMainType)))
                     ) !service2actor_events in
 

@@ -12,7 +12,7 @@ public abstract class AbstractPort<P extends Protocol> {
     // its bindings follows those of its parents
     // this mechanism is mainly used for Varda generated ports (RecvElim for instance)
     // since program can dinamically change the bindings of a port
-    LinkedList<AbstractPort> children = new LinkedList<>();
+    List<AbstractPort> children = new LinkedList<>();
     
     public AbstractPort (){
         this.id = UUID.randomUUID();

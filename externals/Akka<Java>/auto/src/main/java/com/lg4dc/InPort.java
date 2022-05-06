@@ -9,11 +9,13 @@ import com.bmartin.*;
 public final class InPort<P extends Protocol> extends AbstractPort<P> {
     public ASTStype.Base expecting_st;
 
-    public InPort (ASTStype.Base expecting_st){
+    public InPort (List<AbstractPort> children, ASTStype.Base expecting_st){
         super();
 
         assert( expecting_st != null);
+        assert( children != null);
         this.expecting_st = expecting_st;
+        this.children = children;
     }
 
     @Override

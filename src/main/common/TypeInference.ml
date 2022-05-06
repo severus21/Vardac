@@ -714,6 +714,7 @@ module Make () = struct
         expecting_st = tannot_main_type parent_opt p.expecting_st;
         _disable_session = p._disable_session;
         callback = tannot_expr parent_opt p.callback;
+        _children = List.map (tannot_port parent_opt) p._children;
     } 
     and tannot_port parent_opt p = 
         let fplace = (Error.forge_place "TypeInference.tannot_port" 0 0) in

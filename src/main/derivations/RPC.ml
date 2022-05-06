@@ -177,6 +177,7 @@ module Make(Args:Args) : Sig = struct
                             auto_fplace (VarExpr callback.value.name, callback_sign)
                         ), callback_sign); 
                         _disable_session = false;
+                        _children = [];
                     }, mt_port))) in
 
 

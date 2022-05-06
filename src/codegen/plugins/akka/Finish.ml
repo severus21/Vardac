@@ -12,6 +12,7 @@ let logger = Logging.make_logger ("_1_ compspec.plg."^plg_name) Debug [];;
 let fplace = (Error.forge_place ("plg."^plg_name^".Finish") 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
 include Ast.AstUtil2.Make(struct let fplace = fplace end)
+module S_A2 = AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
 (* The source calculus. *)
 module S = IRI 
@@ -1066,6 +1067,11 @@ module Make (Arg: sig val target:Target.target end) = struct
                             e2_e (T.NewExpr(
                                 e2_e (T.RawExpr "InPort"),
                                 [
+                                    fexpr (S_A2.e2_e (S.BlockExpr(AstUtils.List, 
+                                        List.map (function (p:S.port) -> 
+                                            S_A2.e2_e (S.AccessExpr( S_A2.e2_e S.This, S_A2.e2var (fst p.value).name))
+                                        ) _p._children
+                                    )));
                                     fvstype (match _p.expecting_st.value with
                                     | S.SType st -> st)
                                 ]
