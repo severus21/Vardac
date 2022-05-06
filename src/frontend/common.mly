@@ -80,10 +80,10 @@ any_composed_type_:
 
 
 any_st_match:
-| x=STRLITERAL COLON st=any_session_type
+| x=LID COLON st=any_session_type
     { (x,st, None) }
 (* Constraints per branch *)
-| x=STRLITERAL c= any_applied_constraint COLON st=any_session_type
+| x=LID c= any_applied_constraint COLON st=any_session_type
     { (x,st, Some c) }
 
 
@@ -255,7 +255,7 @@ match_entry:
     { (e1, stmt) }
 
 branch_entry:
-| MID branch_label=STRLITERAL DOUBLE_RARROW branch_s = LID SIMPLE_RARROW body = any_stmt
+| MID branch_label=LID DOUBLE_RARROW branch_s = LID SIMPLE_RARROW body = any_stmt
     { 
         {branch_label; branch_s; body}
     }

@@ -81,7 +81,11 @@ let rec hydrate_iota entry =
     if "__default__" <> Atom.value entry.name.value then
         Hashtbl.add iota entry.name.value entry
 
-
+let stlabels = Hashtbl.create 32
+let is_stlabel x = 
+    Hashtbl.find_opt stlabels x <> None
+let mark_as_stlabel x =
+    Hashtbl.add stlabels x true   
 
 (*********** Entity level environment - each entity create its own ************)
 type entity_env = {
@@ -211,13 +215,11 @@ module Make(Arg:ArgSig) = struct
     }
 
     let export_branch_label (env0:env) (env1:env) : env = 
-        (* TODO refactor - rename label_ by smth else or use a dedicated env field *)
-        let is_branch_label x _ = String.starts_with "label_" x in
         { env0 with 
             current = { env0.current with 
-                exprs = Env.fold Env.add (Env.filter is_branch_label env1.current.exprs) env0.current.exprs 
+                exprs = Env.fold Env.add (Env.filter (fun (_:string) (x:Atom.atom) -> is_stlabel x) env1.current.exprs) env0.current.exprs 
             }
-        } (* TODO label types binding  not preserved since they should be removed *)
+        }
 
     let fresh_env iota = {
         current         = fresh_entity_env iota;
@@ -480,9 +482,9 @@ module Make(Arg:ArgSig) = struct
     and cook_session_type env place: S._session_type -> env * T._session_type = function
     | (S.STBranch entries as st0) | (S.STSelect entries as st0) ->
         let aux env (x, st, aconst_opt) = 
-            let x = "label_"^x in
             let env1, y = bind_type env place x in
             let env1 = register_expr env place ~create_instance:false y in (* register for blabel literal in match *)
+            mark_as_stlabel y;
 
             (* TODO since all label has blabel types do need this
                 or maybe introduce a blabel subtype per stbranch
@@ -625,7 +627,13 @@ module Make(Arg:ArgSig) = struct
         let env, e =
             match e with 
             (* No binding done in an expression can be propagated outside this expression *)
-            | S.VarExpr x -> (env, T.VarExpr (cook_var_expr env place x))
+            | S.VarExpr x -> 
+                let y = cook_var_expr env place x in
+                if is_stlabel y then
+                    (* Blabel should be literal not variable *)
+                    (env, fst (e2_lit (T.BLabelLit  y)).value)
+                else
+                    (env, T.VarExpr y)
             | S.ImplicitVarExpr x -> (env, T.ImplicitVarExpr (cook_var_expr env place x))
 
             | S.AccessExpr ({place=p_t; value=S.This}, {place=p_v; value=S.VarExpr v}) -> env, T.AccessExpr (
@@ -823,7 +831,7 @@ module Make(Arg:ArgSig) = struct
         let env2, label = cexpr env label in
         let envs, branches = List.split (List.map (function {S.branch_label; branch_s; body} -> 
         print_env env;
-            let branch_label = cook_var_expr env place ("label_"^branch_label) in
+            let branch_label = cook_var_expr env place branch_label in
             let branch_label = {place; value = T.BLabelLit branch_label} in
             let env_inner, branch_s = bind_expr env place branch_s in
             let env2, body = cstmt env_inner body in
