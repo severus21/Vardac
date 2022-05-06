@@ -33,21 +33,28 @@ let elim_unpack_or_propagate program =
             e = rewrite => stmts + e
             ```
             stmts:
-                if(e = Err err) {
+                xxx tmp = e; (* TO avoid duplicating expression *)
+                if(tmp = Err err) {
                     return Err err;
                 }
             ```
 
-            e': Either.get e
+            e': Either.get tmp
 
         *)
+        let tmp = Atom.fresh "tmp" in
+        let store = auto_fplace (LetStmt(
+            snd e.value,
+            tmp,
+            e
+        )) in
 
         let propagate_or_nothing = 
             auto_fplace (IfStmt(
                 e2_e (CallExpr(
                     e2_e (AccessExpr( 
                         (* Update type of e : TRes<ok, err> -> ok*)
-                        {place=e.place; value = ((fst e.value), mt_op)},
+                        {place=e.place@fplace; value = (VarExpr tmp, mt_op)},
                         e2var (Atom.builtin "isLeft")
                     )),
                     [ ]
@@ -60,7 +67,7 @@ let elim_unpack_or_propagate program =
                         Some ( 
                             e2_e (CallExpr(
                                 e2_e (AccessExpr(
-                                    e,
+                                    e2var tmp,
                                     e2var (Atom.builtin "getLeft")
                                 )),
                                 [ ]
@@ -74,13 +81,13 @@ let elim_unpack_or_propagate program =
         let unpacked_e = 
             (CallExpr(
                 e2_e(AccessExpr(
-                    e,
+                    e2var tmp,
                     e2var (Atom.builtin "get")
                 )),
                 [ ]
             ), mt_ok)
         in
-        [propagate_or_nothing], unpacked_e
+        [store; propagate_or_nothing], unpacked_e
     in
     IRUtils.rewrite_exprstmts_program (function _ -> false) selector_unpack_or_propagate rewriter program
 

@@ -382,9 +382,9 @@ module Make () : Sig = struct
                 | None -> x
             in
             (* rename remaining stmts*)
-            let stmts = List.map (rename_stmt renaming) stmts in 
+            let stmts = List.map (rename_stmt false renaming) stmts in 
             (* renaming let i = nth(res, ...)*)
-            let next_method = {next_method with body = List.map (rename_stmt renaming) next_method.body } in
+            let next_method = {next_method with body = List.map (rename_stmt false renaming) next_method.body } in
 
             (*** Returns and rec call***)
             (*  NB. Initial param_current_method is unused 
@@ -467,14 +467,13 @@ module Make () : Sig = struct
                                     match Hashtbl.find_opt state x with 
                                     | Some y -> y 
                                     | None -> begin
-                                        logger#warning "sfs %s" (Atom.hint x);
                                         let y = Atom.fresh (Atom.hint x) in 
                                         Hashtbl.add state x y;
                                         y
                                     end
                                 end
                         in
-                        List.map (rename_stmt renaming) stmts
+                        List.map (rename_stmt false renaming) stmts
                     in
 
                     (* Warning. stmt_branch is in a nested scope 

@@ -184,8 +184,8 @@ module Make (Params : IRParams) = struct
     let collect_cexpr_custom_method0_body x = Params.collect_cexpr_custom_method0_body x 
     let collect_stmt_custom_method0_body x = Params.collect_stmt_custom_method0_body x 
 
-    let rename_state_dcl_body rename_expr = Params.rename_state_dcl_body rename_expr
-    let rename_custom_method0_body rename_stmt = Params.rename_custom_method0_body rename_stmt
+    let rename_state_dcl_body rename_expr = Params.rename_state_dcl_body (rename_expr true)
+    let rename_custom_method0_body rename_stmt = Params.rename_custom_method0_body (rename_stmt true)
     let rename_typealias_body rename_main_type = Params.rename_typealias_body rename_main_type
 
     (************************************ Component *****************************)
@@ -455,8 +455,7 @@ module Make (Params : IRParams) = struct
             (term list -> term list) ->
             term list -> term list
 
-        val rename_stmt : (Atom.atom -> Atom.atom) ->
-            stmt -> stmt
+        val rename_stmt : bool -> (Atom.atom -> Atom.atom) -> stmt -> stmt
         val rename_component_item : (Atom.atom -> Atom.atom) ->
             _component_item AstUtils.placed ->
             _component_item AstUtils.placed
@@ -1680,16 +1679,16 @@ module Make (Params : IRParams) = struct
         and rename_constraint_header renaming = map_place (_rename_constraint_header (protect_renaming renaming))
 
         and rename_applied_constraint renaming (headers,e_opt) = 
-            List.map (rename_constraint_header renaming) headers, Option.map (rename_expr renaming) e_opt
+            List.map (rename_constraint_header renaming) headers, Option.map (rename_expr true renaming) e_opt
 
-        and _rename_literal renaming place lit = 
+        and _rename_literal flag_rename_type renaming place lit = 
         match lit with
         | VoidLit | BoolLit _ | FloatLit _ | IntLit _ | LabelLit _ | StringLit _ | ActivationRef _ | Place _  -> lit
-        | BLabelLit x -> BLabelLit (renaming x)
+        | BLabelLit x -> BLabelLit (if flag_rename_type then renaming x else x)
         | VPlace vp ->
             let rec rename_vp (vp:vplace) =  {
                 name = renaming vp.name;
-                nbr_instances = rename_expr renaming vp.nbr_instances;
+                nbr_instances = rename_expr true renaming vp.nbr_instances;
                 features = vp.features;
                 children = List.map rename_vp vp.children
             } in
@@ -1698,11 +1697,11 @@ module Make (Params : IRParams) = struct
             id = renaming b.id;
             protocol_name = renaming b.protocol_name
         }
-        and rename_literal renaming = map_place (_rename_literal (protect_renaming renaming)) 
+        and rename_literal flag_rename_type renaming = map_place (_rename_literal flag_rename_type (protect_renaming renaming)) 
 
-        and _rename_expr renaming place (e, mt_e) = 
-            let re = rename_expr renaming in
-            let rmt = rename_main_type renaming in
+        and _rename_expr flag_rename_type renaming place (e, mt_e) = 
+            let re = rename_expr flag_rename_type renaming in
+            let rmt = if flag_rename_type then rename_main_type renaming else Fun.id in
 
             let rename_attribute = false in (* TODO expose argument, renaming attributes is wrong except if type schemas have been changed *)
 
@@ -1719,7 +1718,7 @@ module Make (Params : IRParams) = struct
                 LambdaExpr (
                     List.map (map_place (fun _ (mt,x) -> rmt mt, renaming x)) params,
                     re e) 
-            | LitExpr l -> LitExpr (rename_literal renaming l)
+            | LitExpr l -> LitExpr (rename_literal flag_rename_type renaming l)
             | UnopExpr (op, e) -> UnopExpr (op, re e)
             | CallExpr (e, es) -> CallExpr (re e, List.map re es)
             | NewExpr (e, es) -> NewExpr (re e, List.map re es)
@@ -1743,12 +1742,12 @@ module Make (Params : IRParams) = struct
             )
             in
             (e, rmt mt_e)
-        and rename_expr renaming : expr -> expr = map_place (_rename_expr (protect_renaming renaming))
+        and rename_expr flag_rename_type renaming : expr -> expr = map_place (_rename_expr flag_rename_type (protect_renaming renaming))
 
-        and _rename_stmt renaming place = 
-            let re = rename_expr renaming in
-            let rmt = rename_main_type renaming in
-            let rstmt = rename_stmt renaming in
+        and _rename_stmt flag_rename_type renaming place = 
+            let re = rename_expr flag_rename_type renaming in
+            let rmt = if flag_rename_type then rename_main_type renaming else Fun.id in
+            let rstmt = rename_stmt flag_rename_type renaming in
         function
         | EmptyStmt -> EmptyStmt
         | AssignExpr (x, e) -> AssignExpr (renaming x, re e)
@@ -1766,7 +1765,7 @@ module Make (Params : IRParams) = struct
         | BlockStmt stmts -> BlockStmt (List.map rstmt stmts)
         | GhostStmt stmt -> GhostStmt (rstmt stmt)
         | WithContextStmt (flag, x, e, stmts) -> WithContextStmt (flag, renaming x, re e, List.map rstmt stmts)
-        and rename_stmt renaming = map_place (_rename_stmt (protect_renaming renaming))
+        and rename_stmt (flag_rename_type:bool) renaming = map_place (_rename_stmt flag_rename_type (protect_renaming renaming))
 
         and _rename_param renaming place (mt, x) = (rename_main_type renaming mt, renaming x)
         and rename_param renaming = map_place (_rename_param (protect_renaming renaming))
@@ -1776,7 +1775,7 @@ module Make (Params : IRParams) = struct
             name = renaming p.name;
             expecting_st = rename_main_type renaming p.expecting_st;
             _disable_session = p._disable_session;
-            callback = rename_expr renaming p.callback;
+            callback = rename_expr true renaming p.callback;
         }, rename_main_type renaming mt_p)
         and rename_port renaming = map_place (_rename_port (protect_renaming  renaming))
 
@@ -1795,15 +1794,15 @@ module Make (Params : IRParams) = struct
 
         and _rename_contract renaming place c = {
             method_name = renaming c.method_name;
-            pre_binders = List.map (function (mt, x, e) -> (rename_main_type renaming mt, renaming x, rename_expr renaming e)) c.pre_binders;
-            ensures = Option.map (rename_expr renaming) c.ensures; 
-            returns = Option.map (rename_expr renaming) c.returns;
+            pre_binders = List.map (function (mt, x, e) -> (rename_main_type renaming mt, renaming x, rename_expr true renaming e)) c.pre_binders;
+            ensures = Option.map (rename_expr true renaming) c.ensures; 
+            returns = Option.map (rename_expr true renaming) c.returns;
         }
         and rename_contract renaming = map_place (_rename_contract (protect_renaming renaming))
 
         and _rename_component_expr renaming place (ce, mt_ce) = 
             let rce = rename_component_expr renaming in
-            let re = rename_expr renaming in
+            let re = rename_expr true renaming in
             let ce = match ce with
             | VarCExpr x -> VarCExpr (renaming x)
             | AppCExpr (ce, ces) -> AppCExpr (rce ce, List.map rce ces)
@@ -1883,13 +1882,13 @@ module Make (Params : IRParams) = struct
             name = renaming d.name;
             cargs = List.map (rename_component_expr renaming) d.cargs;
             targs = List.map (rename_main_type renaming) d.targs;
-            eargs = List.map (rename_expr renaming) d.eargs
+            eargs = List.map (rename_expr true renaming) d.eargs
         }
 
         and _rename_term renaming place = function
         | EmptyTerm -> EmptyTerm
         | Comments _ as t -> t
-        | Stmt stmt -> Stmt (rename_stmt renaming stmt)
+        | Stmt stmt -> Stmt (rename_stmt true renaming stmt)
         | Component c -> Component (rename_component_dcl renaming c)
         | Function fdcl -> Function (rename_function_dcl renaming fdcl)
         | Typealias (x, mt_opt) -> Typealias (renaming x, rename_typealias_body rename_main_type renaming mt_opt)

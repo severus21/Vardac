@@ -205,17 +205,16 @@ let t_placeof () =
         mtype_of_ft TWildcard
     ))
 let t_select () = 
-    mtype_of_ct(TArrow(
-        mtype_of_st STWildcard,
         mtype_of_ct(TArrow(
-            mtype_of_ft TBLabel,
-            mtype_of_ct ( TResult(
-                mtype_of_ft TWildcard,
-                builtin_mt_error
+            mtype_of_st STWildcard,
+            mtype_of_ct(TArrow(
+                mtype_of_ft TBLabel,
+                mtype_of_ct ( TResult(
+                    mtype_of_st STWildcard,
+                    builtin_mt_error
+                ))
             ))
         ))
-    ))
-
 let t_activationat () =
     (*mtype_of_ct(TArrow(
         mtype_of_ft TPlace,
