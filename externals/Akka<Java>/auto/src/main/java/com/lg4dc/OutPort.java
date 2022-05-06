@@ -20,7 +20,6 @@ public final class OutPort<P extends Protocol> extends AbstractPort<P> {
         ActivationRef to,
         Optional<ActivationRef> hidden_to
     ){
-        assert(null!=null);
         assert(from != null);
         assert(to != null);
         assert(this.bridge != null);

@@ -196,7 +196,7 @@ public final class ASTStype {
         public Select(List<Tuple3<MsgT, List<TimerHeader>, Base>> continuations){
             this.continuations = continuations;
 
-            assert(this.continuations.isEmpty());
+            assert(!this.continuations.isEmpty());
         }
         public String toString(){
             return "Select<"+this.continuations.toString()+">";

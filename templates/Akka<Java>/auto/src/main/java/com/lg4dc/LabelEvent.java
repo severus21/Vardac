@@ -21,6 +21,6 @@ public class LabelEvent<T extends NoMetadata> extends Event<T> implements {% if 
     
     @Override
     public String toString(){
-        return this.value;
+        return this.value+"{|"+super.toString()+"|}";
     }
 }

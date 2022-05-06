@@ -84,9 +84,6 @@ and vplace = {
 
 and vplaces = vplace list
 
-(*module VPlaceEnv = LabelMap*)
-
-
 (************************************* Literals ******************************)
 and _literal = 
     | VoidLit

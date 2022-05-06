@@ -33,6 +33,10 @@ impl component KVServer {
     int api_get () java:{=
         return 1;
     =}
+
+    bool api_put () java:{=
+        return true;
+    =}
 }
 
 impl component TopLevel {}

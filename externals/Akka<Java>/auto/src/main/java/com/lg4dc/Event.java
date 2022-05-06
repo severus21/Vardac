@@ -29,6 +29,13 @@ public class Event<T extends NoMetadata> implements CborSerializable {
         Optional<ActivationRef> hidden_right,
         NoMetadata metadata
     ) {
+        assert(bridge_id != null);
+        assert(session_id != null);
+        assert(replyTo != null);
+        assert(st != null);
+        assert(init_stage != null);
+        assert(hidden_right != null);
+        assert(metadata != null);
         this.bridge_id = bridge_id;
         this.session_id = session_id;
         this.replyTo = replyTo;

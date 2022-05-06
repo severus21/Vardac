@@ -173,7 +173,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             (* When using Tuyple, Map, ... we need object so for ease we box atomic type in objects everywhere *)
             | AstUtils.TActivationID -> T.Atomic "UUID"
             | AstUtils.TBool -> T.Atomic "Boolean"
-            | AstUtils.TInt -> T.Atomic "Integer"
+            | AstUtils.TInt -> T.Atomic "Integer" (* only 32bits for uniformity, an option add TInt and TLong .. *)
             | AstUtils.TFloat -> T.Atomic "Float"
             | AstUtils.TSessionID -> T.Atomic "UUID"
             | AstUtils.TStr -> T.Atomic "String"

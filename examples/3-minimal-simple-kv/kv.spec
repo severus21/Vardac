@@ -48,6 +48,9 @@ component KVServer {
 
     @expose 
     int api_get(string key);
+
+    @expose 
+    bool api_put(string key, int value);
 }
 
 component Client {
@@ -62,7 +65,7 @@ component Client {
         this.kv = kv;
         
         this.put(key("Key1"), value(10));
-        this.get(key("Key1"));
+        (*this.get(key("Key1"));*)
     }
 
     result<void, error> get(key k){

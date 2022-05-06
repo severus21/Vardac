@@ -104,7 +104,9 @@ public class Session implements CborSerializable {
             return Either.left(new Error("Dead session"));
         }
 
-        this.right.actorRef.tell(new LabelEvent(label));
+        LabelEvent e = new LabelEvent(label);
+        e.hydrate(this.bridge_id,  this.session_id,  this.left, this.st, this.init_stage, this.hidden_right, new NoMetadata());
+        this.right.actorRef.tell(e);
         context.getLog().debug(String.format("Select %s from %s to %s", label, context.getSelf().path().toString(), this.right.actorRef.path().toString()));
 
         ASTStype.TimerHeader.apply_headers(context, contextTimers, frozen_sessions, dead_sessions, this);
@@ -121,7 +123,6 @@ public class Session implements CborSerializable {
         }
 
         context.getLog().error( String.format("Can not select [%s] from [%s] to [%s] : label is unknown in ST", label, this.left.toString(), this.right.toString(), this.session_id));
-        assert(false);
 
         this.init_stage = false;
         return Either.left(new Error("Unknown label"));

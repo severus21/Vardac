@@ -106,7 +106,7 @@ end) = struct
                     | S.CType {value=S.TFlatType ft} -> begin 
                         match ft with
                         | TStr -> "string"
-                        | TInt -> "int64"
+                        | TInt -> "int32" (* since no long during conversion*)
                         | TFloat -> "float"
                         | TBool -> "bool"
                         | TVoid -> "NullValue"

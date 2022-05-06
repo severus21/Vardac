@@ -3,8 +3,6 @@ open Core
 open AstUtils
 
 (************************************* Base types ****************************)
-open Label
-
 type variable = Atom.atom
 
 and comments = Core.AstUtils._comments
