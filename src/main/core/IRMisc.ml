@@ -113,6 +113,7 @@ let rec st_branch_of mt_st branch_label =
     end
     | mt -> failwith (show__main_type mt)
 
+
 let get_onstartup (schema : component_structure) : method0 option= 
     Option.map 
         (function {value=Method m} -> m) 

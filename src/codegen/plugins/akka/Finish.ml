@@ -1068,8 +1068,8 @@ module Make (Arg: sig val target:Target.target end) = struct
                                 e2_e (T.RawExpr "InPort"),
                                 [
                                     fexpr (S_A2.e2_e (S.BlockExpr(AstUtils.List, 
-                                        List.map (function (p:S.port) -> 
-                                            S_A2.e2_e (S.AccessExpr( S_A2.e2_e S.This, S_A2.e2var (fst p.value).name))
+                                        List.map (function name -> 
+                                            S_A2.e2_e (S.AccessExpr( S_A2.e2_e S.This, S_A2.e2var name))
                                         ) _p._children
                                     )));
                                     fvstype (match _p.expecting_st.value with

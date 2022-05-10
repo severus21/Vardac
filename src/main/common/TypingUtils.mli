@@ -11,6 +11,8 @@ val mgu_solver : Error.place -> tconstraint list -> (Atom.t * main_type) list
 (** subtype S T returns true if S <: T, returns false otherwise *)
 val is_subtype : main_type -> main_type -> bool
 
+val is_suffix_st : session_type -> session_type -> bool
+
 (* try to unify the forall i.e. find the substution *)
 val is_instance : main_type -> main_type -> bool
 

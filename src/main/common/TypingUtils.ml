@@ -285,3 +285,15 @@ and is_instance mt1 mt2 =
     else ( 
         ignore(mgu_solver (mt1.place@mt2.place) constraints); true (* No error => mgu succeed*)
     )
+
+(* check if st1 is a valide suffix of st2 (including subtyping) *)
+let rec is_suffix_st st1 st2 = 
+    if is_subtype_st st1 st2 then true
+    else
+    match st2.value with (* try each suffix*)
+    | STEnd | STVar _ -> false
+    | STSend(_, st2) | STRecv (_, st2) -> is_suffix_st st1 st2
+    | STBranch branches | STSelect branches -> 
+        [] <> List.filter Fun.id (List.map (function (_, st2, _) -> is_suffix_st st1 st2) branches)
+    | STRec (_, st2) ->  is_suffix_st st1 st2
+    

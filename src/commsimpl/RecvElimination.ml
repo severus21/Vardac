@@ -627,6 +627,75 @@ module Make () : Sig = struct
         let intermediate_port_names = List.flatten(intermediate_port_names) in
         let body = List.flatten body in
 
+        (*  Creation of intermediate ports 
+            For each port and receive (t_msg,st_msg, intermediate_callback) generates an intermediate ports 
+                if ?t_msg st_msg is included in port.expecting_st   
+                such that intermediate_ports \in port.children 
+
+            Warning: needed since ports can be binded dynamically.
+        *)
+        let ports = List.filter_map (function {value=Inport p } -> Some p | _ -> None) cdcl.body in
+        let body_wo_ports = List.filter (function {value=Inport _ } -> false | _ -> true) cdcl.body in
+
+        (* main_port_name -> list of newly created children *)
+        let children = Hashtbl.create 32 in
+
+        let intermediate_ports_2 = List.map2 (fun  (port:port) (t_msg, st_continuation, intermediate_callback_name) -> 
+            (* TODO to_st can be generalize in IRMISC ??*)
+            let to_st = map0_place (fun place -> function 
+                | SType st -> st 
+                | _ -> raise (Error.PlacedDeadbranchError (place, "Expecting type is not a session type, should have been checked before"))
+            ) in
+
+            let tmp_st = STRecv (t_msg, st_continuation) in
+            if Common.TypingUtils.is_suffix_st 
+                (to_st (fst (port.value)).expecting_st)(auto_fplace tmp_st) then begin
+                let a_intermediate_port_name = Atom.fresh (
+                    Printf.sprintf "%s_%s_%s"    
+                        (Atom.to_string (fst port.value).name)
+                        "_intermediate_port_"
+                        (Atom.to_string intermediate_callback_name)
+                ) in 
+
+                (* Generate intermediate port *)
+                let intermediate_port = auto_fplace ({
+                    name = a_intermediate_port_name;
+                    callback = e2_e (AccessExpr (
+                        e2_e This, 
+                        e2var intermediate_callback_name
+                    ));
+                    expecting_st = mtype_of_st (STRecv (t_msg, st_continuation));
+                    _disable_session = false;
+                    _children = [];
+                }, auto_fplace EmptyMainType) in
+
+                (* register to children *)
+                Hashtbl.add children (fst port.value).name (a_intermediate_port_name::
+                    match Hashtbl.find_opt children (fst port.value).name with
+                    | None -> []
+                    | Some l -> l
+                );
+                Some intermediate_port
+            end else None
+        ) ports (failwith "TODO RECV") in
+
+        (* Update main ports *)
+        let ports = List.map (function (port:port) -> 
+            { port with 
+                value = ({ (fst port.value) with
+                    _children = 
+                        (match Hashtbl.find_opt children (fst port.value).name with
+                            | None -> []
+                            | Some l -> l
+                        ) @ (fst port.value)._children
+                }, snd port.value)
+            }
+        ) ports in
+
+        let body = (List.map (function port -> {value=Inport port; place = port.place@fplace}) ports) @ body_wo_ports in
+
+
+
         let body = 
             if Config.is_first_apply_pass pass_name then begin
                 (*List<Map<TSessionId, ?>> this.intermediate_states = new ArrayList(); [this. ....]; registration at each creation*)

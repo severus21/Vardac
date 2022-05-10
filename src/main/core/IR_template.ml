@@ -1776,7 +1776,7 @@ module Make (Params : IRParams) = struct
             expecting_st = rename_main_type renaming p.expecting_st;
             _disable_session = p._disable_session;
             callback = rename_expr true renaming p.callback;
-            _children = List.map (rename_port renaming) p._children
+            _children = List.map renaming p._children
         }, rename_main_type renaming mt_p)
         and rename_port renaming = map_place (_rename_port (protect_renaming  renaming))
 
