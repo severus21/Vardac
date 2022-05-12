@@ -191,6 +191,8 @@ any_constraint_:
 any_applied_constraint:    
 |LCURLYBRACKET headers=right_flexible_list(COMMA, any_constraint_header) MID e_opt=option(any_constraint) RCURLYBRACKET
     { (headers, e_opt) }
+|LCURLYBRACKET e_opt=option(any_constraint) RCURLYBRACKET
+    { ([], e_opt) }
 (************************************* Literals ******************************)
 atomic_literal_:
 | b = BOOLLITERAL
