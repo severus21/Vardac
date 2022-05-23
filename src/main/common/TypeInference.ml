@@ -396,6 +396,7 @@ module Make () = struct
 
         let ret_type = 
             match Atom.VMap.find_opt mname c_sign with
+            | None when Atom.is_builtin mname -> Builtin.type_of place (Atom.hint mname)
             | None -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered component have no field/method named %s" (Atom.to_string mname))))
             | Some mt -> mt
         in
@@ -715,6 +716,7 @@ module Make () = struct
         _disable_session = p._disable_session;
         callback = tannot_expr parent_opt p.callback;
         _children = p._children;
+        _is_intermediate = p._is_intermediate;
     } 
     and tannot_port parent_opt p = 
         let fplace = (Error.forge_place "TypeInference.tannot_port" 0 0) in

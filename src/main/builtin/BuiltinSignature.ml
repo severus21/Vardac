@@ -321,6 +321,12 @@ let t_sessionid () =
         mtype_of_ft TInt
     ))
 
+let t___get_intermediate_port () =
+    mtype_of_ct (TArrow(
+        mtype_of_st STBottom,
+        mtype_of_ft TInt
+    ))
+
 let t_bind () =
     mtype_of_ct (TArrow (
         mtype_of_ct (TUnion (

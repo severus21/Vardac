@@ -444,6 +444,7 @@ end) = struct
                                 S_A2.e2var callback.value.name
                             )); 
                             _children = [];
+                            _is_intermediate = false;
                         }, auto_fplace S.EmptyMainType)))
                     ) !service2actor_events in
 

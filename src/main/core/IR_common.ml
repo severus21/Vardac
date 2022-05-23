@@ -247,6 +247,7 @@ and _port = {
     callback: expr;
     _children: component_variable list; (* ports that are binded to the same channel as current port*)
     _disable_session: bool; (* for internal use only, when we need to add runtime port like without dynamic session mechanism *)
+    _is_intermediate: bool;
 }
 and port = (_port * main_type) placed
 

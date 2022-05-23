@@ -61,6 +61,11 @@ let rec _encode_builtin_access place e name =
             []
         )
     end
+    | "__get_intermediate_port" ->
+        T.AccessExpr (
+            e, 
+            e2var (Atom.builtin "get_intermediate_port")
+        )
     | _ -> failwith (Printf.sprintf "Unsupported builtin access in Akka:  %s" name) 
 and encode_builtin_access place e name = 
     let auto_place t = {place; value=t} in 

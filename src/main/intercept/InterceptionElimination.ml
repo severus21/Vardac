@@ -312,6 +312,7 @@ module Make (Args: TArgs) = struct
                 ));
                 _disable_session = false;
                 _children = [];
+                _is_intermediate = false;
             },
             auto_fplace EmptyMainType
         ))) in
@@ -863,6 +864,7 @@ module Make (Args: TArgs) = struct
             ));
             _disable_session = false;
             _children = [];
+            _is_intermediate = false;
         }, auto_fplace EmptyMainType))) in
 
 

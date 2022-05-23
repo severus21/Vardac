@@ -178,6 +178,7 @@ module Make(Args:Args) : Sig = struct
                         ), callback_sign); 
                         _disable_session = false;
                         _children = [];
+                        _is_intermediate = false;
                     }, mt_port))) in
 
 

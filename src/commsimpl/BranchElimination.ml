@@ -81,10 +81,10 @@ module Make () : Sig = struct
             LetStmt(
                 mt_local_res,
                 local_res,
-                e2_e (CallExpr(
+                {place = place @fplace; value=(CallExpr(
                     e2var (Atom.builtin "receive"),
                     [ s ]
-                ))
+                )), auto_fplace EmptyMainType}
             );
             (* blabel label = tmp._0); *)
             LetStmt(

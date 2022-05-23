@@ -1020,7 +1020,7 @@ module Make(Arg:ArgSig) = struct
         let env1, expecting_st = cmtype env port.expecting_st in 
         let env2, callback = cexpr env port.callback in 
         let env3, input_type = cmtype env port.input_type in
-        new_env << [env1; env2; env3], ({ name; expecting_st; callback; _disable_session=false; _children = []}, input_type)
+        new_env << [env1; env2; env3], ({ name; expecting_st; callback; _disable_session=false; _children = []; _is_intermediate = false}, input_type)
     and cport env: S.port -> env * T.port = map2_place (cook_port env)
 
     and cook_outport env place (outport:S._outport) : env * (T._outport * T.main_type)=

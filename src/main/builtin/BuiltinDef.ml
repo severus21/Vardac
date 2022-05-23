@@ -60,6 +60,9 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "sessionid", "'st -> int", "Return the id of the session", t_sessionid;
     "ip", "place -> string", "TODO", t_select;
     "port", "place -> int", "TODO", t_select;
+
+    (* Not expose to user, but should be implemented by the underlying plugin *)
+    "__get_intermediate_port", "session -> port", "TODO", t___get_intermediate_port;
     (*
 
 

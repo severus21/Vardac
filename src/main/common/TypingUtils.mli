@@ -17,3 +17,6 @@ val is_suffix_st : session_type -> session_type -> bool
 val is_instance : main_type -> main_type -> bool
 
 val fct_sign : main_type list -> main_type -> main_type
+
+(* From a signature return (arg type list, ret_type) *)
+val inv_fct_sign : main_type -> main_type list * main_type

@@ -42,11 +42,17 @@ let rewrite_program program =
                     value=ComponentStructure {
                         cstruct with
                             body = 
-                                ( auto_fplace (State (auto_fplace ({
+                                ( auto_fplace (Method (auto_fplace ({
                                     ghost = false;
-                                    type0 = mtype_of_ct (TList (mtype_of_ct (TInport (mtype_of_st STBottom))));
+                                    annotations = [];
+                                    ret_type = mtype_of_ct (TList (mtype_of_ct (TInport (mtype_of_st STBottom))));
                                     name = Atom.builtin "reflexivity_inports";
-                                    body = Some (e2_e (BlockExpr(List, e_inports)));
+                                    args = [];
+                                    body = [ 
+                                        auto_fplace (ReturnStmt (e2_e (BlockExpr(List, e_inports))))];
+                                    on_destroy = false;
+                                    on_startup = false;
+                                    contract_opt = None;
                                 })))) :: cstruct.body
                 }}
             ]

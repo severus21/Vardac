@@ -68,4 +68,17 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     public Void bind_out(OutPort port, Bridge bridge) {
         return port.bind(bridge);
     }
+
+    public List<InPort> reflexivity_inports() {
+        return List.of();
+    }
+
+    public InPort get_intermediate_port(Session s){
+        //TODO could optimize by building indexes
+        for (InPort p : this.reflexivity_inports()){
+            if(p.is_intermediate && p.st.equals(s.st) && s.bridge_id.equal(p.bride.id)){
+                return p; 
+            }
+        }
+    }
 }

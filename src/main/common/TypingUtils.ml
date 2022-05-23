@@ -23,6 +23,17 @@ let fct_sign argmts ret_type =
     List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) argmts ret_type 
 
 
+let inv_fct_sign sign =
+    let rec aux args = map0_place (function place -> function
+        | CType {value=TArrow (mt1, mt2)} -> begin
+            match mt2.value with 
+            | CType {value=TArrow _} -> aux (mt1::args) mt2
+            | _ -> List.rev (mt1::args), mt2
+        end)
+    in
+    aux [] sign
+
+
 
 let rec _is_subtype_ct place1 place2 ct1 ct2 =  
     match (ct1, ct2) with

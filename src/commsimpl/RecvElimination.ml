@@ -78,8 +78,6 @@ module Make () : Sig = struct
         let auto_place smth = {place = place; value=smth} in
         let auto_fplace smth = {place = fplace; value=smth} in
 
-        let flag_debug = ref false in
-
         (* 
             extract_recv "f(s.recv(...))"
             =>
@@ -98,7 +96,6 @@ module Make () : Sig = struct
             end;
 
             logger#warning ">>>> extract_recvs -> detect receive %s"(Error.show place);
-            flag_debug := true;
             let tmp = Atom.fresh "tmp_receive" in
             let recv = auto_place (e, mt_e) in 
             [
@@ -117,13 +114,7 @@ module Make () : Sig = struct
         | _ -> false 
         in
 
-        let stmts = rewrite_exprstmts_stmt None stmt_exclude recv_selector recv_rewriter {place; value=stmt} in
-        (* Debug *)
-        (*if !flag_debug then (
-            (Format.fprintf Format.std_formatter "%a" (Error.pp_list "\n" (fun out stmt -> Format.fprintf out "%s " (show_stmt stmt))) stmts);
-            failwith "";
-        );*)
-        stmts
+        rewrite_exprstmts_stmt None stmt_exclude recv_selector recv_rewriter {place; value=stmt}
 
     type method_info = ((expr_variable * main_type * main_type) option * expr option * _method0)
 
@@ -131,10 +122,6 @@ module Make () : Sig = struct
     let compute_intermediate_args remaining_stmts res_opt = 
         let _, intermediate_args = List.fold_left_map free_vars_stmt Atom.Set.empty remaining_stmts in
         let intermediate_args = List.flatten intermediate_args in
-        (* TODO remove 
-        let _, bind_in_stage = List.fold_left_map free_vars_stmt Atom.Set.empty stage_stmts in 
-        let bind_in_stage = List.flatten bind_in_stage in
-        *)
 
         (* Safety check *)
         List.iter (function |({value=EmptyMainType}, x) -> logger#error "%s" (Atom.to_string x);assert(false) | _ -> ()) intermediate_args;
@@ -156,11 +143,6 @@ module Make () : Sig = struct
             intermediate_args 
         in
 
-        (* TODO remove
-        (* Remove args that are binded inside stage_stmts *)
-        let excluded2 = Atom.Set.of_seq (List.to_seq (List.map snd bind_in_stage)) in
-        List.filter (function (_,x) -> Atom.Set.find_opt x excluded2 <> None) intermediate_args
-        *)
         intermediate_args
 
 
@@ -169,7 +151,7 @@ module Make () : Sig = struct
         @param intermediate_args - args that should propagated from 1 to 2 
         @param (res, t_msg, st_continuation) - tuple<T_msg, st_continuation> res = receive(...); that separate both methods
     *)
-    let rewrite_methodint a_registered_sessions (m1 : _method0) (m2 : _method0) s1_opt a_intermediate_port_name intermediate_args (res, t_msg, st_continuation) : state list * _method0 * _method0 =
+    let rewrite_methodint a_registered_sessions (m1 : _method0) (m2 : _method0) s1_opt e_current_intermediate_port intermediate_args (res, t_msg, st_continuation) : state list * _method0 * _method0 =
         let intermediate_args = List.map auto_fplace intermediate_args in
         let ctype_intermediate_args = mtype_of_ct (TTuple (List.map (function arg -> fst arg.value) intermediate_args)) in
         let tuple_intermediate_args = e2_e (BlockExpr (
@@ -298,7 +280,7 @@ module Make () : Sig = struct
                         [
                             e2_e (AccessExpr( e2_e This, e2var (a_registered_sessions)));
                             e2_e (CallExpr( e2var (Atom.builtin "sessionid"), [s]));
-                            e2_e (AccessExpr( e2_e This, e2var a_intermediate_port_name))
+                            e_current_intermediate_port
                         ]
                     )
                 )
@@ -329,7 +311,7 @@ module Make () : Sig = struct
             [intermediate_state], m1, m2
 
 
-    let rec split_body a_registered_sessions (main_name, main_annotations) acc_stmts (next_method:_method0) : stmt list -> state list * port list * _method0 list =
+    let rec split_body a_registered_sessions (main_name, main_annotations) acc_stmts (next_method:_method0) : stmt list -> state list * (Atom.atom * main_type * session_type * expr) list * _method0 list =
         let fplace = (Error.forge_place "Core.Rewrite.split_body" 0 0) in
         let auto_fplace smth = {place = fplace; value=smth} in
 
@@ -340,7 +322,8 @@ module Make () : Sig = struct
             } in
 
             [], [], [ current_method ]
-        | {place; value=LetStmt ({value=CType{value=TTuple [t_msg;{value = SType st_continuation}]}}, let_x, {value=(CallExpr ({value=(VarExpr x, _)}, [s]),_) as e})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
+        | {place; value=LetStmt ({value=CType{value=TTuple [t_msg;{value = SType st_continuation}]}}, let_x, {place=place1; value=(CallExpr ({value=(VarExpr x, _)}, [s]),_)})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
+            logger#error "receive at %s" (Error.show place1);
             (*** Prepare ***)
             let stage_stmts = next_method.body @ (List.rev acc_stmts) in
             let current_method = { next_method with 
@@ -356,23 +339,26 @@ module Make () : Sig = struct
             (*** Gathering intells ***)
             let intermediate_args = compute_intermediate_args stmts (Some let_x) in
 
+
+            let receive_id = Atom.fresh ((Atom.to_string current_method.name)^"receive_id") in
+
             let a_intermediate_port_name = Atom.fresh ((Atom.hint current_method.name)^"_intermediate_port") in 
+            let e_current_intermediate_port = e2_e(
+                CallExpr(
+                    e2_e(AccessExpr(
+                        e2_e This,
+                        e2var (Atom.builtin "__get_intermediate_port")
+                    )),
+                    [
+                        s
+                    ]
+            )) in
             
             (*** Creating link between current_method and next_method, before shifting ***)
-            let intermediate_states, current_method, next_method = rewrite_methodint a_registered_sessions current_method next_method (Some s) a_intermediate_port_name intermediate_args (let_x, t_msg, st_continuation) in
+            let intermediate_states, current_method, next_method = rewrite_methodint a_registered_sessions current_method next_method (Some s) e_current_intermediate_port intermediate_args (let_x, t_msg, st_continuation) in
 
-            (*** Creation of the intermediate port ***)
-            let intermediate_port = auto_fplace ({
-                name = a_intermediate_port_name;
-                callback = e2_e (AccessExpr (
-                    e2_e This, 
-                    e2var next_method.name
-                ));
-                expecting_st = mtype_of_st (STRecv (t_msg, st_continuation));
-                _disable_session = false;
-                _children = [];
-            }, auto_fplace EmptyMainType) in
-            let intermediate_ports = [intermediate_port] in
+            (*** Creation of the intermediate ports ***)
+            let receive_entries = [(receive_id, t_msg, st_continuation, e2var next_method.name)] in
 
 
             (*** Since we introduce intermediate let (even for same variable) we need to attribute fresh identities ***)
@@ -394,10 +380,10 @@ module Make () : Sig = struct
             let intermediate_methods = [current_method] in 
 
 
-            let intermediate_states2, intermediate_ports2, intermediate_methods2 = split_body a_registered_sessions (main_name, main_annotations) [] next_method stmts in           
+            let intermediate_states2, receive_entries2, intermediate_methods2 = split_body a_registered_sessions (main_name, main_annotations) [] next_method stmts in           
 
             intermediate_states@intermediate_states2,
-            intermediate_ports@intermediate_ports2,
+            receive_entries@receive_entries2,
             intermediate_methods@intermediate_methods2
         
         (* If case - conditional branching is painfull *)
@@ -483,10 +469,10 @@ module Make () : Sig = struct
                     let branch_stmts = stmt_branch :: (duplicate_stmts stmts) in
 
                     let next_method_branch = fresh_next_method main_name main_annotations t_msg_cont in
-                    let intermediate_states_branch, intermediate_ports_branch, intermediate_methods_branch =
-                        let intermediate_states_branch, intermediate_ports_branch, intermediate_methods_branch = 
+                    let intermediate_states_branch, receive_entries_branch, intermediate_methods_branch =
+                        let intermediate_states_branch, receive_entries_branch, intermediate_methods_branch = 
                             split_body a_registered_sessions (main_name, main_annotations) [] next_method_branch branch_stmts in
-                        intermediate_states_branch, intermediate_ports_branch, intermediate_methods_branch
+                        intermediate_states_branch, receive_entries_branch, intermediate_methods_branch
                     in
 
                     (*** Built stmt added to stage_stmts ***)
@@ -496,17 +482,17 @@ module Make () : Sig = struct
                     *)
                     let m_branch_0::intermediate_methods_branch = intermediate_methods_branch in
 
-                    auto_fplace (BlockStmt m_branch_0.body), intermediate_states_branch, intermediate_ports_branch, intermediate_methods_branch
+                    auto_fplace (BlockStmt m_branch_0.body), intermediate_states_branch, receive_entries_branch, intermediate_methods_branch
                 in
 
-                let stmt1, intermediate_states1, intermediate_ports1, intermediate_methods1 = 
+                let stmt1, intermediate_states1, receive_entries1, intermediate_methods1 = 
                     if flag1 then (
                         logger#debug "Detect receive in If block1";
                         split_branch stmt1
                     ) else stmt1, [], [], []
                 in
 
-                let stmt2_opt, intermediate_states2, intermediate_ports2, intermediate_methods2 = 
+                let stmt2_opt, intermediate_states2, receive_entries2, intermediate_methods2 = 
                     if flag2 then begin
                         logger#debug "Detect receive in If block2";
                         match stmt2_opt with
@@ -528,7 +514,7 @@ module Make () : Sig = struct
                 } in
 
                 intermediate_states1@intermediate_states2,
-                intermediate_ports1@intermediate_ports2,
+                receive_entries1@receive_entries2,
                 current_method::intermediate_methods1@intermediate_methods2
             end
             else
@@ -564,21 +550,22 @@ module Make () : Sig = struct
 
 
 
-    let rec rewrite_method0 a_registered_sessions place (m:_method0) : port list * state list * method0 list = 
+
+
+    let rec rewrite_method0 a_registered_sessions place (m:_method0) = 
         let fplace = (Error.forge_place "Core.Rewrite.rewrite_method0" 0 0) in
         let auto_fplace smth = {place = fplace; value=smth} in
 
         let stmts = List.flatten (List.map (function stmt -> to_X_form stmt.place stmt.value) m.body) in
 
-        let intermediate_states, intermediate_ports, intermediate_methods = split_body a_registered_sessions (m.name, m.annotations) [] {m with body = []} stmts in
-        logger#debug "nbr intermediate_methods %d" (List.length intermediate_methods);
+        let intermediate_states, receive_entries, intermediate_methods = split_body a_registered_sessions (m.name, m.annotations) [] {m with body = []} stmts in
         let intermediate_methods = List.map auto_fplace intermediate_methods in
 
-        intermediate_ports, intermediate_states, intermediate_methods
+        receive_entries, intermediate_states, intermediate_methods
     and rmethod0 a_registered_sessions = map0_place (rewrite_method0 a_registered_sessions)
 
     (* return name of intermediate states * citems *)
-    and rewrite_component_item a_registered_sessions place : _component_item -> (expr_variable list * expr_variable list) * component_item list = 
+    and rewrite_component_item a_registered_sessions place = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
     let auto_place smth = {place = place; value=smth} in
     let auto_fplace smth = {place = fplace; value=smth} in
@@ -588,24 +575,20 @@ module Make () : Sig = struct
     | Contract _ as citem -> 
         ([], []), [auto_place citem] 
     | Method m as citem -> 
-        let intermediate_ports, intermediate_states, intermediate_methods = rmethod0 a_registered_sessions m in
-        if intermediate_ports = [] then 
-            ([], []), [auto_place citem]
-        else 
-            (
-                List.map (function (s : state) -> s.value.name) intermediate_states,
-                List.map (function (p:port) -> (fst p.value).name) intermediate_ports
-            ), 
-            (List.map (function p-> auto_fplace (Inport p)) intermediate_ports) 
-                @ (List.map (function s-> auto_fplace (State s)) intermediate_states)
-                @ (List.map (function m-> auto_fplace (Method m)) intermediate_methods)
+        let receive_entries, intermediate_states, intermediate_methods = rmethod0 a_registered_sessions m in
+
+        (
+            List.map (function (s : state) -> s.value.name) intermediate_states,
+            receive_entries
+        ), (List.map (function s-> auto_fplace (State s)) intermediate_states)
+            @ (List.map (function m-> auto_fplace (Method m)) intermediate_methods)
     | (Inport _ as citem) | (Outport _ as citem) -> 
         ([], []), [auto_place citem]
     | Term t -> 
         ([], []), [auto_place (Term (rterm t))]
     | Include _ as citem -> 
         ([], []), [auto_place citem]
-    and rcitem a_registered_sessions : component_item -> (expr_variable list * expr_variable list) * component_item list = map0_place (rewrite_component_item a_registered_sessions) 
+    and rcitem a_registered_sessions = map0_place (rewrite_component_item a_registered_sessions) 
 
     and rewrite_component_dcl place : _component_dcl -> _component_dcl = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
@@ -622,10 +605,10 @@ module Make () : Sig = struct
 
         (* Elimination of sync receiv *)
         let tmp, body = List.split(List.map (rcitem a_registered_sessions) body) in
-        let intermediate_state_names, intermediate_port_names = List.split tmp in
+        let intermediate_state_names, receive_entries = List.split tmp in
         let intermediate_state_names = List.flatten(intermediate_state_names) in
-        let intermediate_port_names = List.flatten(intermediate_port_names) in
         let body = List.flatten body in
+        let receive_entries  = List.flatten receive_entries in
 
         (*  Creation of intermediate ports 
             For each port and receive (t_msg,st_msg, intermediate_callback) generates an intermediate ports 
@@ -634,50 +617,52 @@ module Make () : Sig = struct
 
             Warning: needed since ports can be binded dynamically.
         *)
-        let ports = List.filter_map (function {value=Inport p } -> Some p | _ -> None) cdcl.body in
-        let body_wo_ports = List.filter (function {value=Inport _ } -> false | _ -> true) cdcl.body in
+        let ports = List.filter_map (function {value=Inport p } -> Some p | _ -> None) body in
+        let body_wo_ports = List.filter (function {value=Inport _ } -> false | _ -> true) body in
 
         (* main_port_name -> list of newly created children *)
         let children = Hashtbl.create 32 in
 
-        let intermediate_ports_2 = List.map2 (fun  (port:port) (t_msg, st_continuation, intermediate_callback_name) -> 
-            (* TODO to_st can be generalize in IRMISC ??*)
-            let to_st = map0_place (fun place -> function 
-                | SType st -> st 
-                | _ -> raise (Error.PlacedDeadbranchError (place, "Expecting type is not a session type, should have been checked before"))
-            ) in
+        (*  Take a receive in input and returns the list of ports for handling this receive 
+            @param ports - list of input ports of the component
+            @return - list of intermediate_ports for this receive + ports with updated children
+        *)
+        let generate_intermediate_ports ports (receive_id, t_msg, st_continuation, callback) = 
+            (* Remove ports that are already binded to receive *)
+            let ports = List.filter (function p -> Bool.not (fst p.value)._is_intermediate) ports in
 
-            let tmp_st = STRecv (t_msg, st_continuation) in
-            if Common.TypingUtils.is_suffix_st 
-                (to_st (fst (port.value)).expecting_st)(auto_fplace tmp_st) then begin
-                let a_intermediate_port_name = Atom.fresh (
-                    Printf.sprintf "%s_%s_%s"    
-                        (Atom.to_string (fst port.value).name)
-                        "_intermediate_port_"
-                        (Atom.to_string intermediate_callback_name)
-                ) in 
+            List.flatten (List.map (function port ->
+                if Common.TypingUtils.is_suffix_st  (auto_fplace (STRecv(t_msg, st_continuation))) (match (fst port.value).expecting_st.value with SType st -> st) then 
+                (* p or one of its stages is concerned by the receive*)
+                begin
+                    let intermediate_port_name = Atom.fresh ((Atom.to_string receive_id)^"_intermediate_port") in
 
-                (* Generate intermediate port *)
-                let intermediate_port = auto_fplace ({
-                    name = a_intermediate_port_name;
-                    callback = e2_e (AccessExpr (
-                        e2_e This, 
-                        e2var intermediate_callback_name
-                    ));
-                    expecting_st = mtype_of_st (STRecv (t_msg, st_continuation));
-                    _disable_session = false;
-                    _children = [];
-                }, auto_fplace EmptyMainType) in
+                    (* register to children *)
+                    Hashtbl.add children (fst port.value).name (intermediate_port_name::
+                        match Hashtbl.find_opt children (fst port.value).name with
+                        | None -> []
+                        | Some l -> l
+                    );
 
-                (* register to children *)
-                Hashtbl.add children (fst port.value).name (a_intermediate_port_name::
-                    match Hashtbl.find_opt children (fst port.value).name with
-                    | None -> []
-                    | Some l -> l
-                );
-                Some intermediate_port
-            end else None
-        ) ports (failwith "TODO RECV") in
+                    (*** Creation of the intermediate port ***)
+                    [ auto_fplace ({
+                            name = intermediate_port_name;
+                            callback = e2_e (AccessExpr (
+                                e2_e This, 
+                                callback
+                            ));
+                            expecting_st = mtype_of_st (STRecv (t_msg, st_continuation));
+                            _disable_session = false;
+                            _children = [];
+                            _is_intermediate = true;
+                        }, auto_fplace EmptyMainType)
+                    ]
+                    
+                end
+                else []
+            ) ports)
+        in
+        let ports = ports @ List.flatten (List.map (generate_intermediate_ports ports) receive_entries) in
 
         (* Update main ports *)
         let ports = List.map (function (port:port) -> 
@@ -739,7 +724,7 @@ module Make () : Sig = struct
             else body
         in
 
-        ComponentStructure { cdcl with body }
+        ComponentStructure { cdcl with body = body}
     and rcdcl cdcl = map_place rewrite_component_dcl cdcl 
 
     and rewrite_term place = function
@@ -785,6 +770,8 @@ module Make () : Sig = struct
         program
     let postcondition program = 
         (* Check: no more receive *)
+        let _,tmp,_ = collect_expr_program Atom.Set.empty receive_selector (fun _  _  _-> [1]) program in
+        logger#error "sss %d" (List.length tmp);
         ignore (collect_expr_program Atom.Set.empty receive_selector (receive_collector "receive() remains in IR after Rewriting") program);
         
         program

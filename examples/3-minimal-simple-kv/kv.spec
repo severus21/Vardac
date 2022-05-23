@@ -21,12 +21,12 @@ component KVServer {
         branch s on msg {
             | l_get => s -> { 
                 tuple<key, ?value.> tmp = receive(s);
-                fire(tmp._1, tmp._0)?;
+                fire(tmp._1, this.get(tmp._0))?;
             }
             | l_get => s -> {
                 tuple<tuple<key,value>, ?bool.> tmp = receive(s);
                 tuple<key, value> res = tmp._0; 
-                put(res._0, res._1);
+                this.put(res._0, res._1);
                 fire(tmp._1, true)?;
             }
         }
