@@ -1072,6 +1072,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                                             S_A2.e2_e (S.AccessExpr( S_A2.e2_e S.This, S_A2.e2var name))
                                         ) _p._children
                                     )));
+                                    fexpr (S_A2.e2_lit (S.BoolLit _p._is_intermediate));
                                     fvstype (match _p.expecting_st.value with
                                     | S.SType st -> st)
                                 ]

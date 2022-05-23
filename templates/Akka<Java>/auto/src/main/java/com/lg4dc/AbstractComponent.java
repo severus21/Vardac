@@ -76,9 +76,10 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     public InPort get_intermediate_port(Session s){
         //TODO could optimize by building indexes
         for (InPort p : this.reflexivity_inports()){
-            if(p.is_intermediate && p.st.equals(s.st) && s.bridge_id.equal(p.bride.id)){
+            if(p.is_intermediate && p.expecting_st.equals(s.st) && s.bridge_id.equals(p.bridge.id)){
                 return p; 
             }
         }
+        throw new RuntimeException("Intermediate port not found");
     }
 }
