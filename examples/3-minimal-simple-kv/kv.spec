@@ -18,11 +18,6 @@ component KVServer {
     result<void, error> callback (blabel msg, p_kv s) {
         print("callback");
 
-        if(true){
-            print("true");
-        }
-        print("");
-
         branch s on msg {
             | l_get => s -> { 
                 tuple<key, ?value.> tmp = receive(s);
@@ -31,7 +26,7 @@ component KVServer {
             | l_get => s -> {
                 tuple<tuple<key,value>, ?bool.> tmp = receive(s);
                 tuple<key, value> res = tmp._0; 
-                (*TODO put(res._0, res._1); *)
+                put(res._0, res._1);
                 fire(tmp._1, true)?;
             }
         }
