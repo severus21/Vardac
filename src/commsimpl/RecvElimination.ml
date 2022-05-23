@@ -256,7 +256,7 @@ module Make () : Sig = struct
                 ]
             } in
 
-            (*** Add header to m2 to load the intermediate in state and store the resulut of receive in [res] ***)
+            (*** Add header to m2 to load the intermediate in state and store the result of receive in [res] ***)
             let local_tmp_args = Atom.fresh "local_tmp_args" in
             let m2 = { m2 with 
                 (* TODO add cleansing when timeout *)
@@ -694,6 +694,9 @@ module Make () : Sig = struct
 
         let body = (List.map (function port -> {value=Inport port; place = port.place@fplace}) ports) @ body_wo_ports in
 
+        (** get_intermediate_port (session, st) 
+            main_port_id, st -> this.intermediate_port_name    
+        *)
 
 
         let body = 
