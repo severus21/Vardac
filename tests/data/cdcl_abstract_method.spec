@@ -1,4 +1,4 @@
 
-component A () {
+component A {
     void toto ();
 }

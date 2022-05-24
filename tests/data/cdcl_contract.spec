@@ -1,4 +1,4 @@
-component A () {
+component A {
     void m1 ();
     contract m1
     ensures true == true

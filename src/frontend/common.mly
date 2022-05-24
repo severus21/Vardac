@@ -311,10 +311,10 @@ any_expr_:
     { This }
 
 (* Activation lifetime *)
-| SPAWN c = any_component_expr LPAREN args = right_flexible_list(COMMA, any_expr) RPAREN
-    { Spawn {c=c; args=args; at=None} }
-| SPAWN c = any_component_expr LPAREN args = right_flexible_list(COMMA, any_expr) RPAREN AT at=any_expr
-    { Spawn {c=c; args=args; at=Some at} }
+| SPAWN c = UID LPAREN args = right_flexible_list(COMMA, any_expr) RPAREN
+    { Spawn {c={place=[$loc]; value=VarCExpr c}; args=args; at=None} }
+| SPAWN c = UID LPAREN args = right_flexible_list(COMMA, any_expr) RPAREN AT at=any_expr
+    { Spawn {c={place=[$loc]; value=VarCExpr c}; args=args; at=Some at} }
 
 (* *)
 | NONE
@@ -607,9 +607,7 @@ any_component_dcl_:
 any_component_expr_:
 | x = UID
     { VarCExpr x }
-(* FIXME Conflict | e = any_expr
-    { AnyExpr e} (*needed to pass non component as args to component*) *)
-| ce = any_component_expr LPAREN arg = any_component_expr COMMA args = right_flexible_list(COMMA, any_component_expr) RPAREN (* otherwise parsing is broken *) 
+| ce = any_component_expr LPAREN args = right_flexible_list(COMMA, any_component_expr) RPAREN
     { AppCExpr (ce, args) }
 (* TODO unbox expr*)
 %inline any_component_expr:

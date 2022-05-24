@@ -70,8 +70,8 @@ let typedef_suite () = [
     ("type definition with nested constraints", "type listc = list<int{|x>0}>{|true};");
     ("type definition st send", "type test = !msg.;");
     ("type definition st recv", "type test = ?msg.;");
-    ("type definition st choice", "type test = &{\"get\": !Msg. };");
-    ("type definition st select", "type test = §{\"get\": !Msg. };");
+    ("type definition st choice", "type test = &{l_get: !Msg. };");
+    ("type definition st select", "type test = §{l_get: !Msg. };");
     ("type definition st rec", "type test = µ x. !int ?float - x;");
     ("type definition st protocol", Core.Utils.file_get_contents ( dataset_lookup_file "protocol1.spec"));
     ("type definition st protocol with constraints", Core.Utils.file_get_contents ( dataset_lookup_file "protocol1_with_constraints.spec"));
@@ -117,7 +117,7 @@ let expr_suite () = [
     ("expr lambda", "x : int -> x+1;");
     ("expr this", "this;");
     ("expr spawn notplaced", "spawn C(1, \"b\");");
-    ("expr spawn placed", "spawn C() @ r;");
+    ("expr spawn placed", "spawn KVServer(1);");
     ("expr access", "a.b.c;");
     ("expr with paren", "(1+1) + 4;");
 ]
@@ -140,7 +140,7 @@ let stmt_error_suite () = [
 
 (************************* Parsing - component dcl *********************)
 let cdcl_suite () = [
-    ("componentdcl base", "component TransactionManager () {}");
+    ("componentdcl base", "component TransactionManager {}");
     ("componentdcl abstract method", Core.Utils.file_get_contents ( dataset_lookup_file "cdcl_abstract_method.spec"));
     ("componentdcl method", Core.Utils.file_get_contents (dataset_lookup_file  "cdcl_method.spec"));
     ("componentdcl port", Core.Utils.file_get_contents (dataset_lookup_file  "cdcl_port.spec"));

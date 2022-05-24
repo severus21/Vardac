@@ -6,10 +6,10 @@ event ack of;
 
 protocol action_protocol = µ x. 
 &{ (* non deterministic fire *)
-    "get": !k ?v - x; (* recursif *)
-    "put": !k!v ?ack - x; (* recursif *)
-    "abort": !abort ?ack . ; (* non-recursif *)
-    "commit": !commit ?ack . (* non-recursif *)
+    l_get: !k ?v - x; (* recursif *)
+    l_put: !k!v ?ack - x; (* recursif *)
+    l_abort: !abort ?ack . ; (* non-recursif *)
+    l_commit: !commit ?ack . (* non-recursif *)
 };
 
 event txinfo of;
