@@ -370,6 +370,15 @@ let encode_builtin_fct place name (args:T.expr list) =
             )
         | _ -> Error.perror place "pick must take one argument"
     end
+    | "debug" -> begin
+        match args with 
+        | [ str ] ->
+            T.CallExpr(
+                e2var (Atom.builtin "getContext().getLog().debug"),
+                [ str ]
+            )
+        | _ -> Error.perror place "debug must take one argument"
+    end
     | "option_get" -> begin
         match args with 
         | [ opt ] ->

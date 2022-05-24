@@ -10,7 +10,7 @@ component Ping {
     int stop_counter = 0;
 
     onstartup (bridge<Ping, Pong, inline p_pingpong> b0, activation_ref<Pong> b) {
-        print("> Starting Ping");
+        debug("> Starting Ping");
         bind(this.p_out, b0);
         bind(this.p_in, b0);
 
@@ -21,11 +21,11 @@ component Ping {
     result<void, error> start(activation_ref<Pong> b){
         session<p_pingpong> s0 = initiate_session_with(this.p_out, b);
         ?pong. s1 = fire(s0, ping())?; 
-        print(">> Ping fired");
+        debug(">> Ping fired");
     }
 
     result<void, error> callback(pong msg, . s){
-        print(">> Pong received");
+        debug(">> Pong received");
         if(this.stop_counter == 1){ 
             exit(());
         }else{
@@ -39,14 +39,14 @@ component Pong {
     inport p_in :: bridge<Ping, Pong, inline p_pingpong> expecting ?ping!pong. = this.callback;
 
     onstartup (bridge<Ping, Pong, inline p_pingpong> b0){
-        print("> Starting Pong");
+        debug("> Starting Pong");
         bind(this.p_in, b0);
     }
 
     result<void, error> callback (ping msg, ?pong. s0) {
-        print("> Ping received");
+        debug("> Ping received");
         . s1 = fire(s0, pong())?; 
-        print(">> Pong fired");
+        debug(">> Pong fired");
         return ok(());
     }
 
@@ -57,16 +57,16 @@ component Pong {
 }
 
 void main (array<string> args){
-    print("apossiblemain");
+    debug("apossiblemain");
 }
 
 component TopLevel {
     onstartup () {
-        print(">> Entering toplevel");
+        debug(">> Entering toplevel");
         bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
         activation_ref<Pong> c = (spawn Pong(b0));
         activation_ref<Ping> a2 = (spawn Ping(b0, c));  
-        print(">> Ending toplevel");
+        debug(">> Ending toplevel");
 
     }
 }

@@ -65,6 +65,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "is_err", "result<..,..> -> bool", "TODO", t_is_ok;
 
     "exit", "() -> ()", "run in guardian, terminate the guardian and all activations", t_exit;
+    "debug", "string -> ()", "TODO", t_debug;
 
     (* Not expose to user, but should be implemented by the underlying plugin *)
     "__get_intermediate_port", "session -> port", "TODO", t___get_intermediate_port;

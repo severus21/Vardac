@@ -352,3 +352,9 @@ let t_exit () =
         mtype_of_ft TVoid 
     ))
 
+let t_debug () =
+    mtype_of_ct (TArrow (
+        mtype_of_ft TStr,
+        mtype_of_ft TVoid 
+    ))
+
