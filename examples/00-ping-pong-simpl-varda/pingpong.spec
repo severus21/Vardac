@@ -6,6 +6,8 @@ bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
 component Ping {
     outport p_out :: bridge<Ping, Pong, inline p_pingpong>;
     inport p_in :: bridge<Ping, Pong, inline p_pingpong> expecting ?pong. = this.callback;
+    
+    int stop_counter = 0;
 
     onstartup (bridge<Ping, Pong, inline p_pingpong> b0, activation_ref<Pong> b) {
         print("> Starting Ping");
@@ -24,6 +26,11 @@ component Ping {
 
     result<void, error> callback(pong msg, . s){
         print(">> Pong received");
+        if(this.stop_counter == 1){ 
+            exit(());
+        }else{
+            this.stop_counter = this.stop_counter + 1;
+        }
         return ok(());
     }
 }
@@ -60,5 +67,6 @@ component TopLevel {
         activation_ref<Pong> c = (spawn Pong(b0));
         activation_ref<Ping> a2 = (spawn Ping(b0, c));  
         print(">> Ending toplevel");
+
     }
 }

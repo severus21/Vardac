@@ -139,6 +139,10 @@ let encode_builtin_fct place name (args:T.expr list) =
                 []
             )
     end
+    | "exit" -> begin
+        match args with
+        | [_] -> T.RawExpr "getContext().getSystem().terminate()"
+    end
     | "add2dict" -> begin 
         (* empty dict *)
         match args with
@@ -411,7 +415,11 @@ let encode_builtin_fct_as_stmt place name (args:T.expr list) =
                     (
                         auto_place(T.Atomic "Exception"), 
                         e, 
-                        auto_place(T.ExpressionStmt(e2_e (T.RawExpr "System.out.println(e)")))
+                        auto_place(T.ExpressionStmt(e2_e (
+                            T.CallExpr(
+                                e2_e (T.RawExpr "System.out.println"),
+                                [e2var e]
+                            ))))
                     );
                 ]
             )

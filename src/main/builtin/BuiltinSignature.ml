@@ -346,4 +346,9 @@ let t_is_ok () =
         )),
         mtype_of_ft TBool 
     ))
+let t_exit () =
+    mtype_of_ct (TArrow (
+        mtype_of_ft TVoid,
+        mtype_of_ft TVoid 
+    ))
 
