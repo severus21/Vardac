@@ -61,6 +61,9 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "ip", "place -> string", "TODO", t_select;
     "port", "place -> int", "TODO", t_select;
 
+    "is_ok", "result<..,..> -> bool", "TODO", t_is_ok;
+    "is_err", "result<..,..> -> bool", "TODO", t_is_ok;
+
     (* Not expose to user, but should be implemented by the underlying plugin *)
     "__get_intermediate_port", "session -> port", "TODO", t___get_intermediate_port;
     (*

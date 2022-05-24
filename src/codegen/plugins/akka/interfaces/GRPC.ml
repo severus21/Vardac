@@ -671,24 +671,6 @@ end) = struct
             )
         in
 
-        (* TODO remove it
-        let spawn_materializer () = auto_fplace(
-            T.LetStmt (
-                auto_fplace (T.TRaw "Materializer"),
-                local_mat,
-                Some (T_A2.e2_e (T.CallExpr( 
-                    T_A2.e2_e (T.AccessExpr( 
-                        T_A2.e2_e (T.CallExpr( 
-                            T_A2.e2_e (T.RawExpr "SystemMaterializer.get"),
-                            [ T_A2.e2var att_system ]
-                        )),
-                        T_A2.e2_e (T.RawExpr "materializer")
-                    )),
-                    []
-                )))
-            )
-        ) in*)
-
         let rec _spawn_service_handlers = function 
             | [] -> assert false; (* step 3 should have been skipped *) 
             | [s] -> auto_fplace (T.VarExpr s.service_handler_instance, auto_fplace T.TUnknown)
@@ -835,12 +817,20 @@ end) = struct
 
     let finish_program program =  
         hydrate_grpc program;
-        proto_models := Some (generate_protobuf_interfaces_env build_dir program);
-        let iri_program, res = generate_services_implementation program in
-        let events, akka_terms = List.split res in 
-        let events = List.flatten events in
-        let target, akka_term = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
-        [ (target, iri_program), events@akka_terms@[akka_term] ]
+        if Hashtbl.length grpc_services > 0 then
+        begin
+            proto_models := Some (generate_protobuf_interfaces_env build_dir program);
+            let iri_program, res = generate_services_implementation program in
+            let events, akka_terms = List.split res in 
+            let events = List.flatten events in
+            let target, akka_term = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
+            [ (target, iri_program), events@akka_terms@[akka_term] ]
+        end
+        else  
+        begin
+            proto_models := Some [];
+            [ (target, program), []]
+        end
 
     (*****************************************************)
     let name = "Akka.Interfaces.GRPC"

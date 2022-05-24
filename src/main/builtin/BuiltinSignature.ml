@@ -338,3 +338,12 @@ let t_bind () =
             mtype_of_ft TVoid
         ))
     ))
+let t_is_ok () =
+    mtype_of_ct (TArrow (
+        mtype_of_ct (TResult (
+            mtype_of_ft TWildcard,
+            builtin_mt_error
+        )),
+        mtype_of_ft TBool 
+    ))
+

@@ -117,6 +117,28 @@ let encode_builtin_fct place name (args:T.expr list) =
                 ]
             )
     end
+    | "is_ok" -> begin
+        match args with
+        | [e] -> 
+            T.CallExpr(
+                e2_e (T.AccessExpr(
+                    e,
+                    e2var (Atom.builtin "isRight")
+                )),
+                []
+            )
+    end
+    | "is_err" -> begin
+        match args with
+        | [e] -> 
+            T.CallExpr(
+                e2_e (T.AccessExpr(
+                    e,
+                    e2var (Atom.builtin "isLeft")
+                )),
+                []
+            )
+    end
     | "add2dict" -> begin 
         (* empty dict *)
         match args with

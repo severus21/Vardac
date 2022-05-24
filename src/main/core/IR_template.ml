@@ -375,7 +375,14 @@ module Make (Params : IRParams) = struct
             (_main_type -> _main_type) ->
             program -> program
 
-        val collect_expr_component_dcl : Atom.atom option ->
+        val collect_expr_expr : Atom.atom option ->
+            Atom.Set.t ->
+            (_expr -> bool) ->
+            'a sig_expr_collector ->
+            expr ->
+            Atom.Set.t * 'a list *
+            (main_type * expr_variable) list
+        val collect_expr_component_dcl : Atom.atom option -> 
             Atom.Set.t ->
             (_expr -> bool) ->
             (Atom.atom option ->
@@ -469,6 +476,7 @@ module Make (Params : IRParams) = struct
     module IRUtils : IR_utils_sig = struct
         
         (******************************************************************)
+        let collect_expr_expr = collect_expr_expr
 
         let rec collect_expr_contract_ parent_opt already_binded selector collector place _contract = 
             let inner_already_binded = List.fold_left (fun already_binded (mt, x, e) ->

@@ -98,7 +98,24 @@ let displayed_ast_name = "Prepared IRI for codegen plg"
 let show_ast = true
 let global_at_most_once_apply = false
 
-let precondition (program:IRI.program) = program 
+let precondition (program:IRI.program) = 
+    (* Check that there is no UnpackOrPropagate into a lambda, since Varda language do not have the capacity to express the elimination (without using a stmt and lambda body is an expression) *)
+    let propagate_in_lambda_selector = function 
+        | LambdaExpr (_, e) -> 
+            let _, elts, _ = IRUtils.collect_expr_expr 
+                None 
+                Atom.Set.empty 
+                selector_unpack_or_propagate 
+                (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrResult  operation (e?) can not be performed inside a lambda!!"))) 
+                e
+            in
+           elts <> [] 
+        |_ ->false
+    in
+
+    IRUtils.collect_expr_program Atom.Set.empty propagate_in_lambda_selector (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrPropagateResult"))) program; 
+    program
+
 let postcondition program = 
     (* Ensure that they are no UnpackOrPropagateResult anymore *)
     IRUtils.collect_expr_program Atom.Set.empty selector_unpack_or_propagate (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrPropagateResult"))) program;
