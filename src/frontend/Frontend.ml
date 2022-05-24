@@ -64,3 +64,5 @@ let to_impl gamma gamma_types sealed_envs targets filename program =
     |> dump "Impl" Impl.show_program
     |> PairedImpl.paired_program targets program
     |> function (headers, program) -> headers, (dump "IRI - IR-with-implemented" IRI.show_program program)
+
+let unittests = Test.unittests 

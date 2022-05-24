@@ -1,4 +1,6 @@
 open OUnit2
+open Core.Testutils
+
 
 (* TODO FIXME 
 Tests for *.spec
@@ -71,12 +73,12 @@ let typedef_suite () = [
     ("type definition st choice", "type test = &{\"get\": !Msg. };");
     ("type definition st select", "type test = §{\"get\": !Msg. };");
     ("type definition st rec", "type test = µ x. !int ?float - x;");
-    ("type definition st protocol", Core.Utils.file_get_contents "data/protocol1.spec");
-    ("type definition st protocol with constraints", Core.Utils.file_get_contents "data/protocol1_with_constraints.spec");
+    ("type definition st protocol", Core.Utils.file_get_contents ( dataset_lookup_file "protocol1.spec"));
+    ("type definition st protocol with constraints", Core.Utils.file_get_contents ( dataset_lookup_file "protocol1_with_constraints.spec"));
 ]
 
 let typedef_error_suite () = [
-    ("type definition abstract", "type BeginTX", Utils.SyntaxError);
+    ("type definition abstract", "type BeginTX",  SyntaxError);
 ]
 (****************** Parsing - expression & statement *******************)
 let expr_suite () = [
@@ -132,18 +134,18 @@ let stmt_suite () = [
     ("stmt controlflow if ", "if (true) { return 2; } else { return 10; }");
 ]
 let stmt_error_suite () = [
-    ("stmt label", "l\"a::b_::b::**\"", Utils.SyntaxError);
-    ("stmt controlflow if", "if (true) { 2 } else { return 10; }", Utils.SyntaxError);
+    ("stmt label", "l\"a::b_::b::**\"",  SyntaxError);
+    ("stmt controlflow if", "if (true) { 2 } else { return 10; }",  SyntaxError);
 ]
 
 (************************* Parsing - component dcl *********************)
 let cdcl_suite () = [
     ("componentdcl base", "component TransactionManager () {}");
-    ("componentdcl abstract method", Core.Utils.file_get_contents "data/cdcl_abstract_method.spec");
-    ("componentdcl method", Core.Utils.file_get_contents "data/cdcl_method.spec");
-    ("componentdcl port", Core.Utils.file_get_contents "data/cdcl_port.spec");
-    ("componentdcl state", Core.Utils.file_get_contents "data/cdcl_state.spec");
-    ("componentdcl contract", Core.Utils.file_get_contents "data/cdcl_contract.spec");
+    ("componentdcl abstract method", Core.Utils.file_get_contents ( dataset_lookup_file "cdcl_abstract_method.spec"));
+    ("componentdcl method", Core.Utils.file_get_contents (dataset_lookup_file  "cdcl_method.spec"));
+    ("componentdcl port", Core.Utils.file_get_contents (dataset_lookup_file  "cdcl_port.spec"));
+    ("componentdcl state", Core.Utils.file_get_contents (dataset_lookup_file "cdcl_state.spec"));
+    ("componentdcl contract", Core.Utils.file_get_contents (dataset_lookup_file "cdcl_contract.spec"));
 ]
 
 let cdcl_error_suite () = [
@@ -152,7 +154,7 @@ let cdcl_error_suite () = [
 (************************* Parsing - architecture **********************)
 (************************* Parsing - component expr ********************)
 let cexpr_suite () = [
-    ("cexpr base", Core.Utils.file_get_contents "data/cexpr_base.spec");
+    ("cexpr base", Core.Utils.file_get_contents (dataset_lookup_file "cexpr_base.spec"));
 ]
 let cexpr_error_suite () = [
 
@@ -205,7 +207,7 @@ let expected_suite () = [
 
 let unittests () =
     "Parser" >::: [
-        Utils.make_coverage_suite "parsing_coverage" ( function x -> Frontend.Parse.parse "" x) (coverage_suite ());
-        Utils.make_error_coverage_suite "parsing_error_coverage" ( function x -> Frontend.Parse.parse "" x) (error_coverage_suite ());
-        Utils.make_expected_suite "parsing_expected" (Core.Utils.ast_to_str Frontend.Ast.show_program) ( function x -> Frontend.Parse.parse "" x) (function x -> x) (expected_suite ());
+         make_coverage_suite "parsing_coverage" ( function x -> Parse.parse "" x) (coverage_suite ());
+         make_error_coverage_suite "parsing_error_coverage" ( function x -> Parse.parse "" x) (error_coverage_suite ());
+         make_expected_suite "parsing_expected" (Core.Utils.ast_to_str Ast.show_program) ( function x -> Parse.parse "" x) (function x -> x) (expected_suite ());
     ]

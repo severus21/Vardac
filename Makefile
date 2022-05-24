@@ -22,23 +22,27 @@ plugins: bin
 
 .PHONY:generatedune
 
+
+PLUGINS= akka
+
 generatedune: 
-	@find templates -type f | grep -v "dune.j2" | sed -e "s/templates\///" | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o templates/dune -f json -d - templates/dune.j2
-	@find externals -type f | grep -v "dune.j2" | sed -e "s/externals\///" | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o externals/dune -f json -d - externals/dune.j2
+	@find templates -type f | grep -v "dune.j2" | grep -v "dune" | sed -e "s/templates\///" | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o templates/dune -f json -d - templates/dune.j2
+	@find externals -type f | grep -v "dune.j2" | grep -v "dune"  | sed -e "s/externals\///" | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o externals/dune -f json -d - externals/dune.j2
+	@find examples -type f | grep -v "dune.j2" | grep -v "dune"  | sed -e "s/examples\///" | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o examples/dune -f json -d - examples/dune.j2
+	@cd tests && find data -type f | grep -v "dune.j2"  | grep -v "dune" | sed -e "s/data\///" | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o data/dune -f json -d - data/dune.j2
+	for plg in $(PLUGINS) ; do \
+		echo $$plg;\
+		cd src/codegen/plugins/$$plg/interfaces && find externals -type f | grep -v "dune.j2"  | grep -v "dune" | sed -e "s/externals\///" | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o externals/dune -f json -d - externals/dune.j2 \
+		&& find templates -type f | grep -v "dune.j2"  | grep -v "dune" | sed -e "s/templates\///" | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o templates/dune -f json -d - templates/dune.j2 ;\
+	done
 #### Unit tests and sanity check #############################################
 
 #### XXX tests ###########################################################
 
-.PHONY: tests
+.PHONY: tests tests2
 tests: generatedune
-# Hard copy since dune do not pack external files in the test (ie. ../examples)
-	@rm -rf tests/examples && cp -rf examples tests/examples
-	@find examples -type f | jc --ls | sed -e 's/\(.*\)/{"locations":\1}/g' | jinja -o tests/dune -f json -d - tests/dune.j2
 	@dune runtest --profile release
 	@rm -rf tests/examples
-	#dune test -p $(NAME) 
-	#@printf "## Decision tree tests ##\n"
-	#@dune exec -p $(NAME) --  
 
 #### Localy running targets ########################################################
 

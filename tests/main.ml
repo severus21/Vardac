@@ -1,21 +1,9 @@
-let long =
-    ref false
-  
-  let options =
-    Arg.align [
-      "--long", Arg.Set long, "Run long testsuits, otherwith run the critical subset of tests (design to run in less than 10s).";
-    ]
-  
-  let usage =
-    Printf.sprintf "Usage: %s <options> <filename>" Sys.argv.(0)
-  
-  let () =
-    Arg.parse options (fun _ -> ()) usage; (* discards any non label arguments *)
-    let long_tests = [
+open OUnit2
+
+let () =
+    let tests = [
+        Frontend.unittests ();
         Example.unittests ();
     ] in
-    let tests = [
-        Parser.unittests ();
-    ] in
 
-    OUnit2.run_test_tt_main (OUnit2.test_list (if !long then tests@long_tests else tests));
+    OUnit2.run_test_tt_main (OUnit2.test_list tests);

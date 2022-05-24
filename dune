@@ -1,8 +1,6 @@
 ; Add project-wide flags here.
 ; OCaml compilation flags https://ocaml.org/manual/comp.html
 
-(data_only_dirs examples)
-
 (env
  (dev     (flags :standard (-w -A))) ;TODO get ride of -A
  (release (flags :standard)))

@@ -161,3 +161,13 @@ open _build/default/_doc/_html/index.html
 add private lib
 dune build @doc-private
 ```
+
+## Tests
+```
+make tests
+```
+
+To run a subset of tests e.g. 0:Parser
+```
+dune exec --profile release -- tests/main.exe -only-test 0:Parser
+```
