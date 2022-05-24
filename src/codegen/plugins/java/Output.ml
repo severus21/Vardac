@@ -301,6 +301,9 @@ let output_program package_name outpath items : unit =
         JModule (mock_placed(ImportDirective "java.util.function.Function"));
         JModule (mock_placed(ImportDirective "java.util.function.BiFunction"));
 
+        (* Java error handling *)
+        JModule (mock_placed(ImportDirective "java.util.concurrent.ExecutionException"));
+
         (* Jackson (serialization) *)
         JModule (mock_placed(ImportDirective "com.fasterxml.jackson.annotation.JsonProperty"));
         JModule (mock_placed(ImportDirective "com.fasterxml.jackson.annotation.JsonCreator"));

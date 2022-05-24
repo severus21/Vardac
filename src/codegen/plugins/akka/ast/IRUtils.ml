@@ -159,6 +159,7 @@ and _apply_rename_stmt rename_binders (renaming : Atom.atom -> Atom.atom) place 
             apply_rename_stmt rename_binders renaming stmt
         ) branches
     )
+    | RawStmt str -> RawStmt str
 and apply_rename_stmt rename_binders renaming stmt = apply_rename_place (_apply_rename_stmt rename_binders renaming) stmt 
 
 and apply_rename_method0_body rename_binders (renaming : Atom.atom -> Atom.atom) = function

@@ -139,10 +139,6 @@ let encode_builtin_fct place name (args:T.expr list) =
                 []
             )
     end
-    | "exit" -> begin
-        match args with
-        | [_] -> T.RawExpr "getContext().getSystem().terminate()"
-    end
     | "add2dict" -> begin 
         (* empty dict *)
         match args with
@@ -392,12 +388,26 @@ let encode_builtin_fct place name (args:T.expr list) =
 
 let is_stmt_builtin = function
 | "sleep" -> true
+| "exit" -> true
 | _ -> false
 
 let encode_builtin_fct_as_stmt place name (args:T.expr list) =
     assert(Builtin.is_builtin_expr name);
     let auto_place t = {place; value=t} in 
     match name with
+    | "exit" -> begin
+        match args with
+        | [ _ ] -> T.RawStmt {|
+        //try {
+            ActorSystem system = getContext().getSystem();
+        //    CompletableFuture future = system.getWhenTerminated().toCompletableFuture();
+            system.terminate();
+        //    future.get(30, java.util.concurrent.TimeUnit.SECONDS);
+        //} catch (InterruptedException | ExecutionException | java.util.concurrent.TimeoutException e) {
+        //    System.out.println(e);
+        //}
+    |}
+    end
     | "sleep" -> begin
         (* FIXME/TODO create a protocol to pause an actor and resume it after some time *)
         logger#warning "using sleep in Akka will block a thread - not only the actor";

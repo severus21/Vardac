@@ -1049,6 +1049,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     fstmt stmt
                 ) branches
             )
+            | S.RawStmt str -> T.RawStmt str
         and fstmt stmt : T.stmt = map_place finish_stmt stmt
 
         let rec finish_state  (state:S.state) : T.str_items list = 
@@ -1840,6 +1841,9 @@ module Make (Arg: Plugin.CgArgSig) = struct
         [
             ("target_mains", Jg_types.Tlist 
                 (List.map (function ({Core.Target.name;}:Core.Target.maindef) -> Jg_types.Tstr name) target.value.codegen.mains)
+            );
+            ("target_entrypoints", Jg_types.Tlist 
+                (List.map (function ({Core.Target.bootstrap;}:Core.Target.maindef) -> Jg_types.Tstr (Atom.to_string bootstrap)) target.value.codegen.mains)
             );
             ("components", Jg_types.Tlist (
                 List.of_seq(Seq.map (function a -> Jg_types.Tstr (Atom.to_string a)) (Atom.Set.to_seq(!(cstate.collected_components))))
