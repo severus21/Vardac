@@ -57,16 +57,16 @@ component Pong {
 }
 
 void main (array<string> args){
-    debug("apossiblemain");
+    print("apossiblemain");
 }
 
 component TopLevel {
     onstartup () {
-        debug(">> Entering toplevel");
+        print(">> Entering toplevel");
         bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
         activation_ref<Pong> c = (spawn Pong(b0));
         activation_ref<Ping> a2 = (spawn Ping(b0, c));  
-        debug(">> Ending toplevel");
+        print(">> Ending toplevel");
 
     }
 }
