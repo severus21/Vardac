@@ -819,7 +819,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
         function x ->   
         try
             BuiltinMap.find (Atom.value x) translation
-        with Not_found ->Atom.value x
+        with Not_found -> Atom.value x
 
         let rec finish_ctype place : S._ctype -> T._jtype = 
             let fplace = place@(Error.forge_place "Plg=AkkaJava/finish_ctype" 0 0) in

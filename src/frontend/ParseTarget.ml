@@ -30,7 +30,15 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
     |`O body -> begin
         let table = tableof body in
 
-        let name = match Hashtbl.find table "target" with `String x -> x |_-> Error.perror mock_place "Illformed target\n" in
+        let name = 
+            try 
+            begin
+                match Hashtbl.find table "target" with 
+                | `String x -> x 
+                | _ -> Error.perror mock_place "Illformed target\n" 
+            end
+            with  Not_found -> Error.perror mock_place "target has no attribut [target]"
+            in
        
         (* Needed when doing creating jar target for Akka *)
         if String.length name < 2 then Error.perror mock_place "target name [%s] must have a length greater (or equal) than 2" name;
@@ -42,31 +50,50 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
             | Some _ -> Error.perror mock_place "target [%s] is defined multiple times" name;
         end;
 
-
-        (* TODO capture Not_found exception when calling Hashtbl.find *)
         let codegen = match Hashtbl.find_opt table "codegen" with 
             | None -> Error.perror mock_place "Codegen attribut must be declared for target [%s]\n" current_target
             | Some `O body-> ( 
             let table = tableof body in
 
-            let language : string = match Hashtbl.find table "language" with 
-                | `String x -> x 
-                |_ -> Error.perror mock_place "Syntax error in [language] definition of target [%s]\n" name 
+            let language : string = 
+                try
+                begin
+                    match Hashtbl.find table "language" with 
+                    | `String x -> x 
+                    | _ -> Error.perror mock_place "Syntax error in [language] definition of target [%s]\n" name 
+                end
+                with Not_found -> Error.perror mock_place "Target [%s], codegen.language is missing" name
             in
 
-            let runtime : string = match Hashtbl.find table "runtime" with
-                |`String x -> x 
-                |_ -> Error.perror mock_place "Syntax error in [runtime] definition of target [%s]\n" name 
+            let runtime : string = 
+                try
+                begin
+                    match Hashtbl.find table "runtime" with
+                    | `String x -> x 
+                    | _ -> Error.perror mock_place "Syntax error in [runtime] definition of target [%s]\n" name 
+                end
+                with Not_found ->  Error.perror mock_place "Target [%s], codegen.runtime is missing" name
             in 
 
-            let interface : string = match Hashtbl.find table "interface" with
-                |`String x -> x 
-                |_ -> Error.perror mock_place "Syntax error in [interface] definition of target [%s]\n" name 
+            let interface : string = 
+                try
+                begin
+                    match Hashtbl.find table "interface" with
+                    | `String x -> x 
+                    | _ -> Error.perror mock_place "Syntax error in [interface] definition of target [%s]\n" name 
+                end
+                with Not_found ->  Error.perror mock_place "Target [%s], interface is missing" name
             in 
 
             let seen_no_main = ref [] in 
             let seen_laststage = ref [] in 
-            let mains : RawTarget.maindef list = match Hashtbl.find table "mains" with
+            let mains = 
+                try Hashtbl.find table "mains" 
+                with Not_found -> Error.perror mock_place "Target [%s], mains is missing" name
+            in
+
+            let mains : RawTarget.maindef list = 
+                match mains with
                 |`O mains_body -> begin
                     let mains_table = tableof mains_body in
 

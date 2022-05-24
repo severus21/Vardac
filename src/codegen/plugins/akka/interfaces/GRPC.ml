@@ -253,11 +253,13 @@ end) = struct
                 ];
                 headers = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
             } in
-            service2actor_events := (
-                rpc.m, 
-                (service2actor_event, Hashtbl.find grpc_messages rpc.in_type), (actor2service_event, Hashtbl.find grpc_messages rpc.out_type)
-            ) :: !service2actor_events; 
 
+                service2actor_events := (try 
+                    (
+                        rpc.m, 
+                        (service2actor_event, Hashtbl.find grpc_messages rpc.in_type), (actor2service_event, Hashtbl.find grpc_messages rpc.out_type)
+                    ) :: !service2actor_events 
+                with Not_found -> raise (Error.DeadbranchError ("rpc in_types/out_types not found in grpc_messages")));
 
             let event2protomsg = Atom.fresh "unpack" in
 

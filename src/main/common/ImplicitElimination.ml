@@ -163,7 +163,10 @@ module Make (Args : Params ) : Sig = struct
             List.iter (function (c, env) ->
                 match fst c.value with 
                 | VarCExpr c -> begin 
-                    let implicit_args = try Hashtbl.find implicits c with Not_found -> (logger#error "pass 1.5: %s not found in implicits" (Atom.to_string c); raise Not_found) in     
+                    let implicit_args = 
+                        try Hashtbl.find implicits c 
+                        with Not_found -> Error.error "pass 1.5: %s not found in implicits" (Atom.to_string c) 
+                    in     
                     (* Transform to an Env.t i.e. x -> (mt, x)
                         is not used since env is only used to get ride of variables
                     *)

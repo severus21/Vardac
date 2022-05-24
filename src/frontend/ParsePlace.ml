@@ -52,7 +52,15 @@ match v with
 |`O body ->begin
     let table = tableof body in
 
-    let name = match Hashtbl.find table "place" with `String x -> x |_-> Error.perror mock_place "Illformed place\n" in
+    let name = 
+        try
+        begin
+            match Hashtbl.find table "place" with 
+            | `String x -> x 
+            | _ -> Error.perror mock_place "Illformed place\n" 
+        end
+        with Not_found -> Error.perror mock_place "VPlace has no attribut [place]"
+    in
 
     let nbr_instances : Ast.expr = 
         match Hashtbl.find_opt table "nbr_instances" with 

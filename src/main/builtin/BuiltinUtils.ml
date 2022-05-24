@@ -46,7 +46,9 @@ let pos_of_inductive_attr x =
 
 let sig_of_builtin_inductive_type ft = 
     assert(is_builtin_inductive_type ft);
-    Hashtbl.find inductive_htbl ft 
+    try 
+        Hashtbl.find inductive_htbl ft 
+    with Not_found -> Error.error "signature of inductive type [%s] not found" (show_flat_type ft)
 
 
 let type_of place x : main_type = 

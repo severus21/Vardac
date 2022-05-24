@@ -33,7 +33,10 @@ and reduce_component_dcl place : _component_dcl -> _component_dcl = function
         | Method m -> begin
             let rec aux (m: method0) = 
                 let _m = m.value in
-                let contract : contract = Atom.VMap.find _m.name contracts in
+                let contract : contract = 
+                    try Atom.VMap.find _m.name contracts
+                with Not_found -> raise (Error.DeadbranchError (Printf.sprintf "contract [%s] not found in contracts" (Atom.to_string _m.name )))
+                in
                 { AstUtils.place; value = { _m with contract_opt = Some contract } }
             in
             try

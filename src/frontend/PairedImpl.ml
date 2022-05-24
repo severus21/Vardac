@@ -136,7 +136,13 @@ module Make (Arg: ArgSig) = struct
     *)
     let cbb_term name place {S1.language; body} =
             (* cook bb_term using the env where the implemented construct (e.g., method) lives *)
-            let env = Hashtbl.find sealed_envs name in
+            let env = 
+                try
+                    Hashtbl.find sealed_envs name 
+                with Not_found -> raise (Error.PlacedDeadbranchError (
+                    place, 
+                    Printf.sprintf "[%s] not found int sealed_envs" (Atom.to_string name)))
+            in
             
             {
                 T.language = language;
@@ -152,7 +158,10 @@ module Make (Arg: ArgSig) = struct
         try 
             let key = List.rev ((Atom.hint name)::parents) in 
             mark_state key;
-            let s_impl = Hashtbl.find state_impls key in
+            let s_impl = 
+                try Hashtbl.find state_impls key 
+                with Not_found -> raise (Error.PlacedDeadbranchError(place, Printf.sprintf "impl for state [%s] not found in state_impls" (List.fold_left (fun x y -> x ^"::"^y) "" key)))
+            in
             let bb_impl = cook_bb_term name s_impl.value.body in
 
             { ghost; type0; name; body= T.InitBB bb_impl}

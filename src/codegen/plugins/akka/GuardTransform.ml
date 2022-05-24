@@ -49,46 +49,52 @@ end
 let rename_header h = rename_header_ h.place h.value
 let rename_headers hs = List.flatten (List.map rename_header hs)
 
-let rec rename_guard_ place : _expr -> _expr = function
-(* Rewrite of timer *)
-| BinopExpr ({value=(VarExpr x, mt_x); place=p_x}, LessThan, ({value=LitExpr {value=IntLit i}, _} as e)) -> (* x < i*)
-    (* Cook guarantees that everithing is correctly binded *)
-    let _, x_hb = Hashtbl.find separation_hbl x in
-    BinopExpr ({value=(VarExpr x_hb, mt_x); place=p_x}, LessThan, e)
-| BinopExpr ({value=LitExpr {value=IntLit i}, _} as e, GreaterThan, {value=VarExpr x, mt_x; place=p_x}) -> (* i > x *)
-    (* Cook guarantees that everithing is correctly binded *)
-    let _, x_hb = Hashtbl.find separation_hbl x in
-    BinopExpr (e, GreaterThan, {value=VarExpr x_hb, mt_x; place=p_x})
-| BinopExpr ({value=VarExpr x, mt_x; place=p_x}, GreaterThan, ({value=LitExpr {value=IntLit i}, _} as e)) -> (* x > i *)
-    (* Cook guarantees that everithing is correctly binded *)
-    let x_lb, _ = Hashtbl.find separation_hbl x in
-    BinopExpr ({value=VarExpr x_lb, mt_x; place=p_x}, GreaterThan, e)
-| BinopExpr ({value=LitExpr {value=IntLit i}, _} as e, LessThan, {value=VarExpr x, mt_x; place=p_x}) -> (* i < x *)
-    (* Cook guarantees that everithing is correctly binded *)
-    let x_lb, _ = Hashtbl.find separation_hbl x in
-    BinopExpr (e, LessThan, {value=VarExpr x_lb, mt_x; place=p_x})
+let rec rename_guard_ place e =
+try 
+begin
+    match e with 
+    (* Rewrite of timer *)
+    | BinopExpr ({value=(VarExpr x, mt_x); place=p_x}, LessThan, ({value=LitExpr {value=IntLit i}, _} as e)) -> (* x < i*)
+        (* Cook guarantees that everithing is correctly binded *)
+        let _, x_hb = Hashtbl.find separation_hbl x in
+        BinopExpr ({value=(VarExpr x_hb, mt_x); place=p_x}, LessThan, e)
+    | BinopExpr ({value=LitExpr {value=IntLit i}, _} as e, GreaterThan, {value=VarExpr x, mt_x; place=p_x}) -> (* i > x *)
+        (* Cook guarantees that everithing is correctly binded *)
+        let _, x_hb = Hashtbl.find separation_hbl x in
+        BinopExpr (e, GreaterThan, {value=VarExpr x_hb, mt_x; place=p_x})
+    | BinopExpr ({value=VarExpr x, mt_x; place=p_x}, GreaterThan, ({value=LitExpr {value=IntLit i}, _} as e)) -> (* x > i *)
+        (* Cook guarantees that everithing is correctly binded *)
+        let x_lb, _ = Hashtbl.find separation_hbl x in
+        BinopExpr ({value=VarExpr x_lb, mt_x; place=p_x}, GreaterThan, e)
+    | BinopExpr ({value=LitExpr {value=IntLit i}, _} as e, LessThan, {value=VarExpr x, mt_x; place=p_x}) -> (* i < x *)
+        (* Cook guarantees that everithing is correctly binded *)
+        let x_lb, _ = Hashtbl.find separation_hbl x in
+        BinopExpr (e, LessThan, {value=VarExpr x_lb, mt_x; place=p_x})
 
-(* Just explore *)
-| VarExpr _ as e -> e
-| AccessExpr _ as e -> e (* can not have the form of a timer expression *)
-| BinopExpr (e1, op, e2) -> BinopExpr(rename_guard e1, op, rename_guard e2)
-| LambdaExpr _ | CallExpr _ | NewExpr _ | Spawn _ | BoxCExpr _ -> raise (Error.DeadbranchError "LambdaExpr/CallExpr/NewExpr/Spawn/BoxCExpr can not appear inside a guard") (* TODO check it in COook*)
-| LitExpr _ as e -> e
-| UnopExpr (op, e) ->  UnopExpr (op, rename_guard e)
-| This -> This
-| OptionExpr e_opt -> OptionExpr (Option.map rename_guard e_opt)
-| ResultExpr (e1_opt, e2_opt) -> ResultExpr (
-    Option.map rename_guard e1_opt,
-    Option.map rename_guard e2_opt
-)
-| BlockExpr (b, es) -> BlockExpr (
-    b,
-    List.map rename_guard es
-)
-| Block2Expr (b, ees) -> Block2Expr (
-    b,
-    List.map (function (e1, e2) -> rename_guard e1, rename_guard e2) ees
-)
+    (* Just explore *)
+    | VarExpr _ as e -> e
+    | AccessExpr _ as e -> e (* can not have the form of a timer expression *)
+    | BinopExpr (e1, op, e2) -> BinopExpr(rename_guard e1, op, rename_guard e2)
+    | LambdaExpr _ | CallExpr _ | NewExpr _ | Spawn _ | BoxCExpr _ -> raise (Error.DeadbranchError "LambdaExpr/CallExpr/NewExpr/Spawn/BoxCExpr can not appear inside a guard") (* TODO check it in COook*)
+    | LitExpr _ as e -> e
+    | UnopExpr (op, e) ->  UnopExpr (op, rename_guard e)
+    | This -> This
+    | OptionExpr e_opt -> OptionExpr (Option.map rename_guard e_opt)
+    | ResultExpr (e1_opt, e2_opt) -> ResultExpr (
+        Option.map rename_guard e1_opt,
+        Option.map rename_guard e2_opt
+    )
+    | BlockExpr (b, es) -> BlockExpr (
+        b,
+        List.map rename_guard es
+    )
+    | Block2Expr (b, ees) -> Block2Expr (
+        b,
+        List.map (function (e1, e2) -> rename_guard e1, rename_guard e2) ees
+    )
+end
+with Not_found -> raise (Error.PlacedDeadbranchError(place, "Unbound variable: Cook should guarantees that everithing is correctly binded"))
+
 and rename_guard guard = {
     place = guard.place;
     value = 
@@ -286,16 +292,21 @@ let filter_headers env place (guard_headers : constraint_header list) : constrai
     let guard_headers = List.filter (
     function
         | {value=SetTimer name} -> 
-            let entry = Env.find name env in
-            entry.next_trigger <> None 
+            try
+                let entry = Env.find name env in
+                entry.next_trigger <> None 
+            with Not_found -> raise (Error.PlacedDeadbranchError (place, "Timer is not bound in env")) 
         | _-> true 
     ) guard_headers in
 
     (* Replace SetTimer with SetFireTimer *)
     let guard_headers = List.map (function
-        | {value=SetTimer name} -> 
-            let entry = Env.find name env in
-            auto_fplace (SetFireTimer (name, (Option.get entry.next_trigger) - entry.base_value))
+        | {value=SetTimer name} -> begin 
+            try
+                let entry = Env.find name env in
+                auto_fplace (SetFireTimer (name, (Option.get entry.next_trigger) - entry.base_value))
+            with Not_found -> raise (Error.PlacedDeadbranchError (place, "Timer is not bound in env")) 
+        end
         | header -> header
     ) guard_headers in
 
@@ -338,7 +349,11 @@ let rec aux_reset_times_ac env place st0 (guard_headers, guard_opt) =
         )
     ) in
     let new_env1, updated_registered_timers = List.fold_left (fun (env, updated_registered_timers) name -> 
-        let entry = Env.find name env in
+        let entry = 
+            try
+                Env.find name env 
+            with Not_found -> raise (Error.PlacedDeadbranchError (place, "Timer is not bound in env")) 
+        in
         let next_trigger_opt = next_trigger_of_st_ name place st0 in
         begin
         match next_trigger_opt with
@@ -395,7 +410,11 @@ let rec aux_reset_times_ac env place st0 (guard_headers, guard_opt) =
         logger#error "timer_to_add %s" (List.fold_left (fun acc x -> acc ^ " " ^(Atom.to_string x)) "" timers_to_reset); 
         (* remove non used timers *)
         let timers_to_add = List.filter (function name -> 
-            let entry = Env.find name new_env2 in
+            let entry = 
+                try
+                    Env.find name new_env2 
+                with Not_found -> raise (Error.PlacedDeadbranchError (place, "Timer is not bound in env")) 
+            in
             entry.next_trigger <> None
         ) timers_to_add in 
         logger#error "timer_to_add %s" (List.fold_left (fun acc x -> acc ^ " " ^(Atom.to_string x)) "" timers_to_reset); 
