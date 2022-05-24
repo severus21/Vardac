@@ -171,3 +171,11 @@ To run a subset of tests e.g. 0:Parser
 ```
 dune exec --profile release -- tests/main.exe -only-test 0:Parser
 ```
+
+## Packaging for OPAM
+```
+    Update the CHANGES.md add new version X.Y.Z
+    dune-release tag vX.Y.Z
+    make opam-release
+    dune-release publish
+```
