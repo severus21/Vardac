@@ -6,6 +6,8 @@ import java.util.UUID;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
+import com.lg4dc.metadata.*;
+
 public class LabelEvent<T extends NoMetadata> extends Event<T> implements {% if components_command != [] %}{{join(", ", components_command)}}{%else%}CborSerializable{%endif%} {
     // protocol label - used for select and branch
     final public String value;

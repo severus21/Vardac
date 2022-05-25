@@ -41,7 +41,7 @@
     (00-ping-pong-simpl-varda/README.md as 00-ping-pong-simpl-varda/README.md)
     (00-ping-pong-simpl-varda/places.yml as 00-ping-pong-simpl-varda/places.yml)
     (00-ping-pong-simpl-varda/targets.yml as 00-ping-pong-simpl-varda/targets.yml)
-    (00-ping-pong-simpl-varda/templates/Akka<Java>/auto/src/test/java/author/project_name/LogTest.java as 00-ping-pong-simpl-varda/templates/Akka<Java>/auto/src/test/java/author/project_name/LogTest.java)
+    (00-ping-pong-simpl-varda/templates/Akka<Java>/auto/src/test/java/author/project_name/ObservablesTest.java as 00-ping-pong-simpl-varda/templates/Akka<Java>/auto/src/test/java/author/project_name/ObservablesTest.java)
     (00-ping-pong-simpl-varda/templates/Akka<Java>/auto/docker-compose.yml.j2 as 00-ping-pong-simpl-varda/templates/Akka<Java>/auto/docker-compose.yml.j2)
     (00-ping-pong-simpl-varda/pingpong.spec as 00-ping-pong-simpl-varda/pingpong.spec)
     (00-ping-pong-simpl-varda/pingpong.impl as 00-ping-pong-simpl-varda/pingpong.impl)

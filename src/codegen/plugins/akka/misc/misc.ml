@@ -125,7 +125,7 @@ let t_lg4dc_nometadata place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
         auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
-        auto_place (Ast.TVar (Atom.builtin "NoMetadata")) 
+        auto_place (Ast.TVar (Atom.builtin "metadata.NoMetadata")) 
     ))
 
 let t_lg4dc_vplace place =

@@ -6,6 +6,11 @@ open Plg
 
 let name = "Akka<Java>"
 
+
+let fplace = (Error.forge_place "Plg=AkkaJava" 0 0)
+let auto_fplace smth = {place = fplace; value=smth}
+module S_A2 = Ast.AstUtil2.Make(struct let fplace = fplace end)
+
 module Make (Arg: Plugin.CgArgSig) = struct
     let headers = Arg.headers
     let dependencies = Arg.dependencies
@@ -170,7 +175,10 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                     guardian,
                                     auto_place (S.VarExpr (Atom.builtin "create"), auto_place S.TUnknown)
                                 ), auto_place S.TUnknown),
-                                []
+                                [
+                                    (* set run_now to true *)
+                                    S_A2.e2_lit (S.BoolLit true);
+                                ]
                             ), auto_place S.TUnknown);
                             auto_place (S.LitExpr (auto_place (S.StringLit Akka.Misc.system_name)), auto_place S.TUnknown);
                             auto_place (S.CallExpr (
@@ -352,6 +360,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
             (**** Handle the nomain + laststage main ****)
             let generate_guardian name stmts : S.term = 
+                let run_method = Atom.fresh "run" in
                 auto_place({
                     S.annotations = [S.Visibility S.Public];
                     decorators = []; 
@@ -367,12 +376,9 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                 annotations = [S.Visibility S.Public];
                                 v = {
                                     S.ret_type = auto_place (S.Atomic "Void");
-                                    name = name;
-                                    args = [
-                                        auto_place (S.Atomic "String"), Atom.builtin "name";
-                                        auto_place (S.Atomic "Wait"), Atom.builtin "wait"
-                                    ];
-                                    is_constructor = true;
+                                    name = run_method;
+                                    args = [];
+                                    is_constructor = false;
                                     body = AbstractImpl (
                                         List.map 
                                             (S.rewriteexpr_stmt (function 
@@ -380,12 +386,45 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                                 |_-> false
                                                 ) 
                                                 (function 
-                                                |CurrentContext -> S.VarExpr (Atom.builtin "context")
+                                                |CurrentContext -> S.VarExpr (Atom.builtin "this.context")
                                                 | _ -> raise (Error.DeadbranchError "selector prevents accessing this branch")
                                                 )
                                             )
                                             stmts
                                     )
+                                }
+                            };
+                            auto_place {
+                                S.decorators = [];
+                                annotations = [S.Visibility S.Public];
+                                v = {
+                                    S.ret_type = auto_place (S.Atomic "Void");
+                                    name = name;
+                                    args = [
+                                        auto_place (S.Atomic "String"), Atom.builtin "name";
+                                        auto_place (S.Atomic "Wait"), Atom.builtin "wait";
+                                        auto_place (S.Atomic "boolean"), Atom.builtin "run_now"
+                                    ];
+                                    is_constructor = true;
+                                    body = AbstractImpl ([
+                                        auto_place (S.IfStmt(
+                                            S_A2.e2_e (S.BinopExpr(
+                                                S_A2.e2var (Atom.builtin "run_now"),
+                                                AstUtils.Equal,
+                                                S_A2.e2_lit (S.BoolLit true)
+                                            )),
+                                            auto_fplace (S.ExpressionStmt(
+                                                S_A2.e2_e (S.CallExpr(
+                                                    S_A2.e2_e(S.AccessExpr(
+                                                        S_A2.e2_e S.This,
+                                                        S_A2.e2var run_method
+                                                    )),
+                                                    []
+                                                ))
+                                            )),
+                                            None
+                                        ))
+                                    ])
                                 }
                             }
                         ];
@@ -504,11 +543,30 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                 stage::stages
                             end
                             | {place; value={annotations; decorators; v=S.Actor guardian}} -> begin
+                                let a_run_method = Atom.fresh "run" in
+                                let run_method args stmts = auto_place {
+                                    S.decorators = [];
+                                    annotations = [S.Visibility S.Public];
+                                    v = {
+                                        S.ret_type = auto_place (S.Atomic "Void");
+                                        name = a_run_method;
+                                        args = args;
+                                        is_constructor = false;
+                                        body = AbstractImpl (stmts)
+                                    }
+                                } in
+
 
 
                                 let rec change_constructor : S.method0 list -> S.method0 list = function
                                 | [] -> []
                                 | m::ms when m.value.v.is_constructor ->
+                                begin
+                                    let rmethod = match m.value.v.body with
+                                        | AbstractImpl stmts -> [run_method m.value.v.args stmts]
+                                        | _ -> []
+                                    in
+
                                     let m = { m with
                                         value = { m.value with
                                             annotations = m.value.annotations;
@@ -518,26 +576,38 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                                 args = 
                                                     (auto_place (S.Atomic "String"), Atom.builtin "name")
                                                     :: (auto_place (S.Atomic "Wait"), Atom.builtin "wait")
+                                                    :: (auto_place (S.Atomic "boolean"), Atom.builtin "run_now")
                                                     :: m.value.v.args;
                                                 is_constructor = true;
                                                 body = match m.value.v.body with
-                                                | AbstractImpl stmts -> AbstractImpl (
-                                                    List.map 
-                                                        (S.rewriteexpr_stmt (function 
-                                                            |CurrentContext -> true 
-                                                            |_-> false
-                                                            ) 
-                                                            (function 
-                                                            |CurrentContext -> S.VarExpr (Atom.builtin "context")
-                                                            )
-                                                        )
-                                                        stmts 
-                                                )
+                                                | AbstractImpl stmts -> AbstractImpl ([
+                                                    auto_place (S.IfStmt(
+                                                        S_A2.e2_e (S.BinopExpr(
+                                                            S_A2.e2var (Atom.builtin "run_now"),
+                                                            AstUtils.Equal,
+                                                            S_A2.e2_lit (S.BoolLit true)
+                                                        )),
+                                                        auto_fplace (S.ExpressionStmt(
+                                                            S_A2.e2_e (S.CallExpr(
+                                                                S_A2.e2_e(S.AccessExpr(
+                                                                    S_A2.e2_e S.This,
+                                                                    S_A2.e2var a_run_method
+                                                                )),
+                                                                List.map (function (_, x) -> S_A2.e2var x) m.value.v.args 
+                                                            ))
+                                                        )),
+                                                        None
+                                                    ))
+                                                ])
                                                 | b -> b
                                             }
                                         }  
                                     } in
-                                    m::ms
+
+                                    m::(rmethod@ms)
+
+                                    
+                                end
                                 | m::ms -> m::(change_constructor ms)
                                 in
                                 let guardian = {
@@ -1551,13 +1621,14 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     name = Rt.Misc.a_create_method;
                     body = S.AbstractImpl [
                         auto_place (S.ReturnStmt( 
-                            auto_place(S.CallExpr(
-                                auto_place (S.VarExpr Rt.Misc.a_create_method, auto_place S.TUnknown),
+                            S_A2.e2_e (S.CallExpr(
+                                S_A2.e2var Rt.Misc.a_create_method,
                                 [
-                                    auto_place (S.LitExpr (auto_place(S.VoidLit)), auto_place S.TUnknown);
-                                    auto_place (S.LitExpr (auto_place(S.VoidLit)), auto_place S.TUnknown)
+                                    S_A2.e2_lit (S.VoidLit);
+                                    S_A2.e2_lit (S.VoidLit);
+                                    S_A2.e2var (Atom.builtin "run_now")
                                 ]
-                            ), auto_place S.TUnknown)
+                            ))
                         ))
                     ];
                     args = List.filter (function |(_,x)-> (Atom.hint x <> "wait") && (Atom.hint x <> "name")) constructor_args;
@@ -1586,6 +1657,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     args = [
                         auto_place (S.Atomic "String"), Atom.builtin "name";
                         auto_place (S.Atomic "Wait"), Atom.builtin "wait";
+                        auto_place (S.Atomic "boolean"), Atom.builtin "run_now";
                     ];
                     is_constructor = false;
                 }

@@ -4,6 +4,7 @@ import akka.actor.typed.ActorRef;
 import java.util.*;
 
 import com.bmartin.*;
+import com.lg4dc.metadata.*;
 import com.lg4dc.ActivationRef;
 
 public class Event<T extends NoMetadata> implements CborSerializable {

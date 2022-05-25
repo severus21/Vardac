@@ -67,6 +67,5 @@ component TopLevel {
         activation_ref<Pong> c = (spawn Pong(b0));
         activation_ref<Ping> a2 = (spawn Ping(b0, c));  
         print(">> Ending toplevel");
-
     }
 }

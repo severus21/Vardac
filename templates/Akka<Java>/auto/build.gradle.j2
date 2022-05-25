@@ -76,6 +76,10 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    testLogging {
+        showStandardStreams = true
+    }
+    maxParallelForks = 1 //Runtime.runtime.availableProcessors().intdiv(2) ?: 1 
 }
 
 /*

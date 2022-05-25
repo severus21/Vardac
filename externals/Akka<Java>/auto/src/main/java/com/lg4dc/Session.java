@@ -14,6 +14,7 @@ import io.vavr.control.*;
 
 import com.bmartin.*;
 import com.lg4dc.timers.*;
+import com.lg4dc.metadata.*;
 import com.lg4dc.OutPort;
 
 public class Session implements CborSerializable {

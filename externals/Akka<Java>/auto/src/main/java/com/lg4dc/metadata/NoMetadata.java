@@ -1,4 +1,4 @@
-package com.lg4dc;
+package com.lg4dc.metadata;
 
 import java.util.UUID;
 import com.bmartin.*;
