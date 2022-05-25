@@ -131,6 +131,10 @@ module Make () = struct
         match op with
         | Plus | Minus | Mult | Divide -> of_tflat TInt
     end
+    | _, CType{value=TFlatType TStr},CType{value=TFlatType TStr} -> begin   
+        match op with
+        | Plus -> of_tflat TStr
+    end
 
 
     let typeof_block b (mts:main_type list) = 

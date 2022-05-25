@@ -51,6 +51,7 @@ end) = struct
 
     type msg_field = {
         name: Atom.t;
+        ctype: T.ctype;
         protobuf_type: string;
         protobuf_id: int;
     }
@@ -71,6 +72,8 @@ end) = struct
         service_name: Atom.t;
         component_name: Atom.t;
         impl_name: Atom.t;
+        client_name: Atom.t;
+        let_client_name: Atom.t;
         rpcs: rpc list;
         service_handler_instance: Atom.t;
     }
@@ -105,23 +108,29 @@ end) = struct
                 let rec _gendef place = function
                     | S.CType {value=S.TFlatType ft} -> begin 
                         match ft with
-                        | TStr -> "string"
-                        | TInt -> "int32" (* since no long during conversion*)
-                        | TFloat -> "float"
-                        | TBool -> "bool"
-                        | TVoid -> "NullValue"
+                        | TStr -> auto_fplace(T.Atomic "String"), "string"
+                        | TInt -> auto_fplace(T.Atomic "Integer"), "int32" (* since no long during conversion*)
+                        | TFloat -> auto_fplace(T.Atomic "Float"), "float"
+                        | TBool -> auto_fplace(T.Atomic "Boolean"), "bool"
+                        | TVoid -> auto_fplace(T.Atomic "Void"), "NullValue"
                         | _ -> Error.perror place "Type unsupported for interface, should be a simple atomic type."
                     end
                     | S.CType {value=S.TDict (mt1, mt2)} ->
-                        Printf.sprintf "map<%s,%s>" (gendef mt1)(gendef mt2)
-                    | S.CType {value=S.TList _} -> "ListValue"
+                        let ct1, proto1 = gendef mt1 in
+                        let ct2, proto2 = gendef mt2 in
+                        auto_fplace(T.TMap (ct1, ct2)), Printf.sprintf "map<%s,%s>" proto1 proto2
+                    | S.CType {value=S.TList mt} ->
+                        let ct, proto = gendef mt in
+                        auto_fplace (T.TList ct), "ListValue"
                     | _ -> Error.perror place "Type unsupported for interface, should be a simple atomic type."
                 and gendef x = map0_place _gendef x in
 
                 let to_field i ({value=mt,x}) : msg_field = 
+                    let ctype, protobuf_type = gendef mt in
                     { 
                         name = Atom.fresh (Atom.value x);
-                        protobuf_type = gendef mt;
+                        protobuf_type;
+                        ctype;
                         protobuf_id = i+1; 
                     }
                 in 
@@ -152,10 +161,13 @@ end) = struct
             | [] -> () 
             | _ -> 
                 let service_name = Atom.fresh ((Atom.value component_name)^"Service") in
+                let client_name = Atom.builtin ((Atom.to_string service_name)^"Client") in
                 let service = {
                     component_name;
                     service_name = service_name;
                     impl_name = Atom.fresh ((Atom.value component_name)^"ServiceImpl"); 
+                    client_name = client_name ; 
+                    let_client_name = Atom.builtin ("client"^(Atom.to_string client_name));
                     rpcs = rpcs;
                     service_handler_instance = Atom.fresh (String.uncapitalize_ascii (Atom.value service_name));
                 } in
@@ -815,6 +827,218 @@ end) = struct
             }
         }
 
+    (* Stage 4 - 
+    *)
+    let generate_gRPC_client services =
+        let main_client_name = Atom.fresh "MaingRPCClient" in
+        let host = Atom.fresh "host" in
+        let port = Atom.fresh "port" in
+        let system = Atom.fresh "system" in
+        let e_system = T_A2.e2_e (T.AccessExpr (T_A2.e2_e T.This, T_A2.e2var system)) in
+        let settings = Atom.fresh "settings" in
+        let e_settings = T_A2.e2var settings in
+        let client = Atom.fresh "client" in
+        let e_client = T_A2.e2_e (T.AccessExpr (T_A2.e2_e T.This, T_A2.e2var client)) in
+
+        let auto_annote x = {
+            T.annotations = [];
+            decorators = [];
+            v = x
+        } in
+
+        let states : T.term list=  
+            auto_fplace(auto_annote(T.Stmt(auto_fplace(T.LetStmt(
+                auto_fplace(T.TRaw "ActorSystem"),
+                system,
+                None
+            )))))
+            :: List.map (function service -> 
+                auto_fplace(auto_annote(T.Stmt(auto_fplace(T.LetStmt(
+                    auto_fplace(T.TVar service.client_name),
+                    service.let_client_name,
+                    None
+                )))))
+            ) services
+        in
+
+        let main : T.term = 
+            auto_fplace {
+                T.annotations = [];
+                decorators = [];
+                v = T.MethodDeclaration (auto_fplace {
+                    T.annotations = [T.Visibility T.Public];
+                    decorators = [];
+                    v = {
+                        T.ret_type = auto_fplace T.TUnknown;
+                        name = main_client_name;
+                        args = [
+                            auto_fplace (T.TRaw "String"), host;
+                            auto_fplace (T.TRaw "int"), port;
+                        ];
+                        is_constructor = true;
+                        body = AbstractImpl ([
+                            auto_fplace(T.AssignExpr(
+                                e_system,
+                                T_A2.e2_e (T.CallExpr(
+                                    T_A2.e2_e (T.RawExpr "ActorSystem.create"),
+                                    [T_A2.e2_lit (T.StringLit (Atom.to_string main_client_name))]
+                                ))
+                            ));
+                            (* configure the client by code *)
+                            auto_fplace(T.LetStmt(
+                                auto_fplace (T.TRaw "GrpcClientSettings"),
+                                settings,
+                                Some(T_A2.e2_e(T.AccessExpr(
+                                    T_A2.e2_e (T.CallExpr(
+                                        T_A2.e2_e (T.RawExpr "GrpcClientSettings.connectToServiceAt"),
+                                        [
+                                            T_A2.e2var host;
+                                            T_A2.e2var port;
+                                            e_system
+                                        ]
+                                    )),
+                                    T_A2.e2_e (T.RawExpr "withTls(false)")
+                                )))
+                            ));
+                        ]
+                        @ List.map (function service -> 
+                            (* create the client *)
+                            auto_fplace(T.TryStmt(
+                                auto_fplace(T.AssignExpr(
+                                    T_A2.e2_e(T.AccessExpr(T_A2.e2_e T.This, T_A2.e2var service.let_client_name)),
+                                    T_A2.e2_e (T.CallExpr(
+                                        T_A2.e2_e (T.AccessExpr(
+                                            T_A2.e2var service.client_name,
+                                            T_A2.e2_e (T.AccessExpr(
+                                                T_A2.e2var service.client_name,
+                                                T_A2.e2_e (T.RawExpr "create")
+                                            ))
+                                        )),
+                                        [e_settings; e_system]
+                                    ))
+                                )),
+                                [
+                                    (auto_fplace (T.TRaw "Exception"), Atom.builtin "e", auto_fplace (T.RawStmt "System.out.println(e);"))
+                                ]
+                            ))
+                        ) services)
+                    }
+                })  
+            }
+        in
+
+        let generate_api_method service rpc : T.term = 
+            let request = Atom.fresh "request" in
+            let reply = Atom.fresh "reply" in
+            let in_msg = 
+                try Hashtbl.find grpc_messages rpc.in_type
+                with Not_found -> raise (Error.DeadbranchError "rpc in_type must be registered into grpc_messages")
+            in
+            let out_msg = 
+                try Hashtbl.find grpc_messages rpc.out_type
+                with Not_found -> raise (Error.DeadbranchError "rpc out_type must be registered into grpc_messages")
+            in
+
+
+
+
+            (* 
+                HelloRequest.newBuilder().setName("Alice").build()   
+                this method apply setName("Alice") like for each field of the message on the previously build HelloRequest.newBuilder() as acc
+            *)
+            let aux (acc:T.expr) = 
+                List.fold_left (fun (acc:T.expr) (field:msg_field) ->
+                    T_A2.e2_e (T.CallExpr(
+                        T_A2.e2_e (T.AccessExpr(
+                            acc,
+                            T_A2.e2_e(T.RawExpr ("set"^(String.capitalize_ascii (Atom.to_string field.name))))
+                        )),
+                        [ T_A2.e2var field.name ]
+                    ))    
+                ) acc in_msg.fields
+            in
+
+            auto_fplace (auto_annote(T.MethodDeclaration (
+            auto_fplace(auto_annote {
+                T.ret_type = (
+                    match out_msg.fields with
+                    | [f] -> f.ctype
+                    | _ -> raise (Error.DeadbranchError "out_msg should have exactly one field, the rpc return value type")
+                );
+                name = rpc.m.value.name;
+                args = List.map (function f -> (f.ctype, f.name)) in_msg.fields;
+                is_constructor = false;
+                body = T.AbstractImpl [
+                    auto_fplace(
+                        T.LetStmt(
+                            auto_fplace(T.TVar rpc.in_type),
+                            request,
+                            Some(
+                                T_A2.e2_e(T.AccessExpr(
+                                    aux(T_A2.e2_e(T.AccessExpr(
+                                        T_A2.e2var rpc.in_type,
+                                        T_A2.e2_e (T.RawExpr "newBuilder()")
+                                    ))),
+                                    T_A2.e2_e (T.RawExpr "build()")
+                                ))
+                            )
+                        )
+                    );
+                    (* CompletionStage<HelloReply> reply = client.sayHello(request); *)
+                    auto_fplace(T.LetStmt(
+                        auto_fplace(T.TParam (
+                            auto_fplace (T.TRaw "CompletionStage"),
+                            [ auto_fplace (T.TVar rpc.out_type) ]
+                        )),
+                        reply,
+                        Some (
+                            T_A2.e2_e(T.CallExpr(
+                                T_A2.e2_e(T.AccessExpr(
+                                    T_A2.e2_e(T.AccessExpr(T_A2.e2_e T.This, T_A2.e2var service.let_client_name)),
+                                    T_A2.e2var rpc.name
+                                )),
+                                [ T_A2.e2var request]
+                            ))
+                        )
+                    ));
+                    (* Return reply *)
+                    auto_fplace(T.ReturnStmt(
+                        T_A2.e2_e(T.AccessExpr(
+                            T_A2.e2var reply,
+                            T_A2.e2_e (T.RawExpr "toCompletableFuture().get(5, TimeUnit.SECONDS)")
+                        ))
+                    ))
+                ];
+            }))))
+        in
+
+        let api_methods : T.term list = 
+            List.flatten (List.map (function service -> List.map (generate_api_method service) service.rpcs) services)
+        in
+
+        auto_fplace {
+            T.annotations = [];     
+            decorators = [];
+            v = T.ClassOrInterfaceDeclaration {
+                headers = [
+                    "import akka.grpc.GrpcClientSettings;";
+                    "import java.util.concurrent.CompletionStage;";
+                    "import java.util.concurrent.TimeUnit;";
+                ]
+                @ List.map (function service -> 
+                    Printf.sprintf 
+                        "import %s.%s.grpc.*;"
+                        (Config.author ())
+                        (Config.project_name ())
+                ) services;
+                isInterface = false;
+                name = main_client_name; 
+                extended_types = [Misc.t_lg4dc_abstract_system fplace];
+                implemented_types = [];
+                body = states @ (main :: api_methods) 
+            }
+        }
+
     let finish_program program =  
         hydrate_grpc program;
         if Hashtbl.length grpc_services > 0 then
@@ -823,8 +1047,9 @@ end) = struct
             let iri_program, res = generate_services_implementation program in
             let events, akka_terms = List.split res in 
             let events = List.flatten events in
-            let target, akka_term = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
-            [ (target, iri_program), events@akka_terms@[akka_term] ]
+            let target, server_program = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
+            let client_program = generate_gRPC_client (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
+            [ (target, iri_program), events@akka_terms@[server_program;client_program] ]
         end
         else  
         begin
