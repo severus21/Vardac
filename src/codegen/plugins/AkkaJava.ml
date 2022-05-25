@@ -527,6 +527,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 let add_guardians stages = match Atom.hint mdef.bootstrap with
                     | "laststage" -> 
                         let _stages, [laststage] = split_list (List.length stages - 1) stages in
+                        logger#error "%s" (Atom.to_string laststage.name);
                         assert("Stage" = Atom.hint laststage.name); (* FIXME fragile *)
                         _stages @  (add_guardian mdef laststage)
                     | _ -> 

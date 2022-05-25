@@ -2,7 +2,8 @@
   codegen: 
     language: Java
     runtime: Akka
+    interface: gRPC
     mains: 
       main:
-        bootstrap: laststage
+        bootstrap: TopLevel 
         entrypoint: no_main 

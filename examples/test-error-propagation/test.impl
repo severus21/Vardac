@@ -1,0 +1,5 @@
+
+target akka;
+
+impl component Dummy {}
+impl component TopLevel {}
