@@ -2,7 +2,7 @@ default: build
 
 {% for name in target_mains %}
 build_{{name}}:
-	gradle jar{{name[0]|capitalize}}{{substring(1,strlen(name), name)}} 
+	gradle -x test jar{{name[0]|capitalize}}{{substring(1,strlen(name), name)}} 
 {% endfor %}
 
 build: protobuf {% for name in target_mains %} build_{{name}}{%endfor%}
@@ -10,7 +10,7 @@ build: protobuf {% for name in target_mains %} build_{{name}}{%endfor%}
 .PHONY:protobuf
 protobuf:
 	gradle wrapper
-	./gradlew build
+	./gradlew build -x test
 
 .PHONY: test
 test:

@@ -291,6 +291,12 @@ end) = struct
                         throws = [];
                         is_constructor = false;
                         body = AbstractImpl [
+                            auto_fplace (T.TemplateStmt (
+                                {|
+    assert(this.{{att_actor}} != null);
+                                |}, [ 
+                                ("att_actor", Jingoo.Jg_types.Tstr (Atom.to_string att_actor))
+                            ]));
                             auto_fplace (T.LetStmt(
                                 auto_fplace (T.TParam(
                                     auto_fplace (T.TRaw "Function"),
@@ -556,8 +562,6 @@ end) = struct
         long DEFAULT_RETRY_TIMEOUT = 500;   // in ms
         Duration DEFAULT_TIMEOUT = Duration.ofSeconds(3);
 
-        ActorRef actor = null;
-
         Cluster cluster = Cluster.get({{actorSystem}});
         assert (null != cluster);
         ServiceKey key = PlaceDiscovery.activationsServiceKeyOf(cluster.selfMember().address());
@@ -566,6 +570,8 @@ end) = struct
                         (ActorRef<Receptionist.Listing> replyTo) -> Receptionist.find(key, replyTo),
                         DEFAULT_TIMEOUT,
                         {{actorSystem}}.scheduler());
+
+        ActorRef actor = null;
 
         try {
             // blocking call
@@ -576,7 +582,7 @@ end) = struct
                     {{actorSystem}}.log().info("{{implName}}::getActor() retry " + {{retry}} + "/" + DEFAULT_MAX_RETRY + ", timeout=" + timeout);
                     // sleep and retry
                     Thread.sleep(timeout);
-                    {{getActor}}({{actorSystem}}, {{retry}});
+                    return {{getActor}}({{actorSystem}}, {{retry}});
                 } else {
                     throw new RuntimeException("Could not find {{system_name}} after " + DEFAULT_MAX_RETRY + " retries.");
                 }
@@ -601,6 +607,7 @@ end) = struct
                                                         "implName", Jg_types.Tstr (Atom.to_string service.impl_name);
                                                         "getActor", Jg_types.Tstr (Atom.to_string get_actor);
                                                         "retry", Jg_types.Tstr (Atom.to_string local_arg_retry);
+                                                        "att_actor", Jg_types.Tstr (Atom.to_string att_actor);
                                                     ]
                                                 )
                                             ]
@@ -859,8 +866,10 @@ end) = struct
         istate := { !istate with
             jingoo_models = ("grpc_client", Jg_types.Tstr (Atom.to_string main_client_name)) ::(!istate.jingoo_models);
         };
-
+        
+        (* seed host *)
         let host = Atom.fresh "host" in
+        (* seed port *)
         let port = Atom.fresh "port" in
         let system = Atom.fresh "system" in
         let e_system = T_A2.e2_e (T.AccessExpr (T_A2.e2_e T.This, T_A2.e2var system)) in
@@ -907,13 +916,21 @@ end) = struct
                         throws = [];
                         is_constructor = true;
                         body = AbstractImpl ([
-                            auto_fplace(T.AssignExpr(
-                                e_system,
-                                T_A2.e2_e (T.CallExpr(
-                                    T_A2.e2_e (T.RawExpr "akka.actor.ActorSystem.create"),
-                                    [T_A2.e2_lit (T.StringLit (Atom.to_string main_client_name))]
-                                ))
-                            ));
+                            auto_fplace(T.TemplateStmt({|
+        Config config = ConfigFactory.parseString(
+            "akka.cluster.jmx.multi-mbeans-in-same-jvm=on \n" +
+            "akka.remote.artery.canonical.hostname=127.0.0.1\n" +
+            "akka.remote.artery.canonical.port=0 \n" +
+            "akka.cluster.roles=[\"client\"] \n" +
+            "akka.cluster.seed-nodes=[\"akka://{{actor_system}}@" + {{host}} + ":" + {{port}} + "\"] \n");
+
+        this.{{system}} = akka.actor.ActorSystem.create("{{main_client_name}}", config);
+                            |}, [
+                                "host", Jingoo.Jg_types.Tstr (Atom.to_string host);
+                                "port", Jingoo.Jg_types.Tstr (Atom.to_string port);
+                                "main_client_name", Jingoo.Jg_types.Tstr (Atom.to_string main_client_name);
+                                "system", Jingoo.Jg_types.Tstr (Atom.to_string system);
+                            ]));
                             (* configure the client by code *)
                             auto_fplace(T.LetStmt(
                                 auto_fplace (T.TRaw "GrpcClientSettings"),

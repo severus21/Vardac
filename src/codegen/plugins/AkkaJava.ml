@@ -1127,6 +1127,9 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 ) branches
             )
             | S.RawStmt str -> T.RawStmt str
+            | S.TemplateStmt (str, inner_models) -> 
+                    let str = Jg_template.from_string str ~models:(inner_models@TemplatesHelper.default_jingoo_models) in
+                    T.RawStmt str
         and fstmt stmt : T.stmt = map_place finish_stmt stmt
 
         let rec finish_state  (state:S.state) : T.str_items list = 
@@ -1923,7 +1926,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
         let component_names = List.of_seq (Atom.Set.to_seq(!(cstate.collected_components))) in
 
-        [
+        let models = [
             ("target_mains", Jg_types.Tlist 
                 (List.map (function ({Core.Target.name;}:Core.Target.maindef) -> Jg_types.Tstr name) target.value.codegen.mains)
             );
@@ -1948,8 +1951,13 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 ) places
             ));
             ("dependencies", Jg_types.Tstr (dependencies));
-            ("user_defined_targets", Jg_types.Tstr target.value.user_defined);
-        ] @ istate.jingoo_models
+        ] @ istate.jingoo_models in
+
+        (* User-define is a template *)
+        let models =  
+            ("user_defined_targets", Jg_types.Tstr (Jg_template.from_string target.value.user_defined ~models:(models@TemplatesHelper.default_jingoo_models))) :: models in
+
+        models
 
     let custom_template_rules () = [
     ]

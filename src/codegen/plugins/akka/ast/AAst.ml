@@ -89,6 +89,7 @@ and _stmt =
     | ReturnStmt of expr
     | TryStmt of stmt * (ctype * variable * stmt) list
     | RawStmt of string
+    | TemplateStmt of (string * (string * Jingoo.Jg_types.tvalue) list)
 and stmt = _stmt placed
 
 and visibility = 
