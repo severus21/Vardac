@@ -11,7 +11,7 @@ services:
       - "25520:25520/tcp"
     environment:
       TZ: 'Europe/Paris'
-    entrypoint: "/usr/local/openjdk-11/bin/java -jar passivePlayer.jar"
+    entrypoint: "/usr/local/openjdk-11/bin/java -enableassertions -jar passivePlayer.jar"
     command: [
       "-p", "25520", 
       "-s", "\"akka://{{system_name}}@server1:25520\"",
@@ -19,7 +19,7 @@ services:
       "-vp", "Cloud"
     ]
 # cd ../akka && gradle jarPassivePlayer
-# java -jar build/libs/passivePlayer.jar -ip 127.0.0.1 -p 25520 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp placeB 
+# java -enableassertions -jar build/libs/passivePlayer.jar -ip 127.0.0.1 -p 25520 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp placeB 
 
   server2:
     build: .
@@ -34,7 +34,7 @@ services:
     deploy:
       mode: replicated
       replicas: 3
-    entrypoint: "/usr/local/openjdk-11/bin/java -jar multiPlayer.jar"
+    entrypoint: "/usr/local/openjdk-11/bin/java -enableassertions -jar multiPlayer.jar"
     command: [
       "-p", "25521", 
       "-s", "\"akka://{{system_name}}@server1:25520\"",
@@ -42,4 +42,4 @@ services:
       "-vp", "placeA"
     ]
 # cd ../akka && gradle jarMultiPlayer
-# java -jar build/libs/multiPlayer.jar -ip 127.0.0.1 -p 25521 -s akka://{{system_name}}@127.0.0.1:25520 -l 8081 -vp placeA
+# java -enableassertions -jar build/libs/multiPlayer.jar -ip 127.0.0.1 -p 25521 -s akka://{{system_name}}@127.0.0.1:25520 -l 8081 -vp placeA

@@ -11,7 +11,7 @@ services:
       - "25520:25520/tcp"
     environment:
       TZ: 'Europe/Paris'
-    entrypoint: "/usr/local/openjdk-11/bin/java -jar passivePlayer.jar"
+    entrypoint: "/usr/local/openjdk-11/bin/java -enableassertions -jar passivePlayer.jar"
     command: [
       "-p", "25520", 
       "-s", "\"akka://{{system_name}}@server1:25520\"",
@@ -34,7 +34,7 @@ services:
     deploy:
       mode: replicated
       replicas: 3
-    entrypoint: "/usr/local/openjdk-11/bin/java -jar multiPlayer.jar"
+    entrypoint: "/usr/local/openjdk-11/bin/java -enableassertions -jar multiPlayer.jar"
     command: [
       "-p", "25521", 
       "-s", "\"akka://{{system_name}}@server1:25520\"",
