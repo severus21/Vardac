@@ -1,0 +1,31 @@
+(executable
+ (name fuzz_me)
+ (libraries crowbar compspec.core compspec.compspeclib))
+
+(rule
+  (alias fuzz)
+  (deps
+    (:exe fuzz_me.exe)
+    (source_tree inputs))
+  (action
+    (run afl-fuzz -i inputs -o findings -- ./%{exe} @@))
+)
+
+;;(alias
+;; (name bun-fuzz)
+;; (locks %{project_root}/bun)
+;; (deps
+;;  (:exe fuzz_me.exe)
+;;  (source_tree input))
+;; (action
+;;  (run bun --input inputs --output findings -- ./%{exe})))
+;;
+;;(alias
+;; (name bun-fuzz-no-kill)
+;; (locks %{project_root}/bun)
+;; (deps
+;;  (:fuzz-me fuzz_me.exe)
+;;  (source_tree input))
+;; (action
+;;  (run timeout --preserve-status 1m bun --no-kill --input inputs --output
+;;    findings -- ./%{exe})))

@@ -44,6 +44,11 @@ tests: generatedune
 	@dune runtest --profile release
 	@rm -rf tests/examples
 
+.PHONY: fuzz
+fuzz: 
+	AFL_SKIP_CPUFREQ=1 dune build --profile release @fuzz --no-buffer
+
+
 #### Localy running targets ########################################################
 
 # If the first argument is "run"...

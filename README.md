@@ -167,6 +167,7 @@ dune build @doc-private
 ```
 
 ## Tests
+
 ```
 make tests
 ```
@@ -175,6 +176,22 @@ To run a subset of tests e.g. 0:Parser
 ```
 make && dune exec --profile release -- tests/main.exe -only-test 0:Parser
 ```
+
+### Fuzzing-based tests
+
+1. Setup
+    ```bash
+    opam switch create 4.12.0+afl --package=ocaml-variants.4.12.0+options,ocaml-option-afl
+    opam switch 4.12.0+afl
+    eval $(opam env)
+    bash requirements.sh
+    apt install afl++
+    opam install crowbar bun
+    ```
+2. Run tests
+    ```bash
+        make fuzz 
+    ```
 
 ## Packaging for OPAM
 ```
