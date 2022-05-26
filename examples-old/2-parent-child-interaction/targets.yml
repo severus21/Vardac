@@ -1,4 +1,0 @@
-- target: Akka 
-  codegen: 
-    language: Java
-    runtime: Akka
