@@ -50,6 +50,12 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
             | Some _ -> Error.perror mock_place "target [%s] is defined multiple times" name;
         end;
 
+        let user_defined = match Hashtbl.find_opt table "user_defined" with 
+            | None -> "" 
+            | Some (`String x) -> x
+            | _ -> Error.perror mock_place "Syntax error in [user_defined] definition of target [%s]\n" name 
+        in
+
         let codegen = match Hashtbl.find_opt table "codegen" with 
             | None -> Error.perror mock_place "Codegen attribut must be declared for target [%s]\n" current_target
             | Some `O body-> ( 
@@ -158,7 +164,7 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
         in
         [{  Core.AstUtils.place=mock_place; 
             Core.AstUtils.value=
-                {name=name; codegen=codegen}
+                {name=name; codegen=codegen; user_defined}
         }]
   end
   |_ -> Error.perror mock_place "Syntax error in targets definition of target [%s]\n" current_target                

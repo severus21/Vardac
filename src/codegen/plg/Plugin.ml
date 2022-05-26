@@ -68,13 +68,14 @@ module type Cg_plg = sig
 
     type plgstate
     val plgstate: plgstate ref
+    val iplgstate: Interface_plugin.istate ref
     
     val finish_ir_program : Core.Target.target -> Fpath.t -> Fpath.t -> S.program -> ((string * Fpath.t) * Lg.Ast.program) list 
     val output_program : Core.Target.target -> Fpath.t -> Fpath.t -> S.program -> unit
 
     val custom_template_rules : unit -> (Fpath.t * (string * Jingoo.Jg_types.tvalue) list * Fpath.t) list
     val custom_external_rules : unit -> (Fpath.t * Fpath.t) list
-    val auto_jingoo_env : plgstate -> Core.IR.vplace list -> (string * Jingoo.Jg_types.tvalue) list
+    val auto_jingoo_env : plgstate -> Interface_plugin.istate -> Core.IR.vplace list -> (string * Jingoo.Jg_types.tvalue) list
 end
 
 module type Plug = sig
@@ -135,7 +136,7 @@ module Make (Plg: Cg_plg) = struct
             let templates_location = templates_location 
             let custom_template_rules = custom_template_rules () 
         end) in
-        let jingoo_models = auto_jingoo_env !plgstate places in
+        let jingoo_models = auto_jingoo_env !plgstate !iplgstate places in
         TemplatesHelper.process_templates None jingoo_models; (* Plugin wide *)
         TemplatesHelper.process_templates (Some project_dir) jingoo_models (* Project specific *)
 end

@@ -44,6 +44,9 @@ end) = struct
 
     let auto_jingoo_env () = [] 
 
+    (************** Shared state *****************)
+    let istate = ref (Plg.Interface_plugin.empty_istate ())
+
     (**************************************************)
 
     module S = IRI
@@ -575,7 +578,7 @@ end) = struct
                     Thread.sleep(timeout);
                     {{getActor}}({{actorSystem}}, {{retry}});
                 } else {
-                    throw new RuntimeException("Could not find TransactionManager after " + DEFAULT_MAX_RETRY + " retries.");
+                    throw new RuntimeException("Could not find {{system_name}} after " + DEFAULT_MAX_RETRY + " retries.");
                 }
             } else {
                 actor = listing.iterator().next();    // TODO: if more than 1 result, use closest
@@ -655,6 +658,13 @@ end) = struct
     *)
     let generate_gRPC_server services =
         let main_server_name = Atom.fresh "MaingRPCServer" in
+        (* Register main_server_name in istate,
+           currently impl support at most one grpc_server *)
+        assert(Bool.not(List.mem "grpc_server" (List.map fst !istate.jingoo_models)));
+        istate := { !istate with
+            jingoo_models = ("grpc_server", Jg_types.Tstr (Atom.to_string main_server_name))::(!istate.jingoo_models);
+        };
+
         let att_system = Atom.fresh "sys" in
         let local_service_handlers = Atom.fresh "serviceHandlers" in
 
@@ -843,6 +853,13 @@ end) = struct
     *)
     let generate_gRPC_client services =
         let main_client_name = Atom.fresh "MaingRPCClient" in
+        (* Register main_client_name in istate,
+           currently impl support at most one grpc_client *)
+        assert(Bool.not(List.mem "grpc_client" (List.map fst !istate.jingoo_models)));
+        istate := { !istate with
+            jingoo_models = ("grpc_client", Jg_types.Tstr (Atom.to_string main_client_name)) ::(!istate.jingoo_models);
+        };
+
         let host = Atom.fresh "host" in
         let port = Atom.fresh "port" in
         let system = Atom.fresh "system" in
@@ -1057,7 +1074,22 @@ end) = struct
                 name = main_client_name; 
                 extended_types = [];
                 implemented_types = [];
-                body = states @ (main :: api_methods) 
+                body = states @ (main :: api_methods) @ [
+                    auto_fplace {
+                        T.annotations = [];
+                        decorators = [];
+                        v = T.RawTerm (auto_fplace {
+                            T.language = None;
+                            body = [
+                                T.Template ({|
+    public void disconnect() {
+        this.{{system}}.terminate();
+    }
+                                |}, [("system", Jg_types.Tstr (Atom.to_string system))])
+                            ]
+                        })
+                    }
+                ] 
             }
         }
 

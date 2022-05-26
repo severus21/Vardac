@@ -13,7 +13,9 @@ and codegen_info = {
 }
 and _target = {
     name:string; 
-    codegen: codegen_info}     
+    codegen: codegen_info;
+    user_defined: string;
+}     
 and target = _target placed
 and targets = target list
 [@@deriving show { with_path = false }]

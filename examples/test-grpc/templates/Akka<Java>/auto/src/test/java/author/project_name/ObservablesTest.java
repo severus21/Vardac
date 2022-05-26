@@ -46,50 +46,50 @@ public class ObservablesTest {
         testKit.shutdownTestKit();
     }
 
-    @Test
-    public void check_logs() {
-        class Counter {
-            public int seen = 0;
-            public int unseen = 0;
-        }
-        Counter counter = new Counter ();
+    //@Test
+    //public void check_logs() {
+    //    class Counter {
+    //        public int seen = 0;
+    //        public int unseen = 0;
+    //    }
+    //    Counter counter = new Counter ();
 
-        LoggingTestKit.messageContains(">")
-        .withCustom(
-        event ->{
-            if(event.level() == Level.DEBUG){
-                System.out.println(event.message());
-                if(event.message().contains("> Seen")){
-                    counter.seen += 1;
-                    return true;
-                }
-                if(event.message().contains("> Unseen")){
-                    counter.unseen += 1;
-                    return true;
-                }
-            }
-            return false;
-        }
-        )
-        .withOccurrences​(2)
-        .expect(
-            testKit.system(),
-            () -> {
-                ActorRef<SpawnProtocol.Command> kvs1 = testKit.spawn({{guardian_name}}.create(true), "KVS1");
-                // Start gRPC server
-                {{grpc_server}}.main_run(testKit.system());
-                // Start gRPC client
-                {{grpc_client}} gRPC_client = new {{grpc_client}}("127.0.0.1", 8090); //Warning ip, port still hardcoded in gRPCServer
-                try{
-                    java.lang.Thread.sleep(1);
-                }catch(InterruptedException e) {}
+    //    LoggingTestKit.messageContains(">")
+    //    .withCustom(
+    //    event ->{
+    //        if(event.level() == Level.DEBUG){
+    //            System.out.println(event.message());
+    //            if(event.message().contains("> Seen")){
+    //                counter.seen += 1;
+    //                return true;
+    //            }
+    //            if(event.message().contains("> Unseen")){
+    //                counter.unseen += 1;
+    //                return true;
+    //            }
+    //        }
+    //        return false;
+    //    }
+    //    )
+    //    .withOccurrences​(2)
+    //    .expect(
+    //        testKit.system(),
+    //        () -> {
+    //            ActorRef<SpawnProtocol.Command> kvs1 = testKit.spawn({{guardian_name}}.create(true), "KVS1");
+    //            // Start gRPC server
+    //            {{grpc_server}}.main_run(testKit.system());
+    //            // Start gRPC client
+    //            {{grpc_client}} gRPC_client = new {{grpc_client}}("127.0.0.1", 8090); //Warning ip, port still hardcoded in gRPCServer
+    //            try{
+    //                java.lang.Thread.sleep(1);
+    //            }catch(InterruptedException e) {}
 
-                return null;
-            });
+    //            return null;
+    //        });
 
-        assertEquals(counter.seen, 2);
-        assertEquals(counter.unseen, 0);
-    }
+    //    assertEquals(counter.seen, 2);
+    //    assertEquals(counter.unseen, 0);
+    //}
 }
     {% endif %}
 {% endfor %}

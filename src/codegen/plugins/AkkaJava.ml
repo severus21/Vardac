@@ -53,7 +53,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
         let current_headers = ref []
 
         (** Exported state *)
-
+        let istate : Plg.Interface_plugin.istate ref = ref (Plg.Interface_plugin.empty_istate ())
         let cstate : Rt.Finish.collected_state ref = ref (Rt.Finish.empty_cstate ())
 
         let rename_cstate renaming = 
@@ -1467,14 +1467,6 @@ module Make (Arg: Plugin.CgArgSig) = struct
             )) in
 
             (**** generate actor create method ****)
-            (* public static <K, V> Behavior<Command> create(int transactionId,
-            ActorRef<TransactionManagerActor.BeginTransactionReplyEvent> replyTo,
-            ActorRef<ShardingEnvelope<JournalActor.Command>> journalShard) {
-        return Behaviors.setup(context -> {
-        context.getLog().debug("TransactionCoordinatorActor::create()");
-        return new TransactionCoordinatorActor<K, V>(context, transactionId, replyTo, journalShard);
-        });
-        }*)
             (* TODO check in IR at most once constructor/destructor *)
             let constructor_opt  = List.find_opt (function (m:S.method0) -> m.value.v.is_constructor) methods in
             let constructor_args = match constructor_opt with | None -> [] |Some constructor -> constructor.value.v.args in 
@@ -1850,7 +1842,9 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
 
     type plgstate = Rt.Finish.collected_state
+    type iplgstate = Plg.Interface_plugin.istate
     let plgstate = ref (Rt.Finish.empty_cstate ())
+    let iplgstate = ref (Plg.Interface_plugin.empty_istate ())
 
     let finish_ir_program (target:Core.Target.target) project_dir build_dir (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
 
@@ -1888,6 +1882,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
         let res = Akka2Java.apply program in
         plgstate := !Akka2Java0.cstate; (* Order matters state could be udated by "AAkka2Java.apply program"*)
+        iplgstate := !RtGenInterface.istate;
         res
 
 
@@ -1907,7 +1902,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
         |> List.map (function (package_name, file, program) -> (package_name, file, headers :: program))
         |> List.iter (function (package_name, file, program) -> Lg.Output.output_program package_name (Fpath.append build_dir file) program)
 
-    let auto_jingoo_env (cstate:Rt.Finish.collected_state) places = 
+    let auto_jingoo_env (cstate:Rt.Finish.collected_state) (istate:Plg.Interface_plugin.istate) places = 
         let target:Core.Target.target = 
             try Option.get cstate.target 
             with Invalid_argument _ -> failwith "[akka] target has not been set into cstate before calling auto_jinja_env"
@@ -1928,17 +1923,6 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
         let component_names = List.of_seq (Atom.Set.to_seq(!(cstate.collected_components))) in
 
-        let gRPC_server = match List.filter (function name -> String.starts_with " MaingRPCServer" (Atom.to_string name)) component_names with
-            | [] -> []
-            | [name] -> [("grpc_server", Jg_types.Tstr (Atom.to_string name))]
-            | _ -> failwith "at most one grpc server should exists (current impl)"
-        in
-        let gRPC_client = match List.filter (function name -> String.starts_with " MaingRPCClient" (Atom.to_string name)) component_names with
-            | [] -> []
-            | [name] -> [("grpc_client", Jg_types.Tstr (Atom.to_string name))]
-            | _ -> failwith "at most one grpc client should exists (current impl)"
-        in
-        
         [
             ("target_mains", Jg_types.Tlist 
                 (List.map (function ({Core.Target.name;}:Core.Target.maindef) -> Jg_types.Tstr name) target.value.codegen.mains)
@@ -1964,7 +1948,8 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 ) places
             ));
             ("dependencies", Jg_types.Tstr (dependencies));
-        ]@gRPC_client@gRPC_server
+            ("user_defined_targets", Jg_types.Tstr target.value.user_defined);
+        ] @ istate.jingoo_models
 
     let custom_template_rules () = [
     ]

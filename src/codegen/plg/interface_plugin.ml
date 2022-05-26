@@ -8,11 +8,21 @@ module type SigArg = sig
     val target : Target.target
 end;;
 
+(* State transmitted from the interface plugin to the codegen plg *)
+type istate = {
+    jingoo_models: Jingoo.Jg_types.kwargs;
+}
+
+let empty_istate () = {
+    jingoo_models = [];
+}
+
 module Make(Ast:S_Ast) = struct 
     module CompilationPass = Core.CompilationPass.Make2(IRI)(Ast)(struct type acc = Target.target * IRI.program end)
 
     module type Interface__plg = sig 
         val name : string
+        val istate : istate ref
 
         include CompilationPass.Pass
 

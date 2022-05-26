@@ -100,3 +100,6 @@ task jar{{name[0]|capitalize}}{{substring(1,strlen(name), name)}}(type: ShadowJa
     with jar
 }
 {% endfor %}
+
+// Target defined outside the reach of Varda
+{{user_defined_targets|safe}}
