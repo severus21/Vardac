@@ -759,6 +759,14 @@ end) = struct
 
         // ActorSystem threads will keep the app alive until `system.terminate()` is called
     } 
+
+    public static void main_run(ActorSystem sys){
+        run(sys).thenAccept(binding -> {
+            System.out.println("gRPC server bound to: " + binding.localAddress());
+        });
+
+        // ActorSystem threads will keep the app alive until `system.terminate()` is called
+    }
     
     static public Behavior<SpawnProtocol.Command> create() {
         return create(null,  null);

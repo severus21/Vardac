@@ -1925,6 +1925,19 @@ module Make (Arg: Plugin.CgArgSig) = struct
         in 
 
         let places = prepare_places "" places in
+
+        let component_names = List.of_seq (Atom.Set.to_seq(!(cstate.collected_components))) in
+
+        let gRPC_server = match List.filter (function name -> String.starts_with " MaingRPCServer" (Atom.to_string name)) component_names with
+            | [] -> []
+            | [name] -> [("grpc_server", Jg_types.Tstr (Atom.to_string name))]
+            | _ -> failwith "at most one grpc server should exists (current impl)"
+        in
+        let gRPC_client = match List.filter (function name -> String.starts_with " MaingRPCClient" (Atom.to_string name)) component_names with
+            | [] -> []
+            | [name] -> [("grpc_client", Jg_types.Tstr (Atom.to_string name))]
+            | _ -> failwith "at most one grpc client should exists (current impl)"
+        in
         
         [
             ("target_mains", Jg_types.Tlist 
@@ -1934,10 +1947,10 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 (List.map (function ({Core.Target.bootstrap;}:Core.Target.maindef) -> Jg_types.Tstr (Atom.to_string bootstrap)) target.value.codegen.mains)
             );
             ("components", Jg_types.Tlist (
-                List.of_seq(Seq.map (function a -> Jg_types.Tstr (Atom.to_string a)) (Atom.Set.to_seq(!(cstate.collected_components))))
+                List.map (function a -> Jg_types.Tstr (Atom.to_string a)) component_names 
             ));
             ("components_command", Jg_types.Tlist (
-                List.of_seq(Seq.map (function a -> Jg_types.Tstr ((Atom.to_string a)^".Command")) (Atom.Set.to_seq(!(cstate.collected_components))))
+                List.map (function a -> Jg_types.Tstr ((Atom.to_string a)^".Command")) component_names
             ));
             ("system_name", Jg_types.Tstr ( Akka.Misc.system_name));
             ("vplaces", Jg_types.Tlist (
@@ -1951,7 +1964,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 ) places
             ));
             ("dependencies", Jg_types.Tstr (dependencies));
-        ]
+        ]@gRPC_client@gRPC_server
 
     let custom_template_rules () = [
     ]

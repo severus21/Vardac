@@ -76,6 +76,10 @@ public class ObservablesTest {
             testKit.system(),
             () -> {
                 ActorRef<SpawnProtocol.Command> kvs1 = testKit.spawn({{guardian_name}}.create(true), "KVS1");
+                // Start gRPC server
+                {{grpc_server}}.main_run(testKit.system());
+                // Start gRPC client
+                {{grpc_client}} gRPC_client = new {{grpc_client}}("127.0.0.1", 8090); //Warning ip, port still hardcoded in gRPCServer
                 try{
                     java.lang.Thread.sleep(1);
                 }catch(InterruptedException e) {}
