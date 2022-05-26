@@ -178,7 +178,8 @@ and _apply_rename_method0 rename_binders (renaming : Atom.atom -> Atom.atom) pla
                 apply_rename_ctype renaming ct,
                 renaming x
             )) m0.v.args;
-            is_constructor = m0.v.is_constructor
+            is_constructor = m0.v.is_constructor;
+            throws = List.map renaming m0.v.throws;
         }
 }
 and apply_rename_method0 rename_binders renaming m0 = apply_rename_place (_apply_rename_method0 rename_binders renaming) m0 

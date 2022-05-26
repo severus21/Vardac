@@ -50,7 +50,8 @@ and _body =
         ret_type: jtype option; (* None for constructor, Some _ otherwise *)
         name: variable;
         parameters: parameter list;
-        body: stmt list
+        body: stmt list;
+        throws: variable list;
     } (*GADT stmt of type blockstatemtn*)
     | FieldDeclaration of { 
         type0: jtype;

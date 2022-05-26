@@ -705,6 +705,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                         ret_type        = fmtype f.ret_type;
                         name            = f.name;
                         args            = (List.map fparam f.args);
+                        throws          = [];
                         body            = body; 
                         is_constructor  = false 
                     }
@@ -781,6 +782,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                             value = T.ReturnStmt (fexpr ensures_expr)
                         }]);
                         args            = ensures_params;
+                        throws          = [];
                         is_constructor  = false
                     }
                 }
@@ -839,6 +841,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                             }
                         ]);
                         args            = returns_params;
+                        throws          = [];
                         is_constructor  = false
                     }
                 }
@@ -892,6 +895,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                     name            = method0.value.v.name;
                     body            = T.AbstractImpl main_stmts;
                     args            = method0.value.v.args;
+                    throws          = [];
                     is_constructor  = method0.value.v.is_constructor 
                 }
             }
@@ -923,6 +927,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                     ret_type        = fmtype m0.ret_type;
                     name            = if m0.on_startup then actor_name else m0.name;
                     args            = (List.map fparam m0.args);
+                    throws          = [];
                     body            = body; 
                     is_constructor  = m0.on_startup 
                 }
@@ -1372,6 +1377,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                             )
 
                         ];
+                        throws          = [];
                         is_constructor = false;
                     }
                 } in
@@ -1410,6 +1416,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 decorators      = [Override];
                 v = {
                     args            = [];
+                    throws          = [];
                     body            = T.AbstractImpl ([
                         {place; value=T.ReturnStmt receiver_expr}
                     ]);
@@ -1495,6 +1502,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                         ))
                     ];
                     args = [];
+                    throws          = [];
                     is_constructor = false; 
                 }
             })
@@ -1609,6 +1617,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                     ))
                 ];
                 args = [];
+                throws          = [];
                 is_constructor = false;
             }
         } in
@@ -1715,6 +1724,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                     name;
                     body = T.AbstractImpl [{place; value  = constructor_body}];
                     args = args;
+                    throws          = [];
                     is_constructor = true
                 }
             }}

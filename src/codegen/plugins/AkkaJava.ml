@@ -219,6 +219,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                         S.ret_type = auto_place (S.Atomic "void");    
                                         name = Atom.builtin "main";
                                         args= [auto_place (S.Atomic "String[]"), Atom.builtin "args"];
+                                        throws          = [];
                                         is_constructor = false;
                                         body = match _main.value.v.body with 
                                             |S.AbstractImpl _ -> S.AbstractImpl (
@@ -378,6 +379,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                     S.ret_type = auto_place (S.Atomic "Void");
                                     name = run_method;
                                     args = [];
+                                    throws          = [];
                                     is_constructor = false;
                                     body = AbstractImpl (
                                         List.map 
@@ -405,6 +407,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                         auto_place (S.Atomic "Wait"), Atom.builtin "wait";
                                         auto_place (S.Atomic "boolean"), Atom.builtin "run_now"
                                     ];
+                                    throws          = [];
                                     is_constructor = true;
                                     body = AbstractImpl ([
                                         auto_place (S.IfStmt(
@@ -432,7 +435,8 @@ module Make (Arg: Plugin.CgArgSig) = struct
                             S.annotations     = [ S.Visibility S.Public ];
                             decorators      = [ S.Override];
                             v = {
-                                S.args            = [];
+                                S.args          = [];
+                                throws          = [];
                                 body            = S.AbstractImpl ([
                                     auto_place (S.ReturnStmt(
                                         auto_place(S.CallExpr(
@@ -514,6 +518,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         name = Atom.builtin (String.capitalize_ascii (Atom.hint mdef.entrypoint));
                         body = AbstractImpl [];
                         args = [auto_place (S.Atomic "String[]"), Atom.builtin "args"];
+                        throws          = [];
                         is_constructor = false; 
                     }
                 }) 
@@ -552,6 +557,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                         S.ret_type = auto_place (S.Atomic "Void");
                                         name = a_run_method;
                                         args = args;
+                                        throws          = [];
                                         is_constructor = false;
                                         body = AbstractImpl (stmts)
                                     }
@@ -1178,6 +1184,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                             ret_type    = None;
                             name        = name;
                             parameters  = List.map (function (decorators, ct, x) -> (T.JsonProperty x::decorators,ct, x)) (List.map finish_arg args);
+                            throws      = [];
                             body        = List.map generate_constructor_stmt args
                             ;
                         }
@@ -1218,6 +1225,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                 ))
                             ];
                             args = [];
+                            throws      = [];
                             is_constructor = false; 
                         }
                     })
@@ -1247,7 +1255,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
         and finish_arg ((ctype,variable):(S.ctype * Atom.atom)) : T.parameter =
             ([], fctype ctype, variable)
-        and finish_method_v is_guardian is_actor_method place ({ret_type; name; body; args; is_constructor}: S._method0) : T._body = 
+        and finish_method_v is_guardian is_actor_method place ({ret_type; name; body; args; is_constructor; throws}: S._method0) : T._body = 
             match body with
             | S.AbstractImpl stmts when is_constructor ->
                 let args = match is_actor_method with
@@ -1354,6 +1362,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     name        = name;
                     parameters  = List.map finish_arg args;
                     body        = List.map fstmt stmts;
+                    throws      = throws;
                 }
             | S.AbstractImpl stmts ->
                 T.MethodDeclaration {
@@ -1361,6 +1370,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     name        =  name;
                     parameters  = List.map finish_arg args;
                     body        = List.map fstmt stmts;
+                    throws      = throws;
                 }
             | S.BBImpl bbterm ->
                 let jingoo_args = Hashtbl.create (List.length args) in
@@ -1386,6 +1396,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     ret_type    = if is_constructor then None else Some (fctype ret_type);
                     name;
                     parameters  = List.map finish_arg args;
+                    throws      = throws;
                     body        = [ {place=bbterm.place; value=T.BBStmt (fbbterm models bbterm)}]
                 }
         and fmethod is_guardian is_actor_method m : T.str_items = {place=m.place; value= T.Body (map_place (finish_annoted (finish_method_v is_guardian is_actor_method)) m)}
@@ -1492,6 +1503,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         S.ret_type    = auto_place (S.Atomic "Void");
                         name        = name;
                         args        = []; 
+                        throws      = [];
                         body        = AbstractImpl [
                         ]; 
                         is_constructor = true;
@@ -1604,6 +1616,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     name = Rt.Misc.a_create_method;
                     body = S.AbstractImpl [auto_place (S.ReturnStmt (Rt.Misc.e_setup_behaviors place [arg_lambda]))];
                     args = (Rt.Misc.t_actor_guardian fplace, Rt.Misc.a_guardian)::constructor_args;
+                    throws      = [];
                     is_constructor = false;
                 }
             } in
@@ -1633,6 +1646,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         ))
                     ];
                     args = List.filter (function |(_,x)-> (Atom.hint x <> "wait") && (Atom.hint x <> "name")) constructor_args;
+                    throws      = [];
                     is_constructor = false;
                 }
             } in
@@ -1660,6 +1674,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         auto_place (S.Atomic "Wait"), Atom.builtin "wait";
                         auto_place (S.Atomic "boolean"), Atom.builtin "run_now";
                     ];
+                    throws      = [];
                     is_constructor = false;
                 }
             } in

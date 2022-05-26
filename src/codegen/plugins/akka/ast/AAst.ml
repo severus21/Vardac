@@ -128,6 +128,7 @@ and _method0 = {
     name: variable;
     body: method0_body;
     args: (ctype * variable) list;
+    throws: variable list;
     is_constructor: bool
 }
 and method0 = (_method0 annotated) placed

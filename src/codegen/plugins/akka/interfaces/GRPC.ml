@@ -285,6 +285,7 @@ end) = struct
                         T.ret_type = auto_fplace (T.TParam (auto_fplace (T.TRaw "CompletionStage"), [ct_msg_out]));
                         name = rpc.name; (* should be exaclty the same name than in proto.proto *)
                         args = [ (ct_msg_in, a_msg_in) ];
+                        throws = [];
                         is_constructor = false;
                         body = AbstractImpl [
                             auto_fplace (T.LetStmt(
@@ -539,6 +540,7 @@ end) = struct
                                             auto_fplace (T.TRaw "ActorSystem"), local_arg_system;
                                             auto_fplace (T.TRaw "int"), local_arg_retry
                                         ];
+                                        throws = [];
                                         is_constructor = false;
                                         body = T.BBImpl (auto_fplace {
                                             T.language = None;
@@ -615,6 +617,7 @@ end) = struct
                                     T.ret_type = auto_fplace T.TUnknown;
                                     name = service.impl_name;
                                     args = [auto_fplace (T.TRaw "ActorSystem"),constructor_arg_system];
+                                    throws = [];
                                     is_constructor = true;
                                     body = T.BBImpl (auto_fplace {
                                         T.language = None;
@@ -796,6 +799,7 @@ end) = struct
                                 T.ret_type = auto_fplace (T.TRaw "CompletionStage<ServerBinding>");
                                 name = Atom.builtin "run";
                                 args = [ (auto_fplace (T.TRaw "ActorSystem"), att_system) ];
+                                throws = [];
                                 is_constructor = false;
                                 body = AbstractImpl( 
                                     List.map spawn_service services
@@ -848,7 +852,7 @@ end) = struct
 
         let states : T.term list=  
             auto_fplace(auto_annote(T.Stmt(auto_fplace(T.LetStmt(
-                auto_fplace(T.TRaw "ActorSystem"),
+                auto_fplace(T.TRaw "akka.actor.ActorSystem"),
                 system,
                 None
             )))))
@@ -875,12 +879,13 @@ end) = struct
                             auto_fplace (T.TRaw "String"), host;
                             auto_fplace (T.TRaw "int"), port;
                         ];
+                        throws = [];
                         is_constructor = true;
                         body = AbstractImpl ([
                             auto_fplace(T.AssignExpr(
                                 e_system,
                                 T_A2.e2_e (T.CallExpr(
-                                    T_A2.e2_e (T.RawExpr "ActorSystem.create"),
+                                    T_A2.e2_e (T.RawExpr "akka.actor.ActorSystem.create"),
                                     [T_A2.e2_lit (T.StringLit (Atom.to_string main_client_name))]
                                 ))
                             ));
@@ -909,10 +914,7 @@ end) = struct
                                     T_A2.e2_e (T.CallExpr(
                                         T_A2.e2_e (T.AccessExpr(
                                             T_A2.e2var service.client_name,
-                                            T_A2.e2_e (T.AccessExpr(
-                                                T_A2.e2var service.client_name,
-                                                T_A2.e2_e (T.RawExpr "create")
-                                            ))
+                                            T_A2.e2_e (T.RawExpr "create")
                                         )),
                                         [e_settings; e_system]
                                     ))
@@ -968,6 +970,11 @@ end) = struct
                 name = rpc.m.value.name;
                 args = List.map (function f -> (f.ctype, f.name)) in_msg.fields;
                 is_constructor = false;
+                throws = [
+                    Atom.builtin "InterruptedException"; 
+                    Atom.builtin "ExecutionException";
+                    Atom.builtin "TimeoutException";
+                ];
                 body = T.AbstractImpl [
                     auto_fplace(
                         T.LetStmt(
@@ -1004,8 +1011,14 @@ end) = struct
                     (* Return reply *)
                     auto_fplace(T.ReturnStmt(
                         T_A2.e2_e(T.AccessExpr(
-                            T_A2.e2var reply,
-                            T_A2.e2_e (T.RawExpr "toCompletableFuture().get(5, TimeUnit.SECONDS)")
+                            T_A2.e2_e(T.AccessExpr(
+                                T_A2.e2var reply,
+                                T_A2.e2_e (T.RawExpr "toCompletableFuture().get(5, TimeUnit.SECONDS)")
+                            )),
+                            (match out_msg.fields with
+                            | [f] -> T_A2.e2_e (T.RawExpr ("get"^(String.capitalize_ascii (Atom.to_string f.name)^"()")))
+                            | _ -> raise (Error.DeadbranchError "out_msg should have exactly one field, the rpc return value type")
+                            )
                         ))
                     ))
                 ];
@@ -1024,6 +1037,7 @@ end) = struct
                     "import akka.grpc.GrpcClientSettings;";
                     "import java.util.concurrent.CompletionStage;";
                     "import java.util.concurrent.TimeUnit;";
+                    "import java.util.concurrent.TimeoutException;";
                 ]
                 @ List.map (function service -> 
                     Printf.sprintf 
@@ -1033,7 +1047,7 @@ end) = struct
                 ) services;
                 isInterface = false;
                 name = main_client_name; 
-                extended_types = [Misc.t_lg4dc_abstract_system fplace];
+                extended_types = [];
                 implemented_types = [];
                 body = states @ (main :: api_methods) 
             }

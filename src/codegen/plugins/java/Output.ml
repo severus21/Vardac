@@ -218,10 +218,12 @@ and output_body_v out : _body -> unit = function
         Option.map (function (jt:jtype) -> assert(jt.value <> TUnknown)) m.ret_type;
         List.iter (function ((_,jt,_):'a * jtype * 'b) -> assert(jt.value <> TUnknown)) m.parameters;
         fprintf out 
-            "%a%a(@[<hv 3>%a@]) {@;@[<v 3>@;%a@]@;}"
+            "%a%a(@[<hv 3>%a@])%s%a {@;@[<v 3>@;%a@]@;}"
             (fun out opt-> ignore (Option.map (fprintf out "%a " ojtype) opt)) m.ret_type 
             output_var m.name 
             output_args m.parameters 
+            (if m.throws <> [] then " throws " else "")
+            (pp_list ", " output_var) m.throws 
             (pp_list "" ostmt) m.body 
 and output_body out {annotations; decorators; v}: unit =
     fprintf out 
