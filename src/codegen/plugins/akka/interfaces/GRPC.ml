@@ -930,19 +930,49 @@ end) = struct
                         is_constructor = true;
                         body = AbstractImpl ([
                             auto_fplace(T.TemplateStmt({|
-        Config config = ConfigFactory.parseString(
-            "akka.cluster.jmx.multi-mbeans-in-same-jvm=on \n" +
-            "akka.remote.artery.canonical.hostname=127.0.0.1\n" +
-            "akka.remote.artery.canonical.port=0 \n" +
-            "akka.cluster.roles=[\"client\"] \n" +
-            "akka.cluster.seed-nodes=[\"akka://{{actor_system}}@" + {{host}} + ":" + {{port}} + "\"] \n");
-
-        this.{{system}} = akka.actor.ActorSystem.create("{{main_client_name}}", config);
+        this({{host}},{{port}},akka.actor.ActorSystem.create("{{main_client_name}}", 
+            ConfigFactory.parseString(
+                "akka.cluster.jmx.multi-mbeans-in-same-jvm=on \n" +
+                "akka.remote.artery.canonical.hostname=127.0.0.1\n" +
+                "akka.remote.artery.canonical.port=0 \n" +
+                "akka.cluster.roles=[\"client\"] \n" +
+                "akka.cluster.seed-nodes=[\"akka://{{actor_system}}@" + {{host}} + ":" + {{port}} + "\"] \n")));
                             |}, [
                                 "host", Jingoo.Jg_types.Tstr (Atom.to_string host);
                                 "port", Jingoo.Jg_types.Tstr (Atom.to_string port);
                                 "main_client_name", Jingoo.Jg_types.Tstr (Atom.to_string main_client_name);
                                 "system", Jingoo.Jg_types.Tstr (Atom.to_string system);
+                            ]));
+                        ])
+                    }
+                })  
+            }
+        in
+
+        let main2 : T.term = 
+            let att_system = Atom.fresh "system" in
+            auto_fplace {
+                T.annotations = [];
+                decorators = [];
+                v = T.MethodDeclaration (auto_fplace {
+                    T.annotations = [T.Visibility T.Public];
+                    decorators = [];
+                    v = {
+                        T.ret_type = auto_fplace T.TUnknown;
+                        name = main_client_name;
+                        args = [
+                            auto_fplace (T.TRaw "String"), host;
+                            auto_fplace (T.TRaw "int"), port;
+                            auto_fplace (T.TRaw "akka.actor.ActorSystem"), att_system;
+                        ];
+                        throws = [];
+                        is_constructor = true;
+                        body = AbstractImpl ([
+                            auto_fplace(T.TemplateStmt({|
+        this.{{system}} = {{att_system}};
+                            |}, [
+                                "system", Jingoo.Jg_types.Tstr (Atom.to_string system);
+                                "att_system", Jingoo.Jg_types.Tstr (Atom.to_string att_system);
                             ]));
                             (* configure the client by code *)
                             auto_fplace(T.LetStmt(
@@ -1104,7 +1134,7 @@ end) = struct
                 name = main_client_name; 
                 extended_types = [];
                 implemented_types = [];
-                body = states @ (main :: api_methods) @ [
+                body = states @ (main :: main2 :: api_methods) @ [
                     auto_fplace {
                         T.annotations = [];
                         decorators = [];

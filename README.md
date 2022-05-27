@@ -174,6 +174,7 @@ make tests
 
 To run a subset of tests e.g. 0:Parser
 ```
+make && dune exec --profile release -- tests/main.exe -list-test
 make && dune exec --profile release -- tests/main.exe -only-test 0:Parser
 ```
 

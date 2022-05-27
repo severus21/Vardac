@@ -4,7 +4,7 @@ import com.github.jengelman.gradle.plugins.shadow.transformers.AppendingTransfor
 plugins {
     id 'java'
     id "com.github.johnrengelman.shadow" version "7.1.2"
-    id "com.lightbend.akka.grpc.gradle" version "2.1.4-8-fbd2bafb"
+    id "com.lightbend.akka.grpc.gradle" version "2.1.4"
 }
 
 group 'com.{{author}}'
@@ -45,7 +45,7 @@ dependencies {
     testImplementation group: 'com.typesafe.akka', name: "akka-actor-testkit-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
 
     // http
-    implementation platform("com.typesafe.akka:akka-http-bom_${versions.ScalaBinary}:10.2.4")
+    implementation platform("com.typesafe.akka:akka-http-bom_${versions.ScalaBinary}:10.2.8")
     implementation "com.typesafe.akka:akka-stream_${versions.ScalaBinary}:${versions.AkkaVersion}"
     implementation "com.typesafe.akka:akka-http_${versions.ScalaBinary}"
     implementation "com.typesafe.akka:akka-http-jackson_${versions.ScalaBinary}"
