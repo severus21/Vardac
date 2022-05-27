@@ -24,10 +24,10 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
         If no interception
             this.interceptedActivationRef_opt.isEmpty() && !this.isInterceptor
     */
-    @JsonProperty("interceptedActoreRef")
+    @JsonProperty("interceptedActorRef")
     public Optional<ActivationRef<Command>> interceptedActivationRef_opt;
 
-    @JsonProperty("interceptedActoreRef")
+    @JsonProperty("isInterceptor")
     public Boolean isInterceptor; 
 
     @JsonCreator 

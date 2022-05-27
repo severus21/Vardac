@@ -248,13 +248,22 @@ end) = struct
 
             let a_intermediate_msg = Atom.fresh "message" in
 
-
+            let in_msg = 
+                try Hashtbl.find grpc_messages rpc.in_type
+                with Not_found -> raise (Error.DeadbranchError "rpc in_type must be registered into grpc_messages")
+            in
+            let out_msg = 
+                try Hashtbl.find grpc_messages rpc.out_type
+                with Not_found -> raise (Error.DeadbranchError "rpc out_type must be registered into grpc_messages")
+            in
 
             let service2actor_event = auto_fplace {
                 T.vis = T.Public;
                 name = Atom.fresh "Service2Actor";
-                args = [ 
-                    (ct_msg_in, Atom.fresh "value");
+                args = 
+                (List.map (function f -> f.ctype, f.name) in_msg.fields)
+                @ [ 
+                    (*(ct_msg_in, Atom.fresh "value"); TO REMOVE*)
                     (auto_fplace (T.Atomic "ActorRef"), Atom.fresh "replyTo")
                 ];
                 headers = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
@@ -263,18 +272,22 @@ end) = struct
                 T.vis = T.Public;
                 name = Atom.fresh "Actor2Service";
                 args = [ 
-                    (ct_msg_out, Atom.fresh "value");
+                    (match out_msg.fields with
+                    | [f] -> (f.ctype, f.name)
+                    | _ -> raise (Error.DeadbranchError "out_msg should have exactly one field, the rpc return value type")
+                    );
+                    (*(ct_msg_out, Atom.fresh "value") TO REMOVE;;*)
                     (auto_fplace (T.ActorRef (auto_fplace (T.TVar service.component_name))), Atom.fresh "replyTo")
                 ];
                 headers = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
             } in
 
-                service2actor_events := (try 
-                    (
-                        rpc.m, 
-                        (service2actor_event, Hashtbl.find grpc_messages rpc.in_type), (actor2service_event, Hashtbl.find grpc_messages rpc.out_type)
-                    ) :: !service2actor_events 
-                with Not_found -> raise (Error.DeadbranchError ("rpc in_types/out_types not found in grpc_messages")));
+            service2actor_events := ( 
+                (
+                    rpc.m, 
+                    (service2actor_event, in_msg), (actor2service_event, out_msg)
+                ) :: !service2actor_events 
+            );
 
             let event2protomsg = Atom.fresh "unpack" in
 
@@ -312,12 +325,29 @@ end) = struct
                                             (auto_fplace (T.TVar actor2service_event.value.name), a_intermediate_msg)
                                         ],
                                         auto_fplace (T.ReturnStmt(
-                                            T_A2.e2_e (T.CallExpr (
+                                            T_A2.e2_e (T.AccessExpr(
                                                 T_A2.e2_e (T.AccessExpr(
-                                                    T_A2.e2var a_intermediate_msg,
-                                                    T_A2.e2_e (T.RawExpr "_0_")
+                                                    T_A2.e2_e (T.AccessExpr(
+                                                        T_A2.e2var out_msg.name,
+                                                        T_A2.e2_e (T.RawExpr ("newBuilder()"))
+                                                    )),
+                                                    match out_msg.fields with
+                                                    | [f] -> 
+                                                        T_A2.e2_e(T.CallExpr(
+                                                            T_A2.e2_e (T.RawExpr (Printf.sprintf "set%s" (String.capitalize_ascii (Atom.to_string f.name)))),
+                                                            [
+                                                                T_A2.e2_e (T.CallExpr (
+                                                                    T_A2.e2_e (T.AccessExpr(
+                                                                        T_A2.e2var a_intermediate_msg,
+                                                                        T_A2.e2_e (T.RawExpr "_0_")
+                                                                    )),
+                                                                    []
+                                                                ))
+                                                            ]
+                                                        ))
+                                                    | _ -> failwith "wrong number of gRPC message fields for response"
                                                 )),
-                                                []
+                                                T_A2.e2_e (T.RawExpr "build()")
                                             ))
                                         ))
                                     ))
@@ -342,8 +372,21 @@ end) = struct
                                                         auto_fplace (T.ReturnStmt (
                                                             T_A2.e2_e (T.NewExpr (
                                                                 T_A2.e2var service2actor_event.value.name,
+                                                                (
+                                                                    List.map (function (f:msg_field) -> 
+                                                                        T_A2.e2_e (T.CallExpr(
+                                                                            T_A2.e2_e (T.AccessExpr( 
+                                                                                T_A2.e2var a_msg_in,
+                                                                                T_A2.e2_e (T.RawExpr (
+                                                                                    Printf.sprintf "get%s" (String.capitalize_ascii (Atom.to_string f.name))
+                                                                                ))
+                                                                            )),
+                                                                            []
+                                                                        ))
+                                                                    ) in_msg.fields
+                                                                ) @
                                                                 [ 
-                                                                    T_A2.e2var a_msg_in;
+                                                                    (*T_A2.e2var a_msg_in; TO REMOVED*)
                                                                     T_A2.e2var reply_to;
                                                                 ]
                                                             ))
@@ -401,7 +444,7 @@ end) = struct
                                     S_A2.e2_e (S.AccessExpr(
                                         S_A2.e2_e (S.AccessExpr(
                                             S_A2.e2var lambda_e,
-                                            S_A2.e2_e (S.RawExpr ("_1_()"))
+                                            S_A2.e2var (snd (try (List.nth e1.value.args (List.length e1.value.args -1)) with Not_found -> raise (Error.DeadbranchError "Service2Actor has at least one reply to field")))
                                         )),
                                         S_A2.e2_e (S.RawExpr ("tell"))
                                     )),
@@ -409,50 +452,20 @@ end) = struct
                                         S_A2.e2_e (S.NewExpr(
                                             S_A2.e2var e2.value.name,
                                             [
-                                                (*HelloReply.newBuilder()
-                                                .setY_i(res).build*)
                                                 S_A2.e2_e (S.CallExpr(
-                                                    S_A2.e2_e (S.AccessExpr(
-                                                        S_A2.e2_e (S.CallExpr(
-                                                            S_A2.e2_e (S.AccessExpr(
-                                                                S_A2.e2_e (S.AccessExpr(
-                                                                    S_A2.e2var proto_msg2.name,
-                                                                    S_A2.e2_e (S.RawExpr ("newBuilder()"))
-                                                                )),
-                                                                match proto_msg2.fields with
-                                                                | [f] -> 
-                                                                    S_A2.e2_e (S.RawExpr (Printf.sprintf "set%s" (String.capitalize_ascii (Atom.to_string f.name))))
-                                                                | _ -> failwith "wrong number of gRPC message fields for response"
-                                                            )),
-                                                            [ 
-                                                                S_A2.e2_e (S.CallExpr(
-                                                                    S_A2.e2_e (S.AccessExpr( 
-                                                                        S_A2.e2_e S.This, 
-                                                                        S_A2.e2var m.value.name
-                                                                    )),
-                                                                    List.map (function (f:msg_field) -> 
-                                                                        S_A2.e2_e (S.CallExpr(
-                                                                            S_A2.e2_e (S.AccessExpr( 
-                                                                                S_A2.e2_e (S.AccessExpr( 
-                                                                                    S_A2.e2var lambda_e,
-                                                                                    S_A2.e2_e (S.RawExpr "_0_()")
-                                                                                )),
-                                                                                S_A2.e2_e (S.RawExpr (
-                                                                                    Printf.sprintf "get%s" (String.capitalize_ascii (Atom.to_string f.name))
-                                                                                ))
-                                                                            )),
-                                                                            []
-                                                                        ))
-                                                                    ) proto_msg1.fields
-                                                                ))
-                                                            ]
-                                                        )),
-                                                        S_A2.e2_e (S.RawExpr ("build"))
+                                                    S_A2.e2_e (S.AccessExpr( 
+                                                        S_A2.e2_e S.This, 
+                                                        S_A2.e2var m.value.name
                                                     )),
-                                                    []
-                                                ));
-                                                S_A2.e2_e (S.RawExpr ("getContext().getSelf()"))
+                                                    List.map (function (f:msg_field) -> 
+                                                        S_A2.e2_e (S.AccessExpr( 
+                                                            S_A2.e2var lambda_e,
+                                                            S_A2.e2var f.name
+                                                        ))
+                                                    ) proto_msg1.fields
+                                                ))
                                             ]
+                                            @ [ S_A2.e2_e (S.RawExpr ("getContext().getSelf()")) ]
                                         ));
                                     ]
                                 ))

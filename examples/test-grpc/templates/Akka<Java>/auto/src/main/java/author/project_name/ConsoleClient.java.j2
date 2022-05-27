@@ -126,7 +126,7 @@ public class ConsoleClient {
 
                     if (pl.words().size() == 2) {
                         String key = pl.words().get(1);
-                        terminal.writer().println("TODO api_b");
+                        terminal.writer().println("api_a: "+currentState.grpcClient.api_b16(key));
                     } else {
                         terminal.writer().println("Usage: api_b <string>");
                     }
@@ -136,7 +136,7 @@ public class ConsoleClient {
                     if (pl.words().size() == 3) {
                         String key = pl.words().get(1);
                         Integer i = Integer.parseInt(pl.words().get(2));
-                        terminal.writer().println("TODO api_c");
+                        terminal.writer().println("api_a: "+currentState.grpcClient.api_c17(key,i));
                     } else {
                         terminal.writer().println("Usage: put <key> <value>");
                     }
