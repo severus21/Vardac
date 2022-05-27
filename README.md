@@ -193,6 +193,12 @@ make && dune exec --profile release -- tests/main.exe -only-test 0:Parser
         make fuzz 
     ```
 
+
+More about fuzzing
+
+* https://blog.regehr.org/archives/1687
+* https://tarides.com/blog/2019-09-04-an-introduction-to-fuzzing-ocaml-with-afl-crowbar-and-bun/
+
 ## Packaging for OPAM
 ```
     Update the CHANGES.md add new version X.Y.Z
