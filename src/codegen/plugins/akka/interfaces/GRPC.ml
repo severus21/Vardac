@@ -263,7 +263,6 @@ end) = struct
                 args = 
                 (List.map (function f -> f.ctype, f.name) in_msg.fields)
                 @ [ 
-                    (*(ct_msg_in, Atom.fresh "value"); TO REMOVE*)
                     (auto_fplace (T.Atomic "ActorRef"), Atom.fresh "replyTo")
                 ];
                 headers = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
@@ -276,7 +275,6 @@ end) = struct
                     | [f] -> (f.ctype, f.name)
                     | _ -> raise (Error.DeadbranchError "out_msg should have exactly one field, the rpc return value type")
                     );
-                    (*(ct_msg_out, Atom.fresh "value") TO REMOVE;;*)
                     (auto_fplace (T.ActorRef (auto_fplace (T.TVar service.component_name))), Atom.fresh "replyTo")
                 ];
                 headers = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
@@ -386,7 +384,6 @@ end) = struct
                                                                     ) in_msg.fields
                                                                 ) @
                                                                 [ 
-                                                                    (*T_A2.e2var a_msg_in; TO REMOVED*)
                                                                     T_A2.e2var reply_to;
                                                                 ]
                                                             ))

@@ -4,6 +4,7 @@
 * Setup CI
 * Setup logging functionalities
 * Unify error handling
+* Test coverage + fuzzing coverage + gadt
 
 ## Code structure
 * Load plugin from target files
@@ -128,9 +129,35 @@ Trough:
     1. API call 
     2. lib call
 
+
+
+
 ## Src 
 
 ### Akka plugin
+
+#### Interfaces
+
+##### gRPC
+
+* jar MainGRPCServer144 (where 144 = atom.id) -> MainGRPCServer
+* custom port for server and client, currently fixed at 8090
+* MainGrpcClient 
+    ```rust
+    >>> *.varda
+    @expose 
+    ... api_get
+    >>> (currently) MainGRPCClientXX.java
+    ... api_getYY //where YY is the id of api_get atom
+    >>> (should be) MaingGRPCClientXX.java
+    ... api_get
+    ```
+
+    two solutions: 
+
+    * MainGRPCClient -> builtin method name + unique check 
+    * or globaly add a pass to remove id if unique per context:w
+
 
 ### Java plugin
 * Handle indentation when generating the source code
