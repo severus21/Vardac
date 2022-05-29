@@ -58,11 +58,13 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "session_to_2_", "session -> activation<>", "TODO", t_select; (*TODO*)
     "activationid", "activation_ref -> activation_id", "TODO", t_select; (*TODO*)
     "sessionid", "'st -> int", "Return the id of the session", t_sessionid;
-    "ip", "place -> string", "TODO", t_select;
+    "ip", "place -> string", "TODO", t_ip;
     "port", "place -> int", "TODO", t_select;
 
     "is_ok", "result<..,..> -> bool", "TODO", t_is_ok;
+    "get_ok", "result<..., error> -> ...", "TODO", t_get_ok;
     "is_err", "result<..,..> -> bool", "TODO", t_is_ok;
+    "get_err", "result<..., error> -> err", "TODO", t_get_err;
 
     "exit", "() -> ()", "run in guardian, terminate the guardian and all activations", t_exit;
     "debug", "string -> ()", "TODO", t_debug;

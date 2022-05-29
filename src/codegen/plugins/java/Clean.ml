@@ -149,7 +149,7 @@ function
         Return should be the last stmt of method,
         comments excepted
     *)
-    let ends_by_return = function 
+    let rec ends_by_return = function 
         | [] -> false
         | stmts -> begin
             let rec aux = function
@@ -157,7 +157,10 @@ function
                 | {value=BBStmt _} ::_ -> true (* External to Varda reach *)
                 | {value=ReturnStmt _} :: _ -> true
                 | {value=CommentsStmt _} :: stmts -> aux stmts 
-                | _::stmts -> false
+                | {value=IfStmt (_, stmt1, None)}::_ ->  ends_by_return [stmt1]
+                | {value=IfStmt (_, stmt1, Some stmt2)}::_ ->  (ends_by_return [stmt1]) && (ends_by_return [stmt2])
+                | {value=BlockStmt stmts} :: _ -> ends_by_return stmts
+                | _ -> false
             in
             aux (List.rev stmts)
         end

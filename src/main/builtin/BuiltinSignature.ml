@@ -165,6 +165,13 @@ let t_current_place () =
         mtype_of_ft TVoid,
         mtype_of_ft TPlace
     ))
+
+let t_ip () = 
+    mtype_of_ct (TArrow(
+        mtype_of_ft TPlace,
+        mtype_of_ft TStr
+    ))
+
 let t_places () =
     mtype_of_ct(TArrow(
         mtype_of_ft TVoid,
@@ -346,6 +353,24 @@ let t_is_ok () =
         )),
         mtype_of_ft TBool 
     ))
+let t_get_ok () =
+    mtype_of_ct (TArrow (
+        mtype_of_ct (TResult (
+            mtype_of_ft TWildcard,
+            builtin_mt_error
+        )),
+        mtype_of_ft TWildcard 
+    ))
+
+let t_get_err () =
+    mtype_of_ct (TArrow (
+        mtype_of_ct (TResult (
+            mtype_of_ft TWildcard,
+            builtin_mt_error
+        )),
+        builtin_mt_error 
+    ))
+
 let t_exit () =
     mtype_of_ct (TArrow (
         mtype_of_ft TVoid,

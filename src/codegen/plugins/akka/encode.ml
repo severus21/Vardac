@@ -200,7 +200,23 @@ let encode_builtin_fct_1 place name a =
             )),
             [ ]
         )
-    | _ -> Error.perror place "%s takes one argument" name
+    | "get_ok" -> 
+        T.CallExpr(
+            e2_e (T.AccessExpr( 
+                a,
+                e2var (Atom.builtin "get")
+            )),
+            [ ]
+        )
+    | "get_err" -> 
+        T.CallExpr(
+            e2_e (T.AccessExpr( 
+                a,
+                e2var (Atom.builtin "getLeft")
+            )),
+            [ ]
+        )
+    | _ -> Error.perror place "%s with one argument is undefined" name
 
 let encode_builtin_fct_2 place name a b =
     let auto_place t = {place; value=t} in 

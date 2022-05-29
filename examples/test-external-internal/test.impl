@@ -1,0 +1,44 @@
+
+target akka;
+
+impl headers java:{=
+=}
+
+impl dependencies gradle:{=
+    implementation group: 'redis.clients', name: 'jedis', version: '4.2.1'
+=}
+
+impl component Dummy {
+
+    headers java:{=
+        import redis.clients.jedis.JedisPooled;
+    =}
+
+    (* binding for the get method *)
+    void _get () java:{=
+        // Open a socket to the local redis backend
+        JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%this.docker_port%}});
+        // Perform the GET request on key [k]
+        String tmp = jedis.get({{%k%}});
+        if( tmp == null){
+            return Either.left(new com.lg4dc.Error("Failure"));
+        } else {
+            return Either.right(Integer.parseInt(tmp));
+        }
+    =}
+
+    void _put () java:{=
+        // Open a socket to the local redis backend
+        JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%this.docker_port%}});
+        // Perform the PUT request on key [k]
+        String tmp = jedis.set({{%k%}}, {{%v%}}.toString());
+        if ( tmp == null ){
+            return Either.left(new com.lg4dc.Error("Failure"));
+        } else if ( tmp != "OK") {
+            return Either.left(new com.lg4dc.Error(tmp)); //Assume error = String
+        } else {
+            return Either.right(tmp == "OK");
+        }
+    =}
+}
+impl component TopLevel {}
