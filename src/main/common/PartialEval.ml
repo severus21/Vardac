@@ -129,6 +129,8 @@ end
 | TPolyVar x -> env, TPolyVar x
 | TInport mt ->
     env, TInport ((snd <-> pe_mtype env) mt)
+| TEport mt ->
+    env, TEport ((snd <-> pe_mtype env) mt)
 | TOutport -> env, TOutport 
 and pe_ctype env: composed_type -> env * composed_type = map2_place (peval_composed_type env)
 
@@ -571,6 +573,13 @@ and peval_port env place (port, mt_port) =
     }, snd (pe_mtype env mt_port))
 and pe_port env: port -> env * port = map2_place (peval_port env)
 
+and peval_eport env place (port, mt_port) = 
+    env, ({ port with
+        expecting_mt    = snd(pe_mtype env port.expecting_mt);
+        callback        = snd(pe_expr env port.callback)
+    }, snd (pe_mtype env mt_port))
+and pe_eport env: eport -> env * eport = map2_place (peval_eport env)
+
 and peval_outport env place ((outport, mt_outport):_outport*main_type) = 
     env, (
         {name=outport.name}, 
@@ -586,15 +595,16 @@ env, {s with
 and pe_state env: state -> env * state = map2_place (peval_state env)
 
 and peval_component_item env place : _component_item -> env * _component_item = function 
-| Contract c -> raise (Error.PlacedDeadbranchError (place, "contract should be paired with method before partial_evaluation, therefore no contract should remains as a component_item"))
+| Contract c    -> raise (Error.PlacedDeadbranchError (place, "contract should be paired with method before partial_evaluation, therefore no contract should remains as a component_item"))
 | Include cexpr -> env, Include (snd(pe_component_expr env cexpr))
-| Method m -> env, Method (snd(pe_method env m))
-|Inport p -> env,Inport (snd(pe_port env p))
-| Outport p -> env, Outport (snd(pe_outport env p))
-| State s -> 
+| Method m      -> env, Method (snd(pe_method env m))
+| Inport p      -> env, Inport (snd(pe_port env p))
+| Eport p       -> env, Eport (snd(pe_eport env p))
+| Outport p     -> env, Outport (snd(pe_outport env p))
+| State s       -> 
     let s = snd(pe_state env s)in
     env, State (snd(pe_state env s))
-| Term t -> env, Term (snd(pe_term env t))
+| Term t        -> env, Term (snd(pe_term env t))
 
 and pe_component_item env: component_item -> env * component_item = map2_place (peval_component_item env)
 

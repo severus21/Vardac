@@ -226,6 +226,13 @@ and _port = {
 }
 and port = _port placed
 
+and _eport = {
+    name: variable;
+    expecting_mt: main_type;
+    callback: expr
+}
+and eport = _eport placed
+
 and _outport = {
     name: variable;
     input_type: main_type;
@@ -238,8 +245,9 @@ and _component_item =
     | Contract of contract 
 
     (** Inter-component composition*)
-    |Inport of port 
+    | Inport of port 
     | Outport of outport
+    | Eport of eport
 
     (** Sub-components *)
     | Term of term    

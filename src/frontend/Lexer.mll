@@ -68,6 +68,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "mutation", MUTATION;
     "on", ON;
     "outport", OUTPORT;
+    "eport", EPORT;
     "inport", INPORT;
     "sig", SIG;
     "signature", SIGNATURE;

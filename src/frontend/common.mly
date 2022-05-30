@@ -550,6 +550,13 @@ any_inport_:
   t = placed(any_inport_)
     { t }
 
+any_eport_:
+| EPORT name=LID EXPECTING t=any_type EQ callback=any_expr
+    { {name=name; expecting_mt=t; callback=callback} }
+%inline any_eport:
+  t = placed(any_eport_)
+    { t }
+
 any_outport_:
 | OUTPORT name=LID DOUBLE_COLON chan_type=any_type
     { {name=name; input_type=chan_type} }
@@ -566,6 +573,8 @@ any_component_item_:
     { Contract c }
 | p = any_inport SEMICOLON
     { Inport p}
+| p = any_eport SEMICOLON
+    { Eport p}
 | p = any_outport SEMICOLON
     { Outport p}
 | t = any_term

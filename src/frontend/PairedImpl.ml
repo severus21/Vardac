@@ -208,12 +208,13 @@ module Make (Arg: ArgSig) = struct
 
     and paired_component_item parents place : S2._component_item -> T._component_item = function
     | S2.Contract c -> T.Contract c
-    | S2.Include _ -> failwith "paired: component include not suported yet"
-    | S2.Method m -> T.Method (umethod0 parents m)
-    | S2.Inport p -> T.Inport p
-    | S2.Outport p -> T.Outport p
-    | S2.State s -> T.State (ustate parents s)
-    | S2.Term t -> T.Term (uterm parents t)
+    | S2.Include _  -> failwith "paired: component include not suported yet"
+    | S2.Method m   -> T.Method (umethod0 parents m)
+    | S2.Inport p   -> T.Inport p
+    | S2.Eport p    -> T.Eport p
+    | S2.Outport p  -> T.Outport p
+    | S2.State s    -> T.State (ustate parents s)
+    | S2.Term t     -> T.Term (uterm parents t)
     and ucitem parents: S2.component_item -> T.component_item  = map_place (paired_component_item parents)
 
     and paired_component_dcl parents place : S2._component_dcl -> T._component_dcl = function

@@ -582,7 +582,7 @@ module Make () : Sig = struct
             receive_entries
         ), (List.map (function s-> auto_fplace (State s)) intermediate_states)
             @ (List.map (function m-> auto_fplace (Method m)) intermediate_methods)
-    | (Inport _ as citem) | (Outport _ as citem) -> 
+    | (Inport _ as citem) | (Eport _ as citem) | (Outport _ as citem) -> 
         ([], []), [auto_place citem]
     | Term t -> 
         ([], []), [auto_place (Term (rterm t))]

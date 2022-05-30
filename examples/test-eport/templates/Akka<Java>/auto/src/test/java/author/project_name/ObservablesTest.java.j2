@@ -1,0 +1,117 @@
+package {{author}}.{{project_name}};
+
+import akka.actor.testkit.typed.javadsl.LoggingTestKit;
+import akka.actor.testkit.typed.javadsl.ActorTestKit;
+import akka.actor.typed.ActorSystem;
+import akka.actor.typed.Behavior;
+import akka.actor.typed.javadsl.AbstractBehavior;
+import akka.actor.typed.javadsl.ActorContext;
+import akka.actor.typed.ActorRef;
+import akka.actor.typed.javadsl.Adapter;
+import akka.actor.typed.javadsl.Behaviors;
+import akka.actor.typed.javadsl.Receive;
+import com.typesafe.config.ConfigFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+
+import org.slf4j.event.Level;
+
+import java.util.*;
+import io.vavr.*;
+import io.vavr.control.*;
+
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+
+import com.lg4dc.*;
+import com.lg4dc.timers.*;
+import com.bmartin.*;
+
+{% for guardian_name in target_entrypoints %}
+    {% if substring(0,8,guardian_name) == "TopLevel"%}
+import static org.junit.jupiter.api.Assertions.*;
+public class ObservablesTest {
+    ActorTestKit testKit = null;
+
+    @BeforeEach
+    public void setUp() {
+        String[] args = new String[2];
+        args[0] = "-vp";
+        args[1] = "placeA";
+        Config config = ConfigFactory.parseString("akka.http.server.preview.enable-http2 = on").withFallback(AbstractMain.get_config(args));
+        testKit = ActorTestKit.create("{{system_name}}", config);
+    }
+
+    @AfterEach
+    public void tearDown() {
+        testKit.shutdownTestKit();
+    }
+
+    @Test
+    public void check_logs() throws Exception{
+        class Counter {
+            public int api_a = 0;
+            public int api_b = 0;
+            public int api_c = 0;
+        }
+        Counter counter = new Counter ();
+
+        LoggingTestKit.messageContains(">")
+        .withCustom(
+        event ->{
+            if(event.level() == Level.DEBUG){
+                System.out.println(event.message());
+                if(event.message().contains("> api_a")){
+                    counter.api_a += 1;
+                    return true;
+                }
+                else if(event.message().contains("> api_b")){
+                    counter.api_b += 1;
+                    return true;
+                }
+                else if(event.message().contains("> api_c")){
+                    counter.api_c += 1;
+                    return true;
+                }
+            }
+            return false;
+        }
+        )
+        .withOccurrences​(3)
+        .expect(
+            testKit.system(),
+            () -> {
+                ActorRef<SpawnProtocol.Command> kvs1 = testKit.spawn({{guardian_name}}.create(true), "KVS1");
+                // Start gRPC server
+                {{grpc_server}}.main_run(testKit.system());
+                try{
+                    java.lang.Thread.sleep(1);
+                }catch(InterruptedException e) {}
+                // Start gRPC client
+                {{grpc_client}} gRPC_client = new {{grpc_client}}("127.0.0.1", 8090, Adapter.toClassic(testKit.system())); //WARNING ip, port still hardcoded in gRPCServer
+
+                try {
+                    assertEquals(gRPC_client.api_a14(), 1);
+                    assertEquals(gRPC_client.api_b15("KeyA"), 2);
+                    assertEquals(gRPC_client.api_c16("KeyB", 1), 4);
+                } catch (Exception e){
+                    fail("Unexpected error during test: " + e);
+                } 
+                try{
+                    java.lang.Thread.sleep(1);
+                }catch(InterruptedException e) {}
+
+                return null;
+            });
+
+        assertEquals(counter.api_a, 1);
+        assertEquals(counter.api_b, 1);
+        assertEquals(counter.api_c, 1);
+    }
+}
+    {% endif %}
+{% endfor %}

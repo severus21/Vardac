@@ -344,7 +344,7 @@ module Make(Arg:ArgSig) = struct
         match value with
         | S.Term t -> cartography_term entry t
         | S.Method {value={on_startup; on_destroy}} when on_startup || on_destroy -> entry 
-        | S.Method {value={name}} | S.Inport {value={name;}} | S.Outport {value={name;}} | S.State {value={name;}} -> begin
+        | S.Method {value={name}} | S.Inport {value={name;}} | S.Eport {value={name;}} | S.Outport {value={name;}} | S.State {value={name;}} -> begin
             match Env.find_opt name entry.inner with 
             | None -> { entry with
                 inner = Env.add name {place; value=register_this place name} entry.inner
@@ -1023,6 +1023,13 @@ module Make(Arg:ArgSig) = struct
         new_env << [env1; env2; env3], ({ name; expecting_st; callback; _disable_session=false; _children = []; _is_intermediate = false}, input_type)
     and cport env: S.port -> env * T.port = map2_place (cook_port env)
 
+    and cook_eport env place (port:S._eport) : env * (T._eport * T.main_type)=
+        let new_env, name = bind_this env place port.name in
+        let env1, expecting_mt = cmtype env port.expecting_mt in 
+        let env2, callback = cexpr env port.callback in 
+        new_env << [env1; env2], ({ name; expecting_mt; callback;}, auto_fplace T.EmptyMainType)
+    and ceport env: S.eport -> env * T.eport = map2_place (cook_eport env)
+
     and cook_outport env place (outport:S._outport) : env * (T._outport * T.main_type)=
         let new_env, name = bind_this env place outport.name in
         let env1, input_type = cmtype env outport.input_type in
@@ -1041,6 +1048,9 @@ module Make(Arg:ArgSig) = struct
     | S.Inport p ->
         let new_env, new_p = cport env p in
         new_env, [T.Inport new_p]
+    | S.Eport p ->
+        let new_env, new_p = ceport env p in
+        new_env, [T.Eport new_p]
     | S.Outport p ->
         let new_env, new_p = coutport env p in
         new_env, [T.Outport new_p]

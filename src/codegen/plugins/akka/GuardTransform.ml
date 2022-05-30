@@ -499,15 +499,16 @@ and gtransform_mt mt = map_place gtransform_mt_ mt
 
 and gtransform_citem_ place = function
 (* protocoldef can only be hidden in subterm *)
-| Term t -> Term (gtransform_term t)
+| Term t        -> Term (gtransform_term t)
 
 (* identity *)
-| State s -> State s
-| Method s -> Method s
-| Contract c -> Contract c
-|Inport p ->Inport p
-| Outport p -> Outport p
-| Include _ -> raise (Error.DeadbranchError "gtransform_citem: Include not supported, include should have been resolved")
+| State s       -> State s
+| Method s      -> Method s
+| Contract c    -> Contract c
+| Inport p      -> Inport p
+| Eport p       -> Eport p
+| Outport p     -> Outport p
+| Include _     -> raise (Error.DeadbranchError "gtransform_citem: Include not supported, include should have been resolved")
 and gtransform_citem citem = map_place gtransform_citem_ citem 
 
 and gtransform_cdcl_ place = function

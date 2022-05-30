@@ -106,49 +106,53 @@ module Make (Arg: sig val target:Target.target end) = struct
     (* XXXX *)
 
     type items_grps = { 
-        methods: S.method0 list; 
-        eventdefs: S.typedef list;
-        states: S.state list; 
-        nested: S.component_dcl list; 
-        ports: S.port list;
-        outports: S.outport list;
-        others: S.term list
+        methods:    S.method0 list; 
+        eventdefs:  S.typedef list;
+        states:     S.state list; 
+        nested:     S.component_dcl list; 
+        ports:      S.port list;
+        eports:     S.eport list;
+        outports:   S.outport list;
+        others:     S.term list
     }
 
     let fresh_items_grp () = { 
         methods     = [];
-        eventdefs    = [];
+        eventdefs   = [];
         states      = [];
         nested      = [];
         ports       = [];
         outports    = [];
+        eports      = [];
         others      = [];
     }
 
 
     let group_cdcl_by (citems:  S.component_item list) : items_grps =
         let dispatch grp (citem: S.component_item) = match citem.value with
-            | S.Contract _ -> raise (Core.Error.PlacedDeadbranchError  (citem.place, "Contract term should have been remove from AST by the cook pass and binded to a method"))
-            | S.Include _ -> Core.Error.perror citem.place "Include is not yet supported in Akka plg"
-            | S.Method  m-> {grp with methods=m::grp.methods}
-            | S.State f-> {grp with states=f::grp.states}
-            | S.Inport p -> {grp with ports=p::grp.ports}
-            | S.Outport p -> {grp with outports=p::grp.outports}
+            | S.Contract _  -> raise (Core.Error.PlacedDeadbranchError  (citem.place, "Contract term should have been remove from AST by the cook pass and binded to a method"))
+            | S.Include _   -> Core.Error.perror citem.place "Include is not yet supported in Akka plg"
+            | S.Method  m   -> {grp with methods=m::grp.methods}
+            | S.State f     -> {grp with states=f::grp.states}
+            | S.Inport p    -> {grp with ports=p::grp.ports}
+            | S.Eport p     -> {grp with eports=p::grp.eports}
+            | S.Outport p   -> {grp with outports=p::grp.outports}
             (* Shallow search of Typealias, FIXME do we need deep search ?*)
             | S.Term {place; value=S.Component cdcl} -> {grp with nested=cdcl::grp.nested}
             | S.Term {place; value=S.Typedef ({value=EventDef _;_} as edef)} -> {grp with eventdefs=edef::grp.eventdefs}
-            | S.Term t -> {grp with others=t::grp.others}
+            | S.Term t      -> {grp with others=t::grp.others}
         in
 
         let grp = (List.fold_left  dispatch (fresh_items_grp ()) citems) in 
             {
-                methods=(List.rev grp.methods);
-                eventdefs=(List.rev grp.eventdefs);
-                states=(List.rev grp.states) ; 
-                nested=(List.rev grp.nested) ; 
-                ports=(List.rev grp.ports) ; 
-                outports=(List.rev grp.outports) ; 
-                others=(List.rev grp.others)
+                methods     = (List.rev grp.methods);
+                eventdefs   = (List.rev grp.eventdefs);
+                states      = (List.rev grp.states) ; 
+                nested      = (List.rev grp.nested) ; 
+                ports       = (List.rev grp.ports) ; 
+                eports      = (List.rev grp.eports) ; 
+                outports    = (List.rev grp.outports) ; 
+                others      = (List.rev grp.others)
             }
 
     (************************************* Base types ****************************)

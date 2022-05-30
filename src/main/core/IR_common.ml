@@ -52,6 +52,7 @@ and _composed_type =
     (** Message-passing *)
     | TBridge of tbridge
     | TInport of main_type (* session_type *)
+    | TEport of main_type (* evenement from the runtime not a message from an other component *)
     | TOutport (* TODO ?? *)
 
     (* Polymorphsim*)
@@ -250,6 +251,13 @@ and _port = {
     _is_intermediate: bool;
 }
 and port = (_port * main_type) placed
+
+and _eport = {
+    name: component_variable;
+    expecting_mt: main_type;
+    callback: expr;
+}
+and eport = (_eport * main_type) placed
 
 and _outport = {
     name: component_variable;
@@ -551,7 +559,7 @@ let rec collect_type_ctype_ parent_opt already_binded selector collector place =
     
 function
 | TFlatType _ | TOutport -> already_binded, [], []
-| TActivationRef mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt | TInport mt -> collect_mtype mt
+| TActivationRef mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt | TInport mt | TEport mt -> collect_mtype mt
 | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) -> 
     let _, collected_elts1, ftvars1 = collect_mtype mt1 in
     let _, collected_elts2, ftvars2 = collect_mtype mt2 in
@@ -1139,6 +1147,7 @@ function
         protocol = rewrite_mtype tb.protocol;
     }
     | TInport (mt) -> TInport (rewrite_mtype mt) 
+    | TEport (mt) -> TEport (rewrite_mtype mt) 
     | TOutport -> TOutport
 
     | TPolyVar x -> TPolyVar x

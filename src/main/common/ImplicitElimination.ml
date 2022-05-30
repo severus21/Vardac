@@ -53,13 +53,14 @@ module Make (Args : Params ) : Sig = struct
     let auto_place smth = {place = place; value=smth} in
     let auto_fplace smth = {place = fplace; value=smth} in
     function
-    | State _ as citem -> citem
-    | Contract _ as citem -> citem 
-    | Method m as citem -> citem
-    |Inport _ as citem -> citem
-    | Outport _ as citem -> citem
-    | Term t -> Term (rterm t)
-    | Include _ as citem -> citem
+    | State _ as citem      -> citem
+    | Contract _ as citem   -> citem 
+    | Method m as citem     -> citem
+    | Inport _ as citem     -> citem
+    | Eport _ as citem      -> citem
+    | Outport _ as citem    -> citem
+    | Term t                -> Term (rterm t)
+    | Include _ as citem    -> citem
     and rcitem citem : component_item = map_place rewrite_component_item citem
 
     and rewrite_component_dcl place : _component_dcl -> _component_dcl = 

@@ -223,6 +223,7 @@ module Make (Params : IRParams) = struct
 
         (** Inter-component composition*)
         | Inport of port 
+        | Eport of eport 
         | Outport of outport 
 
         (** Sub-components *)
@@ -509,6 +510,13 @@ module Make (Params : IRParams) = struct
         and collect_expr_port parent_opt (already_binded:Atom.Set.t) selector collector p = 
             map0_place (collect_expr_port_ parent_opt already_binded selector collector) p
 
+        and collect_expr_eport_ parent_opt (already_binded:Atom.Set.t) selector collector place ((_port, _):_eport * main_type ) =
+            let _, collected_elts1, fvars1 = collect_expr_mtype parent_opt already_binded selector collector _port.expecting_mt in
+            let _, collected_elts2, fvars2 = collect_expr_expr parent_opt already_binded  selector collector _port.callback in
+            already_binded, collected_elts1@collected_elts2, fvars1@fvars2
+        and collect_expr_eport parent_opt (already_binded:Atom.Set.t) selector collector p = 
+            map0_place (collect_expr_eport_ parent_opt already_binded selector collector) p
+
         and collect_expr_outport_ parent_opt (already_binded:Atom.Set.t) selector collector place ((_outport, _):_outport * main_type ) =
             already_binded, [],[] 
         and collect_expr_outport parent_opt (already_binded:Atom.Set.t) selector collector p = 
@@ -560,6 +568,7 @@ module Make (Params : IRParams) = struct
             | Method m -> collect_expr_method0 parent_opt already_binded selector collector m
             | State s -> collect_expr_state parent_opt already_binded selector collector s 
             | Inport p  -> collect_expr_port parent_opt already_binded selector collector p
+            | Eport p  -> collect_expr_eport parent_opt already_binded selector collector p
             | Outport p  -> collect_expr_outport parent_opt already_binded selector collector p
             | Term t -> collect_expr_term  parent_opt already_binded selector collector t    
         and collect_expr_component_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
@@ -589,7 +598,8 @@ module Make (Params : IRParams) = struct
                     | Method m -> Atom.Set.add m.value.name already_binded
                     | State s -> 
                         Atom.Set.add(s.value.name) already_binded
-                    |Inport p -> Atom.Set.add (fst p.value).name already_binded
+                    | Inport p -> Atom.Set.add (fst p.value).name already_binded
+                    | Eport p -> Atom.Set.add (fst p.value).name already_binded
                     | Outport p -> Atom.Set.add (fst p.value).name already_binded
                     | Term t -> already_binded
             ) already_binded cdcl.body in
@@ -689,6 +699,12 @@ module Make (Params : IRParams) = struct
         and collect_cexpr_inport parent_opt already_binded selector collector p = 
             map0_place (collect_cexpr_inport_ parent_opt already_binded selector collector) p
 
+        and collect_cexpr_eport_ parent_opt already_binded selector collector place ((_port, _):_eport*'a) =
+            let collected_elts1 = collect_cexpr_expr parent_opt already_binded selector collector _port.callback in
+            collected_elts1
+        and collect_cexpr_eport parent_opt already_binded selector collector p = 
+            map0_place (collect_cexpr_eport_ parent_opt already_binded selector collector) p
+
         and collect_cexpr_outport_ parent_opt already_binded selector collector place ((_outport, _):_outport*'a) =
             []
         and collect_cexpr_outport parent_opt already_binded selector collector p = 
@@ -727,6 +743,7 @@ module Make (Params : IRParams) = struct
             | Method m -> collect_cexpr_method0 parent_opt  already_binded selector collector m
             | State s -> collect_cexpr_state parent_opt  already_binded selector collector s 
             | Inport p  -> collect_cexpr_inport parent_opt  already_binded selector collector p
+            | Eport p  -> collect_cexpr_eport parent_opt  already_binded selector collector p
             | Outport p  -> collect_cexpr_outport parent_opt  already_binded selector collector p
             | Term t -> collect_cexpr_term  parent_opt  already_binded selector collector t    
         and collect_cexpr_component_item parent_opt already_binded selector collector citem =              
@@ -776,6 +793,10 @@ module Make (Params : IRParams) = struct
         and collect_stmt_inport parent_opt selector collector p = 
             map0_place (collect_stmt_inport_ parent_opt  selector collector) p
 
+        and collect_stmt_eport_ parent_opt selector collector place (_port, _) = []
+        and collect_stmt_eport parent_opt selector collector p = 
+            map0_place (collect_stmt_eport_ parent_opt  selector collector) p
+
         and collect_stmt_outport_ parent_opt selector collector place (_port, _) = []
         and collect_stmt_outport parent_opt selector collector p = 
             map0_place (collect_stmt_outport_ parent_opt  selector collector) p
@@ -810,6 +831,7 @@ module Make (Params : IRParams) = struct
             | Method m      -> collect_stmt_method0 parent_opt  selector collector m
             | State s       -> collect_stmt_state parent_opt selector collector s 
             | Inport p      -> collect_stmt_inport parent_opt selector collector p
+            | Eport p       -> collect_stmt_eport parent_opt selector collector p
             | Outport p     -> collect_stmt_outport parent_opt selector collector p
             | Term t        -> collect_stmt_term parent_opt  selector collector t    
         and collect_stmt_component_item parent_opt selector collector citem =              
@@ -881,6 +903,13 @@ module Make (Params : IRParams) = struct
         and collect_type_port parent_opt (already_binded:Atom.Set.t) selector collector p = 
             map0_place (collect_type_port_ parent_opt already_binded selector collector) p
 
+        and collect_type_eport_ parent_opt (already_binded:Atom.Set.t) selector collector place ((_port, _):_eport*'a) =
+            let _, collected_elts1, fvars1 = collect_type_mtype parent_opt already_binded selector collector _port.expecting_mt in
+            let _, collected_elts2, fvars2 = collect_type_expr parent_opt already_binded  selector collector _port.callback in
+            already_binded, collected_elts1@collected_elts2, fvars1@fvars2
+        and collect_type_eport parent_opt (already_binded:Atom.Set.t) selector collector p = 
+            map0_place (collect_type_eport_ parent_opt already_binded selector collector) p
+
         and collect_type_outport_ parent_opt (already_binded:Atom.Set.t) selector collector place (_outport, _) =
             already_binded, [], [] 
         and collect_type_outport parent_opt (already_binded:Atom.Set.t) selector collector p = 
@@ -936,6 +965,7 @@ module Make (Params : IRParams) = struct
             | Method m -> collect_type_method0 parent_opt already_binded selector collector m
             | State s -> collect_type_state parent_opt already_binded selector collector s 
             | Inport p  -> collect_type_port parent_opt already_binded selector collector p
+            | Eport p  -> collect_type_eport parent_opt already_binded selector collector p
             | Outport p  -> collect_type_outport parent_opt already_binded selector collector p
             | Term t -> collect_type_term  parent_opt already_binded selector collector t    
         and collect_type_component_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
@@ -965,6 +995,7 @@ module Make (Params : IRParams) = struct
                     | Method m -> already_binded
                     | State s -> already_binded
                     | Inport p -> already_binded
+                    | Eport p -> already_binded
                     | Outport p -> already_binded
                     | Term {value=Component {value=ComponentStructure {name}}} -> Atom.Set.add name already_binded
                     | Term _ -> already_binded
@@ -1098,6 +1129,15 @@ module Make (Params : IRParams) = struct
             
         and rewrite_type_port selector rewriter = map_place (rewrite_type_port_ selector rewriter) 
 
+        and rewrite_type_eport_  selector rewriter place ((_port, mt): _eport*main_type) =
+            let rewrite_expr = rewrite_type_expr selector rewriter in
+            let rewrite_mtype = rewrite_type_mtype selector rewriter in
+            ({ _port with
+                expecting_mt  = rewrite_mtype _port.expecting_mt;
+                callback = rewrite_expr _port.callback; 
+            }, mt)
+        and rewrite_type_eport selector rewriter = map_place (rewrite_type_eport_ selector rewriter) 
+
         and rewrite_type_outport_  selector rewriter place (({name}, mt): _outport * main_type) =
             ({name}, mt)
             
@@ -1137,12 +1177,13 @@ module Make (Params : IRParams) = struct
         and rewrite_type_method0 selector rewriter = map_place (rewrite_type_method0_ selector rewriter) 
 
         and rewrite_type_component_item_  selector rewriter place = function 
-            | Contract c -> Contract (rewrite_type_contract selector rewriter c)
-            | Method m -> Method (rewrite_type_method0 selector rewriter m)
-            | State s -> State (rewrite_type_state selector rewriter s )
-            | Inport p  ->Inport (rewrite_type_port selector rewriter p)
-            | Outport p  -> Outport (rewrite_type_outport selector rewriter p)
-            | Term t -> Term (rewrite_type_term selector rewriter t)
+            | Contract c    -> Contract (rewrite_type_contract selector rewriter c)
+            | Method m      -> Method (rewrite_type_method0 selector rewriter m)
+            | State s       -> State (rewrite_type_state selector rewriter s )
+            | Inport p      -> Inport (rewrite_type_port selector rewriter p)
+            | Eport p       -> Eport (rewrite_type_eport selector rewriter p)
+            | Outport p     -> Outport (rewrite_type_outport selector rewriter p)
+            | Term t        -> Term (rewrite_type_term selector rewriter t)
         and rewrite_type_component_item selector rewriter = map_place (rewrite_type_component_item_ selector rewriter) 
 
         and rewrite_type_component_dcl_  selector rewriter place = function 
@@ -1189,6 +1230,13 @@ module Make (Params : IRParams) = struct
             
         and rewrite_expr_port selector rewriter = map_place (rewrite_expr_port_ selector rewriter) 
 
+        and rewrite_expr_eport_  selector rewriter place ((_port, mt): _eport * main_type) =
+            ({ _port with
+                (* TODO on rewirte_expr_mtype => expecting_st = rewrite_expr_mtype selector rewriter expecting_st;*)
+                callback = rewrite_expr_expr selector rewriter _port.callback; 
+            }, mt)
+        and rewrite_expr_eport selector rewriter = map_place (rewrite_expr_eport_ selector rewriter) 
+
         and rewrite_expr_outport_  selector rewriter place (({name}, mt): _outport * main_type) =
             ({name}, mt)
             
@@ -1211,12 +1259,13 @@ module Make (Params : IRParams) = struct
         and rewrite_expr_method0 selector rewriter = map_place (rewrite_expr_method0_ selector rewriter) 
 
         and rewrite_expr_component_item_  selector rewriter place = function 
-            | Contract c -> Contract (rewrite_expr_contract selector rewriter c)
-            | Method m -> Method (rewrite_expr_method0 selector rewriter m)
-            | State s -> State (rewrite_expr_state selector rewriter s )
-            |Inport p  ->Inport (rewrite_expr_port selector rewriter p)
-            | Outport p  -> Outport (rewrite_expr_outport selector rewriter p)
-            | Term t -> Term (rewrite_expr_term selector rewriter t)
+            | Contract c    -> Contract (rewrite_expr_contract selector rewriter c)
+            | Method m      -> Method (rewrite_expr_method0 selector rewriter m)
+            | State s       -> State (rewrite_expr_state selector rewriter s )
+            | Inport p      -> Inport (rewrite_expr_port selector rewriter p)
+            | Eport p       -> Eport (rewrite_expr_eport selector rewriter p)
+            | Outport p     -> Outport (rewrite_expr_outport selector rewriter p)
+            | Term t        -> Term (rewrite_expr_term selector rewriter t)
         and rewrite_expr_component_item selector rewriter = map_place (rewrite_expr_component_item_ selector rewriter) 
 
         and rewrite_expr_component_dcl_  selector rewriter place = function 
@@ -1541,7 +1590,7 @@ module Make (Params : IRParams) = struct
         }]
         | Term t -> List.map (function t -> Term t) (rewrite_exprstmts_term parent_opt exclude_stmt selector rewriter t)
         (* citem without statement *)
-        | Contract _ | Include _ |Inport _ | Outport _ | State _ -> [citem]
+        | Contract _ | Include _ | Inport _ | Eport _ | Outport _ | State _ -> [citem]
         and rewrite_exprstmts_component_item parent_opt exclude_stmt selector rewriter = map_places (rewrite_exprstmts_component_item_ parent_opt exclude_stmt selector rewriter) 
 
 
@@ -1584,7 +1633,7 @@ module Make (Params : IRParams) = struct
         }]
         | Term t -> List.map (function t -> Term t) (rewrite_stmt_term recurse selector rewriter t)
         (* citem without statement *)
-        | Contract _ | Include _ |Inport _ | Outport _ | State _ -> [citem]
+        | Contract _ | Include _ | Inport _ | Eport _ | Outport _ | State _ -> [citem]
         and rewrite_stmt_component_item recurse selector rewriter = map_places (rewrite_stmt_component_item_ recurse selector rewriter) 
 
 
@@ -1639,6 +1688,7 @@ module Make (Params : IRParams) = struct
             protocol = rmt tb.protocol;
         }
         | TInport mt -> TInport (rmt mt)
+        | TEport mt -> TEport (rmt mt)
         | TOutport -> TOutport
         | TForall (x, mt) -> TForall (renaming x, rmt mt)
         | TPolyVar x -> TPolyVar (renaming x)
@@ -1789,6 +1839,13 @@ module Make (Params : IRParams) = struct
         }, rename_main_type renaming mt_p)
         and rename_port renaming = map_place (_rename_port (protect_renaming  renaming))
 
+        and _rename_eport renaming place ((p, mt_p): _eport * main_type)  = ({
+            name = renaming p.name;
+            expecting_mt = rename_main_type renaming p.expecting_mt;
+            callback = rename_expr true renaming p.callback;
+        }, rename_main_type renaming mt_p)
+        and rename_eport renaming = map_place (_rename_eport (protect_renaming  renaming))
+
         and _rename_outport renaming place ((p, mt_p): _outport * main_type) = ({
             name = renaming p.name;
         }, rename_main_type renaming mt_p)
@@ -1846,13 +1903,14 @@ module Make (Params : IRParams) = struct
         and rename_method renaming = map_place (_rename_method (protect_renaming renaming))
 
         and _rename_component_item renaming place = function
-        | Contract c -> Contract (rename_contract renaming c)
-        | Method m -> Method (rename_method renaming m)
-        | State s -> State (rename_state renaming s)
-        | Inport p -> Inport (rename_port renaming p)
-        | Outport p -> Outport (rename_outport renaming p)
-        | Term t -> Term (rename_term renaming t)
-        | Include ce -> Include (rename_component_expr renaming ce)
+        | Contract c    -> Contract (rename_contract renaming c)
+        | Method m      -> Method (rename_method renaming m)
+        | State s       -> State (rename_state renaming s)
+        | Inport p      -> Inport (rename_port renaming p)
+        | Eport p       -> Eport (rename_eport renaming p)
+        | Outport p     -> Outport (rename_outport renaming p)
+        | Term t        -> Term (rename_term renaming t)
+        | Include ce    -> Include (rename_component_expr renaming ce)
         and rename_component_item renaming = map_place (_rename_component_item (protect_renaming renaming))
 
         and _rename_component_dcl renaming place = function

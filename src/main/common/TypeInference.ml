@@ -189,6 +189,10 @@ module Make () = struct
         let _p = fst p.value in
         mtype_of_ct (TInport _p.expecting_st)
 
+    let typeof_eport p = 
+        let _p = fst p.value in
+        mtype_of_ct (TEport _p.expecting_mt)
+
     let typeof_outport p = 
         mtype_of_ct TOutport
 
@@ -209,6 +213,9 @@ module Make () = struct
     | Inport p -> 
         register_expr_type (fst p.value).name (typeof_port p);
         [(fst p.value).name, typeof_port p]
+    | Eport p -> 
+        register_expr_type (fst p.value).name (typeof_eport p);
+        [(fst p.value).name, typeof_eport p]
     | Outport p -> 
         register_expr_type (fst p.value).name (typeof_outport p);
         [(fst p.value).name, typeof_outport p]
@@ -743,6 +750,26 @@ module Make () = struct
             value = _p, mt_port 
         }
 
+    and _tannot_eport parent_opt place ((p, mt_p):_eport*main_type) = {
+        name = p.name;
+        expecting_mt = tannot_main_type parent_opt p.expecting_mt;
+        callback = tannot_expr parent_opt p.callback;
+    } 
+    and tannot_eport parent_opt p = 
+        let fplace = (Error.forge_place "TypeInference.tannot_eport" 0 0) in
+        let auto_fplace smth = {place = fplace; value=smth} in
+        let ctypeof x = auto_fplace (CType(auto_fplace x)) in
+
+        let _p = _tannot_eport parent_opt p.place p.value in
+        let mt_port = ctypeof (TInport (
+            _p.expecting_mt
+        )) in
+
+        {
+            place = p.place;
+            value = _p, mt_port 
+        }
+
     and _tannot_outport parent_opt place ((p, mt_p):_outport*main_type) = {
         name = p.name;
     } 
@@ -822,9 +849,12 @@ module Make () = struct
     | Method m -> 
         let m = tannot_method parent_opt m in
         Method m 
-    |Inport p -> 
+    | Inport p -> 
         let p = tannot_port parent_opt p in
         Inport p 
+    | Eport p -> 
+        let p = tannot_eport parent_opt p in
+        Eport p 
     | Outport p -> 
         let p = tannot_outport parent_opt p in
         Outport p 

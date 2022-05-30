@@ -66,7 +66,10 @@ and resolve_method place (m: S._method0) : T._method0 =
 and rmethod m = map_place resolve_method m
 
 and resolve_port place (port:S._port) : T._port =
-{ port with callback= rexpr port.callback }
+    { port with callback= rexpr port.callback }
+
+and resolve_eport place (port:S._eport) : T._eport =
+    { port with callback= rexpr port.callback }
 
 and resolve_outport place (outport:S._outport) : T._outport =
     outport
@@ -76,6 +79,7 @@ and resolve_component_item place : S._component_item -> T._component_item list =
 | S.Method m -> [ T.Method (map_place resolve_method m) ]
 | S.Contract c -> [ T.Contract (map_place resolve_contract c) ]
 | S.Inport p -> [ T.Inport (map_place resolve_port p) ]
+| S.Eport p -> [ T.Eport (map_place resolve_eport p) ]
 | S.Outport p -> [ T.Outport (map_place resolve_outport p) ]
 | S.Term t -> List.map (function x -> T.Term x) (resolve_term t)
 | S.Include cexpr -> [ T.Include (rcexpr cexpr) ]
