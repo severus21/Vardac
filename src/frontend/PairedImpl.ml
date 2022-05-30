@@ -141,7 +141,7 @@ module Make (Arg: ArgSig) = struct
                     Hashtbl.find sealed_envs name 
                 with Not_found -> raise (Error.PlacedDeadbranchError (
                     place, 
-                    Printf.sprintf "[%s] not found int sealed_envs" (Atom.to_string name)))
+                    Printf.sprintf "[%s] not found in sealed_envs" (Atom.to_string name)))
             in
             
             {

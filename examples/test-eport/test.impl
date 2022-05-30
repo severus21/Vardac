@@ -1,5 +1,12 @@
-
 target akka;
+
+impl type event_a java:{=
+    Exception
+=}
+
+impl function toStringEventA java:{=
+    {{%e%}}.toString();
+=}
 
 impl component Dummy {}
 impl component TopLevel {}

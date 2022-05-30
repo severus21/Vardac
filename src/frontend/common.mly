@@ -154,8 +154,8 @@ any_type_:
     {t}
 
 %public any_type_dcl_:
-| TYPE x=LID SEMICOLON
-    { Typealias (x, None) }
+(*| TYPE x=LID SEMICOLON
+    { Typealias (x, None) }*)
 | TYPE x=LID EQ t=any_type SEMICOLON
     { Typealias (x, Some t) }
 | TYPE x=UID SEMICOLON
