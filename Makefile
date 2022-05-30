@@ -44,9 +44,21 @@ tests: generatedune
 	@dune runtest --profile release
 	@rm -rf tests/examples
 
-.PHONY: fuzz
+.PHONY: fuzz fuzz-ci fuzz-ci-timeout
 fuzz: 
+	rm -rf /tmp/findings && mkdir -p /tmp/findings 
 	AFL_SKIP_CPUFREQ=1 dune build --profile release @fuzz --no-buffer
+
+fuzz-ci: 
+	rm -rf /tmp/findings && mkdir -p /tmp/findings 
+	AFL_SKIP_CPUFREQ=1 dune build --profile release @bun-fuzz --no-buffer
+
+fuzz-ci-timeout: 
+	rm -rf /tmp/findings && mkdir -p /tmp/findings 
+	AFL_SKIP_CPUFREQ=1 dune build --profile release @bun-fuzz-no-kill --no-buffer
+
+replay-fuzz:
+	./_build/default/fuzz/fuzz_me.exe $(RUN_ARGS)
 
 
 #### Localy running targets ########################################################

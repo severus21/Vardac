@@ -192,12 +192,20 @@ make && dune exec --profile release -- tests/main.exe -only-test 0:Parser
 2. Run tests
     ```bash
         make fuzz 
+        or
+        make ci-fuzz or make ci-fuzz-timeout (to find more than one bug at at time)
     ```
+    replay crashes
+    ```bash
+        make replay-fuzz /tmp/findings/XX/crashes/YYY
+    ```
+    
 
 
 More about fuzzing
 
 * https://blog.regehr.org/archives/1687
+* https://somerandomidiot.com/blog/2017/04/26/crowbar-dhcp/
 * https://tarides.com/blog/2019-09-04-an-introduction-to-fuzzing-ocaml-with-afl-crowbar-and-bun/
 
 ## Packaging for OPAM

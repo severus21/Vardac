@@ -8,24 +8,25 @@
     (:exe fuzz_me.exe)
     (source_tree inputs))
   (action
-    (run afl-fuzz -i inputs -o findings -- ./%{exe} @@))
+    (run afl-fuzz -i inputs -o /tmp/findings -- ./%{exe} @@))
 )
 
-;;(alias
-;; (name bun-fuzz)
-;; (locks %{project_root}/bun)
-;; (deps
-;;  (:exe fuzz_me.exe)
-;;  (source_tree input))
-;; (action
-;;  (run bun --input inputs --output findings -- ./%{exe})))
-;;
-;;(alias
-;; (name bun-fuzz-no-kill)
-;; (locks %{project_root}/bun)
-;; (deps
-;;  (:fuzz-me fuzz_me.exe)
-;;  (source_tree input))
-;; (action
-;;  (run timeout --preserve-status 1m bun --no-kill --input inputs --output
-;;    findings -- ./%{exe})))
+(rule 
+  (alias bun-fuzz)
+  (locks %{project_root}/bun)
+  (deps
+    (:exe fuzz_me.exe)
+    (source_tree input))
+  (action
+    (run bun --input inputs --output /tmp/findings -- ./%{exe}))
+  )
+
+(rule
+  (alias bun-fuzz-no-kill)
+  (locks %{project_root}/bun)
+  (deps
+    (:exe fuzz_me.exe)
+    (source_tree input))
+  (action
+    (run timeout --preserve-status 5m bun --no-kill -vv --single-core --input inputs --output /tmp/findings -- ./%{exe}))
+)
