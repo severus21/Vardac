@@ -140,7 +140,7 @@
 			"match": "[A-Za-z_][A-Za-z0-9_]*"
 		},
 		"illegal_names": {
-			"match": "\\b(and|as|assert|break|case|component|elif|else|for|from|global|if|import|in|is|let|match|not|or|inport|outport|return|while)\\b",
+			"match": "\\b(and|as|assert|break|case|component|elif|else|for|from|global|if|import|in|is|let|match|not|or|inport|outport|eport|return|while)\\b",
 			"name": "invalid.illegal.name.aspec"
 		},
 		"keywords": {
@@ -315,6 +315,22 @@
 					"endCaptures": {
 						"1": {
 							"name": "punctuation.section.outport.end.aspec"
+						}
+					},
+					"patterns": []
+				},
+				{
+					"name": "meta.component.eport.aspec",
+					"begin": "^\\s*(eport)",
+					"beginCaptures": {
+						"1": {
+							"name": "storage.type.eport.aspec"
+						}
+					},
+					"end": "(;)",
+					"endCaptures": {
+						"1": {
+							"name": "punctuation.section.eport.end.aspec"
 						}
 					},
 					"patterns": []

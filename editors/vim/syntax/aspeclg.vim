@@ -30,6 +30,7 @@ syntax Type bool float int list string void
 " Keywords
 syntax keyword Keyword inport
 syntax keyword Keyword outport
+syntax keyword Keyword eport 
 syntax keyword Keyword type
 
 " Special symbols.

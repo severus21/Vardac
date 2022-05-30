@@ -13,6 +13,7 @@ let fplace = (Error.forge_place ("plg."^plg_name^".Finish") 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
 include Ast.AstUtil2.Make(struct let fplace = fplace end)
 module S_A2 = AstUtils2.Mtype.Make(struct let fplace = fplace end)
+module T_A2 = Ast.AstUtil2.Make(struct let fplace = fplace end)
 
 (* The source calculus. *)
 module S = IRI 
@@ -1093,6 +1094,32 @@ module Make (Arg: sig val target:Target.target end) = struct
             @ states 
         in
 
+        (*** Eports 
+            In Akka, eports messages are events received by the actor that boxes the value    
+        ***)
+        let states = 
+            List.map (function p -> 
+                let _p : S._eport = fst p.value in
+                auto_place {   
+                    T.persistent = false; (*TODO persistence True ??*)
+                    stmts = [ auto_place(T.LetStmt (
+                        auto_place( T.Atomic "EPort"),
+                        _p.name,
+                        Some (
+                            e2_e (T.NewExpr(
+                                e2_e (T.RawExpr "EPort"),
+                                [
+                                    match _p.expecting_mt.value with
+                                    | CType {value=TVar x} -> T_A2.e2_e (T.ClassOf (fmtype _p.expecting_mt))
+                                    | _ -> Error.perror place "unsupported expecte type for eport"
+                                ]
+                            ))    
+                        )
+                    ))]
+                }
+            ) grp_items.eports
+            @ states 
+        in
 
 
         (*** Building receiver ***)
