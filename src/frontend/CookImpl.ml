@@ -57,6 +57,10 @@ end
 | S.CurrentDefaultTarget target as term->
     let new_env = { env with default_target = Some target } in
     new_env, [] 
+| S.FunctionImpl timpl -> env, [{place; value=T.FunctionImpl {
+    name = timpl.name;
+    body = timpl.body
+}}]
 | S.TypeImpl timpl -> env, [{place; value=T.TypeImpl {
     name = timpl.name;
     body = timpl.body

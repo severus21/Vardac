@@ -103,7 +103,8 @@ module Make (Arg: ArgSig) = struct
         Hashtbl.add component2target (parents@c.name) c.target;
         List.iter (scan_component_item_impl (parents@c.name)) c.body
     | S1.TypeImpl tdef -> Hashtbl.add type_impls (parents@tdef.name) {place; value = tdef}
-    | S1.FunctionImpl fdef -> Hashtbl.add function_impls (parents@fdef.name) {place; value = fdef}
+    | S1.FunctionImpl fdef -> 
+        Hashtbl.add function_impls (parents@fdef.name) {place; value = fdef}
     | S1.HeadersImpl h | S1.DependenciesImpl h -> 
         let aux = map_place (fun place {S1.language; body} ->
             {

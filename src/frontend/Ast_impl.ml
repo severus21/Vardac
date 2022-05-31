@@ -17,6 +17,10 @@ and state_impl = {
         name: variable;
         body: blackbox_term;
     }
+and function_impl = {
+        name: variable;
+        body: blackbox_term;
+    }
 and _component_item_impl = 
     | MethodImpl of method_impl 
     | StateImpl of state_impl 
@@ -29,6 +33,7 @@ and _term =
     | ComponentImpl of component_impl
     | CurrentDefaultTarget of string 
     | TypeImpl of type_impl
+    | FunctionImpl of function_impl
     | HeadersImpl of blackbox_term
     | DependenciesImpl of blackbox_term
 

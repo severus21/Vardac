@@ -202,6 +202,8 @@ module Make(Arg:ArgSig) = struct
 
     (* Used to cook Varda expr in impl with the same environment as Varda file. Sealed envs includes: 
         - method env
+        - function env
+        - typedef env for classiclalDef (i.e. if it is an abstract type)
     *)
     let sealed_envs = Hashtbl.create 32  
 
@@ -857,6 +859,8 @@ module Make(Arg:ArgSig) = struct
         ) env f.targs in
         let inner_env, args = List.fold_left_map cparam env_with_targs f.args in
 
+        (* Registed function (parent env + args) in sealed env*)
+        Hashtbl.add sealed_envs name inner_env;
 
         (* FIXME duplicated in cook_method*)
         let rec remove_empty_stmt = function
@@ -1235,11 +1239,15 @@ module Make(Arg:ArgSig) = struct
         let new_env2 = register_expr new_env1 place ~create_instance:true y in
         let envs, args = List.split (List.map (cmtype env) args) in 
 
+        (* Registed typedef (parent env) in sealed env - in case it is an abstract type *)
+        Hashtbl.add sealed_envs y env;
+
         (* t : args1 -> ... argsn -> t *)
         let constructor_type = mtype_of_fun2 args (auto_fplace(T.CType(auto_fplace(T.TVar y)))) in 
         
         register_gamma y constructor_type;
         register_gamma_types y (mtype_of_ct (T.TInductive args)); (* TODO use an external fct to compute the type of a typedef - shared with type, maybe defined in TypingUtils *)
+
 
         new_env2 << envs, [T.Typedef ({ place; value = 
         match tdef with 
