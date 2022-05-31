@@ -47,6 +47,7 @@ let rec _apply_rename_ctype (renaming : Atom.atom -> Atom.atom) place : _ctype -
     )
     | TRaw s -> TRaw s
     | TUnknown -> TUnknown
+    | TBB tbb -> TBB tbb
 and apply_rename_ctype renaming (ct:ctype) = apply_rename_place (_apply_rename_ctype renaming) ct
 
 and _apply_rename_expr rename_binders (renaming : Atom.atom -> Atom.atom) place (e,mt) = 

@@ -7,6 +7,7 @@ open Core
 type collected_state = {
     mutable target : Core.Target.target option;
     event2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
+    external2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
     collected_components: Atom.Set.t ref;
     guardian_components: Atom.Set.t ref;
 }

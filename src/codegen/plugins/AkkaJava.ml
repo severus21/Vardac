@@ -62,6 +62,11 @@ module Make (Arg: Plugin.CgArgSig) = struct
             (* No Hashtbl.reset since we do not alter the keys *)
             Hashtbl.replace_seq (!cstate).event2receptionists e2rs;
 
+            let e2rs = Hashtbl.to_seq (!cstate).external2receptionists in
+            let e2rs = Seq.map (function (k,v) -> k, List.map renaming v) e2rs in
+            (* No Hashtbl.reset since we do not alter the keys *)
+            Hashtbl.replace_seq (!cstate).external2receptionists e2rs;
+
             (!cstate).collected_components := Atom.Set.map (function name -> renaming name) !((!cstate).collected_components);
 
             (!cstate).guardian_components := Atom.Set.map (function name -> renaming name) !((!cstate).guardian_components)
@@ -1774,7 +1779,14 @@ module Make (Arg: Plugin.CgArgSig) = struct
                             name = cdcl.name;
                             parameters = []; 
                             extended_types = List.map fctype cdcl.extended_types;
-                            implemented_types = List.map fctype cdcl.implemented_types;
+                            implemented_types = 
+                            List.map fctype cdcl.implemented_types @ 
+                            (* External events should implements command type *)
+                            (match Hashtbl.find_opt (!cstate).external2receptionists cdcl.name with
+                            | None -> []
+                            | Some actor_names -> 
+                                List.map fctype (List.map (Akka.Misc.t_command_of_actor fplace) actor_names)
+                            );
                             body = List.map (fterm ~is_cl_toplevel:true) cdcl.body 
                         }
                     }

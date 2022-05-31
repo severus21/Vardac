@@ -1,11 +1,20 @@
 target akka;
 
+impl headers java:{=
+    import akka.actor.typed.PreRestart;
+    import akka.actor.typed.PostStop;
+=}
+
 impl type event_a java:{=
-    Exception
+   PreRestart 
+=}
+
+impl type event_b java:{=
+   PostStop 
 =}
 
 impl function toStringEventA java:{=
-    {{%e%}}.toString();
+   return {{%e%}}.toString();
 =}
 
 impl component Dummy {}
