@@ -1910,8 +1910,13 @@ module Make (Arg: Plugin.CgArgSig) = struct
         |> List.map (function ((package_name, file), program) -> 
             let module Clean = Lg.Clean.Make(struct let filename = (Fpath.to_string file) end) in
             let module Clean = Lg.AstCompilationPass.Make(Clean) in
+            let module HumanReadable = Lg.HumanReadable.Make(struct let filename = (Fpath.to_string file) end) in
+            let module HumanReadable = Lg.AstCompilationPass.Make(HumanReadable) in
             
-            package_name, file, Clean.apply program 
+            package_name, file, 
+                program
+                |> Clean.apply
+                |> HumanReadable.apply 
         )
         (* Add general headers *)
         |> List.map (function (package_name, file, program) -> (package_name, file, headers :: program))
