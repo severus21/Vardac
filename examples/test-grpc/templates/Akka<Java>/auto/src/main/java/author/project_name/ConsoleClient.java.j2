@@ -120,13 +120,13 @@ public class ConsoleClient {
                     }
                 } else if ("api_a".equals(pl.word())) {
                     checkState(currentState, true);
-                    terminal.writer().println("api_a: "+currentState.grpcClient.api_a14());
+                    terminal.writer().println("api_a: "+currentState.grpcClient.api_a());
                 } else if ("api_b".equals(pl.word())) {
                     checkState(currentState, true);
 
                     if (pl.words().size() == 2) {
                         String key = pl.words().get(1);
-                        terminal.writer().println("api_a: "+currentState.grpcClient.api_b15(key));
+                        terminal.writer().println("api_a: "+currentState.grpcClient.api_b(key));
                     } else {
                         terminal.writer().println("Usage: api_b <string>");
                     }
@@ -136,7 +136,7 @@ public class ConsoleClient {
                     if (pl.words().size() == 3) {
                         String key = pl.words().get(1);
                         Integer i = Integer.parseInt(pl.words().get(2));
-                        terminal.writer().println("api_a: "+currentState.grpcClient.api_c16(key,i));
+                        terminal.writer().println("api_a: "+currentState.grpcClient.api_c(key,i));
                     } else {
                         terminal.writer().println("Usage: put <key> <value>");
                     }

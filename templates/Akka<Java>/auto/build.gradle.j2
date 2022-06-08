@@ -89,14 +89,18 @@ test {
 /*
     FAT jar tasks
  */
-{% for name in target_mains %}
-task jar{{name[0]|capitalize}}{{substring(1,strlen(name), name)}}(type: ShadowJar) {
-    archiveBaseName.set('{{name}}')
+{% for main in target_mains %}
+task jar{{main.name[0]|capitalize}}{{substring(1,strlen(main.name), main.name)}}(type: ShadowJar) {
+    archiveBaseName.set('{{main.name}}')
     archiveClassifier.set('')
     archiveVersion.set('')
     configurations = [project.configurations.compileClasspath]
     manifest {
-        attributes('Main-Class': '{{author}}.{{project_name}}.{{name[0]|capitalize}}{{substring(1,strlen(name), name)}}')
+        {% if main._not_create_main %}
+        attributes('Main-Class': '{{author}}.{{project_name}}.{{main.bootstrap}}')
+        {% else %}
+        attributes('Main-Class': '{{author}}.{{project_name}}.{{main.name[0]|capitalize}}{{substring(1,strlen(main.name), main.name)}}')
+        {% endif %}
     }
     transform(AppendingTransformer) {
         resource = 'reference.conf'

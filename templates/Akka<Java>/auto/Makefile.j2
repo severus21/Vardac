@@ -1,11 +1,11 @@
 default: build 
 
-{% for name in target_mains %}
-build_{{name}}:
-	gradle -x test jar{{name[0]|capitalize}}{{substring(1,strlen(name), name)}} 
+{% for main in target_mains %}
+build_{{main.name}}:
+	gradle -x test jar{{main.name[0]|capitalize}}{{substring(1,strlen(main.name), main.name)}} 
 {% endfor %}
 
-build: protobuf {% for name in target_mains %} build_{{name}}{%endfor%}
+build: protobuf {% for main in target_mains %} build_{{main.name}}{%endfor%}
 
 .PHONY:protobuf
 protobuf:

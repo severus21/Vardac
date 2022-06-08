@@ -6,6 +6,7 @@ type maindef = {
     (* init component - toplevel is magic bootstrap name *)
     bootstrap: Atom.atom;
     entrypoint: Atom.atom;
+    _not_create_main: bool; (* inner used only *)
 }
 and codegen_info = {
     runtime_plg: string; 

@@ -664,12 +664,16 @@ module Make (Arg: Plugin.CgArgSig) = struct
             in
 
             let stages = List.fold_left prepare_stage stages target.value.codegen.mains in
+
             (********************)
 
             (***** Create dedicated stage for main cl - assuming no one depends on them ******)
             let make_is_main () : Atom.atom -> bool =
                 let state : (string, unit) Hashtbl.t = Hashtbl.create (List.length target.value.codegen.mains) in
-                List.iter (function (mdef:Target.maindef) -> Hashtbl.add state (String.capitalize_ascii mdef.name) ()) target.value.codegen.mains;
+                List.iter (function (mdef:Target.maindef) -> 
+                    if Bool.not mdef._not_create_main then
+                        Hashtbl.add state (String.capitalize_ascii mdef.name) ()
+                    else ()) target.value.codegen.mains;
 
                 function name -> (Atom.is_builtin name) && (None <> Hashtbl.find_opt state (Atom.hint name)) 
             in 
@@ -1922,7 +1926,9 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 |> HumanReadable.apply
         )
         (* Add general headers *)
-        |> List.map (function (package_name, file, program) -> (package_name, file, headers :: program))
+        |> List.map (function (package_name, file, program) -> 
+            logger#error "_____%s %d" (Fpath.to_string file) (List.length program);
+            (package_name, file, headers :: program))
         |> List.iter (function (package_name, file, program) -> Lg.Output.output_program package_name (Fpath.append build_dir file) program)
 
     let auto_jingoo_env (cstate:Rt.Finish.collected_state) (istate:Plg.Interface_plugin.istate) places = 
@@ -1948,7 +1954,13 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
         let models = [
             ("target_mains", Jg_types.Tlist 
-                (List.map (function ({Core.Target.name;}:Core.Target.maindef) -> Jg_types.Tstr name) target.value.codegen.mains)
+                (List.map (function (mdef:Core.Target.maindef) -> 
+                    Jg_types.Tobj [
+                        "name", Jg_types.Tstr mdef.name;
+                        "_not_create_main", Jg_types.Tbool mdef._not_create_main;
+                        "bootstrap", Jg_types.Tstr (Atom.to_string mdef.bootstrap);
+                    ]
+                ) target.value.codegen.mains)
             );
             ("target_entrypoints", Jg_types.Tlist 
                 (List.map (function ({Core.Target.bootstrap;}:Core.Target.maindef) -> Jg_types.Tstr (Atom.to_string bootstrap)) target.value.codegen.mains)

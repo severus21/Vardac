@@ -340,11 +340,11 @@ module Make(Arg: sig val filename:string end) = struct
             ctx, Stmt stmt
     and hr_str_item parent_opt ctx = map2_place (hr_str_item_ parent_opt ctx)
     let hr_program program = 
-        (*let re_service_impl = Str.regexp {|[A-Za-z0-9_]*ServiceImpl[0-9]+|} in
-        if cl_filename = "MaingRPCServer" || cl_filename = "MaingRPCClient" || Str.string_match re_service_impl cl_filename 0 then
+        (* Can not be renamed since it is tightly linked with proto buf generated classes *)
+        let re_service_impl = Str.regexp {|[A-Za-z0-9_]*ServiceImpl[0-9]+|} in
+        if (*cl_filename = "MaingRPCServer" || cl_filename = "MaingRPCClient" ||*) Str.string_match re_service_impl cl_filename 0 then
             program
         else
-            *)
             let ctx, program = List.fold_left_map (hr_str_item None) (get_ctx cl_filename) program in
             store_ctx cl_filename ctx;
             program

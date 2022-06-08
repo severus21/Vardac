@@ -123,7 +123,7 @@ public class ConsoleClient {
 
                     if (pl.words().size() == 2) {
                         String key = pl.words().get(1);
-                        terminal.writer().println("api_get: "+currentState.grpcClient.api_get19(key));
+                        terminal.writer().println("api_get: "+currentState.grpcClient.api_get(key));
                     } else {
                         terminal.writer().println("Usage: api_get <string>");
                     }
@@ -133,7 +133,7 @@ public class ConsoleClient {
                     if (pl.words().size() == 3) {
                         String key = pl.words().get(1);
                         Integer value = Integer.parseInt(pl.words().get(2));
-                        terminal.writer().println("api_put: "+currentState.grpcClient.api_put20(key, value));
+                        terminal.writer().println("api_put: "+currentState.grpcClient.api_put(key, value));
                     } else {
                         terminal.writer().println("Usage: put <key> <value>");
                     }

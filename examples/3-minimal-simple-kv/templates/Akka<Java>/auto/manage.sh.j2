@@ -17,13 +17,13 @@ done
 LIBS=build/libs
 
 case $MAIN in
-{% for name in target_mains %}
-    {% if substring (0, 14, name) == "MaingRPCServer" %}
+{% for main in target_mains %}
+    {% if substring (0, 14, main.name) == "gRPCServer" %}
 grpc)
-    java -enableassertions -jar $LIBS/{{name}}.jar -ip 127.0.0.1 -p 25521 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp Cloud
+    java -enableassertions -jar $LIBS/{{main.name}}.jar -ip 127.0.0.1 -p 25521 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp Cloud
     {% else %}
-{{name}})
-    java -enableassertions -jar $LIBS/{{name}}.jar -ip 127.0.0.1 -p 25520 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp Cloud
+{{main.name}})
+    java -enableassertions -jar $LIBS/{{main.name}}.jar -ip 127.0.0.1 -p 25520 -s akka://{{system_name}}@127.0.0.1:25520 -l 8080 -vp Cloud
     {%endif%}
 ;;
 {% endfor %}

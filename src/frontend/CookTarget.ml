@@ -67,6 +67,7 @@ let cook_maindef place ast env (mdef:S.maindef) : env * T.maindef=
         entrypoint = 
             if mdef.entrypoint = "no_main" then Atom.builtin "no_main"
             else find_atom place mdef.entrypoint ast;
+        _not_create_main = false;
     }
 
 let rec cook_target ast env (target:S.target) : env * T.target =

@@ -739,9 +739,10 @@ end) = struct
             Target.codegen = {target.value.codegen with 
                 mains = 
                     {
-                        Target.name = Atom.to_string main_server_name;
+                        Target.name = "gRPCServer";
                         bootstrap = main_server_name;
                         entrypoint = Atom.builtin "main";
+                        _not_create_main = true;
                     } :: target.value.codegen.mains
             }
         }} in
@@ -880,10 +881,10 @@ end) = struct
         };
         
         (* seed host *)
-        let host = Atom.fresh "host" in
+        let host = Atom.builtin "host" in
         (* seed port *)
-        let port = Atom.fresh "port" in
-        let system = Atom.fresh "system" in
+        let port = Atom.builtin "port" in
+        let system = Atom.builtin "system" in
         let e_system = T_A2.e2_e (T.AccessExpr (T_A2.e2_e T.This, T_A2.e2var system)) in
         let settings = Atom.fresh "settings" in
         let e_settings = T_A2.e2var settings in
@@ -949,7 +950,7 @@ end) = struct
         in
 
         let main2 : T.term = 
-            let att_system = Atom.fresh "system" in
+            let att_system = Atom.builtin "system" in
             auto_fplace {
                 T.annotations = [];
                 decorators = [];
