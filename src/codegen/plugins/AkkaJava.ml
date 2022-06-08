@@ -1166,7 +1166,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
             let fields = List.map generate_field args in
 
-            let generate_constructor_stmt (ct, x) : T.stmt =  
+            let generate_constructor_stmt ((ct, x), (_, y)) : T.stmt =  
                 { place = ct.place; value =
                 T.ExpressionStmt( 
                     { place = ct.place; value =
@@ -1175,12 +1175,15 @@ module Make (Arg: Plugin.CgArgSig) = struct
                             { place = ct.place; value =T.ThisExpr, auto_place T.TUnknown}, { place = ct.place; value =T.VarExpr x, auto_place T.TUnknown}), auto_place T.TUnknown
                         },
                         T.AssignOp,
-                        { place = ct.place; value = T.VarExpr x, auto_place T.TUnknown}
+                        { place = ct.place; value = T.VarExpr y, auto_place T.TUnknown}
                     ), auto_place T.TUnknown
                     }
                 )
                 }
             in
+
+            (* Derive constructor args from events one in order to preserve hint while having unique identity *)
+            let constructor_args = List.map (function (ct, x) -> (ct, Atom.fresh (Atom.value x))) args in 
 
             let constructor = 
                 { 
@@ -1191,9 +1194,9 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         v = T.MethodDeclaration {
                             ret_type    = None;
                             name        = name;
-                            parameters  = List.map (function (decorators, ct, x) -> (T.JsonProperty x::decorators,ct, x)) (List.map finish_arg args);
+                            parameters  = List.map (function (decorators, ct, x) -> (T.JsonProperty x::decorators,ct, x)) (List.map finish_arg constructor_args);
                             throws      = [];
-                            body        = List.map generate_constructor_stmt args
+                            body        = List.map generate_constructor_stmt (List.combine args constructor_args)
                             ;
                         }
                     }})
@@ -1913,11 +1916,10 @@ module Make (Arg: Plugin.CgArgSig) = struct
             let module Clean = Lg.AstCompilationPass.Make(Clean) in
             let module HumanReadable = Lg.HumanReadable.Make(struct let filename = (Fpath.to_string file) end) in
             let module HumanReadable = Lg.AstCompilationPass.Make(HumanReadable) in
-            
             package_name, file, 
                 program
                 |> Clean.apply
-                |> HumanReadable.apply 
+                |> HumanReadable.apply
         )
         (* Add general headers *)
         |> List.map (function (package_name, file, program) -> (package_name, file, headers :: program))

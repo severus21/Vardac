@@ -6,19 +6,17 @@ open Easy_logging
 let logger = Logging.make_logger ("_1_ compspec.plg.Java") Debug [];;
 let fplace = (Error.forge_place "Plg=Java.HumanReadable" 0 0)
 
-(* exisiting Atom -> new Atom*)
-module Env = Map.Make(Atom)
 (* Atom.value -> already binded in the scope *)
 module StrSet = Set.Make(String)
 type ctx = {
-    renaming: Atom.atom Env.t;
     local: StrSet.t;
 }
 
+(* exisiting Atom -> new Atom*)
+let renaming = Hashtbl.create 256
 let filename2ctx = Hashtbl.create 16
 let get_ctx filename = 
     let fresh_ctx () : ctx = {
-        renaming    = Env.empty;
         local       = StrSet.empty;
     } in    
     match Hashtbl.find_opt filename2ctx filename with
@@ -28,7 +26,8 @@ let get_ctx filename =
 let store_ctx filename ctx = 
     match Hashtbl.find_opt filename2ctx filename with
     | None -> Hashtbl.add filename2ctx filename ctx
-    | _ ->  failwith (Printf.sprintf "ctx already exists for filename [%s]" filename)
+    | _ ->  ()
+    (* debug failwith (Printf.sprintf "ctx already exists for filename [%s]" filename) *)
 
 module Make(Arg: sig val filename:string end) = struct
     let cl_filename = (Filename.basename Arg.filename)
@@ -67,32 +66,45 @@ module Make(Arg: sig val filename:string end) = struct
                 if cl_filename = cls || external_filename = (Config.project_name ()) then ctx, x
                 else
                     let external_ctx = get_ctx external_filename in
-                    match Env.find_opt (Atom.craft cls_id cls_hint cls_hint false) external_ctx.renaming with
-                    | None -> raise (Error.PlacedDeadbranchError (fplace, Printf.sprintf "[%s][%s] not found" external_filename (Atom.to_string (Atom.craft cls_id cls_hint cls_hint false))))
+                    match Hashtbl.find_opt renaming (Atom.craft cls_id cls_hint cls_hint false) with
+                    | None -> 
+                        (* Not in stage order therefore we can not rename *)
+                        Hashtbl.add renaming x x;
+                        let external_ctx = {
+                            local = StrSet.add (Atom.hint x) external_ctx.local;
+                        } in
+                        store_ctx external_filename external_ctx;
+                        ctx, x
                     | Some cls -> ctx, Atom.builtin (package^"."^(Atom.to_string cls))
             else
                 if cl_filename = Atom.to_string x then ctx, x
                 else
-                    match Env.find_opt x ctx.renaming with
-                    | None -> raise (Error.PlacedDeadbranchError (fplace, Printf.sprintf "[%s] [%s] not found in ctx.renaming" cl_filename (Atom.to_string x))) 
+                    match Hashtbl.find_opt renaming x with
+                    | None -> ctx, x
+                        (* debug - can not be used in prod since GRPC code is defined outisde the reach of Java plugin 
+                        raise (Error.PlacedDeadbranchError (fplace, Printf.sprintf "[%s] [%s] not found in renaming" cl_filename (Atom.to_string x))) *)
                     | Some y -> 
                         logger#error "set %s -> %s" (Atom.to_string x) (Atom.to_string y);
                         ctx, y 
 
     let hr_atom_binder ctx x = 
         if Atom.is_builtin x then ctx, x
-        else
+        else if Atom.hint x = "main" then( (* reserved *)
+            Hashtbl.add renaming x x;
+            ctx, x
+        )else
             match StrSet.find_opt (Atom.hint x) ctx.local with
             | None -> 
                 let y = Atom.builtin (Atom.hint x) in 
                 logger#error "let %s %s" (Atom.to_string x) (Atom.to_string y);
+                Hashtbl.add renaming x y;
                 let ctx = {
-                    renaming = Env.add x y ctx.renaming;
                     local = StrSet.add (Atom.hint x) ctx.local;
                 } in
                 ctx, y 
             | Some _ -> 
-                {ctx with renaming = Env.add x x ctx.renaming}, x 
+                Hashtbl.add renaming x x;
+                ctx, x 
 
     (* jtype has no binders, only case b) *)
     let rec hr_jt_ ?(is_binder=false) ctx place item =
@@ -230,11 +242,12 @@ module Make(Arg: sig val filename:string end) = struct
 
     let rec hr_body_ parent_opt ctx place = function
     | ClassOrInterfaceDeclaration cl ->
-
         let ctx, name = 
             (* Parent class are not renamed *)
             if Atom.to_string cl.name = cl_filename then ctx, cl.name
-            else hr_atom_binder ctx cl.name 
+            else 
+                (* Already binded in shallow scan of parent class*)
+                hr_atom_binder ctx cl.name 
         in
         (* Type parameters are binders for generics *)
         let ctx, parameters = List.fold_left_map (hr_jt ~is_binder:true) ctx cl.parameters in
@@ -274,11 +287,8 @@ module Make(Arg: sig val filename:string end) = struct
             body;
         }
     | MethodDeclaration m ->
-        let ctx, name = 
-            match parent_opt with
-            | Some (x, hr_x) when x = m.name -> ctx, hr_x (* should have the same name as the parent constructor *)
-            | _ -> hr_atom_binder ctx m.name
-        in
+        (* Already binded in shallow scan *)
+        let ctx, name = hr_atom_no_binder ctx m.name in
         let ctx, ret_type = match m.ret_type with
             | None -> ctx, None
             | Some jt -> let ctx, jt = hr_jt ctx jt in ctx, Some jt
@@ -301,7 +311,8 @@ module Make(Arg: sig val filename:string end) = struct
             throws;
         }
     | FieldDeclaration f -> 
-        let ctx, name = hr_atom_binder ctx f.name in
+        (* Already binded in shallow scan *)
+        let ctx, name = hr_atom_no_binder ctx f.name in
         let ctx, type0 = hr_jt ctx f.type0 in
         let ctx, body = match f.body with
             | None -> ctx, None
@@ -329,9 +340,14 @@ module Make(Arg: sig val filename:string end) = struct
             ctx, Stmt stmt
     and hr_str_item parent_opt ctx = map2_place (hr_str_item_ parent_opt ctx)
     let hr_program program = 
-        let ctx, program = List.fold_left_map (hr_str_item None) (get_ctx cl_filename) program in
-        store_ctx cl_filename ctx;
-        program
+        (*let re_service_impl = Str.regexp {|[A-Za-z0-9_]*ServiceImpl[0-9]+|} in
+        if cl_filename = "MaingRPCServer" || cl_filename = "MaingRPCClient" || Str.string_match re_service_impl cl_filename 0 then
+            program
+        else
+            *)
+            let ctx, program = List.fold_left_map (hr_str_item None) (get_ctx cl_filename) program in
+            store_ctx cl_filename ctx;
+            program
 (*****************************************************)
     let name = "Java.HumanReadable"
     let displayed_pass_shortdescription = Printf.sprintf "HumanReadable Java AST for file %s" Arg.filename

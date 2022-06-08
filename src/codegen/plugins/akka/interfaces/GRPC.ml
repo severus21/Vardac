@@ -263,7 +263,7 @@ end) = struct
                 args = 
                 (List.map (function f -> f.ctype, f.name) in_msg.fields)
                 @ [ 
-                    (auto_fplace (T.Atomic "ActorRef"), Atom.fresh "replyTo")
+                    (auto_fplace (T.Atomic "ActorRef"), Atom.fresh "replyToActor")
                 ];
                 headers = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
             } in
@@ -275,7 +275,7 @@ end) = struct
                     | [f] -> (f.ctype, f.name)
                     | _ -> raise (Error.DeadbranchError "out_msg should have exactly one field, the rpc return value type")
                     );
-                    (auto_fplace (T.ActorRef (auto_fplace (T.TVar service.component_name))), Atom.fresh "replyTo")
+                    (auto_fplace (T.ActorRef (auto_fplace (T.TVar service.component_name))), Atom.fresh "replyToActor")
                 ];
                 headers = [ (Printf.sprintf "import %s.%s.grpc.*;" (Config.author ()) (Config.project_name ()))];
             } in
@@ -364,7 +364,7 @@ end) = struct
                                                 ));
                                                 (* replytTo -> Event Service2Actor *)
                                                 begin 
-                                                    let reply_to = Atom.fresh "replyTo" in
+                                                    let reply_to = Atom.fresh "replyToActor" in
                                                     T_A2.e2_e (T.LambdaExpr (
                                                         [ (auto_fplace (T.TRaw ""), reply_to)],
                                                         auto_fplace (T.ReturnStmt (
@@ -674,7 +674,8 @@ end) = struct
         generate one HTTP server for all the services
     *)
     let generate_gRPC_server services =
-        let main_server_name = Atom.fresh "MaingRPCServer" in
+        (* builtin in order to have a fix name when building or calling the jar *)
+        let main_server_name = Atom.builtin "MaingRPCServer" in
         (* Register main_server_name in istate,
            currently impl support at most one grpc_server *)
         assert(Bool.not(List.mem "grpc_server" (List.map fst !istate.jingoo_models)));
@@ -869,7 +870,8 @@ end) = struct
     (* Stage 4 - 
     *)
     let generate_gRPC_client services =
-        let main_client_name = Atom.fresh "MaingRPCClient" in
+        (* builtin to have a fix name for outside call *)
+        let main_client_name = Atom.builtin "MaingRPCClient" in
         (* Register main_client_name in istate,
            currently impl support at most one grpc_client *)
         assert(Bool.not(List.mem "grpc_client" (List.map fst !istate.jingoo_models)));

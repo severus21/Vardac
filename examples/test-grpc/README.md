@@ -19,7 +19,7 @@
     ```
     1. Run the gRPC server
     ```bash
-    2> java -enableassertions -jar build/libs/MaingRPCServer144.jar -ip 127.0.0.1 -p 25521 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB 
+    2> java -enableassertions -jar build/libs/MaingRPCServer.jar -ip 127.0.0.1 -p 25521 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB 
     ```
     1. Run the console client (which is using the gRPC client under the hood)
     ```bash
