@@ -1907,6 +1907,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
         ir_program
         |> finish_ir_program target project_dir build_dir
+        |> List.rev (* order stages by dependencies order *)
         |> List.map (function ((package_name, file), program) -> 
             let module Clean = Lg.Clean.Make(struct let filename = (Fpath.to_string file) end) in
             let module Clean = Lg.AstCompilationPass.Make(Clean) in

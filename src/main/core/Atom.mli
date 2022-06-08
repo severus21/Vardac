@@ -21,6 +21,7 @@ val fresh: string -> atom
 val builtin: string -> atom
 val copy: atom -> atom
 val copy_upper: atom -> atom
+val craft: int -> string -> string -> bool -> atom
 
 val refresh_hint : atom -> string -> atom
 val refresh_value : atom -> string -> atom

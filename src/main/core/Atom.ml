@@ -85,6 +85,8 @@ let builtin hint =
   and value = hint                  
   and hint = share (remove_trailing_digits hint) in
   { identity; hint;  value; builtin=true}
+let craft identity value hint builtin =
+  { identity; hint; value; builtin}
 
 (* [copy a] returns a fresh atom modeled after the atom [a]. *)
 

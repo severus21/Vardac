@@ -4,14 +4,35 @@ open Core.AstUtils
 open Easy_logging
 
 let logger = Logging.make_logger ("_1_ compspec.plg.Java") Debug [];;
+let fplace = (Error.forge_place "Plg=Java.HumanReadable" 0 0)
 
+(* exisiting Atom -> new Atom*)
+module Env = Map.Make(Atom)
+(* Atom.value -> already binded in the scope *)
+module StrSet = Set.Make(String)
+type ctx = {
+    renaming: Atom.atom Env.t;
+    local: StrSet.t;
+}
+
+let filename2ctx = Hashtbl.create 16
+let get_ctx filename = 
+    let fresh_ctx () : ctx = {
+        renaming    = Env.empty;
+        local       = StrSet.empty;
+    } in    
+    match Hashtbl.find_opt filename2ctx filename with
+    | None -> fresh_ctx ()
+    | Some ctx -> ctx
+
+let store_ctx filename ctx = 
+    match Hashtbl.find_opt filename2ctx filename with
+    | None -> Hashtbl.add filename2ctx filename ctx
+    | _ ->  failwith (Printf.sprintf "ctx already exists for filename [%s]" filename)
 
 module Make(Arg: sig val filename:string end) = struct
     let cl_filename = (Filename.basename Arg.filename)
 
-    module Env = Set.Make(Atom)
-    type ctx = Env.t 
-    let fresh_ctx () : ctx = Env.empty
 
 
     (* hr_XX 
@@ -21,16 +42,57 @@ module Make(Arg: sig val filename:string end) = struct
     let hr_atom_no_binder ctx x = 
         if Atom.is_builtin x then ctx, x
         else
-            match Env.find_opt x ctx with
-            | None -> ctx, x
-            | Some _ -> ctx, Atom.builtin (Atom.value x)
+            let tokens = String.split_on_char '.' (Atom.to_string x) in
+
+            (* if x = author.project_name.XXX.YY *)
+            if List.length tokens > 1 then
+                let rec pre_tokens = function 
+                    | [] -> []
+                    | x::y::[] -> [x]
+                    | x::xs -> x::(pre_tokens xs)
+                in
+                (* package not renamed and cls renamed using an external context *)
+                let package = String.concat "." (pre_tokens tokens) in
+                let external_filename = List.nth tokens (List.length tokens -2) in
+                let cls = List.nth tokens (List.length tokens -1) in
+
+                let cls_id, cls_hint = 
+                    try
+                        let re = Str.regexp {|\([a-zA-Z0-9_]*[a-zA-Z_]\)\([0-9]+\)|} in
+                        let _ = Str.search_forward re cls 0 in
+                        int_of_string (Str.matched_group 2 cls), Str.matched_group 1 cls
+                    with Not_found -> failwith cls 
+                in
+
+                if cl_filename = cls || external_filename = (Config.project_name ()) then ctx, x
+                else
+                    let external_ctx = get_ctx external_filename in
+                    match Env.find_opt (Atom.craft cls_id cls_hint cls_hint false) external_ctx.renaming with
+                    | None -> raise (Error.PlacedDeadbranchError (fplace, Printf.sprintf "[%s][%s] not found" external_filename (Atom.to_string (Atom.craft cls_id cls_hint cls_hint false))))
+                    | Some cls -> ctx, Atom.builtin (package^"."^(Atom.to_string cls))
+            else
+                if cl_filename = Atom.to_string x then ctx, x
+                else
+                    match Env.find_opt x ctx.renaming with
+                    | None -> raise (Error.PlacedDeadbranchError (fplace, Printf.sprintf "[%s] [%s] not found in ctx.renaming" cl_filename (Atom.to_string x))) 
+                    | Some y -> 
+                        logger#error "set %s -> %s" (Atom.to_string x) (Atom.to_string y);
+                        ctx, y 
 
     let hr_atom_binder ctx x = 
         if Atom.is_builtin x then ctx, x
         else
-            match Env.find_opt x ctx with
-            | None -> Env.add x ctx, Atom.builtin (Atom.value x)
-            | Some _ -> ctx, x
+            match StrSet.find_opt (Atom.hint x) ctx.local with
+            | None -> 
+                let y = Atom.builtin (Atom.hint x) in 
+                logger#error "let %s %s" (Atom.to_string x) (Atom.to_string y);
+                let ctx = {
+                    renaming = Env.add x y ctx.renaming;
+                    local = StrSet.add (Atom.hint x) ctx.local;
+                } in
+                ctx, y 
+            | Some _ -> 
+                {ctx with renaming = Env.add x x ctx.renaming}, x 
 
     (* jtype has no binders, only case b) *)
     let rec hr_jt_ ?(is_binder=false) ctx place item =
@@ -73,7 +135,7 @@ module Make(Arg: sig val filename:string end) = struct
         | NewExpr (e1, es) ->
             let ctx, e1 = hr_expr ctx e1 in
             let ctx, es = List.fold_left_map hr_expr ctx es in
-            ctx, AppExpr(e1, es)
+            ctx, NewExpr(e1, es)
         | AssertExpr e ->
             let ctx, e = hr_expr ctx e in
             ctx, AssertExpr e
@@ -91,13 +153,13 @@ module Make(Arg: sig val filename:string end) = struct
             ctx, CastExpr (jt, e)
         | LiteralExpr _ | ThisExpr | RawExpr _ | BBExpr _ -> ctx, item 
         | LambdaExpr (args, stmt) -> 
-            let ctx, args = List.fold_left_map (
+            let inner_ctx, args = List.fold_left_map (
                 fun ctx (jt, x) ->
                     let ctx, jt = hr_jt ctx jt in
                     let ctx, x = hr_atom_binder ctx x in
                     ctx, (jt, x)
             ) ctx args in
-            let ctx, stmt = hr_stmt ctx stmt in
+            let inner_ctx, stmt = hr_stmt inner_ctx stmt in
             ctx, LambdaExpr (args, stmt)
         | UnaryExpr (op, e) -> 
             let ctx, e = hr_expr ctx e in
@@ -163,6 +225,8 @@ module Make(Arg: sig val filename:string end) = struct
     let map_annotated (fct: 'a -> 'b * 'c) ({annotations; decorators; v}:'a annotated) : 'b * ('c annotated)= 
         let env, v = fct v in
         env, { annotations; decorators; v}
+    let map0_annotated (fct: 'a -> 'b) ({annotations; decorators; v}:'a annotated) : 'b = 
+        fct v
 
     let rec hr_body_ parent_opt ctx place = function
     | ClassOrInterfaceDeclaration cl ->
@@ -176,6 +240,29 @@ module Make(Arg: sig val filename:string end) = struct
         let ctx, parameters = List.fold_left_map (hr_jt ~is_binder:true) ctx cl.parameters in
         let ctx, extended_types = List.fold_left_map hr_jt ctx cl.extended_types in 
         let ctx, implemented_types = List.fold_left_map hr_jt ctx cl.implemented_types in 
+
+        (* Shallow scan of methods and fields to binded them before doing the depth first renaming *)
+        let ctx = List.fold_left (function ctx -> map0_place (function place -> (function 
+            | Body{ value={v=ClassOrInterfaceDeclaration cl}} ->
+                let ctx, name = 
+                    (* Parent class are not renamed *)
+                    if Atom.to_string cl.name = cl_filename then ctx, cl.name
+                    else hr_atom_binder ctx cl.name 
+                in
+                ctx
+            | Body{ value={v=MethodDeclaration m}} ->
+                let ctx, name = 
+                    match parent_opt with
+                    | Some (x, hr_x) when x = m.name -> ctx, hr_x (* should have the same name as the parent constructor *)
+                    | _ -> hr_atom_binder ctx m.name
+                in
+                ctx
+            | Body{ value={v=FieldDeclaration f}} -> 
+                let ctx, name = hr_atom_binder ctx f.name in
+                ctx
+            | _-> ctx
+        ))) ctx cl.body in
+
         let ctx, body = List.fold_left_map (hr_str_item  (Some (cl.name, name))) ctx cl.body in 
 
         ctx, ClassOrInterfaceDeclaration {
@@ -196,14 +283,15 @@ module Make(Arg: sig val filename:string end) = struct
             | None -> ctx, None
             | Some jt -> let ctx, jt = hr_jt ctx jt in ctx, Some jt
         in
-        (* Type parameters bind generics*)
-        let ctx, parameters = List.fold_left_map (fun inner_ctx -> 
+        logger#debug "<<<HR method [%s]" (Atom.to_string name);
+        let inner_ctx, parameters = List.fold_left_map (fun ctx -> 
             function (decorators, jt, x) -> 
                 let ctx, jt = hr_jt ctx jt in 
                 let ctx, x  = hr_atom_binder ctx x in 
                 ctx, (decorators, jt, x)
         ) ctx m.parameters in 
-        let ctx, body = List.fold_left_map hr_stmt ctx m.body in
+        logger#debug ">>>";
+        let inner_ctx, body = List.fold_left_map hr_stmt inner_ctx m.body in
         let ctx, throws = List.fold_left_map hr_atom_no_binder ctx m.throws in
         ctx,  MethodDeclaration {
             ret_type;
@@ -241,11 +329,13 @@ module Make(Arg: sig val filename:string end) = struct
             ctx, Stmt stmt
     and hr_str_item parent_opt ctx = map2_place (hr_str_item_ parent_opt ctx)
     let hr_program program = 
-        snd (List.fold_left_map (hr_str_item None) (fresh_ctx ()) program)
+        let ctx, program = List.fold_left_map (hr_str_item None) (get_ctx cl_filename) program in
+        store_ctx cl_filename ctx;
+        program
 (*****************************************************)
     let name = "Java.HumanReadable"
-    let displayed_pass_shortdescription = Printf.sprintf "To HumanReadable Lg AST for file %s" Arg.filename
-    let displayed_ast_name = "Java HR"
+    let displayed_pass_shortdescription = Printf.sprintf "HumanReadable Java AST for file %s" Arg.filename
+    let displayed_ast_name = "HR Java"
     let show_ast = true
     let global_at_most_once_apply = false
 
