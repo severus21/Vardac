@@ -109,7 +109,10 @@ module Make(Arg: sig val filename:string end) = struct
     (* jtype has no binders, only case b) *)
     let rec hr_jt_ ?(is_binder=false) ctx place item =
         match item with 
-        | TAtomic _ | TUnknown | TBB _ -> ctx, item
+        | TAtomic _ | TUnknown -> ctx, item
+        | TBB bbterm -> 
+            let ctx, bbterm = hr_bbterm ctx bbterm in
+            ctx, TBB bbterm
         | TVar x -> 
             let ctx, x = 
                 if is_binder then hr_atom_binder ctx x
@@ -128,6 +131,14 @@ module Make(Arg: sig val filename:string end) = struct
             let ctx1, jt_args = List.fold_left_map hr_jt ctx0 jt_args in
             ctx1, ClassOrInterfaceType (jt_cl, jt_args)
     and hr_jt ?(is_binder=false) ctx = map2_place (hr_jt_ ~is_binder:is_binder ctx)
+
+    and hr_bb_ ctx = function  
+    | Text str -> ctx, Text str
+    | Varda e -> 
+        let ctx, e = (hr_expr ctx e) in
+        ctx, Varda e
+    | Template (str, models) -> ctx, Template (str, models)
+    and hr_bbterm ctx = map2_place (fun place bbs -> List.fold_left_map hr_bb_ ctx bbs)
 
     and hr_expr_ ctx place (item, jt) =
         let ctx, jt = hr_jt ctx jt in
@@ -163,7 +174,10 @@ module Make(Arg: sig val filename:string end) = struct
             let ctx, jt = hr_jt ctx jt in 
             let ctx, e = hr_expr ctx e in
             ctx, CastExpr (jt, e)
-        | LiteralExpr _ | ThisExpr | RawExpr _ | BBExpr _ -> ctx, item 
+        | LiteralExpr _ | ThisExpr | RawExpr _ -> ctx, item 
+        | BBExpr bbterm -> 
+            let ctx, bbterm = hr_bbterm ctx bbterm in
+            ctx, BBExpr bbterm
         | LambdaExpr (args, stmt) -> 
             let inner_ctx, args = List.fold_left_map (
                 fun ctx (jt, x) ->
@@ -193,7 +207,10 @@ module Make(Arg: sig val filename:string end) = struct
         | BlockStmt stmts ->
             let ctx, stmts = List.fold_left_map hr_stmt ctx stmts in
             ctx, BlockStmt stmts
-        | BreakStmt | CommentsStmt _ | ContinueStmt | EmptyStmt | RawStmt _ | BBStmt _ -> ctx, item
+        | BreakStmt | CommentsStmt _ | ContinueStmt | EmptyStmt | RawStmt _ | TemplateStmt _ -> ctx, item
+        | BBStmt bbterm -> 
+            let ctx, bbterm = hr_bbterm ctx bbterm in
+            ctx, BBStmt bbterm
         | ExpressionStmt e -> 
             let ctx, e = hr_expr ctx e in
             ctx, ExpressionStmt e
@@ -328,7 +345,10 @@ module Make(Arg: sig val filename:string end) = struct
 
     and hr_str_item_ parent_opt ctx place item =
         match item with
-        | Comments _ | JModule _ | Raw _ | BBItem _ -> ctx, item
+        | Comments _ | JModule _ | Raw _ -> ctx, item
+        | BBItem bbterm -> 
+            let ctx, bbterm = hr_bbterm ctx bbterm in
+            ctx, BBItem bbterm
         | Body body ->
             let ctx, body = hr_body parent_opt ctx body in
             ctx, Body body

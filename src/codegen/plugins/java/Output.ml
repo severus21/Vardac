@@ -2,6 +2,7 @@ open Core
 open Ast
 open Format 
 open Easy_logging
+open Jingoo
 
 let name = "Java"
 let logger = Logging.make_logger ("_1_ compspec.plg."^name) Debug [];;
@@ -115,6 +116,9 @@ and oexprs out: expr list -> unit = pp_list ", " oexpr out
 and obbbody out : blackbox_body -> unit = function 
     | Text t -> fprintf out "%s" t
     | Varda e -> oexpr out e
+    | Template (str, models) -> 
+        let str = Jg_template.from_string str ~models:models in
+        fprintf out "%s" str
 and output_bbterm out : _blackbox_term -> unit = pp_list " " obbbody out
 and obbterm out (bbterm:blackbox_term) = 
     match Config.provenance_lvl () with
@@ -142,6 +146,9 @@ and output_stmt out : _stmt -> unit = function
         fprintf out "%a %a;" ojtype jt output_var x 
     | ReturnStmt e -> fprintf out "return %a;" oexpr e
     | RawStmt str -> pp_print_string out str
+    | TemplateStmt (str, models) ->
+        let str = Jg_template.from_string str ~models:models in
+        pp_print_string out str
     | BBStmt bb -> obbterm out bb
     | TryStmt  (stmt, branches) -> 
         fprintf out "try{@[<hv>%a@]}%a" 

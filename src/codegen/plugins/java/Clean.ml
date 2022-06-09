@@ -125,6 +125,7 @@ and clean_stmt place : _stmt -> _stmt = function
 | NamedExpr (t, x, e_opt) -> NamedExpr (t, x, Option.map cexpr e_opt)
 | ReturnStmt e -> ReturnStmt (cexpr e) 
 | RawStmt s -> RawStmt s 
+| TemplateStmt (str, models) -> TemplateStmt (str, models)
 | BBStmt bb -> BBStmt bb
 | TryStmt  (stmt, branches) -> TryStmt (
     cstmt stmt,

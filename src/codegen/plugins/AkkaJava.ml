@@ -1137,8 +1137,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             )
             | S.RawStmt str -> T.RawStmt str
             | S.TemplateStmt (str, inner_models) -> 
-                    let str = Jg_template.from_string str ~models:(inner_models@TemplatesHelper.default_jingoo_models) in
-                    T.RawStmt str
+                T.TemplateStmt (str, inner_models@TemplatesHelper.default_jingoo_models)
         and fstmt stmt : T.stmt = map_place finish_stmt stmt
 
         let rec finish_state  (state:S.state) : T.str_items list = 
@@ -1422,8 +1421,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 | S.Text str -> T.Text str
                 | S.Varda e ->  T.Varda (fexpr e)
                 | S.Template (str, inner_models) -> 
-                    let str = Jg_template.from_string str ~models:(inner_models@models) in
-                    T.Text str
+                    T.Template(str, inner_models@models)
             ) bbterm.body
         and fbbterm models : S.blackbox_term -> T.blackbox_term = map_place (finish_bbterm (models@TemplatesHelper.default_jingoo_models))
 
@@ -1927,7 +1925,6 @@ module Make (Arg: Plugin.CgArgSig) = struct
         )
         (* Add general headers *)
         |> List.map (function (package_name, file, program) -> 
-            logger#error "_____%s %d" (Fpath.to_string file) (List.length program);
             (package_name, file, headers :: program))
         |> List.iter (function (package_name, file, program) -> Lg.Output.output_program package_name (Fpath.append build_dir file) program)
 

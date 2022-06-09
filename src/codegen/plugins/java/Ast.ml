@@ -65,6 +65,7 @@ and comments = AstUtils._comments
 and blackbox_body = 
 | Text of string
 | Varda of expr 
+| Template of (string * (string * Jingoo.Jg_types.tvalue) list)
 and _blackbox_term = blackbox_body list 
 and blackbox_term = _blackbox_term placed
 
@@ -104,6 +105,7 @@ and _stmt =
     | NamedExpr of jtype * variable * expr option 
     | ReturnStmt of expr
     | RawStmt of string
+    | TemplateStmt of (string * (string * Jingoo.Jg_types.tvalue) list)
     | BBStmt of blackbox_term
     | TryStmt of stmt * (jtype * variable * stmt) list
 and stmt = _stmt placed

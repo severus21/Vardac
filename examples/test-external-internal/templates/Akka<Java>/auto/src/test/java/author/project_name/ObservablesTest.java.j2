@@ -95,9 +95,8 @@ public class ObservablesTest {
                 {{grpc_client}} gRPC_client = new {{grpc_client}}("127.0.0.1", 8090, Adapter.toClassic(testKit.system())); //WARNING ip, port still hardcoded in gRPCServer
 
                 try {
-                    assertEquals(gRPC_client.api_a14(), 1);
-                    assertEquals(gRPC_client.api_b15("KeyA"), 2);
-                    assertEquals(gRPC_client.api_c16("KeyB", 1), 4);
+                    assertEquals(gRPC_client.api_put("KeyB", 1), 4);
+                    assertEquals(gRPC_client.api_get("KeyA"), 2);
                 } catch (Exception e){
                     fail("Unexpected error during test: " + e);
                 } 
