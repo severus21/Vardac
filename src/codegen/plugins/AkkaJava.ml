@@ -1849,6 +1849,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             )
 
         (*****************************************************)
+        let name = "Akka2Java"
         let displayed_pass_shortdescription = "Codegen Language AST"
         let displayed_ast_name = "Language AST"
         let show_ast = true

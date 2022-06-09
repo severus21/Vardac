@@ -12,17 +12,17 @@ let process_target ir (filename:string) =
   filename
   |> ParseTarget.parse_targets
   |> function x-> logger#sinfo "Target file has been parsed"; x
-  |> dump "RawTarget" RawTarget.show_targets
+  |> dump_selected "RawTarget" "RawTarget" RawTarget.show_targets
   |> CookTarget.cook_targets ir  
   |> function x-> logger#sinfo "Targets has been cooked"; x
-  |> dump "Target" Target.show_targets 
+  |> dump_selected "Target" "Target" Target.show_targets 
 
 let to_ast places filename = 
     filename
     |> Parse.read
     |> function ast -> logger#sinfo "Main spec file has been read"; ast 
     |> function ast -> logger#sinfo "AST is built"; ast 
-    |> dump "Ast" Ast.show_program
+    |> dump_selected "Ast" "Ast" Ast.show_program
 
 module Resolve = AstCompilationPass.Make(Resolve)
 
@@ -37,17 +37,17 @@ let to_ir places filename =
     to_ast places filename
     |> Resolve.apply  
     |> PairedAnnotation.apair_program 
-    |> dump "PairedAnnotationAst" Ast.show_program  
+    |> dump_selected "PairedAnnotationAst" "PairedAnnotationAst" Ast.show_program  
     |> function program -> let ir = Cook.apply program in Cookk.gamma, Cookk.gamma_types, Cookk.sealed_envs, ir
 
 let process_place (filename:string) =
     filename
     |> ParsePlace.parse_vplaces
     |> function x-> logger#sinfo "Place file has been parsed";x
-    |> dump "RawPlace" Ast.show_vplaces  
+    |> dump_selected "RawPlace" "RawPlace" Ast.show_vplaces  
     |> CookPlace.cook_vplaces   
     |> function x-> logger#sinfo "PlaceAST has been coocked";x
-    |> dump "Place" IR.show_vplaces  
+    |> dump_selected "Place" "Place" IR.show_vplaces  
 
 let to_impl gamma gamma_types sealed_envs targets filename program = 
     let module PairedImpl = PairedImpl.Make(struct 
@@ -61,8 +61,8 @@ let to_impl gamma gamma_types sealed_envs targets filename program =
     |> function ast -> logger#sinfo "Main impl file has been read"; ast 
     |> CookImpl.cook_program
     |> function ast -> logger#sinfo "Impl AST is built"; ast 
-    |> dump "Impl" Impl.show_program
+    |> dump_selected "Impl" "Impl" Impl.show_program
     |> PairedImpl.paired_program targets program
-    |> function (headers, program) -> headers, (dump "IRI - IR-with-implemented" IRI.show_program program)
+    |> function (headers, program) -> headers, (dump_selected "IRI" "IRI - IR-with-implemented" IRI.show_program program)
 
 let unittests = Test.unittests 

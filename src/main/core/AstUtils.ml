@@ -20,6 +20,16 @@ let dump ?(print=(Config.debug ()))(phase : string) (show : 'term -> string) (t 
     Printf.eprintf "%s:\n\n%s\n\n%!" phase (show t)
   end;
   t
+let dump_selected (name:string) (phase:string) (show:'term -> string) (t:'term) =
+    if Config.debug () then 
+        match Config.debug_selector() with
+        | None -> dump phase show t
+        | Some selected_passes ->
+            if List.mem name selected_passes then
+                dump phase show t
+            else
+                t 
+    else t
 
 (* Define how variable are represented *)
 module type TVariable = sig

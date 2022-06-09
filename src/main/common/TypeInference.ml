@@ -135,6 +135,7 @@ module Make () = struct
         match op with
         | Plus -> of_tflat TStr
     end
+    | binop, _, _ -> failwith (show_binop binop)
 
 
     let typeof_block b (mts:main_type list) = 

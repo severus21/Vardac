@@ -12,6 +12,23 @@ let _debug_cook =
 let debug_cook = function () ->
   !_debug_cook
 
+(* 
+  " " -> nothing
+  * -> all pass
+  pass1:pass2:..*)
+let _debug_selector = ref "*"
+
+(*
+  * -> None
+  " " -> Some []
+  "pass1:pass2" -> Some [pass1; pass2]
+*)
+let debug_selector () =
+    if !_debug_selector = "*" then None
+    else if !_debug_selector = " " then Some []
+    else 
+        Some (String.split_on_char ':' !_debug_selector)
+
 let _author = ref "author"
 
 let author = function () -> !_author

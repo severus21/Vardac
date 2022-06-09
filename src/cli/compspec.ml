@@ -33,6 +33,7 @@ let common_options =
 [
     "--debug", Arg.Set Config._debug, " Enable debugging output";
     "--debug-cook", Arg.Set Config._debug_cook, "Print debug for cook pass";
+    "--debug-selector", Arg.Set_string Config._debug_selector, "Print debug for selected pass e.g. pass name1:pass name2";
     "--places", Arg.Set_string places_file, "Load a YAML file describing the places"; 
     "--targets", Arg.Set_string targets_file, "Load a YAML file describing the targets";
     "--filename", Arg.String (function x-> filenames := x::!filenames), "Spec file to compile";

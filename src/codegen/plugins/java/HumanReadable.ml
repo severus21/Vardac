@@ -288,6 +288,7 @@ module Make(Arg: sig val filename:string end) = struct
                 in
                 ctx
             | Body{ value={v=FieldDeclaration f}} -> 
+                logger#debug "sscan %s" (Atom.to_string f.name);
                 let ctx, name = hr_atom_binder ctx f.name in
                 ctx
             | _-> ctx
@@ -328,6 +329,7 @@ module Make(Arg: sig val filename:string end) = struct
             throws;
         }
     | FieldDeclaration f -> 
+        logger#debug "hrf %s" (Atom.to_string f.name);
         (* Already binded in shallow scan *)
         let ctx, name = hr_atom_no_binder ctx f.name in
         let ctx, type0 = hr_jt ctx f.type0 in
