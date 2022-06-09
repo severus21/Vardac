@@ -1221,6 +1221,19 @@ module Make (Arg: sig val target:Target.target end) = struct
                     []
                 ))
             in
+            let bridgestdual (port: S.port) =
+                e2_e (T.CallExpr (
+                    e2_e (T.AccessExpr (
+                        e2_e (T.AccessExpr (
+                            e2_e T.This,
+                            e2var (fst port.value).name
+                        )),
+                        e2_e (T.RawExpr "expecting_st.dual")
+                    )),
+                    []
+                ))
+            in
+
             let e_bridgeid e = e2_e (T.AccessExpr (e, e2var (Atom.builtin "bridge_id"))) in
             let e_sessionid e = e2_e (T.AccessExpr (e, e2var (Atom.builtin "session_id"))) in
             let e_replyto e = e2_e (T.AccessExpr (e, e2var (Atom.builtin "replyTo"))) in
@@ -1300,7 +1313,8 @@ module Make (Arg: sig val target:Target.target end) = struct
                     e2_e (T.BinopExpr(
                         e2_e (T.BinopExpr (e_bridgeid l_event, AstUtils.StructuralEqual, bridgeid port)),
                         AstUtils.And,
-                        e2_e (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, fvstype (IRMisc.dual st)))
+                        (* TO REMOVE e2_e (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, fvstype (IRMisc.dual st)))*)
+                        e2_e (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, bridgestdual port))
                     )),
                     auto_place (T.BlockStmt [
                         auto_place (T.LetStmt (

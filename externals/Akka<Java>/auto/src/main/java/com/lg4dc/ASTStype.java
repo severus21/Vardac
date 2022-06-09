@@ -138,6 +138,10 @@ public final class ASTStype {
             return "Base";
         }
 
+        public Base dual(){
+            return this;
+        }
+
     }
 
     @JsonTypeName("End")
@@ -147,6 +151,11 @@ public final class ASTStype {
         }
         public String toString(){
             return "End";
+        }
+
+        @Override
+        public Base dual(){
+            return this;
         }
     }
 
@@ -161,6 +170,12 @@ public final class ASTStype {
         }
         public String toString(){
             return "Send<"+this.msg_type.getClass().toString()+", "+this.continuations.toString()+">";
+        }
+
+        @Override
+        public Base dual(){
+            Tuple3<MsgT, List<TimerHeader>, Base> tmp = continuations.get(0);
+            return new Receive(msg_type, tmp._2, tmp._3.dual());
         }
     }
 
@@ -177,6 +192,12 @@ public final class ASTStype {
         public String toString(){
             return "Receive<"+this.msg_type.getClass().toString()+", "+this.continuations.toString()+">";
         }
+        
+        @Override
+        public Base dual(){
+            Tuple3<MsgT, List<TimerHeader>, Base> tmp = continuations.get(0);
+            return new Send(msg_type, tmp._2, tmp._3.dual());
+        }
     }
 
     @JsonTypeName("Branch")
@@ -189,6 +210,15 @@ public final class ASTStype {
         public String toString(){
             return "Branch<"+this.continuations.toString()+">";
         }
+
+        @Override
+        public Base dual(){
+            return new Select(
+                continuations.stream().map(continuation ->
+                    new Tuple3<MsgT, List<TimerHeader>, Base>(continuation._1, continuation._2, continuation._3.dual())
+                ).collect(Collectors.toList())
+            );
+        }
     }
 
     @JsonTypeName("Select")
@@ -200,6 +230,15 @@ public final class ASTStype {
         }
         public String toString(){
             return "Select<"+this.continuations.toString()+">";
+        }
+
+        @Override
+        public Base dual(){
+            return new Branch(
+                continuations.stream().map(continuation ->
+                    new Tuple3<MsgT, List<TimerHeader>, Base>(continuation._1, continuation._2, continuation._3.dual())
+                ).collect(Collectors.toList())
+            );
         }
     }
     // TODO recursion
