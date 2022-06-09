@@ -12,8 +12,8 @@ type ctx = {
     local: StrSet.t;
 }
 
-(* exisiting Atom -> new Atom*)
-let renaming = Hashtbl.create 256
+(* exisiting atom.id -> new Atom*)
+let renaming : (int, Atom.atom) Hashtbl.t = Hashtbl.create 256
 let filename2ctx = Hashtbl.create 16
 let get_ctx filename = 
     let fresh_ctx () : ctx = {
@@ -40,7 +40,7 @@ module Make(Arg: sig val filename:string end) = struct
 
     let hr_atom_no_binder ctx x = 
         if Atom.is_builtin x then ctx, x
-        else
+        else 
             let tokens = String.split_on_char '.' (Atom.to_string x) in
 
             (* if x = author.project_name.XXX.YY *)
@@ -66,45 +66,53 @@ module Make(Arg: sig val filename:string end) = struct
                 if cl_filename = cls || external_filename = (Config.project_name ()) then ctx, x
                 else
                     let external_ctx = get_ctx external_filename in
-                    match Hashtbl.find_opt renaming (Atom.craft cls_id cls_hint cls_hint false) with
+                    let z = (Atom.craft cls_id cls_hint cls_hint false) in
+                    match Hashtbl.find_opt renaming (Atom.identity z) with
                     | None -> 
                         (* Not in stage order therefore we can not rename *)
-                        Hashtbl.add renaming x x;
+                        logger#debug "[external %s] Not in stage order (HR) %s %s" external_filename (Atom.show z) (Atom.to_string x);
+                        Hashtbl.add renaming (Atom.identity z) z;
                         let external_ctx = {
-                            local = StrSet.add (Atom.hint x) external_ctx.local;
+                            local = StrSet.add (Atom.hint z) external_ctx.local;
                         } in
                         store_ctx external_filename external_ctx;
                         ctx, x
-                    | Some cls -> ctx, Atom.builtin (package^"."^(Atom.to_string cls))
+                    | Some cls -> 
+                        logger#debug "In stage order (HR) %s %s" (Atom.to_string x) (Atom.to_string cls);
+                        ctx, Atom.builtin (package^"."^(Atom.to_string cls))
             else
                 if cl_filename = Atom.to_string x then ctx, x
                 else
-                    match Hashtbl.find_opt renaming x with
+                    match Hashtbl.find_opt renaming (Atom.identity x) with
                     | None -> ctx, x
                         (* debug - can not be used in prod since GRPC code is defined outisde the reach of Java plugin 
                         raise (Error.PlacedDeadbranchError (fplace, Printf.sprintf "[%s] [%s] not found in renaming" cl_filename (Atom.to_string x))) *)
                     | Some y -> 
                         logger#error "set %s -> %s" (Atom.to_string x) (Atom.to_string y);
                         ctx, y 
-
     let hr_atom_binder ctx x = 
         if Atom.is_builtin x then ctx, x
         else if Atom.hint x = "main" then( (* reserved *)
-            Hashtbl.add renaming x x;
+            Hashtbl.add renaming (Atom.identity x) x;
             ctx, x
-        )else
-            match StrSet.find_opt (Atom.hint x) ctx.local with
-            | None -> 
-                let y = Atom.builtin (Atom.hint x) in 
-                logger#error "let %s %s" (Atom.to_string x) (Atom.to_string y);
-                Hashtbl.add renaming x y;
-                let ctx = {
-                    local = StrSet.add (Atom.hint x) ctx.local;
-                } in
-                ctx, y 
-            | Some _ -> 
-                Hashtbl.add renaming x x;
-                ctx, x 
+        )else 
+            match Hashtbl.find_opt renaming (Atom.identity x) with
+            | Some y -> (*already binded e.g. namedexpr seen during shallow scan *)
+                ctx, y
+            | None -> begin
+                match StrSet.find_opt (Atom.hint x) ctx.local with
+                | None -> 
+                    let y = Atom.builtin (Atom.hint x) in 
+                    logger#error "[%s] let %s %s" cl_filename (Atom.to_string x) (Atom.to_string y);
+                    Hashtbl.add renaming (Atom.identity x) y;
+                    let ctx = {
+                        local = StrSet.add (Atom.hint x) ctx.local;
+                    } in
+                    ctx, y 
+                | Some _ -> 
+                    Hashtbl.add renaming (Atom.identity x) x;
+                    ctx, x 
+            end
 
     (* jtype has no binders, only case b) *)
     let rec hr_jt_ ?(is_binder=false) ctx place item =
@@ -291,6 +299,9 @@ module Make(Arg: sig val filename:string end) = struct
                 logger#debug "sscan %s" (Atom.to_string f.name);
                 let ctx, name = hr_atom_binder ctx f.name in
                 ctx
+            | Stmt{ value=NamedExpr (_, name, _)} -> (* attribute definition *)
+                let ctx, name = hr_atom_binder ctx name in
+                ctx
             | _-> ctx
         ))) ctx cl.body in
 
@@ -362,6 +373,12 @@ module Make(Arg: sig val filename:string end) = struct
             ctx, Stmt stmt
     and hr_str_item parent_opt ctx = map2_place (hr_str_item_ parent_opt ctx)
     let hr_program program = 
+        (* DEBUG
+        let tmp = Hashtbl.fold (fun k v acc -> 
+            Printf.sprintf "%s- %d: %s \n" acc k (Atom.to_string v)
+        ) renaming "" in
+        logger#debug "renaming: \n%s\n\n" tmp;*)
+
         (* Can not be renamed since it is tightly linked with proto buf generated classes *)
         let re_service_impl = Str.regexp {|[A-Za-z0-9_]*ServiceImpl[0-9]+|} in
         if (*cl_filename = "MaingRPCServer" || cl_filename = "MaingRPCClient" ||*) Str.string_match re_service_impl cl_filename 0 then
