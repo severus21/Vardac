@@ -1,0 +1,6 @@
+
+target akka;
+
+impl component Dummy {}
+impl component Mock {}
+impl component TopLevel {}
