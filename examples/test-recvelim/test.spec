@@ -1,6 +1,7 @@
 event value of int;
 
 protocol p = !value!value!value.;
+(* TODO !value?value!value?value?;*)
 
 component Mock {
     outport p_out :: bridge<Mock, Dummy, inline p>;
@@ -9,6 +10,10 @@ component Mock {
         debug("> Start Mock");
         bind(this.p_out, _b);
 
+        this.run(d);
+    }
+
+    result<void, error> run(activation_ref<Dummy> d){
         session<p> s0 = initiate_session_with(this.p_out, d);
 
         debug("> Send 1");
@@ -31,7 +36,7 @@ component Dummy {
 
     inport p_in :: bridge<Mock, Dummy, dual p> expecting ?value?value?value. = this.callback;
 
-    void callback(?value?value. s, int x){
+    result<void, error> callback(value x, ?value?value. s){
         (*assert(x._0_ == 1);*)
         debug("> Receive 1");
 
@@ -53,7 +58,7 @@ component Dummy {
         *)
         value v_a = first(resa); 
         value v_b = first(resb); 
-        int c = x + v_a._0_ + v_b._0_;
+        int c = x._0_ + v_a._0_ + v_b._0_;
     }
 
 }
