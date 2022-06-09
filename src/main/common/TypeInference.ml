@@ -115,7 +115,7 @@ module Make () = struct
     | UnpackOrPropagateResult, CType{value=TResult (ok,err)} -> ok
     (* TODO what if TForall TForall ... TForall TResult .. ??*)
     | UnpackOrPropagateResult, CType{value=TForall (x, {value=CType {value=TResult (ok, err)};})} -> ok 
-    | UnpackOrPropagateResult, t -> Error.perror mt_e.place "%s" (show__main_type t)
+    | UnpackOrPropagateResult, t -> Error.perror mt_e.place "this expression is not a result, it can not be unpacked or propagated %s" (show__main_type t)
 
     let typeof_binop op mt_e1 mt_e2 = 
         let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in

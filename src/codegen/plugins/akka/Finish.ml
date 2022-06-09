@@ -1178,8 +1178,8 @@ module Make (Arg: sig val target:Target.target end) = struct
                 (
                     match (IRMisc.unfold_st_star st).value with
                     | S.STBranch _ | S.STRecv _ -> () 
-                    | st -> 
-                        logger#error "%s" (S.show__session_type st);
+                    | st' -> 
+                        logger#error "%s" (S.show_session_type st);
                         Core.Error.perror (fst p.value).expecting_st.place "%s plugin: expecting type can only start by the reception of a message or of a label" plg_name
                 );
 

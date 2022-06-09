@@ -662,7 +662,10 @@ module Make () : Sig = struct
                 else []
             ) ports)
         in
-        let ports = ports @ List.flatten (List.map (generate_intermediate_ports ports) receive_entries) in
+
+        (* generated ports must be add before user defined ports,
+           since they are children of user-defined ports *)
+        let ports = (List.flatten (List.map (generate_intermediate_ports ports) receive_entries)) @ ports in
 
         (* Update main ports *)
         let ports = List.map (function (port:port) -> 

@@ -114,7 +114,8 @@ module Make () = struct
 
         let rec stype_rewriter st0 : _session_type =
             let rec _aux_stype_rewriter already_seen place : _session_type -> _session_type = function
-                | STDual st -> stype_rewriter (dual st).value
+                | STDual st -> 
+                    (dual (auto_fplace (stype_rewriter st.value))).value
                 | STInline x -> begin 
                     try
                         let mt = Hashtbl.find typedefs x in 

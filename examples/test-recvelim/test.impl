@@ -3,4 +3,6 @@ target akka;
 
 impl component Dummy {}
 impl component Mock {}
+impl component A {}
+impl component B {}
 impl component TopLevel {}
