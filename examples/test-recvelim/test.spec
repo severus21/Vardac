@@ -64,12 +64,12 @@ component Dummy {
 }
 
 (*** Test 2 ***)
-protocol ptest2 = !int?string!int?string.;
+protocol ptest = !int?string!int?string.;
 
 component A {
-    outport p_out :: bridge<A, B, inline ptest2>;
+    outport p_out :: bridge<A, B, inline ptest>;
 
-    onstartup (bridge<A, B, inline ptest2> _b, activation_ref<B> d){
+    onstartup (bridge<A, B, inline ptest> _b, activation_ref<B> d){
         debug("Test2> Start A");
         bind(this.p_out, _b);
 
@@ -96,12 +96,12 @@ component A {
 (* TODO test non determinism *)
 
 component B {
-    onstartup (bridge<A, B, inline ptest2> _b){
+    onstartup (bridge<A, B, inline ptest> _b){
         debug("Test2> Start B");
         bind(this.p_in, _b);
     }
 
-    inport p_in :: bridge<A, B, inline ptest2> expecting (dual ptest2) = this.callback;
+    inport p_in :: bridge<A, B, inline ptest> expecting (dual ptest) = this.callback;
 
     result<void, error> callback(int x, !string?int!string. s){
         debug("Test2> Receive int 1");
@@ -128,7 +128,7 @@ component TopLevel {
         activation_ref<Dummy> a = spawn Dummy(b0);
         activation_ref<Mock> b = spawn Mock(b0, a);  
 
-        bridge<A, B, inline ptest2> b2 = bridge(p);
+        bridge<A, B, inline ptest> b2 = bridge(ptest);
         activation_ref<B> a = spawn B(b2);
         activation_ref<A> b = spawn A(b2, a);  
         print(">> Ending toplevel");
