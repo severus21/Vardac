@@ -263,6 +263,7 @@ and eport = (_eport * main_type) placed
 and _outport = {
     name: component_variable;
     protocol: main_type;
+    _children: component_variable list; (* ports that are binded to the same channel as current port*)
 }
 and outport = (_outport * main_type) placed
 
@@ -1641,6 +1642,7 @@ rewrite_type_aconstraint
         and _rename_outport renaming place ((p, mt_p): _outport * main_type) = ({
             name = renaming p.name;
             protocol = rename_main_type renaming p.protocol;
+            _children = List.map renaming p._children;
         }, rename_main_type renaming mt_p)
         and rename_outport renaming = map_place (_rename_outport (protect_renaming renaming))
 

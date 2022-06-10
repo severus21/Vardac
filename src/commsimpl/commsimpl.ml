@@ -51,9 +51,9 @@ let precondition program = program
 
 let postcondition program = 
     (* Ensure that all "bind" call have been specialized according to the bridge kind *)
-    collect_expr_program Atom.Set.empty bind_selector (fun _ -> 
+    ignore (collect_expr_program Atom.Set.empty bind_selector (fun _ -> 
         raise (Error.DeadbranchError "bind remains after commsimpl")
-    );
+    ) program);
     program
 
 let apply_program = rewrite_program

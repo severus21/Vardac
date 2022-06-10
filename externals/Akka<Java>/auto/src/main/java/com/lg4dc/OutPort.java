@@ -6,8 +6,11 @@ import com.bmartin.*;
 
 // FIXME a port should be serializable
 public final class OutPort<P extends Protocol> extends AbstractPort<P> {
-    public OutPort (){
+    public OutPort (List<AbstractPort> children){
         super();
+
+        assert( children != null);
+        this.children = children;
     }
 
     @Override

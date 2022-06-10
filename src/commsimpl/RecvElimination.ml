@@ -620,6 +620,7 @@ module Make () : Sig = struct
         let ports = List.filter_map (function {value=Inport p } -> Some p | _ -> None) body in
         let body_wo_ports = List.filter (function {value=Inport _ } -> false | _ -> true) body in
         let outports = List.filter_map (function {value=Outport p} -> Some p | _ -> None) body in
+        let body_wo_ports_outports = List.filter (function {value=Outport _ } -> false | _ -> true) body_wo_ports in
 
         (* main_port_name -> list of newly created children *)
         let children = Hashtbl.create 32 in
@@ -691,8 +692,22 @@ module Make () : Sig = struct
                 }, snd port.value)
             }
         ) ports in
+        let outports = List.map (function (port:outport) -> 
+            { port with 
+                value = ({ (fst port.value) with
+                    _children = 
+                        (match Hashtbl.find_opt children (fst port.value).name with
+                            | None -> []
+                            | Some l -> l
+                        ) @ (fst port.value)._children
+                }, snd port.value)
+            }
+        ) outports in
 
-        let body = (List.map (function port -> {value=Inport port; place = port.place@fplace}) ports) @ body_wo_ports in
+        let body = 
+            (List.map (function port -> {value=Inport port; place = port.place@fplace}) ports) @
+            (List.map (function port -> {value=Outport port; place = port.place@fplace}) outports) @
+            body_wo_ports_outports in
 
         (** get_intermediate_port (session, st) 
             main_port_id, st -> this.intermediate_port_name    

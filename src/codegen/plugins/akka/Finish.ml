@@ -1076,7 +1076,13 @@ module Make (Arg: sig val target:Target.target end) = struct
                         Some (
                             e2_e (T.NewExpr(
                                 e2_e (T.RawExpr "OutPort"),
-                                []
+                                [
+                                    fexpr (S_A2.e2_e (S.BlockExpr(AstUtils.List, 
+                                        List.map (function name -> 
+                                            S_A2.e2_e (S.AccessExpr( S_A2.e2_e S.This, S_A2.e2var name))
+                                        ) _p._children
+                                    )));
+                                ]
                             ))    
                         )
                     ))]

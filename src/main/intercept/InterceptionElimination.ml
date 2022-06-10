@@ -853,6 +853,7 @@ module Make (Args: TArgs) = struct
         let outport = auto_fplace (Outport (auto_fplace ({
             name = outport_name;
             protocol = mtype_of_st (dual (auto_fplace st_stage)).value;
+            _children = [];
         }, auto_fplace EmptyMainType))) in
 
         let inport_name = Atom.fresh (Printf.sprintf "%s_inport__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i) in

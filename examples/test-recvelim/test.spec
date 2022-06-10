@@ -117,7 +117,7 @@ component B {
 
         int v_a = first(resa); 
         int c = x + v_a;
-        debug("Test2> Result "+int_to_string(c)); (* sould be 7 *)
+        debug("Test2> Result "+int_to_string(c)); (* sould be 3 *)
     }
 }
 

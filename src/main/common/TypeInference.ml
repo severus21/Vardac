@@ -775,6 +775,7 @@ module Make () = struct
     and _tannot_outport parent_opt place ((p, mt_p):_outport*main_type) = {
         name = p.name;
         protocol = p.protocol;
+        _children = p._children;
     } 
     and tannot_outport parent_opt p = 
         let fplace = (Error.forge_place "TypeInference.tannot_outport" 0 0) in

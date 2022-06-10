@@ -583,7 +583,7 @@ and pe_eport env: eport -> env * eport = map2_place (peval_eport env)
 
 and peval_outport env place ((outport, mt_outport):_outport*main_type) = 
     env, (
-        {name=outport.name; protocol= snd (pe_mtype env outport.protocol)}, 
+        { outport with protocol= snd (pe_mtype env outport.protocol)}, 
         snd (pe_mtype env mt_outport)
     )
 and pe_outport env: outport -> env * outport = map2_place (peval_outport env)
