@@ -334,12 +334,12 @@ let rec collect_expr_expr_ parent_opt (already_binded:Atom.Set.t) selector colle
     | BridgeCall _ | BoxCExpr _ | EmptyExpr | LitExpr _ | OptionExpr None | ResultExpr (None, None) | RawExpr _ | This -> already_binded, collected_elts0, []
     | AccessExpr (e1, {value=VarExpr _, _}) -> (* TODO AccessExpr : expr * Atom.t *)
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e1 in
-        already_binded, collected_elts1, fvars1
+        already_binded, collected_elts0@collected_elts1, fvars1
 
     | AccessExpr (e1, e2) | BinopExpr (e1, _, e2) | ResultExpr (Some e1, Some e2) ->
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e1 in
         let _, collected_elts2, fvars2 = collect_expr_expr parent_opt already_binded selector collector e2 in
-        already_binded, collected_elts1@collected_elts2, fvars1@fvars2
+        already_binded, collected_elts0@collected_elts1@collected_elts2, fvars1@fvars2
     | ActivationAccessExpr (_, e, _) | UnopExpr (_, e) | OptionExpr (Some e) | ResultExpr (Some e, None) | ResultExpr (None, Some e)->
         let _, collected_elts, fvars = collect_expr_expr parent_opt already_binded selector collector e in
         already_binded, collected_elts0@collected_elts, fvars
@@ -379,12 +379,12 @@ let rec collect_expr_expr_ parent_opt (already_binded:Atom.Set.t) selector colle
             | None -> Atom.Set.empty, [], []
             | Some e2 -> collect_expr_expr parent_opt already_binded selector collector e2 
         in
-        already_binded, collected_elts1@collected_elts2, fvars1@fvars2
+        already_binded, collected_elts0@collected_elts1@collected_elts2, fvars1@fvars2
     | TernaryExpr (e1, e2, e3) ->
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e1 in
         let _, collected_elts2, fvars2 = collect_expr_expr parent_opt already_binded selector collector e2 in
         let _, collected_elts3, fvars3 = collect_expr_expr parent_opt already_binded selector collector e3 in
-        already_binded, collected_elts1@collected_elts2@collected_elts3, fvars1@fvars2@fvars3
+        already_binded, collected_elts0@collected_elts1@collected_elts2@collected_elts3, fvars1@fvars2@fvars3
 and collect_expr_expr (parent_opt:Atom.atom option) (already_binded:Atom.Set.t) (selector:_expr->bool) (collector:Atom.atom option -> Atom.Set.t -> expr -> 'a list) (expr:expr) = 
     map0_place (collect_expr_expr_ parent_opt already_binded selector collector) expr
 and free_vars_expr already_binded e = 
@@ -670,16 +670,18 @@ and collect_type_mtype_ parent_opt already_binded selector collector place mt =
     (* Collection *)
     let collected_elts0 = if selector mt then collector parent_opt already_binded {place; value=mt} else [] in 
 
-    match mt with
-    | EmptyMainType -> already_binded, collected_elts0, []
-    | CType ct -> 
-        collect_type_ctype parent_opt already_binded selector collector ct
-    | SType st -> collect_type_stype parent_opt already_binded selector collector st
-    | CompType cmt -> collect_type_cmtype parent_opt already_binded selector collector cmt
-    | ConstrainedType (mt,ac) -> 
-        let _, collected_elts1, ftvars1 = collect_type_mtype parent_opt already_binded selector collector mt in
-        let _, collected_elts2, ftvars2 = collect_type_aconstraint parent_opt already_binded selector collector ac in
-        already_binded, collected_elts0@collected_elts1@collected_elts2, ftvars1@ftvars2
+    let _, collected_elts1, ftvars1 = match mt with
+        | EmptyMainType -> already_binded, collected_elts0, []
+        | CType ct -> 
+            collect_type_ctype parent_opt already_binded selector collector ct
+        | SType st -> collect_type_stype parent_opt already_binded selector collector st
+        | CompType cmt -> collect_type_cmtype parent_opt already_binded selector collector cmt
+        | ConstrainedType (mt,ac) -> 
+            let _, collected_elts1, ftvars1 = collect_type_mtype parent_opt already_binded selector collector mt in
+            let _, collected_elts2, ftvars2 = collect_type_aconstraint parent_opt already_binded selector collector ac in
+            already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
+    in
+    already_binded, collected_elts0@collected_elts1, ftvars1
 
 and collect_type_mtype parent_opt already_binded selector collector mt =       
     map0_place (collect_type_mtype_ parent_opt already_binded selector collector) mt 
