@@ -111,7 +111,9 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
     (* Before rewriting *)
     let module TopologyPrinter = ((Common.Topology.Make((struct let component2target = (Codegen.make_component2target ()) end))):Common.Topology.Sig) in (* Warning make_component2target can not be called before spliting until split.ml was improved*)
-    TopologyPrinter.generate_static_logical_topology build_dir ir1;
+    TopologyPrinter.generate_static_logical_topology build_dir "ir1" ir1;
+    TopologyPrinter.generate_static_logical_topology build_dir "ir2" ir2;
+    TopologyPrinter.generate_static_logical_topology build_dir "ir3" ir3;
     ()
 
 let process_stats places_file targets_file impl_filename filename =

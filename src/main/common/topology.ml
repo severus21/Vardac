@@ -60,7 +60,7 @@ module type Params = sig
 end
 
 module type Sig = sig
-    val generate_static_logical_topology : Fpath.t -> IR.program -> unit 
+    val generate_static_logical_topology : Fpath.t -> string -> IR.program -> unit 
 end
 
 
@@ -107,14 +107,8 @@ module Make (Args:Params) : Sig = struct
     module DotExport = Graphviz.Dot(GPrinter)
     let g = G.create ()
 
-    let rec 
-    generate_slt_ctype { AstUtils.place ; AstUtils.value}= match value with
-    | TActivationRef _ | TVar _ | TVPlace _ -> () 
-    | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2)-> generate_slt_mtype mt1; generate_slt_mtype mt2
-    | TFlatType _ -> ()
-    | TList mt | TOption mt | TSet mt -> generate_slt_mtype mt
-    | TTuple mts -> List.iter generate_slt_mtype mts
-    | TBridge {in_type; out_type; protocol} ->
+    let generate_possible_edges_from_tbridge {in_type; out_type; protocol} = 
+        failwith (show_main_type in_type);
         let rec explore error_header { AstUtils.place ; AstUtils.value} =
             match value with
             | CType {value=TVar x} -> [x] 
@@ -132,61 +126,30 @@ module Make (Args:Params) : Sig = struct
             )
         ) lefts
 
-    
-    and generate_slt_mtype { AstUtils.place ; AstUtils.value}= match value with
-    | CType ct -> generate_slt_ctype ct 
-    | SType _ -> ()
-    | CompType _ -> ()
-    | ConstrainedType (mt,_) -> generate_slt_mtype mt
+    let generate_static_logical_topology export_dir name program =
+        let components = 
+        collect_term_program
+            true
+            (function | Component {value = ComponentStructure _ } -> true | _ -> false)
+            (fun parent place (Component { value = ComponentStructure cstruct}) -> [cstruct])
+            program
+        in
 
-    (* TODO bridge could hidden inside lambda body therefore we need to unfold expr *)
+        (* Create component nodes *)
+        List.iter (function (cstruct:component_structure) -> 
+            let v = G.V.create cstruct.name in 
+                G.add_vertex g v) components;
 
-    and generate_slt_stmt { AstUtils.place ; AstUtils.value}= match value with
-    | LetStmt (mt,_,_) -> generate_slt_mtype mt
-    | ForStmt (_,_,_,stmt) -> generate_slt_stmt stmt
-    | IfStmt (_, stmt, None) -> generate_slt_stmt stmt
-    | IfStmt (_, stmt1, Some stmt2) -> generate_slt_stmt stmt1; generate_slt_stmt stmt2
-    | MatchStmt (_, branches) -> List.iter (function (_,stmt) -> generate_slt_stmt stmt) branches
-    | BlockStmt stmts -> List.iter generate_slt_stmt stmts
-    | GhostStmt stmt -> generate_slt_stmt stmt
-    | _ -> ()
+        let _,tbridges,_ = collect_type_program Atom.Set.empty 
+            (function | CType {value=TBridge _} -> true | _ -> false)
+            (fun parent_opt env {value=CType {value=TBridge tbridge}} -> [tbridge])
+            program
+        in
 
-    and generate_slt_method ({ AstUtils.place ; AstUtils.value} : method0) = match value with
-    | {ret_type; body} ->
-        generate_slt_mtype ret_type;
-        List.iter generate_slt_stmt body
+        (* Create possible edges from tbridge *)
+        List.iter generate_possible_edges_from_tbridge tbridges;
 
-    and generate_slt_state { AstUtils.place ; AstUtils.value}= match value with
-    | {type0;body=None} ->
-        generate_slt_mtype type0
-    | {type0;body=Some _} -> generate_slt_mtype type0
-    and generate_slt_citem { AstUtils.place ; AstUtils.value}= match value with
-    |Inport p -> () 
-    | Method m -> generate_slt_method m 
-    | State s -> generate_slt_state s
-    | Term t -> generate_slt_term t
-    | _ -> () (*Nothing todo *)
-    and generate_slt_cdcl { AstUtils.place ; AstUtils.value}= match value with
-    | ComponentStructure {name; body; _} ->
-        let v = G.V.create name in 
-            G.add_vertex g v; 
-    | _ -> failwith "TODO topology"
-
-    and generate_slt_term { AstUtils.place ; AstUtils.value}= match value with
-    (* Search for Vertices *)
-    | Component cdcl ->
-        generate_slt_cdcl cdcl
-    (* Search for Edges *)
-    | Stmt stmt -> generate_slt_stmt stmt
-
-    | Typealias (x, (Some mt)) -> 
-        generate_slt_mtype mt
-        (* N.B. Typedef not not have any body before pairing with impl *)
-    | _ -> () (* nothing todo *)
-    let generate_static_logical_topology export_dir program =
-        List.iter generate_slt_term program;
-
-        let export_path = Fpath.to_string (Fpath.add_seg export_dir "sltopology.dot") in
+        let export_path = Fpath.to_string (Fpath.add_seg export_dir ("sltopology_"^name^".dot")) in
         let out = open_out export_path in 
         DotExport.output_graph out g; 
         close_out out 

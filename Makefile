@@ -125,7 +125,9 @@ vagrant:
 
 #### Vizualisation tools
 render:
-	dot -Tpng compiler-build/sltopology.dot -o compiler-build/sltopology.png
+	dot -Tpng compiler-build/sltopology_ir1.dot -o compiler-build/sltopology_ir1.png
+	dot -Tpng compiler-build/sltopology_ir2.dot -o compiler-build/sltopology_ir2.png
+	dot -Tpng compiler-build/sltopology_ir3.dot -o compiler-build/sltopology_ir3.png
 
 # eog - gnome default
 sltopology: render
