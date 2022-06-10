@@ -1302,7 +1302,7 @@ module Make(Arg:ArgSig) = struct
     let global_at_most_once_apply = false
 
 
-    let show_ast = Config.debug_cook ()
+    let show_ast = true 
     let precondition program = program
     let postcondition program = program
     let apply_program = cook_program
