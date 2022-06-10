@@ -3,7 +3,7 @@ event value of int;
 (*** Test 1 ***)
 protocol p = !value!value!value.;
 component Mock {
-    outport p_out :: bridge<Mock, Dummy, inline p>;
+    outport p_out expecting (inline p);
 
     onstartup (bridge<Mock, Dummy, inline p> _b, activation_ref<Dummy> d){
         debug("Test1> Start Mock");
@@ -67,7 +67,7 @@ component Dummy {
 protocol ptest = !int?string!int?string.;
 
 component A {
-    outport p_out :: bridge<A, B, inline ptest>;
+    outport p_out expecting (inline ptest);
 
     onstartup (bridge<A, B, inline ptest> _b, activation_ref<B> d){
         debug("Test2> Start A");
@@ -109,10 +109,10 @@ component B {
         ?int!string. s1 = fire(s, "x")?;
         debug("Test2> Send string 1");
 
-        tuple<int, !string?int!string.> resa = receive(s1);
+        tuple<int, !string.> resa = receive(s1);
         debug("Test2> Receive int 2");
 
-        ?int!string. s1 = fire(second(resa), "y")?;
+        . s1 = fire(second(resa), "y")?;
         debug("Test2> Send string 2");
 
         int v_a = first(resa); 

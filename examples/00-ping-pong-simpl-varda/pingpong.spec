@@ -4,7 +4,7 @@ protocol p_pingpong = !ping?pong.;
 bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
 
 component Ping {
-    outport p_out :: bridge<Ping, Pong, inline p_pingpong>;
+    outport p_out expecting (inline p_pingpong);
     inport p_in :: bridge<Ping, Pong, inline p_pingpong> expecting ?pong. = this.callback;
     
     int stop_counter = 0;

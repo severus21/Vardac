@@ -23,7 +23,7 @@ let speciliaze_bind =
         let name = 
             match (snd port.value).value with
             | CType {value=TInport _} -> "bind_in"
-            | CType {value=TOutport} -> "bind_out"
+            | CType {value=TOutport _} -> "bind_out"
         in
 
         CallExpr (

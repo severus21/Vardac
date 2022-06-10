@@ -131,7 +131,8 @@ end
     env, TInport ((snd <-> pe_mtype env) mt)
 | TEport mt ->
     env, TEport ((snd <-> pe_mtype env) mt)
-| TOutport -> env, TOutport 
+| TOutport mt ->  
+    env, TOutport ((snd <-> pe_mtype env) mt)
 and pe_ctype env: composed_type -> env * composed_type = map2_place (peval_composed_type env)
 
 
@@ -582,7 +583,7 @@ and pe_eport env: eport -> env * eport = map2_place (peval_eport env)
 
 and peval_outport env place ((outport, mt_outport):_outport*main_type) = 
     env, (
-        {name=outport.name}, 
+        {name=outport.name; protocol= snd (pe_mtype env outport.protocol)}, 
         snd (pe_mtype env mt_outport)
     )
 and pe_outport env: outport -> env * outport = map2_place (peval_outport env)

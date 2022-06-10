@@ -337,7 +337,7 @@ let t___get_intermediate_port () =
 let t_bind () =
     mtype_of_ct (TArrow (
         mtype_of_ct (TUnion (
-            mtype_of_ct TOutport,
+            mtype_of_ct (TOutport (mtype_of_st STWildcard)),
             mtype_of_ct (TInport (mtype_of_st STWildcard))
         )),
         mtype_of_ct (TArrow (

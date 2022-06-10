@@ -194,8 +194,9 @@ module Make () = struct
         let _p = fst p.value in
         mtype_of_ct (TEport _p.expecting_mt)
 
-    let typeof_outport p = 
-        mtype_of_ct TOutport
+    let typeof_outport (p:outport) = 
+        let _p = fst p.value in
+        mtype_of_ct (TOutport _p.protocol)
 
     let typeof_state s = s.value.type0
 
@@ -328,7 +329,7 @@ module Make () = struct
         protocol = tannot_main_type parent_opt b.protocol;
     }
     | TInport mt -> TInport (tannot_main_type parent_opt mt) 
-    | TOutport -> TOutport
+    | TOutport mt -> TOutport (tannot_main_type parent_opt mt)
     and tannot_composed_type parent_opt = map_place (_tannot_composed_type parent_opt)
 
     and _tannot_component_type parent_opt place = function
@@ -773,6 +774,7 @@ module Make () = struct
 
     and _tannot_outport parent_opt place ((p, mt_p):_outport*main_type) = {
         name = p.name;
+        protocol = p.protocol;
     } 
     and tannot_outport parent_opt p = 
         let fplace = (Error.forge_place "TypeInference.tannot_outport" 0 0) in
@@ -780,7 +782,7 @@ module Make () = struct
         let ctypeof x = auto_fplace (CType(auto_fplace x)) in
 
         let _p = _tannot_outport parent_opt p.place p.value in
-        let mt_outport = ctypeof TOutport in
+        let mt_outport = ctypeof (TOutport _p.protocol) in
 
         {
             place = p.place;

@@ -558,8 +558,8 @@ any_eport_:
     { t }
 
 any_outport_:
-| OUTPORT name=LID DOUBLE_COLON chan_type=any_type
-    { {name=name; input_type=chan_type} }
+| OUTPORT name=LID EXPECTING t=any_type
+    { {name=name; protocol=t} }
 %inline any_outport:
   t = placed(any_outport_)
     { t }

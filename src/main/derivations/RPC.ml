@@ -384,9 +384,10 @@ module Make(Args:Args) : Sig = struct
             let rpc_outport = auto_fplace (Outport (auto_fplace (
                 { 
                     name = Hashtbl.find rpc_outports_translator caller_name;
+                    protocol = mt_rpc_protocol;
                     (*input = auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge);*)
                 },    
-                mtype_of_ct (TOutport (*mt_rpc_protocol*))
+                mtype_of_ct (TOutport mt_rpc_protocol)
             ))) in
             [
                 {cstruct with 

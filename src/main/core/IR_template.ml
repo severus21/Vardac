@@ -1205,8 +1205,8 @@ module Make (Params : IRParams) = struct
             }, mt)
         and rewrite_type_eport selector rewriter = map_place (rewrite_type_eport_ selector rewriter) 
 
-        and rewrite_type_outport_  selector rewriter place (({name}, mt): _outport * main_type) =
-            ({name}, mt)
+        and rewrite_type_outport_  selector rewriter place ((p, mt): _outport * main_type) =
+            ({name = p.name; protocol = rewrite_type_mtype selector rewriter p.protocol}, mt)
             
         and rewrite_type_outport selector rewriter = map_place (rewrite_type_outport_ selector rewriter) 
 
@@ -1331,8 +1331,10 @@ module Make (Params : IRParams) = struct
             }, mt)
         and rewrite_expr_eport selector rewriter = map_place (rewrite_expr_eport_ selector rewriter) 
 
-        and rewrite_expr_outport_  selector rewriter place (({name}, mt): _outport * main_type) =
-            ({name}, mt)
+        and rewrite_expr_outport_  selector rewriter place ((p, mt): _outport * main_type) =
+            ({name=p.name;
+            protocol = p.protocol;
+             (*protocol = rewrite_expr_mtype selector rewriter p.protocol*)}, mt)
             
         and rewrite_expr_outport selector rewriter = map_place (rewrite_expr_outport_ selector rewriter) 
 

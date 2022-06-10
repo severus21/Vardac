@@ -221,7 +221,9 @@ module Make (Arg: sig val target:Target.target end) = struct
         | S.TUnion _-> T.TRaw "Object" (* TODO maybe a better solution*)
         | S.TForall _ -> T.TUnknown (* TODO maybe encode it as class <T> ... { <T> } *)
         | S.TPolyVar _ -> T.TUnknown (* TODO maybe encode it as class <T> ... { <T> } *)
-        | S.TOutport -> T.TRaw "OutPort"
+        | S.TOutport mt -> 
+            logger#warning "TODO TOutport parameter type is not yet encoded in Java";
+            T.TRaw "OutPort"
         | S.TInport mt -> 
             logger#warning "TODO TInport parameter type is not yet encoded in Java";
             T.TRaw "InPort"

@@ -235,7 +235,7 @@ and eport = _eport placed
 
 and _outport = {
     name: variable;
-    input_type: main_type;
+    protocol: main_type;
 }
 and outport = _outport placed
 

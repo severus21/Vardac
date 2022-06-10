@@ -619,6 +619,7 @@ module Make () : Sig = struct
         *)
         let ports = List.filter_map (function {value=Inport p } -> Some p | _ -> None) body in
         let body_wo_ports = List.filter (function {value=Inport _ } -> false | _ -> true) body in
+        let outports = List.filter_map (function {value=Outport p} -> Some p | _ -> None) body in
 
         (* main_port_name -> list of newly created children *)
         let children = Hashtbl.create 32 in
@@ -628,39 +629,50 @@ module Make () : Sig = struct
             @return - list of intermediate_ports for this receive + ports with updated children
         *)
         let generate_intermediate_ports ports (receive_id, t_msg, st_continuation, callback) = 
+            logger#debug "generate_intermediate_port for %s and ports %d" (Atom.to_string cdcl.name) (List.length ports);
             (* Remove ports that are already binded to receive *)
             let ports = List.filter (function p -> Bool.not (fst p.value)._is_intermediate) ports in
 
+            let generate_intermediate_port_for_port portname =
+                let intermediate_port_name = Atom.fresh ((Atom.to_string receive_id)^"_intermediate_port") in
+
+                (* register to children *)
+                Hashtbl.add children portname (intermediate_port_name::
+                    match Hashtbl.find_opt children portname with
+                    | None -> []
+                    | Some l -> l
+                );
+
+                (*** Creation of the intermediate port ***)
+                [ auto_fplace ({
+                        name = intermediate_port_name;
+                        callback = e2_e (AccessExpr (
+                            e2_e This, 
+                            callback
+                        ));
+                        expecting_st = mtype_of_st (STRecv (t_msg, st_continuation));
+                        _disable_session = false;
+                        _children = [];
+                        _is_intermediate = true;
+                    }, auto_fplace EmptyMainType)
+                ]
+            in
+
+            (* When session is initiated by an inport *)
             List.flatten (List.map (function port ->
                 if Common.TypingUtils.is_suffix_st  (auto_fplace (STRecv(t_msg, st_continuation))) (match (fst port.value).expecting_st.value with SType st -> st) then 
-                (* p or one of its stages is concerned by the receive*)
-                begin
-                    let intermediate_port_name = Atom.fresh ((Atom.to_string receive_id)^"_intermediate_port") in
-
-                    (* register to children *)
-                    Hashtbl.add children (fst port.value).name (intermediate_port_name::
-                        match Hashtbl.find_opt children (fst port.value).name with
-                        | None -> []
-                        | Some l -> l
-                    );
-
-                    (*** Creation of the intermediate port ***)
-                    [ auto_fplace ({
-                            name = intermediate_port_name;
-                            callback = e2_e (AccessExpr (
-                                e2_e This, 
-                                callback
-                            ));
-                            expecting_st = mtype_of_st (STRecv (t_msg, st_continuation));
-                            _disable_session = false;
-                            _children = [];
-                            _is_intermediate = true;
-                        }, auto_fplace EmptyMainType)
-                    ]
-                    
-                end
+                    (* p or one of its stages is concerned by the receive*)
+                    generate_intermediate_port_for_port (fst port.value).name
                 else []
             ) ports)
+            @
+            (* When session is initiated by an outport *)
+            List.flatten (List.map (function (port:outport) ->
+                if Common.TypingUtils.is_suffix_st (auto_fplace (STRecv(t_msg, st_continuation))) (match (fst port.value).protocol.value with SType st -> st) then 
+                    (* p or one of its stages is concerned by the receive*)
+                    generate_intermediate_port_for_port (fst port.value).name
+                else []
+            ) outports)
         in
 
         (* generated ports must be add before user defined ports,

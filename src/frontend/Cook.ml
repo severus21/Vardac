@@ -1036,8 +1036,8 @@ module Make(Arg:ArgSig) = struct
 
     and cook_outport env place (outport:S._outport) : env * (T._outport * T.main_type)=
         let new_env, name = bind_this env place outport.name in
-        let env1, input_type = cmtype env outport.input_type in
-        new_env << [env1; env1], ({ name; }, input_type)
+        let env1, protocol = cmtype env outport.protocol in
+        new_env << [env1; env1], ({ name; protocol=protocol}, protocol)
     and coutport env: S.outport -> env * T.outport = map2_place (cook_outport env)
 
     and cook_component_item env _ : S._component_item -> env * T._component_item list = function

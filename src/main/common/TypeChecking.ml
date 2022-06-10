@@ -313,7 +313,17 @@ and tcheck_port p = map0_place _tcheck_port p
 
 and _tcheck_outport place (p, mt_p) = 
     (match mt_p.value with 
-    | CType{value=TOutport} -> () 
+    | CType{value=TOutport mt_st} ->
+    begin 
+        match mt_st.value with 
+        | SType st -> 
+        begin
+            match (unfold_st_star st).value with 
+            | STSend _ | STSelect _ -> () 
+            | _ -> Error.perror place "Type error: should expected an outcomming label or message"
+        end
+        | _-> Error.perror mt_st.place "Type error: must be a session type"
+    end
     | _ -> Error.perror place "outport must have type outport (internal error)"
     )
 and tcheck_outport p = map0_place _tcheck_outport p

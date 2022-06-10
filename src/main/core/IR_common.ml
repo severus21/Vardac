@@ -54,7 +54,7 @@ and _composed_type =
     | TBridge of tbridge
     | TInport of main_type (* session_type *)
     | TEport of main_type (* evenement from the runtime not a message from an other component *)
-    | TOutport (* TODO ?? *)
+    | TOutport of main_type (* type of the generated session *)
 
     (* Polymorphsim*)
     | TPolyVar of type_variable
@@ -262,6 +262,7 @@ and eport = (_eport * main_type) placed
 
 and _outport = {
     name: component_variable;
+    protocol: main_type;
 }
 and outport = (_outport * main_type) placed
 
@@ -558,8 +559,8 @@ let rec collect_type_ctype_ parent_opt already_binded selector collector place =
     let collect_mtype = collect_type_mtype parent_opt already_binded selector collector in    
     
 function
-| TFlatType _ | TOutport -> already_binded, [], []
-| TActivationRef mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt | TInport mt | TEport mt -> collect_mtype mt
+| TFlatType _ -> already_binded, [], []
+| TActivationRef mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt | TInport mt | TEport mt | TOutport mt -> collect_mtype mt
 | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) -> 
     let _, collected_elts1, ftvars1 = collect_mtype mt1 in
     let _, collected_elts2, ftvars2 = collect_mtype mt2 in
@@ -1148,9 +1149,9 @@ function
         out_type = rewrite_mtype tb.out_type;
         protocol = rewrite_mtype tb.protocol;
     }
-    | TInport (mt) -> TInport (rewrite_mtype mt) 
-    | TEport (mt) -> TEport (rewrite_mtype mt) 
-    | TOutport -> TOutport
+    | TInport mt -> TInport (rewrite_mtype mt) 
+    | TEport mt -> TEport (rewrite_mtype mt) 
+    | TOutport mt -> TOutport (rewrite_mtype mt)
 
     | TPolyVar x -> TPolyVar x
     | TForall (x, mt) -> TForall (x, rewrite_mtype mt) 
@@ -1480,7 +1481,7 @@ rewrite_type_aconstraint
         }
         | TInport mt -> TInport (rmt mt)
         | TEport mt -> TEport (rmt mt)
-        | TOutport -> TOutport
+        | TOutport mt -> TOutport (rmt mt)
         | TForall (x, mt) -> TForall (renaming x, rmt mt)
         | TPolyVar x -> TPolyVar (renaming x)
         and rename_composed_type renaming = map_place (_rename_composed_type (protect_renaming renaming))
@@ -1639,6 +1640,7 @@ rewrite_type_aconstraint
 
         and _rename_outport renaming place ((p, mt_p): _outport * main_type) = ({
             name = renaming p.name;
+            protocol = rename_main_type renaming p.protocol;
         }, rename_main_type renaming mt_p)
         and rename_outport renaming = map_place (_rename_outport (protect_renaming renaming))
 
