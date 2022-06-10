@@ -1449,6 +1449,208 @@ rewrite_type_aconstraint
         | _ -> raise (Error.DeadbranchError "selector prevents accessing this branch")
     )
 
+
+(*****************************************************)
+        let protect_renaming renaming = function x ->
+            if Atom.is_builtin x then x 
+            else renaming x
+
+        let rec _rename_composed_type renaming place = 
+            let rmt = rename_main_type renaming in   
+        function  
+        | TActivationRef mt -> TActivationRef (rmt mt)
+        | TArrow (mt1, mt2) -> TArrow (rmt mt1, rmt mt2)
+        | TVar x -> TVar (renaming x)
+        | TFlatType _ as ct -> ct
+        | TArray mt -> TArray (rmt mt)
+        | TDict (mt1, mt2) -> TDict (rmt mt1, rmt mt2)
+        | TList mt -> TList (rmt mt)
+        | TOption mt -> TOption (rmt mt)
+        | TResult (mt1, mt2) -> TResult (rmt mt1, rmt mt2)
+        | TSet mt -> TSet (rmt mt)
+        | TTuple (mts) -> TTuple (List.map rmt mts)
+        | TVPlace mt -> TVPlace (rmt mt)
+        | TUnion (mt1, mt2) -> TUnion (rmt mt1, rmt mt2)
+        | TBridge tb -> TBridge {
+            in_type = rmt tb.in_type;
+            out_type = rmt tb.out_type;
+            protocol = rmt tb.protocol;
+        }
+        | TInport mt -> TInport (rmt mt)
+        | TEport mt -> TEport (rmt mt)
+        | TOutport -> TOutport
+        | TForall (x, mt) -> TForall (renaming x, rmt mt)
+        | TPolyVar x -> TPolyVar (renaming x)
+        and rename_composed_type renaming = map_place (_rename_composed_type (protect_renaming renaming))
+
+        and _rename_session_type renaming place = 
+            let rmt = rename_main_type renaming in   
+            let rst = rename_session_type renaming in   
+            let rb (x, st, ac_opt) = (renaming x, rst st, Option.map (rename_applied_constraint renaming) ac_opt) in
+        function  
+        | STEnd | STWildcard -> STEnd
+        | STVar x -> STVar (renaming x)
+        | STSend (mt, st) -> STSend (rmt mt, rst st)
+        | STRecv (mt, st) -> STRecv (rmt mt, rst st)
+        | STBranch branches -> STBranch (List.map rb branches)
+        | STSelect branches -> STSelect (List.map rb branches)
+        | STRec (x, st) -> STRec (renaming x, rst st)
+        | STInline x -> STInline (renaming x)
+        | STPolyVar x -> STPolyVar (renaming x)
+        | STDual st -> STDual (rst st)
+        and rename_session_type renaming : session_type -> session_type = map_place (_rename_session_type (protect_renaming renaming))
+
+        and _rename_component_type renaming place = 
+            let rmt = rename_main_type renaming in   
+        function  
+        | CompTUid x -> CompTUid (renaming x)
+        | TStruct (x, sign) -> TStruct 
+            (renaming x, Atom.VMap.fold (fun x mt acc -> Atom.VMap.add (renaming x) (rmt mt) acc) sign Atom.VMap.empty)
+        | TPolyCVar x -> TPolyCVar (renaming x)
+        and rename_component_type renaming = map_place (_rename_component_type renaming)
+
+        and _rename_main_type renaming place = 
+            let rmt = rename_main_type renaming in   
+        function  
+        | EmptyMainType -> EmptyMainType
+        | CType ct -> CType (rename_composed_type renaming ct)
+        | SType st -> SType (rename_session_type renaming st)
+        | CompType cmt -> CompType (rename_component_type renaming cmt)
+        | ConstrainedType (mt, ac) -> ConstrainedType (rmt mt, rename_applied_constraint renaming ac)
+        and rename_main_type renaming = map_place (_rename_main_type (protect_renaming renaming))
+
+        and _rename_constraint_header renaming place = function
+        | UseMetadata (mt, x) -> UseMetadata (rename_main_type renaming mt, renaming x)
+        | SetTimer x -> SetTimer (renaming x)
+        | SetFireTimer (x,i) -> SetFireTimer (renaming x, i)
+        and rename_constraint_header renaming = map_place (_rename_constraint_header (protect_renaming renaming))
+
+        and rename_applied_constraint renaming (headers,e_opt) = 
+            List.map (rename_constraint_header renaming) headers, Option.map (rename_expr true renaming) e_opt
+
+        and _rename_literal flag_rename_type renaming place lit = 
+        match lit with
+        | VoidLit | BoolLit _ | FloatLit _ | IntLit _ | LabelLit _ | StringLit _ | ActivationRef _ | Place _  -> lit
+        | BLabelLit x -> BLabelLit (if flag_rename_type then renaming x else x)
+        | VPlace vp ->
+            let rec rename_vp (vp:vplace) =  {
+                name = renaming vp.name;
+                nbr_instances = rename_expr true renaming vp.nbr_instances;
+                features = vp.features;
+                children = List.map rename_vp vp.children
+            } in
+            VPlace (rename_vp vp)
+        | StaticBridge b -> StaticBridge {
+            id = renaming b.id;
+            protocol_name = renaming b.protocol_name
+        }
+        and rename_literal flag_rename_type renaming = map_place (_rename_literal flag_rename_type (protect_renaming renaming)) 
+
+        and _rename_expr flag_rename_type renaming place (e, mt_e) = 
+            let re = rename_expr flag_rename_type renaming in
+            let rmt = if flag_rename_type then rename_main_type renaming else Fun.id in
+
+            let rename_attribute = false in (* TODO expose argument, renaming attributes is wrong except if type schemas have been changed *)
+
+            let e = match e with 
+            | EmptyExpr -> EmptyExpr
+            | VarExpr x -> VarExpr (renaming x)
+            | ImplicitVarExpr x -> ImplicitVarExpr (renaming x)
+            | InterceptedActivationRef (e1, e2_opt) -> InterceptedActivationRef (re e1, Option.map re e2_opt) 
+            | ActivationAccessExpr (x, e, y) -> ActivationAccessExpr (renaming x, re e, if rename_attribute then renaming y else y)
+            | AccessExpr (e1, ({value=VarExpr _,_} as e2)) -> AccessExpr (re e1, if rename_attribute then re e2 else e2)
+            | AccessExpr (e1, e2) -> AccessExpr (re e1, re e2)
+            | BinopExpr (e1, op, e2) -> BinopExpr (re e1, op, re e2)
+            | LambdaExpr (params, e) -> 
+                LambdaExpr (
+                    List.map (map_place (fun _ (mt,x) -> rmt mt, renaming x)) params,
+                    re e) 
+            | LitExpr l -> LitExpr (rename_literal flag_rename_type renaming l)
+            | UnopExpr (op, e) -> UnopExpr (op, re e)
+            | CallExpr (e, es) -> CallExpr (re e, List.map re es)
+            | NewExpr (e, es) -> NewExpr (re e, List.map re es)
+            | PolyApp (e, mts) -> PolyApp (re e, List.map rmt mts)
+            | BridgeCall{protocol_name} -> BridgeCall{
+                protocol_name = renaming protocol_name;
+            }
+            | TernaryExpr (e1, e2, e3) -> TernaryExpr (re e1, re e2, re e3)
+            | This -> This
+            | Spawn spawn -> Spawn {
+                c = rename_component_expr renaming spawn.c;
+                args = List.map re spawn.args;
+                at = Option.map re spawn.at;
+            }
+            | BoxCExpr ce -> BoxCExpr (rename_component_expr renaming ce)
+            | OptionExpr e_opt -> OptionExpr (Option.map re e_opt)
+            | ResultExpr (e1_opt, e2_opt) -> ResultExpr (Option.map re e1_opt, Option.map re e2_opt)
+            | BlockExpr (b, es) -> BlockExpr (b, List.map re es)
+            | Block2Expr (b, ees) -> Block2Expr (b,
+                List.map (function (e1, e2) -> (re e1, re e2)) ees
+            )
+            in
+            (e, rmt mt_e)
+        and rename_expr flag_rename_type renaming : expr -> expr = map_place (_rename_expr flag_rename_type (protect_renaming renaming))
+
+        and _rename_stmt flag_rename_type renaming place = 
+            let re = rename_expr flag_rename_type renaming in
+            let rmt = if flag_rename_type then rename_main_type renaming else Fun.id in
+            let rstmt = rename_stmt flag_rename_type renaming in
+        function
+        | EmptyStmt -> EmptyStmt
+        | AssignExpr (x, e) -> AssignExpr (renaming x, re e)
+        | AssignThisExpr (x, e) -> AssignThisExpr (renaming x, re e)
+        | LetStmt (mt, x, e) -> LetStmt (rmt mt, renaming x, re e)
+        | CommentsStmt _ as stmt -> stmt
+        | BreakStmt -> BreakStmt
+        | ContinueStmt -> ContinueStmt
+        | ExitStmt i -> ExitStmt i
+        | ForStmt (mt, x, e, stmt) -> ForStmt (rmt mt, renaming x, re e, rstmt stmt)
+        | IfStmt (e, stmt1, stmt2_opt) -> IfStmt (re e, rstmt stmt1, Option.map rstmt stmt2_opt)
+        | MatchStmt (e, branches) -> MatchStmt (re e, List.map (function (e, stmt) -> (re e, rstmt stmt)) branches) 
+        | ReturnStmt e -> ReturnStmt (re e)
+        | ExpressionStmt e -> ExpressionStmt (re e)
+        | BlockStmt stmts -> BlockStmt (List.map rstmt stmts)
+        | GhostStmt stmt -> GhostStmt (rstmt stmt)
+        | WithContextStmt (flag, x, e, stmts) -> WithContextStmt (flag, renaming x, re e, List.map rstmt stmts)
+        and rename_stmt (flag_rename_type:bool) renaming = map_place (_rename_stmt flag_rename_type (protect_renaming renaming))
+
+        and _rename_param renaming place (mt, x) = (rename_main_type renaming mt, renaming x)
+        and rename_param renaming = map_place (_rename_param (protect_renaming renaming))
+
+
+        and _rename_port renaming place ((p, mt_p): _port * main_type)  = ({
+            name = renaming p.name;
+            expecting_st = rename_main_type renaming p.expecting_st;
+            _disable_session = p._disable_session;
+            callback = rename_expr true renaming p.callback;
+            _children = List.map renaming p._children;
+            _is_intermediate = p._is_intermediate;
+        }, rename_main_type renaming mt_p)
+        and rename_port renaming = map_place (_rename_port (protect_renaming  renaming))
+
+        and _rename_eport renaming place ((p, mt_p): _eport * main_type)  = ({
+            name = renaming p.name;
+            expecting_mt = rename_main_type renaming p.expecting_mt;
+            callback = rename_expr true renaming p.callback;
+        }, rename_main_type renaming mt_p)
+        and rename_eport renaming = map_place (_rename_eport (protect_renaming  renaming))
+
+        and _rename_outport renaming place ((p, mt_p): _outport * main_type) = ({
+            name = renaming p.name;
+        }, rename_main_type renaming mt_p)
+        and rename_outport renaming = map_place (_rename_outport (protect_renaming renaming))
+
+        and _rename_component_expr renaming place (ce, mt_ce) = 
+            let rce = rename_component_expr renaming in
+            let re = rename_expr true renaming in
+            let ce = match ce with
+            | VarCExpr x -> VarCExpr (renaming x)
+            | AppCExpr (ce, ces) -> AppCExpr (rce ce, List.map rce ces)
+            | UnboxCExpr e -> UnboxCExpr (re e)
+            | AnyExpr e -> AnyExpr (re e)
+            in 
+            (ce, rename_main_type renaming mt_ce)
+        and rename_component_expr renaming = map_place (_rename_component_expr (protect_renaming renaming))
 (*****************************************************)
 
 (* elim place *)

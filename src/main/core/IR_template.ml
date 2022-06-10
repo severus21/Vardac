@@ -130,20 +130,80 @@ module type IRParams = sig
     _custom_method0_body -> 'a list
 
     val rename_state_dcl_body : 
-    (( Atom.atom -> Atom.atom) ->
-        expr -> expr) ->
+    bool ->
     (Atom.atom -> Atom.atom) ->
     _state_dcl_body -> _state_dcl_body
     val rename_custom_method0_body : 
-    (( Atom.atom -> Atom.atom) ->
-        stmt -> stmt) ->
+    bool ->
     (Atom.atom -> Atom.atom) ->
     _custom_method0_body -> _custom_method0_body
     val rename_typealias_body : 
-    (( Atom.atom -> Atom.atom) ->
-        main_type -> main_type) ->
+    bool ->
     (Atom.atom -> Atom.atom) ->
     _typealias_body -> _typealias_body
+
+    val collect_type_typedef_body : 
+    (
+        Atom.atom option ->
+        Atom.Set.t ->
+        (_main_type -> bool) ->
+        (Atom.atom option -> Atom.Set.t -> _main_type AstUtils.placed -> 'a list) ->
+        expr -> 
+        Atom.Set.t * 'a list * type_variable list
+    ) ->
+        Atom.atom option ->
+        Atom.Set.t ->
+        (_main_type -> bool) ->
+        (Atom.atom option -> Atom.Set.t -> _main_type AstUtils.placed -> 'a list) ->
+        _typedef_body -> 
+        Atom.Set.t * 'a list * type_variable list
+    val rewrite_type_typedef_body : 
+    (
+        (_main_type -> bool) ->
+        (_main_type -> _main_type) ->
+        expr -> expr
+    ) ->
+    (_main_type -> bool) ->
+    ( _main_type -> _main_type) ->
+    _typedef_body -> _typedef_body 
+    
+    val collect_type_typealias_body : 
+    (
+        Atom.atom option ->
+        Atom.Set.t ->
+        (_main_type -> bool) ->
+        (Atom.atom option -> Atom.Set.t -> _main_type AstUtils.placed -> 'a list) ->
+        expr -> 
+        Atom.Set.t * 'a list * type_variable list
+    ) ->
+    (
+        Atom.atom option ->
+            Atom.Set.t ->
+            (_main_type -> bool) ->
+            (Atom.atom option -> Atom.Set.t -> _main_type AstUtils.placed -> 'a list) ->
+            main_type -> 
+            Atom.Set.t * 'a list * type_variable list
+    ) ->
+        Atom.atom option ->
+        Atom.Set.t ->
+        (_main_type -> bool) ->
+        (Atom.atom option -> Atom.Set.t -> _main_type AstUtils.placed -> 'a list) ->
+        _typealias_body -> 
+        Atom.Set.t * 'a list * type_variable list
+    val rewrite_type_typealias_body : 
+    (
+        (_main_type -> bool) ->
+        (_main_type -> _main_type) ->
+        expr -> expr
+    ) ->
+    (
+        (_main_type -> bool) ->
+        (_main_type -> _main_type) ->
+        main_type -> main_type
+    ) ->
+    (_main_type -> bool) ->
+    ( _main_type -> _main_type) ->
+    _typealias_body -> _typealias_body 
 end
 
 module Make (Params : IRParams) = struct
@@ -184,9 +244,14 @@ module Make (Params : IRParams) = struct
     let collect_cexpr_custom_method0_body x = Params.collect_cexpr_custom_method0_body x 
     let collect_stmt_custom_method0_body x = Params.collect_stmt_custom_method0_body x 
 
-    let rename_state_dcl_body rename_expr = Params.rename_state_dcl_body (rename_expr true)
-    let rename_custom_method0_body rename_stmt = Params.rename_custom_method0_body (rename_stmt true)
-    let rename_typealias_body rename_main_type = Params.rename_typealias_body rename_main_type
+    let rename_state_dcl_body = Params.rename_state_dcl_body true
+    let rename_custom_method0_body = Params.rename_custom_method0_body true
+    let rename_typealias_body = Params.rename_typealias_body true 
+
+    let collect_type_typedef_body rewrite_type_expr = Params.collect_type_typedef_body rewrite_type_expr
+    let rewrite_type_typedef_body collect_type_expr = Params.rewrite_type_typedef_body collect_type_expr
+    let collect_type_typealias_body collect_type_expr collect_type_mtype = Params.collect_type_typealias_body collect_type_expr collect_type_mtype
+    let rewrite_type_typealias_body rewrite_type_expr rewrite_type_mtype = Params.rewrite_type_typealias_body rewrite_type_expr rewrite_type_mtype
 
     (************************************ Component *****************************)
     include AstUtils
@@ -463,7 +528,6 @@ module Make (Params : IRParams) = struct
             (term list -> term list) ->
             term list -> term list
 
-        val rename_stmt : bool -> (Atom.atom -> Atom.atom) -> stmt -> stmt
         val rename_component_item : (Atom.atom -> Atom.atom) ->
             _component_item AstUtils.placed ->
             _component_item AstUtils.placed
@@ -1027,7 +1091,8 @@ module Make (Params : IRParams) = struct
             (* already binded left unchanged since it is type binder *)
             | ClassicalDef  (x, targs, body) | EventDef (x, targs, body) ->
                 let collected_elts, ftvars = collect_mtypes targs in
-                Atom.Set.add x already_binded, collected_elts, ftvars 
+                let _, collected_elts2, ftvars2 = collect_type_typedef_body collect_type_expr parent_opt already_binded selector collector body in
+                Atom.Set.add x already_binded, collected_elts@collected_elts2, ftvars@ftvars2 
             | ProtocolDef (x, mt) -> 
                 let _, collected_elts, ftvars = collect_type_mtype parent_opt already_binded selector collector mt in
                 Atom.Set.add x already_binded, collected_elts, ftvars
@@ -1064,7 +1129,9 @@ module Make (Params : IRParams) = struct
             | Stmt stmt -> collect_type_stmt parent_opt already_binded selector collector stmt
             | Component cdcl -> collect_type_component_dcl parent_opt already_binded selector collector cdcl
             | Function fdcl -> collect_type_function_dcl parent_opt already_binded selector collector fdcl
-            | Typealias _ -> already_binded, [], [] (* type binder but not an expr binder so already_binded is left unchanged*)
+            | Typealias (name, tabody) -> 
+                let _, collected_elts, ftvars = collect_type_typealias_body collect_type_expr collect_type_mtype parent_opt already_binded selector collector tabody in
+                Atom.Set.add name already_binded, collected_elts, ftvars
             | Typedef typedef -> collect_type_typedef parent_opt already_binded selector collector typedef
             | Derive derive ->  collect_type_derivation parent_opt already_binded selector collector place derive 
         and collect_type_term parent_opt (already_binded:Atom.Set.t) selector collector t = 
@@ -1104,7 +1171,7 @@ module Make (Params : IRParams) = struct
             (fun parent_opt already_binded {place; value=SType st} -> 
                 let _, elts, _ = collect_stype_stype parent_opt already_binded selector collector st in
                 elts
-            ) 
+            )
 
         (*****************************************************************)
 
@@ -1191,13 +1258,40 @@ module Make (Params : IRParams) = struct
             ComponentStructure { cdcl with body = List.map (rewrite_type_component_item selector rewriter) cdcl.body}
         and rewrite_type_component_dcl selector rewriter = map_place (rewrite_type_component_dcl_ selector rewriter) 
 
+        and rewrite_type_typedef_  selector rewriter place = function 
+        | ClassicalDef (name, targs, tbody) -> 
+            ClassicalDef(
+                name,
+                List.map (rewrite_type_mtype selector rewriter) targs,
+                rewrite_type_typedef_body rewrite_type_expr selector rewriter tbody
+            )
+        | EventDef (name, targs, tbody) ->
+            EventDef(
+                name,
+                List.map (rewrite_type_mtype selector rewriter) targs,
+                rewrite_type_typedef_body rewrite_type_expr selector rewriter tbody
+            )
+        | ProtocolDef (name, mt) ->
+            ProtocolDef(
+                name,
+                rewrite_type_mtype selector rewriter mt
+            )
+        | VPlaceDef name -> VPlaceDef name
+        and rewrite_type_typedef selector rewriter = map_place (rewrite_type_typedef_ selector rewriter) 
+
         and rewrite_type_term_ selector rewriter place = function 
         | EmptyTerm -> EmptyTerm 
         | Comments c -> Comments c
         | Stmt stmt -> Stmt (rewrite_type_stmt selector rewriter stmt)
         | Component cdcl -> Component (rewrite_type_component_dcl selector rewriter cdcl)
         | Function fdcl -> Function (rewrite_type_function_dcl selector rewriter fdcl)
-        | (Typealias _ as t) |(Typedef _ as t) -> t
+        | Typedef tdef -> Typedef (rewrite_type_typedef selector rewriter tdef)
+        | Typealias (name, tabody) ->
+            Typealias(
+                name,
+                rewrite_type_typealias_body rewrite_type_expr rewrite_type_mtype selector rewriter tabody
+            ) 
+
         | Derive derive -> Derive { derive with eargs = List.map (rewrite_type_expr selector rewriter) derive.eargs}
         and rewrite_type_term selector rewriter = map_place (rewrite_type_term_ selector rewriter) 
         and rewrite_type_program selector rewriter (program : program) : program = List.map (rewrite_type_term selector rewriter) program
@@ -1662,196 +1756,8 @@ module Make (Params : IRParams) = struct
             List.flatten (List.map (rewrite_stmt_term recurse selector rewriter) program)
 
         (********************************************************************************************)
-        let protect_renaming renaming = function x ->
-            if Atom.is_builtin x then x 
-            else renaming x
 
-        let rec _rename_composed_type renaming place = 
-            let rmt = rename_main_type renaming in   
-        function  
-        | TActivationRef mt -> TActivationRef (rmt mt)
-        | TArrow (mt1, mt2) -> TArrow (rmt mt1, rmt mt2)
-        | TVar x -> TVar (renaming x)
-        | TFlatType _ as ct -> ct
-        | TArray mt -> TArray (rmt mt)
-        | TDict (mt1, mt2) -> TDict (rmt mt1, rmt mt2)
-        | TList mt -> TList (rmt mt)
-        | TOption mt -> TOption (rmt mt)
-        | TResult (mt1, mt2) -> TResult (rmt mt1, rmt mt2)
-        | TSet mt -> TSet (rmt mt)
-        | TTuple (mts) -> TTuple (List.map rmt mts)
-        | TVPlace mt -> TVPlace (rmt mt)
-        | TUnion (mt1, mt2) -> TUnion (rmt mt1, rmt mt2)
-        | TBridge tb -> TBridge {
-            in_type = rmt tb.in_type;
-            out_type = rmt tb.out_type;
-            protocol = rmt tb.protocol;
-        }
-        | TInport mt -> TInport (rmt mt)
-        | TEport mt -> TEport (rmt mt)
-        | TOutport -> TOutport
-        | TForall (x, mt) -> TForall (renaming x, rmt mt)
-        | TPolyVar x -> TPolyVar (renaming x)
-        and rename_composed_type renaming = map_place (_rename_composed_type (protect_renaming renaming))
-
-        and _rename_session_type renaming place = 
-            let rmt = rename_main_type renaming in   
-            let rst = rename_session_type renaming in   
-            let rb (x, st, ac_opt) = (renaming x, rst st, Option.map (rename_applied_constraint renaming) ac_opt) in
-        function  
-        | STEnd | STWildcard -> STEnd
-        | STVar x -> STVar (renaming x)
-        | STSend (mt, st) -> STSend (rmt mt, rst st)
-        | STRecv (mt, st) -> STRecv (rmt mt, rst st)
-        | STBranch branches -> STBranch (List.map rb branches)
-        | STSelect branches -> STSelect (List.map rb branches)
-        | STRec (x, st) -> STRec (renaming x, rst st)
-        | STInline x -> STInline (renaming x)
-        | STPolyVar x -> STPolyVar (renaming x)
-        | STDual st -> STDual (rst st)
-        and rename_session_type renaming : session_type -> session_type = map_place (_rename_session_type (protect_renaming renaming))
-
-        and _rename_component_type renaming place = 
-            let rmt = rename_main_type renaming in   
-        function  
-        | CompTUid x -> CompTUid (renaming x)
-        | TStruct (x, sign) -> TStruct 
-            (renaming x, Atom.VMap.fold (fun x mt acc -> Atom.VMap.add (renaming x) (rmt mt) acc) sign Atom.VMap.empty)
-        | TPolyCVar x -> TPolyCVar (renaming x)
-        and rename_component_type renaming = map_place (_rename_component_type renaming)
-
-        and _rename_main_type renaming place = 
-            let rmt = rename_main_type renaming in   
-        function  
-        | EmptyMainType -> EmptyMainType
-        | CType ct -> CType (rename_composed_type renaming ct)
-        | SType st -> SType (rename_session_type renaming st)
-        | CompType cmt -> CompType (rename_component_type renaming cmt)
-        | ConstrainedType (mt, ac) -> ConstrainedType (rmt mt, rename_applied_constraint renaming ac)
-        and rename_main_type renaming = map_place (_rename_main_type (protect_renaming renaming))
-
-        and _rename_constraint_header renaming place = function
-        | UseMetadata (mt, x) -> UseMetadata (rename_main_type renaming mt, renaming x)
-        | SetTimer x -> SetTimer (renaming x)
-        | SetFireTimer (x,i) -> SetFireTimer (renaming x, i)
-        and rename_constraint_header renaming = map_place (_rename_constraint_header (protect_renaming renaming))
-
-        and rename_applied_constraint renaming (headers,e_opt) = 
-            List.map (rename_constraint_header renaming) headers, Option.map (rename_expr true renaming) e_opt
-
-        and _rename_literal flag_rename_type renaming place lit = 
-        match lit with
-        | VoidLit | BoolLit _ | FloatLit _ | IntLit _ | LabelLit _ | StringLit _ | ActivationRef _ | Place _  -> lit
-        | BLabelLit x -> BLabelLit (if flag_rename_type then renaming x else x)
-        | VPlace vp ->
-            let rec rename_vp (vp:vplace) =  {
-                name = renaming vp.name;
-                nbr_instances = rename_expr true renaming vp.nbr_instances;
-                features = vp.features;
-                children = List.map rename_vp vp.children
-            } in
-            VPlace (rename_vp vp)
-        | StaticBridge b -> StaticBridge {
-            id = renaming b.id;
-            protocol_name = renaming b.protocol_name
-        }
-        and rename_literal flag_rename_type renaming = map_place (_rename_literal flag_rename_type (protect_renaming renaming)) 
-
-        and _rename_expr flag_rename_type renaming place (e, mt_e) = 
-            let re = rename_expr flag_rename_type renaming in
-            let rmt = if flag_rename_type then rename_main_type renaming else Fun.id in
-
-            let rename_attribute = false in (* TODO expose argument, renaming attributes is wrong except if type schemas have been changed *)
-
-            let e = match e with 
-            | EmptyExpr -> EmptyExpr
-            | VarExpr x -> VarExpr (renaming x)
-            | ImplicitVarExpr x -> ImplicitVarExpr (renaming x)
-            | InterceptedActivationRef (e1, e2_opt) -> InterceptedActivationRef (re e1, Option.map re e2_opt) 
-            | ActivationAccessExpr (x, e, y) -> ActivationAccessExpr (renaming x, re e, if rename_attribute then renaming y else y)
-            | AccessExpr (e1, ({value=VarExpr _,_} as e2)) -> AccessExpr (re e1, if rename_attribute then re e2 else e2)
-            | AccessExpr (e1, e2) -> AccessExpr (re e1, re e2)
-            | BinopExpr (e1, op, e2) -> BinopExpr (re e1, op, re e2)
-            | LambdaExpr (params, e) -> 
-                LambdaExpr (
-                    List.map (map_place (fun _ (mt,x) -> rmt mt, renaming x)) params,
-                    re e) 
-            | LitExpr l -> LitExpr (rename_literal flag_rename_type renaming l)
-            | UnopExpr (op, e) -> UnopExpr (op, re e)
-            | CallExpr (e, es) -> CallExpr (re e, List.map re es)
-            | NewExpr (e, es) -> NewExpr (re e, List.map re es)
-            | PolyApp (e, mts) -> PolyApp (re e, List.map rmt mts)
-            | BridgeCall{protocol_name} -> BridgeCall{
-                protocol_name = renaming protocol_name;
-            }
-            | TernaryExpr (e1, e2, e3) -> TernaryExpr (re e1, re e2, re e3)
-            | This -> This
-            | Spawn spawn -> Spawn {
-                c = rename_component_expr renaming spawn.c;
-                args = List.map re spawn.args;
-                at = Option.map re spawn.at;
-            }
-            | BoxCExpr ce -> BoxCExpr (rename_component_expr renaming ce)
-            | OptionExpr e_opt -> OptionExpr (Option.map re e_opt)
-            | ResultExpr (e1_opt, e2_opt) -> ResultExpr (Option.map re e1_opt, Option.map re e2_opt)
-            | BlockExpr (b, es) -> BlockExpr (b, List.map re es)
-            | Block2Expr (b, ees) -> Block2Expr (b,
-                List.map (function (e1, e2) -> (re e1, re e2)) ees
-            )
-            in
-            (e, rmt mt_e)
-        and rename_expr flag_rename_type renaming : expr -> expr = map_place (_rename_expr flag_rename_type (protect_renaming renaming))
-
-        and _rename_stmt flag_rename_type renaming place = 
-            let re = rename_expr flag_rename_type renaming in
-            let rmt = if flag_rename_type then rename_main_type renaming else Fun.id in
-            let rstmt = rename_stmt flag_rename_type renaming in
-        function
-        | EmptyStmt -> EmptyStmt
-        | AssignExpr (x, e) -> AssignExpr (renaming x, re e)
-        | AssignThisExpr (x, e) -> AssignThisExpr (renaming x, re e)
-        | LetStmt (mt, x, e) -> LetStmt (rmt mt, renaming x, re e)
-        | CommentsStmt _ as stmt -> stmt
-        | BreakStmt -> BreakStmt
-        | ContinueStmt -> ContinueStmt
-        | ExitStmt i -> ExitStmt i
-        | ForStmt (mt, x, e, stmt) -> ForStmt (rmt mt, renaming x, re e, rstmt stmt)
-        | IfStmt (e, stmt1, stmt2_opt) -> IfStmt (re e, rstmt stmt1, Option.map rstmt stmt2_opt)
-        | MatchStmt (e, branches) -> MatchStmt (re e, List.map (function (e, stmt) -> (re e, rstmt stmt)) branches) 
-        | ReturnStmt e -> ReturnStmt (re e)
-        | ExpressionStmt e -> ExpressionStmt (re e)
-        | BlockStmt stmts -> BlockStmt (List.map rstmt stmts)
-        | GhostStmt stmt -> GhostStmt (rstmt stmt)
-        | WithContextStmt (flag, x, e, stmts) -> WithContextStmt (flag, renaming x, re e, List.map rstmt stmts)
-        and rename_stmt (flag_rename_type:bool) renaming = map_place (_rename_stmt flag_rename_type (protect_renaming renaming))
-
-        and _rename_param renaming place (mt, x) = (rename_main_type renaming mt, renaming x)
-        and rename_param renaming = map_place (_rename_param (protect_renaming renaming))
-
-
-        and _rename_port renaming place ((p, mt_p): _port * main_type)  = ({
-            name = renaming p.name;
-            expecting_st = rename_main_type renaming p.expecting_st;
-            _disable_session = p._disable_session;
-            callback = rename_expr true renaming p.callback;
-            _children = List.map renaming p._children;
-            _is_intermediate = p._is_intermediate;
-        }, rename_main_type renaming mt_p)
-        and rename_port renaming = map_place (_rename_port (protect_renaming  renaming))
-
-        and _rename_eport renaming place ((p, mt_p): _eport * main_type)  = ({
-            name = renaming p.name;
-            expecting_mt = rename_main_type renaming p.expecting_mt;
-            callback = rename_expr true renaming p.callback;
-        }, rename_main_type renaming mt_p)
-        and rename_eport renaming = map_place (_rename_eport (protect_renaming  renaming))
-
-        and _rename_outport renaming place ((p, mt_p): _outport * main_type) = ({
-            name = renaming p.name;
-        }, rename_main_type renaming mt_p)
-        and rename_outport renaming = map_place (_rename_outport (protect_renaming renaming))
-
-        and rename_method_annotation renaming : method_annotation -> method_annotation = function
+        let rec rename_method_annotation renaming : method_annotation -> method_annotation = function
         | MsgInterceptor _ as a -> a
         | SessionInterceptor _ as a -> a
         | Onboard xs -> Onboard (List.map renaming xs)
@@ -1867,25 +1773,13 @@ module Make (Params : IRParams) = struct
         }
         and rename_contract renaming = map_place (_rename_contract (protect_renaming renaming))
 
-        and _rename_component_expr renaming place (ce, mt_ce) = 
-            let rce = rename_component_expr renaming in
-            let re = rename_expr true renaming in
-            let ce = match ce with
-            | VarCExpr x -> VarCExpr (renaming x)
-            | AppCExpr (ce, ces) -> AppCExpr (rce ce, List.map rce ces)
-            | UnboxCExpr e -> UnboxCExpr (re e)
-            | AnyExpr e -> AnyExpr (re e)
-            in 
-            (ce, rename_main_type renaming mt_ce)
-        and rename_component_expr renaming = map_place (_rename_component_expr (protect_renaming renaming))
-
 
 
         let rec _rename_state renaming place s = { 
             ghost = s.ghost;
             type0 = rename_main_type renaming s.type0;
             name = renaming s.name;
-            body = rename_state_dcl_body rename_expr renaming s.body;
+            body = rename_state_dcl_body renaming s.body;
         }
         and rename_state renaming = map_place (_rename_state (protect_renaming renaming))
 
@@ -1895,7 +1789,7 @@ module Make (Params : IRParams) = struct
             ret_type = rename_main_type renaming m.ret_type;
             name = renaming m.name;
             args = List.map (rename_param renaming) m.args;
-            body = rename_custom_method0_body rename_stmt renaming m.body;
+            body = rename_custom_method0_body renaming m.body;
             contract_opt  = Option.map (rename_contract renaming) m.contract_opt;
             on_destroy = m.on_destroy;
             on_startup = m.on_startup;
@@ -1932,7 +1826,7 @@ module Make (Params : IRParams) = struct
             targs = List.map renaming fdcl.targs;
             ret_type = rename_main_type renaming fdcl.ret_type;
             args = List.map (rename_param renaming) fdcl.args;
-            body = rename_custom_method0_body rename_stmt renaming fdcl.body
+            body = rename_custom_method0_body renaming fdcl.body
         }
         and rename_function_dcl renaming = map_place (_rename_function_dcl (protect_renaming renaming))
 
@@ -1959,7 +1853,7 @@ module Make (Params : IRParams) = struct
         | Stmt stmt -> Stmt (rename_stmt true renaming stmt)
         | Component c -> Component (rename_component_dcl renaming c)
         | Function fdcl -> Function (rename_function_dcl renaming fdcl)
-        | Typealias (x, mt_opt) -> Typealias (renaming x, rename_typealias_body rename_main_type renaming mt_opt)
+        | Typealias (x, mt_opt) -> Typealias (renaming x, rename_typealias_body renaming mt_opt)
         | Typedef tdef -> Typedef (rename_typedef renaming tdef)
         | Derive d -> Derive (rename_derivation renaming d)
         and rename_term renaming = map_place (_rename_term (protect_renaming renaming))

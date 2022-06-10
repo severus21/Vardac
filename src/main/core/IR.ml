@@ -98,10 +98,19 @@ module Params : (
     = function body ->  
                 List.flatten (List.map (collect_stmt_stmt parent_opt  selector collector) body)
 
-    let rename_state_dcl_body rename_expr renaming = Option.map (rename_expr renaming)
-    let rename_custom_method0_body rename_stmt renaming = List.map (rename_stmt renaming) 
-    let rename_typealias_body rename_main_type renaming = 
+    let rename_state_dcl_body flag_rename_type renaming = Option.map (rename_expr flag_rename_type renaming)
+    let rename_custom_method0_body flag_rename_type renaming = List.map (rename_stmt flag_rename_type renaming) 
+    let rename_typealias_body flag_rename_type renaming = 
     Option.map (rename_main_type renaming) 
+
+    let rewrite_type_typealias_body rewrite_type_expr rewrite_type_mtype selector rewriter = function 
+    | None -> None
+    | Some mt -> Some (rewrite_type_mtype selector rewriter mt)
+    let rewrite_type_typedef_body rewrite_type_expr selector rewriter () = () 
+    let collect_type_typealias_body collect_type_expr collect_type_mtype parent_opt already_binded selector collector = function
+    | None -> already_binded, [], [] 
+    | Some mt -> collect_type_mtype parent_opt already_binded selector collector mt
+    let collect_type_typedef_body collect_type_expr parent_opt already_binded selector collector () = already_binded, [], []
 
 end
 
