@@ -66,6 +66,7 @@ end
 
 module Make (Args:Params) : Sig = struct
     include Args
+    let port2component : (Atom.atom, Atom.atom) Hashtbl.t = Hashtbl.create 128
 
     module G = Imperative.Digraph.ConcreteBidirectionalLabeled(Node)(Edge)
     module GPrinter = struct
@@ -86,8 +87,13 @@ module Make (Args:Params) : Sig = struct
         let get_subgraph v :  Graphviz.DotAttributes.subgraph option = 
             let target = 
                 try
-                    Hashtbl.find component2target v 
-                with Not_found -> raise (Error.DeadbranchError (Printf.sprintf "component [%s] not found in component2target" (Atom.to_string v)))
+                begin
+                    match Hashtbl.find_opt component2target v with
+                    | None -> Atom.hint (Hashtbl.find port2component v)
+                    | Some t -> t
+                end
+                with Not_found -> 
+                    raise (Error.DeadbranchError (Printf.sprintf "component/port [%s] not found in component2target/port2component" (Atom.to_string v)))
             in
 
             Some {
@@ -148,6 +154,41 @@ module Make (Args:Params) : Sig = struct
 
         (* Create possible edges from tbridge *)
         List.iter generate_possible_edges_from_tbridge tbridges;
+
+
+        (* Add ports *)
+        let inports = List.map (function (cstruct:component_structure) -> 
+            List.filter_map (map0_place (fun _ -> function | Inport p -> 
+                Hashtbl.add port2component (fst p.value).name cstruct.name;
+                Some (fst p.value) | _ -> None)) cstruct.body
+        ) components in
+        List.iter (function ps -> 
+            List.iter (function (p:_port) ->
+            let v = G.V.create p.name in 
+                G.add_vertex g v) ps
+            ) inports;
+
+        let outports = List.map (function (cstruct:component_structure) -> 
+            List.filter_map (map0_place (fun _ -> function | Outport p -> 
+                Hashtbl.add port2component (fst p.value).name cstruct.name;
+                Some (fst p.value) | _ -> None)) cstruct.body
+        ) components in
+        List.iter (function ps -> 
+            List.iter (function (p:_outport) ->
+            let v = G.V.create p.name in 
+                G.add_vertex g v) ps
+            ) outports;
+
+        let eports = List.map (function (cstruct:component_structure) -> 
+            List.filter_map (map0_place (fun _ -> function | Eport p -> 
+                Hashtbl.add port2component (fst p.value).name cstruct.name;
+                Some (fst p.value) | _ -> None)) cstruct.body
+        ) components in
+        List.iter (function ps -> 
+            List.iter (function (p:_eport) ->
+            let v = G.V.create p.name in 
+                G.add_vertex g v) ps
+            ) eports;
 
         let export_path = Fpath.to_string (Fpath.add_seg export_dir ("sltopology_"^name^".dot")) in
         let out = open_out export_path in 
