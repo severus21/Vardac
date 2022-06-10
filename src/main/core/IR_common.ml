@@ -1,5 +1,7 @@
 open AstUtils
 open Easy_logging
+open Ppx_hash_lib.Std
+open Hash.Builtin
 
 (************************************* Base types ****************************)
 open Label
@@ -13,8 +15,7 @@ let logger = Logging.make_logger "_1_ compspec" Debug [];;
 
 (* TODO clean AST *)
 
-type ident = string (*TODO remove ident if not used *) 
-and expr_variable = Atom.t
+type expr_variable = Atom.t
 and type_variable = Atom.atom
 and component_variable = Atom.atom
 and comments = AstUtils.comments
@@ -114,7 +115,7 @@ and place = _place placed
 and vplace = { 
     name:           component_variable;
     nbr_instances:  expr;
-    features:     (string, string) Hashtbl.t;[@opaque]
+    features:     (string, string) Hashtbl.t;[@opaque][@hash.ignore]
     children:       vplace list
 }
 
@@ -129,7 +130,7 @@ and _literal =
     | BoolLit of bool
     | FloatLit of float 
     | IntLit of int
-    | LabelLit of label 
+    | LabelLit of label
     | BLabelLit of expr_variable
     | StringLit of string
 
@@ -303,8 +304,7 @@ and component_expr = (_component_expr * main_type) placed
 
 (* The following annotation requests the automatic generation of a [show_]
 function for each of the types defined above.*)
-[@@deriving show { with_path = false }]
-
+[@@deriving show { with_path = false }, hash]
 
 
 

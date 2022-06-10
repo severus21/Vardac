@@ -1,11 +1,14 @@
+open Ppx_hash_lib.Std
+open Hash.Builtin
+
 (** Adding code placement information to AST element (for debugging)*)
 type 'a placed = {
   (* printer without place annoatation *)
-  place: Error.place;[@opaque]
+  place: Error.place;[@opaque][@hash.ignore]
   (*  printer with place annotation:
   place: Error.place;[@printer fun fmt ->let pp_pos fmt ({pos_fname=n1; pos_lnum=l1; pos_bol=b1; pos_cnum=c1}:Lexing.position) = fprintf fmt "{pos_fname=%s; pos_lnum=%d; pos_bol=%d; pos_cnum=%d}" n1 l1 b1 c1 in let pp_place fmt (pos1, pos2) = fprintf fmt "(%a,%a)" pp_pos pos1 pp_pos pos2 in fprintf fmt "%a" pp_place  ]*)
   value: 'a
-} [@@deriving show { with_path = false }]
+} [@@deriving show { with_path = false }, hash]
 
 
 (* Printing a syntax tree in an intermediate language (for debugging). *)
@@ -65,7 +68,7 @@ type _comments =
     | DocComment of string
     | LineComment of string
 and comments = _comments placed
-[@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }, hash]
 
 (** Literal types *)
 type flat_type = 
@@ -83,7 +86,7 @@ type flat_type =
     | TTimer
     | TWildcard (** e.g. ? *)
     | TBottom (** e.g. object in Java *)
-[@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }, hash]
 
 type unop = 
     | Not 
@@ -118,7 +121,7 @@ and block =
     | Set
 and block2 =
     | Dict
-[@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }, hash]
 
 
 let rec map0_place (fct:Error.place -> 'a -> 'b) ({place; value}:'a placed) : 'b  = 

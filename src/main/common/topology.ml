@@ -108,13 +108,12 @@ module Make (Args:Params) : Sig = struct
     let g = G.create ()
 
     let generate_possible_edges_from_tbridge {in_type; out_type; protocol} = 
-        failwith (show_main_type in_type);
         let rec explore error_header { AstUtils.place ; AstUtils.value} =
             match value with
             | CType {value=TVar x} -> [x] 
             | CType {value=TUnion (nt1, nt2)} -> (explore error_header nt1) @(explore error_header nt2) 
             | CompType {value=CompTUid cname} -> [cname] 
-            | _ -> Error.perror (out_type.place) "bridge %s type parameter must be a component type (name, union, universal)" error_header
+            | _ -> [] (* e.g. builtin signature -> polyvar *) 
         in
         let lefts = explore "fst" in_type in 
         let rights = explore "snd" out_type in 
@@ -145,6 +144,7 @@ module Make (Args:Params) : Sig = struct
             (fun parent_opt env {value=CType {value=TBridge tbridge}} -> [tbridge])
             program
         in
+        let tbridges : tbridge list = Utils.deduplicate [%hash: tbridge] tbridges in
 
         (* Create possible edges from tbridge *)
         List.iter generate_possible_edges_from_tbridge tbridges;

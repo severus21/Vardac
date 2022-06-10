@@ -8,7 +8,7 @@
 type atom
 
 and t = atom
-  [@@deriving show]
+  [@@deriving show, hash]
 
 val identity: atom -> int
 val hint: atom -> string
@@ -82,6 +82,8 @@ module VMap : sig
 
   val to_list: 'a t -> (key * 'a) list
   val of_list: (key * 'a) list -> 'a t
+
+  val hash_fold_t : 'a Ppx_hash_lib.Std.Hash.folder -> 'b t Ppx_hash_lib.Std.Hash.folder
 
 end
 

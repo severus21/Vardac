@@ -4,6 +4,8 @@
    space that they occupy. This is done using a weak hash set. *)
 
 open Printf 
+open Ppx_hash_lib.Std
+open Hash.Builtin
 
 module StringStorage =
   Weak.Make(struct
@@ -44,7 +46,7 @@ let remove_trailing_digits (s : string) : string =
 type atom = { identity: int; hint: string; value: string ; builtin: bool} (* builtin is an builtin type, fct, keywords .., if so the correct thing is value*)
 
 and t = atom
-  [@@deriving show { with_path = false }]
+  [@@deriving show { with_path = false }, hash]
 
 let identity a =
   a.identity
@@ -262,6 +264,14 @@ module VMap = struct
   let show m = Format.sprintf "" 
   let pp _ fmt m = Format.fprintf fmt "%a" (Error.pp_list ";" (fun out (x,_)-> Format.fprintf out "%s" (to_string x))) (List.of_seq (to_seq m)) 
 
+  let hash_fold_t hash_fold_elem s map = 
+    let l = List.of_seq (to_seq map) in
+
+    let hash_fold_item s ((k,v):key*'a) : Hash.state = failwith "" 
+        hash_fold_elem s v
+    in 
+    let s = hash_fold_list hash_fold_item s l in
+    s 
 end
 
 type renaming =
