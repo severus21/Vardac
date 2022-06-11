@@ -22,7 +22,7 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
 let rewrite_program program =  
     let selector = function
-        | Component {value=ComponentStructure cstruct} ->  true
+        | Component {value=ComponentStructure cstruct} -> true
         | _ -> false
     in
 

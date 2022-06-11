@@ -520,7 +520,7 @@ module Make (Params : IRParams) = struct
             Error.place -> _term -> 'a list) ->
             term list -> 
             'a list
-        val rewrite_term_program : (_term -> bool) ->
+        val rewrite_term_program : ?nested_rewrite:bool -> (_term -> bool) ->
             (Error.place -> _term -> _term list) ->
             term list -> term list
 
@@ -1431,13 +1431,22 @@ module Make (Params : IRParams) = struct
         | x -> x
         and rewrite_term_component_dcl selector rewriter = map_place (rewrite_term_component_dcl_ selector rewriter) 
 
-        and rewrite_term_term_ selector rewriter place = function 
-        | t when selector t -> rewriter place t
+        and rewrite_term_term_ ?(nested_rewrite=true) selector rewriter place = function 
+        | t when selector t -> 
+        begin
+            match t with
+            | Component cdcl -> 
+                (* rewrite nested term *)
+                let t = if nested_rewrite then 
+                    Component (rewrite_term_component_dcl selector rewriter cdcl)
+                else t in 
+            rewriter place t
+        end
         | Component cdcl -> [Component (rewrite_term_component_dcl selector rewriter cdcl)]
         | t -> [ t ]
-        and rewrite_term_term selector rewriter = map_places (rewrite_term_term_ selector rewriter) 
+        and rewrite_term_term ?(nested_rewrite=true) selector rewriter = map_places (rewrite_term_term_ ~nested_rewrite:nested_rewrite selector rewriter) 
 
-        and rewrite_term_program (selector : _term -> bool) (rewriter : Error.place -> _term -> _term list) program = List.flatten (List.map (rewrite_term_term selector rewriter) program )
+        and rewrite_term_program ?(nested_rewrite=true) (selector : _term -> bool) (rewriter : Error.place -> _term -> _term list) program = List.flatten (List.map (rewrite_term_term ~nested_rewrite:nested_rewrite selector rewriter) program )
 
         (******************************************)
         let rec rewrite_citem_component_item_  selector rewriter place = function 
