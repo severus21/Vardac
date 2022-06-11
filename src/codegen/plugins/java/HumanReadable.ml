@@ -29,7 +29,10 @@ let store_ctx filename ctx =
     | _ ->  ()
     (* debug failwith (Printf.sprintf "ctx already exists for filename [%s]" filename) *)
 
-module Make(Arg: sig val filename:string end) = struct
+module Make(Arg: sig 
+    val filename:string 
+    val component_names: Atom.Set.t
+end) = struct
     let cl_filename = (Filename.basename Arg.filename)
 
 
@@ -54,7 +57,6 @@ module Make(Arg: sig val filename:string end) = struct
                 let package = String.concat "." (pre_tokens tokens) in
                 let external_filename = List.nth tokens (List.length tokens -2) in
                 let cls = List.nth tokens (List.length tokens -1) in
-                let pkg = List.nth tokens (List.length tokens -2) in
 
                 let cls_id, cls_hint = 
                     try
@@ -63,15 +65,14 @@ module Make(Arg: sig val filename:string end) = struct
                         int_of_string (Str.matched_group 2 cls), Str.matched_group 1 cls
                     with Not_found -> failwith cls 
                 in
+                let z = (Atom.craft cls_id cls_hint cls_hint false) in
 
                 if cl_filename = cls || external_filename = (Config.project_name ()) then ctx, x
-                else if pkg = String.lowercase_ascii cls then 
-                    (* Nested components
-                       testa25/TestA25.java + testa25/B35.java + ... when component TestA25{ component B35{} } *)
+                else if Atom.Set.find_opt z Arg.component_names <> None then 
+                    (* Component name should not be renamed since they are filename too *)
                     ctx, x 
                 else
                     let external_ctx = get_ctx external_filename in
-                    let z = (Atom.craft cls_id cls_hint cls_hint false) in
                     match Hashtbl.find_opt renaming (Atom.identity z) with
                     | None -> 
                         (* Not in stage order therefore we can not rename *)

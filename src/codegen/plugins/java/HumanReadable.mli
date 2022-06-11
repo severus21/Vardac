@@ -4,6 +4,9 @@
     for a:atom, if atom.hint is unique in its scope (i.e. ctx) then atom become a builtin 
 *)
 
-module Make : functor (Arg : sig val filename : string end) -> sig 
+module Make : functor (Arg : sig 
+    val filename : string 
+    val component_names : Core.Atom.Set.t
+end) -> sig 
     include AstCompilationPass.Pass
 end
