@@ -134,6 +134,7 @@ component TestA {
             bind(this.p_out_wo, _b_wo);
 
             this.run(d);
+            this.run_wo(d);
         }
 
         result<void, error> run(activation_ref<B> d){
@@ -144,6 +145,16 @@ component TestA {
 
             ?string. s2 = fire(s1, 2)?;
             debug("Test3> Send int 2");
+        }
+
+        result<void, error> run_wo(activation_ref<B> d){
+            session<p> s0 = initiate_session_with(this.p_out_wo, d);
+
+            ?string!int?string. s1 = fire(s0, 5)?;
+            debug("Test3> wo Send int 1");
+
+            ?string. s2 = fire(s1, 7)?;
+            debug("Test3> wo Send int 2");
         }
     }
 
@@ -184,7 +195,7 @@ component TestA {
             debug("Test3> wo Receive int 2");
             int c = get2dict(this.counters, sessionid(s));
             int d = c + x;
-            debug("Test3> wo Result "+int_to_string(c)); (* sould be 3 *)
+            debug("Test3> wo Result "+int_to_string(c)); (* sould be 12 *)
         }
     }
 
