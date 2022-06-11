@@ -121,6 +121,83 @@ component B {
     }
 }
 
+(*** Test 3 ***)
+protocol pptest = !int!int.;
+component TestA {
+    component A {
+        outport p_out expecting (inline pptest);
+        outport p_out_wo expecting (inline pptest);
+
+        onstartup (bridge<A, B, inline pptest> _b, bridge<A, B, inline pptest> _b_wo, activation_ref<B> d){
+            debug("Test3> Start A");
+            bind(this.p_out, _b);
+            bind(this.p_out_wo, _b_wo);
+
+            this.run(d);
+        }
+
+        result<void, error> run(activation_ref<B> d){
+            session<p> s0 = initiate_session_with(this.p_out, d);
+
+            ?string!int?string. s1 = fire(s0, 1)?;
+            debug("Test3> Send int 1");
+
+            ?string. s2 = fire(s1, 2)?;
+            debug("Test3> Send int 2");
+        }
+    }
+
+    (* TODO test non determinism *)
+
+    component B {
+        onstartup (bridge<A, B, inline pptest> _b, bridge<A, B, inline pptest> _b_wo){
+            debug("Test3> Start B");
+            bind(this.p_in, _b);
+            bind(this.p_in_wo_receive, _b_wo);
+            bind(this.p_in_wo_receive_next, _b_wo);
+        }
+
+        inport p_in :: bridge<A, B, inline pptest> expecting (dual pptest) = this.callback;
+
+        inport p_in_wo_receive :: bridge<A, B, inline pptest> expecting (dual pptest) = this.callback_wo_receive;
+        inport p_in_wo_receive_next :: bridge<A, B, inline pptest> expecting ?int. = this.callback_wo_receive_next;
+
+        result<void, error> callback(int x, ?int. s){
+            debug("Test3> Receive int 1");
+
+            tuple<int, .> resa = receive(s);
+            debug("Test3> Receive int 2");
+
+            int v_a = first(resa); 
+            int c = x + v_a;
+            debug("Test3> Result "+int_to_string(c)); (* sould be 3 *)
+        }
+
+        dict<session_id, int> counters = dict();
+
+        result<void, error> callback_wo_receive(int x, ?int. s){
+            debug("Test3> wo Receive int 1");
+            add2dict(this.counters, sessionid(s), x);
+        }
+
+        result<void, error> callback_wo_receive_next(int x, . s){
+            debug("Test3> wo Receive int 2");
+            int c = get2dict(this.counters, sessionid(s));
+            int d = c + x;
+            debug("Test3> wo Result "+int_to_string(c)); (* sould be 3 *)
+        }
+    }
+
+    onstartup (){
+        bridge<A, B, inline pptest> b2 = bridge(pptest);
+        bridge<A, B, inline pptest> b2_wo = bridge(pptest);
+        activation_ref<B> a = spawn B(b2, b2_wo);
+        activation_ref<A> b = spawn A(b2, b2_wo, a);  
+    }
+}
+
+
+
 component TopLevel {
     onstartup () {
         print(">> Entering toplevel");
@@ -131,6 +208,8 @@ component TopLevel {
         bridge<A, B, inline ptest> b2 = bridge(ptest);
         activation_ref<B> a = spawn B(b2);
         activation_ref<A> b = spawn A(b2, a);  
+
+        activation_ref<TestA> test = spawn TestA();
         print(">> Ending toplevel");
     }
 }

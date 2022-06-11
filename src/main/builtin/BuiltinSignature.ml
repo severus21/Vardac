@@ -311,7 +311,7 @@ let t_dict () =
     ))*)
 
     mtype_of_ct(TArrow(
-        mtype_of_ft TWildcard,
+        mtype_of_ft TVoid,
         mtype_of_ft TWildcard
     ))
 
