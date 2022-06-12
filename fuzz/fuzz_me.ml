@@ -35,6 +35,23 @@ let test_dual (st:session_type) =
         ~pp:pp_session_type
         ~cmp:(fun a b -> if equal_stype a b then 0 else 1) (dual (dual st)) st
 
+let test_unfold_st_star (st:session_type) = 
+    (* Check: idempotence *)
+    Crowbar.check_eq 
+        ~pp:pp_session_type
+        ~cmp:(fun a b -> if equal_stype a b then 0 else 1) (unfold_st_star (unfold_st_star st)) (unfold_st_star st);
+
+    (* Check: does not return µx. and that unfold_st_star is Fun.Id for non-recursive type *)
+        Crowbar.check_eq 
+        ~pp:pp_session_type
+        ~cmp:(fun a b -> 
+            match a.value, b.value with    
+            | STRecv _, _ -> 1
+            | _, STRecv _ -> 0
+            | _, _ -> if equal_stype a b then 0 else 1
+        ) (unfold_st_star st) st
+
+
 let identity (x:int) =
     Crowbar.check_eq x (if x = 2 then 0 else x)
 
