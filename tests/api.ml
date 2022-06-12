@@ -13,8 +13,15 @@ include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
 (* Core: IRMisc *)
 let irmisc_suite () = [
-    "dual" >:: function _ -> assert_equal ~printer:show_session_type (dual (auto_fplace STEnd)) (auto_fplace STEnd);
-
+    "dual" >:: (function _ -> assert_equal ~printer:show_session_type (dual (auto_fplace STEnd)) (auto_fplace STEnd));
+    "stages_of_st" >:: (function _ -> 
+        let st = auto_fplace (STSend( mtype_of_ft TInt, auto_fplace (STSend (mtype_of_ft TInt, auto_fplace STEnd)))) in
+        assert_equal  
+            (stages_of_st st)
+            [
+                st.value;
+                STSend (mtype_of_ft TInt, auto_fplace STEnd)
+            ]);
 ]
 
 let irmisc_error_suite () = [

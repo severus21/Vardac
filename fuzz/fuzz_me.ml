@@ -51,10 +51,6 @@ let test_unfold_st_star (st:session_type) =
             | _, _ -> if equal_stype a b then 0 else 1
         ) (unfold_st_star st) st
 
-
-let identity (x:int) =
-    Crowbar.check_eq x (if x = 2 then 0 else x)
-
 let () = 
-    (*Crowbar.(add_test ~name:"identity function" [int] (fun i -> identity i));*)
     Crowbar.(add_test ~name:"dual function" [gen_st] (fun i -> test_dual i))
+    Crowbar.(add_test ~name:"dunfold_st_star" [gen_st] (fun i -> test_unfold_st_star i))
