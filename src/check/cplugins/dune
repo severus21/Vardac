@@ -3,4 +3,5 @@
     (public_name compspec.check.cplugins)
     (modules :standard)
     (libraries ounit2 easy_logging core dynlink jingoo)
+    (instrumentation (backend bisect_ppx)) 
 )

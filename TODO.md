@@ -90,7 +90,7 @@ Semantics
 | use akka blocking primitive for sleep | :x: | to avoid blocking a thread of the pool
 | is_instance only work for VarExpr arg | :x: | see Akka/misc.ml
 | custom main: args and return are not yet use for guardian creation    | :x: |
-| limitation: akka timer are not "précis" |
+| limitation: akka timer is not accurate |
 | **defensive programming**
 | write tests for each pass and for each features 
 | write pre/post condition for each pass

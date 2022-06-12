@@ -6,6 +6,7 @@
     (preprocess (pps ppx_deriving.show ppx_deriving.enum ppx_hash ppx_import ppx_fields_conv))
     (modules :standard)
     (libraries dune-site fieldslib ocamlgraph ounit2 yaml easy_logging "yaml.unix" "rresult" "fileutils" process)
+    (instrumentation (backend bisect_ppx)) 
 )
 
 (generate_sites_module

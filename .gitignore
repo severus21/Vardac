@@ -1,3 +1,5 @@
+_coverage
+
 # Both are generated from dune.j2
 tests/dune
 templates/dune 

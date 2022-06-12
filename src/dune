@@ -1,2 +1,4 @@
 (library
- (public_name compspec))
+ (public_name compspec)
+ (instrumentation (backend bisect_ppx)) 
+)

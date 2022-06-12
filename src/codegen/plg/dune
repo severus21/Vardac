@@ -3,6 +3,7 @@
     (public_name compspec.codegen.plg)
     (modules :standard)
     (libraries dune-site ounit2 easy_logging core dynlink jingoo)
+    (instrumentation (backend bisect_ppx)) 
 )
 
 (generate_sites_module

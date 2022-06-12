@@ -77,8 +77,13 @@ end) = struct
         let rec explore path= 
             match Bos.OS.Dir.exists (Fpath.v path) with 
             | Rresult.Ok true ->
-                Bos.OS.Dir.create (Fpath.v path);
+            begin
+                (match Bos.OS.Dir.create (Fpath.v path) with
+                | Rresult.Ok true -> ()
+                | _ -> Error.error "Can not create templates directory in build dir");
+
                 List.flatten (List.map explore (FileUtil.ls path)) 
+            end
             | Rresult.Ok false -> [path]
         in
 

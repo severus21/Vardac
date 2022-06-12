@@ -25,7 +25,7 @@ see `docs/README.md`.
 Using Opam, a suitable OCaml environment can be setup as follows (automated script ``requirements.sh``):
 ```bash
 opam switch 4.12.0
-opam install yaml ounit2 process rresult pprint ppx_deriving menhir bos fileutils
+./requirements.sh
 ```
 
 To compile Compspec, just run the command `make` in the source directory.

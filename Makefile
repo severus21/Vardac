@@ -39,10 +39,16 @@ generatedune:
 
 #### XXX tests ###########################################################
 
-.PHONY: tests tests2
+.PHONY: tests testcoverage
 tests: generatedune
 	@dune runtest --profile release
 	@rm -rf tests/examples
+
+testcoverage: generatedune
+	@dune runtest --profil release --instrument-with bisect_ppx --force
+	@rm -rf tests/examples
+	@bisect-ppx-report html
+	echo $(bisect-ppx-report summary)
 
 .PHONY: fuzz fuzz-ci fuzz-ci-timeout
 fuzz: 
