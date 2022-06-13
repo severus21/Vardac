@@ -41,6 +41,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "initiate_session_with", "TODO", "TODO", 
     t_initiate;
     "listget", " list<T> -> int -> t", "", t_listget;
+    "setlength", "set -> int", "", t_setlength; 
     "pick", "dict<k,v> -> v", "Random choice in a sequence, failed if empty", t_select; (*TODO*)
     "placeof", "abs -> place option", "Give the current place where the abstraction is running. Returns None if the abstraction is not yet placed.", t_placeof;
     "place_to_string", "place -> string", "", t_place_to_string;
@@ -68,6 +69,11 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
 
     "exit", "() -> ()", "run in guardian, terminate the guardian and all activations", t_exit;
     "debug", "string -> ()", "TODO", t_debug;
+
+    "leftactivations", "...", "discover activations interconnecting by the bridge", t_leftactivations;
+    "rightactivations", "...", "discover activations interconnecting by the bridge", t_rightactivations;
+    "leftregister", "...", "...", t_leftregister;
+    "rightregister", "...", "...", t_leftregister;
 
     (* Not expose to user, but should be implemented by the underlying plugin *)
     "__get_intermediate_port", "session -> port", "TODO", t___get_intermediate_port;

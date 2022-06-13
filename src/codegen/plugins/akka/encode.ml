@@ -216,6 +216,36 @@ let encode_builtin_fct_1 place name a =
             )),
             [ ]
         )
+    | "setlength" -> 
+        T.CallExpr(
+            e2_e (T.AccessExpr( 
+                a,
+                e2_e (T.RawExpr "size")
+            )),
+            [ ]
+        )
+    | "leftactivations" ->
+        T.CallExpr(
+            e2_e (T.AccessExpr(
+                a,
+                e2_e (T.RawExpr "letActivations")
+            )),
+            [ 
+                e_get_context place;
+                e_this_guardian place;
+            ]
+        )
+    | "rightactivations" ->
+        T.CallExpr(
+            e2_e (T.AccessExpr(
+                a,
+                e2_e (T.RawExpr "letActivations")
+            )),
+            [ 
+                e_get_context place;
+                e_this_guardian place;
+            ]
+        )
     | _ -> Error.perror place "%s with one argument is undefined" name
 
 let encode_builtin_fct_2 place name a b =
@@ -273,6 +303,28 @@ let encode_builtin_fct_2 place name a b =
                 e_this_dead_sessions place;
             ]
         ) 
+    | "leftregister" ->
+        T.CallExpr(
+            e2_e (T.AccessExpr(
+                a,
+                e2_e (T.RawExpr "letRegister")
+            )),
+            [ 
+                e_get_context place;
+                b;
+            ]
+        )
+    | "rightregister" ->
+        T.CallExpr(
+            e2_e (T.AccessExpr(
+                a,
+                e2_e (T.RawExpr "letRegister")
+            )),
+            [ 
+                e_get_context place;
+                b;
+            ]
+        )
     | "select" -> 
         T.CallExpr( 
             e2_e (T.AccessExpr (

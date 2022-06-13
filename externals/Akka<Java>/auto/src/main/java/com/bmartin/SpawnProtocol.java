@@ -21,10 +21,12 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import scala.MatchError;
 
 import java.io.*;
+import java.util.*;
 import java.util.Optional;
 import java.util.function.Function;
 
 import com.lg4dc.WrappedActorRef;
+import com.lg4dc.WrappedActivationRef;
 
 public class SpawnProtocol {
     @JsonSerialize(using = LambdaJsonSerializer.class)
@@ -114,6 +116,34 @@ public class SpawnProtocol {
         System.out.println(">>> PlaceDiscovery::ComponentsAt" + replyTo.toString());
 
             this.at = at;
+            this.replyTo = replyTo;
+        }
+    }
+
+    public static class LeftActivationsOf<_T> implements Command, JsonSerializable {
+        public final UUID bridge_id;
+        public final ActorRef<WrappedActorRef<_T>> replyTo;
+
+
+        public LeftActivationsOf(UUID bridge_id, ActorRef<WrappedActorRef<_T>> replyTo) {
+            assert (null != bridge_id);
+            assert (null != replyTo);
+
+            this.bridge_id = bridge_id;
+            this.replyTo = replyTo;
+        }
+    }
+
+    public static class RightActivationsOf<_T> implements Command, JsonSerializable {
+        public final UUID bridge_id;
+        public final ActorRef<WrappedActorRef<_T>> replyTo;
+
+
+        public RightActivationsOf(UUID bridge_id, ActorRef<WrappedActorRef<_T>> replyTo) {
+            assert (null != bridge_id);
+            assert (null != replyTo);
+
+            this.bridge_id = bridge_id;
             this.replyTo = replyTo;
         }
     }

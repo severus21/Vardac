@@ -29,6 +29,7 @@ import java.util.*;
 public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     public static final String NAME = "{{system_name}}_component_";
     HashMap<UUID,  InPort> registered_session = new HashMap();
+    String schema = "";
 
     public AbstractComponent(ActorContext<T> context){
         super(context);
@@ -63,10 +64,20 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
         // Register the valid binding
         this.currently_inport_bindings.put(key, port.id);
 
+        //Register the activations 
+        bridge.rightRegister(getContext(), this.activation_ref());
+
         return null;
     }
 
+    public ActivationRef activation_ref(){
+        return new ActivationRef(this.schema, getContext().getSelf(), false, Optional.empty());
+    }
+
     public Void bind_out(OutPort port, Bridge bridge) {
+        //Register the activations 
+        bridge.leftRegister(getContext(), this.activation_ref());
+
         return port.bind(bridge);
     }
 
