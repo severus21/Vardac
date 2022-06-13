@@ -90,7 +90,7 @@ match e with
     | BinaryExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_binop op oexpr e2
     | CastExpr (ct, ({value=LambdaExpr _,_} as lambda)) -> (* Otherwise Java error "error: lambda expression not expected here"*)
         fprintf out "( (%a) %a )" ojtype ct oexpr lambda 
-    | CastExpr (ct, e) -> fprintf out "(%a) %a" ojtype ct oexpr e
+    | CastExpr (ct, e) -> fprintf out "((%a) %a)" ojtype ct oexpr e
     | LiteralExpr lit -> oliteral out lit
     | LambdaExpr (params, stmt) -> 
         let rec output_lambda_param out ((jt, x):jtype * variable) =

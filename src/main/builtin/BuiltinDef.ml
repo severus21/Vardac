@@ -77,6 +77,10 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
 
     (* Not expose to user, but should be implemented by the underlying plugin *)
     "__get_intermediate_port", "session -> port", "TODO", t___get_intermediate_port;
+
+    "bridgeof", "port | inport -> ", "TODO", t_bridgeof;
+    "bridgeof_in", "port | inport -> ", "TODO", t_bridgeof;
+    "bridgeof_out", "port | inport -> ", "TODO", t_bridgeof;
     (*
 
 

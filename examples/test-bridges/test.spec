@@ -7,9 +7,12 @@ component TestA {
         onstartup (bridge<A, B, inline ptest> _b){
             debug("TestA> Start A");
             bind(this.p_out, _b);
+        }
 
-            set<activation_ref> tmp = leftactivations(this.p_out)?;
+        result<void, error> run(){
+            set<activation_ref<A|B>> tmp = leftactivations(bridgeof(this.p_out))?;
             string n = int_to_string(setlength(tmp));
+
             debug("TestA> leftactivations "+n);
         }
     }
@@ -19,8 +22,10 @@ component TestA {
             debug("TestA> Start B");
             bind(this.p_in, _b);
 
-            set<activation_ref> tmp = leftactivations(this.p_out)?;
+        }
 
+        result<void, error> run(){
+            set<activation_ref<A|B>> tmp = rightactivations(bridgeof(this.p_in))?;
         }
 
         inport p_in :: bridge<A, B, inline ptest> expecting (dual ptest) = this.callback;

@@ -87,6 +87,7 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
         context.getSystem().receptionist().tell(
             Receptionist.register(
                 this.leftServiceKey(), a.actorRef));
+        context.getLog().info("Register "+a.actorRef.toString()+" at left of "+this.id.toString());
         return Either.right(true);
     }
 
@@ -116,6 +117,8 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
             // blocking call
             WrappedActorRefs tmp = ask.toCompletableFuture().get();
             Set<ActivationRef> res = new HashSet<>();
+
+            context.getLog().info("Find at right/left "+tmp.response.size());
             for(ActorRef a : tmp.response){
                 res.add(new ActivationRef(
                     "TODO", //can not retrieve schema from receptionnist - workaround use distributed data

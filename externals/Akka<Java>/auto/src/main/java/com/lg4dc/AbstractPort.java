@@ -7,7 +7,7 @@ import com.bmartin.*;
 public abstract class AbstractPort {
     public UUID id;
     public String name;
-    Bridge bridge;
+    public Bridge bridge;
 
     // child is an other port such that 
     // its bindings follows those of its parents

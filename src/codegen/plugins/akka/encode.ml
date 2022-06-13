@@ -217,18 +217,21 @@ let encode_builtin_fct_1 place name a =
             [ ]
         )
     | "setlength" -> 
-        T.CallExpr(
-            e2_e (T.AccessExpr( 
-                a,
-                e2_e (T.RawExpr "size")
-            )),
-            [ ]
+        T.CastExpr(
+            auto_place (T.Atomic "Integer"),
+            e2_e (T.CallExpr(
+                e2_e (T.AccessExpr( 
+                    a,
+                    e2_e (T.RawExpr "size")
+                )),
+                [ ]
+            ))
         )
     | "leftactivations" ->
         T.CallExpr(
             e2_e (T.AccessExpr(
                 a,
-                e2_e (T.RawExpr "letActivations")
+                e2_e (T.RawExpr "leftActivations")
             )),
             [ 
                 e_get_context place;
@@ -239,12 +242,17 @@ let encode_builtin_fct_1 place name a =
         T.CallExpr(
             e2_e (T.AccessExpr(
                 a,
-                e2_e (T.RawExpr "letActivations")
+                e2_e (T.RawExpr "rightActivations")
             )),
             [ 
                 e_get_context place;
                 e_this_guardian place;
             ]
+        )
+    | "bridgeof_in" | "bridgeof_out" ->
+        T.AccessExpr(
+            a,
+            e2var (Atom.builtin "bridge")
         )
     | _ -> Error.perror place "%s with one argument is undefined" name
 

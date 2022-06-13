@@ -383,6 +383,19 @@ let t_debug () =
         mtype_of_ft TVoid 
     ))
 
+let t_bridgeof () =
+    mtype_of_ct (TArrow (
+        mtype_of_ct (TUnion (
+            mtype_of_ct (TOutport (mtype_of_st STWildcard)),
+            mtype_of_ct (TInport (mtype_of_st STWildcard))
+        )),
+        mtype_of_ct (TBridge {
+            in_type  = mtype_of_ft TWildcard;
+            out_type = mtype_of_ft TWildcard;
+            protocol = mtype_of_st STEnd
+        })
+    ))
+
 let t_setlength () =
     mtype_of_ct (TArrow (
         mtype_of_ct (TSet (mtype_of_ct (TActivationRef(mtype_of_ft TWildcard)))),
@@ -390,7 +403,11 @@ let t_setlength () =
     ))
 let t_leftactivations () =
     mtype_of_ct (TArrow (
-        fresh_tbridge (),
+        mtype_of_ct (TBridge {
+            in_type  = mtype_of_ft TWildcard;
+            out_type = mtype_of_ft TWildcard;
+            protocol = mtype_of_st STEnd
+        }),
         mtype_of_ct (TResult (
             mtype_of_ct (TSet (mtype_of_ct (TActivationRef(mtype_of_ft TWildcard)))),
             builtin_mt_error
@@ -400,7 +417,11 @@ let t_rightactivations () = t_leftactivations ()
 
 let t_leftregister () =
     mtype_of_ct (TArrow (
-        fresh_tbridge (),
+        mtype_of_ct (TBridge {
+            in_type  = mtype_of_ft TWildcard;
+            out_type = mtype_of_ft TWildcard;
+            protocol = mtype_of_st STEnd
+        }),
         mtype_of_ct (TArrow (
             mtype_of_ct (TActivationRef(mtype_of_ft TWildcard)),
             mtype_of_ct (TResult (
