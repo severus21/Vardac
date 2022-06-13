@@ -101,7 +101,7 @@ and _stmt =
     | ExpressionStmt of expr
     | EmptyStmt 
     | IfStmt of expr * stmt * stmt option              
-    | ForStmt of jtype * variable * expr * stmt
+    | ForeachStmt of jtype * variable * expr * stmt
     | NamedExpr of jtype * variable * expr option 
     | ReturnStmt of expr
     | RawStmt of string

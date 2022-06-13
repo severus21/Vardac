@@ -85,7 +85,7 @@ and _stmt =
     | ContinueStmt
     | ExpressionStmt of expr
     | IfStmt of expr * stmt * stmt option               
-    | ForStmt of ctype * variable * expr * stmt
+    | ForeachStmt of ctype * variable * expr * stmt
     | ReturnStmt of expr
     | TryStmt of stmt * (ctype * variable * stmt) list
     | RawStmt of string

@@ -127,6 +127,10 @@ module Make () = struct
         match op with
         | Plus | Minus | Mult | Divide -> of_tflat TInt
     end
+    | _, CType{value=TFlatType TLong},CType{value=TFlatType TLong} -> begin   
+        match op with
+        | Plus | Minus | Mult | Divide -> of_tflat TLong
+    end
     | _, CType{value=TFlatType TFloat},CType{value=TFlatType TFloat} -> begin   
         match op with
         | Plus | Minus | Mult | Divide -> of_tflat TInt
@@ -655,9 +659,9 @@ module Make () = struct
     | BreakStmt -> BreakStmt
     | ContinueStmt -> ContinueStmt
     | ExitStmt i -> ExitStmt i
-    | ForStmt (mt, x, e, stmt) -> 
+    | ForeachStmt (mt, x, e, stmt) -> 
         register_expr_type x mt; 
-        ForStmt (
+        ForeachStmt (
             tannot_main_type parent_opt mt,
             x,
             tannot_expr parent_opt e,

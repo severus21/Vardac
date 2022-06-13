@@ -23,7 +23,7 @@ let rec _analyze_stmt place =
 function
 | EmptyStmt | CommentsStmt _ -> () 
 | AssignExpr _ | AssignThisExpr _ | LetStmt _ | BreakStmt | ContinueStmt | ExitStmt _ | ReturnStmt _ | ExpressionStmt _ -> incr global_stats.ssc
-| ForStmt (_,_,_,stmt) ->
+| ForeachStmt (_,_,_,stmt) ->
     incr global_stats.ssc;
     analyze_stmt stmt
 | IfStmt (_, stmt1, stmt2_opt) ->

@@ -236,12 +236,12 @@ end) = struct
                 | Some stmt2 -> let ctx, stmt2 = hr_stmt ctx stmt2 in ctx, Some stmt2
             in
             ctx, IfStmt (e, stmt1, stmt2_opt)
-        | ForStmt (jt, x, e, stmt) ->
+        | ForeachStmt (jt, x, e, stmt) ->
             let ctx, jt     = hr_jt ctx jt in
             let ctx, x      = hr_atom_binder ctx x in
             let ctx, e      = hr_expr ctx e in
             let ctx, stmt   = hr_stmt ctx stmt in 
-            ctx, ForStmt (jt, x, e, stmt)
+            ctx, ForeachStmt (jt, x, e, stmt)
         | NamedExpr (jt, x, e_opt) ->
             let ctx, jt     = hr_jt ctx jt in
             let ctx, x      = hr_atom_binder ctx x in

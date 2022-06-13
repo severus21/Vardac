@@ -116,7 +116,7 @@ and clean_stmt place : _stmt -> _stmt = function
     cstmt stmt1,
     Option.map cstmt stmt2_opt
 )              
-| ForStmt(ct, x, e, stmt) -> ForStmt (
+| ForeachStmt(ct, x, e, stmt) -> ForeachStmt (
     ct,
     x, 
     cexpr e,

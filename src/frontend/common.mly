@@ -370,9 +370,9 @@ any_stmt_:
 | FOR LPAREN mt = any_type x=LID IN e=any_expr RPAREN LCURLYBRACKET stmts = flexible_sequence(any_stmt) RCURLYBRACKET
     { 
         match stmts with
-        | [] -> ForStmt (mt, x, e, {place=[$loc]; value=EmptyStmt})
-        | [stmt] -> ForStmt (mt, x, e, stmt)
-        | stmts -> ForStmt (mt, x, e, {place=[$loc]; value=BlockStmt stmts})
+        | [] -> ForeachStmt (mt, x, e, {place=[$loc]; value=EmptyStmt})
+        | [stmt] -> ForeachStmt (mt, x, e, stmt)
+        | stmts -> ForeachStmt (mt, x, e, {place=[$loc]; value=BlockStmt stmts})
     }
 | MATCH e1=any_expr LCURLYBRACKET exprs=flexible_sequence(match_entry) RCURLYBRACKET
     { MatchStmt (e1, exprs) }

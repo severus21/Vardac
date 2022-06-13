@@ -135,7 +135,7 @@ and output_stmt out : _stmt -> unit = function
     | ExpressionStmt e -> fprintf out "%a;" oexpr e 
     | IfStmt (e, stmt1, None) -> fprintf out "if(@[<hv 3>%a@]){@;@[<v 3>@;%a@]@;}" oexpr e ostmt stmt1
     | IfStmt (e, stmt1, Some stmt2) -> fprintf out "if(@[<hv 3>%a@]){@;@[<v 3>@;%a@]@;}else{@;@[<v 3>@;%a@]@;}" oexpr e ostmt stmt1 ostmt stmt2
-    | ForStmt (jt, x, e, stmt) -> 
+    | ForeachStmt (jt, x, e, stmt) -> 
         assert(jt.value <> TUnknown);
         fprintf out "for(@[<hv 3>%a %a : %a @]){@;@[<v 3>@;%a@]@;}" ojtype jt output_var x oexpr e ostmt stmt
     | NamedExpr (jt, x, Some e) -> 
@@ -303,6 +303,7 @@ let output_program package_name outpath items : unit =
 
         (* Java *)
         JModule (mock_placed(ImportDirective "java.util.*"));
+        JModule (mock_placed(ImportDirective "java.util.Iterator"));
         JModule (mock_placed(ImportDirective "java.time.Duration"));
         JModule (mock_placed(ImportDirective "java.util.concurrent.CompletableFuture"));
         JModule (mock_placed(ImportDirective "java.util.UUID"));

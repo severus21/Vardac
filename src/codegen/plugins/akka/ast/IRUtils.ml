@@ -150,7 +150,7 @@ and _apply_rename_stmt rename_binders (renaming : Atom.atom -> Atom.atom) place 
         apply_rename_stmt rename_binders renaming stmt1,
         Option.map (apply_rename_stmt rename_binders renaming) stmt2_opt    
     )
-    | ForStmt(ct, x, e, stmt) -> ForStmt (
+    | ForeachStmt(ct, x, e, stmt) -> ForeachStmt (
         apply_rename_ctype renaming ct,
         (if rename_binders then renaming x else x),
         apply_rename_expr rename_binders renaming e,
@@ -362,7 +362,7 @@ and _rewriteexpr_stmt selector rewriter place : _stmt -> _stmt = function
     rewriteexpr_stmt selector rewriter stmt1,
     Option.map (rewriteexpr_stmt selector rewriter) stmt2_opt
 )
-| ForStmt(mt, x, e, stmt) -> ForStmt(
+| ForeachStmt(mt, x, e, stmt) -> ForeachStmt(
     mt,
     x,
     rewriteexpr_expr selector rewriter e,

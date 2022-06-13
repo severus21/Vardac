@@ -247,7 +247,7 @@ and _tcheck_stmt ret_type_opt place : _stmt -> unit = function
 | BreakStmt -> () 
 | ContinueStmt -> () 
 | ExitStmt i -> () 
-| ForStmt (mt, x, e, stmt) -> begin
+| ForeachStmt (mt, x, e, stmt) -> begin
     match (snd e.value).value with 
     | CType{value=TList mt_elt } | CType{value=TSet mt_elt} ->
         tcheck_main_type mt;

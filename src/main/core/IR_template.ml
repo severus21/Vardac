@@ -1629,10 +1629,10 @@ module Make (Params : IRParams) = struct
             | ExpressionStmt e -> 
                 let estmts, e = rewrite_exprstmts_expr e in
                 estmts @ [ auto_place (ExpressionStmt e)]
-            | ForStmt (mt, x, e, stmt) ->
+            | ForeachStmt (mt, x, e, stmt) ->
                 let estmts, e = rewrite_exprstmts_expr e in
                 estmts @ [
-                    auto_place (ForStmt(
+                    auto_place (ForeachStmt(
                         mt,
                         x, 
                         e, 

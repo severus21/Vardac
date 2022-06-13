@@ -107,6 +107,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "bool", PTYPE TBool;
     "float", PTYPE TFloat;
     "int", PTYPE TInt;
+    "long", PTYPE TLong;
     "label", PTYPE TLabel;
     "place", PTYPE TPlace;
     "activation_id", PTYPE TActivationID;

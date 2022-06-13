@@ -220,7 +220,7 @@ and _stmt =
     | BreakStmt
     | ContinueStmt
     | ExitStmt of int
-    | ForStmt of main_type * expr_variable * expr * stmt
+    | ForeachStmt of main_type * expr_variable * expr * stmt
     | IfStmt of expr * stmt * stmt option
     | MatchStmt of expr * (expr * stmt) list
     | ReturnStmt of expr
@@ -445,7 +445,7 @@ function
     let _, collected_elts, fvars = collect_expr_expr parent_opt already_binded selector collector e in
     already_binded, collected_elts, fvars
 | ExitStmt _ -> already_binded, [], []
-| ForStmt (mt, x, e, stmt) ->
+| ForeachStmt (mt, x, e, stmt) ->
     let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e in
     let _, collected_elts2, fvars2 = collect_expr_stmt parent_opt (Atom.Set.add x already_binded) selector collector stmt in
     already_binded, collected_elts1@collected_elts2,  fvars1@fvars2
@@ -540,7 +540,7 @@ function
 | EmptyStmt | AssignExpr _ | AssignThisExpr  _ | BreakStmt | CommentsStmt _ | ContinueStmt | ExpressionStmt _ | ExitStmt _ | LetStmt _ | ReturnStmt _-> []
 | BlockStmt stmts | WithContextStmt (_, _, _, stmts) ->
     List.flatten (List.map collect_stmt stmts) 
-| ForStmt (_, _, _, stmt) | GhostStmt stmt  ->
+| ForeachStmt (_, _, _, stmt) | GhostStmt stmt  ->
     collect_stmt stmt
 | IfStmt (_, stmt1, stmt2_opt) -> begin 
     let collected_elts1 = collect_stmt stmt1 in
@@ -810,7 +810,7 @@ and collect_type_stmt_  parent_opt already_binded selector collector place stmt 
         let _, collected_elts1, ftvars1 = collect_mtype mt in
         let _, collected_elts2, ftvars2 = collect_expr e in
         already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
-    | ForStmt (mt, _, e, stmt) -> 
+    | ForeachStmt (mt, _, e, stmt) -> 
         let _, collected_elts1, ftvars1 = collect_mtype mt in
         let _, collected_elts2, ftvars2 = collect_expr e in
         let _, collected_elts3, ftvars3 = collect_stmt stmt in
@@ -1084,8 +1084,8 @@ and _rewrite_expr_stmt selector rewriter place = function
     | BreakStmt -> BreakStmt
     | ContinueStmt -> ContinueStmt
     | ExitStmt i -> ExitStmt i
-    | ForStmt (mt, x, e, stmt) -> (* TODO FIXME expr in type are not yet concerned *)
-        ForStmt(mt, x, 
+    | ForeachStmt (mt, x, e, stmt) -> (* TODO FIXME expr in type are not yet concerned *)
+        ForeachStmt(mt, x, 
             rewrite_expr_expr selector rewriter e,
             rewrite_expr_stmt selector rewriter stmt)
     | IfStmt (e, stmt1, stmt2_opt) ->
@@ -1246,7 +1246,7 @@ function
 | AssignExpr (x, e) -> AssignExpr (x, rewrite_expr e)
 | AssignThisExpr (x, e) -> AssignThisExpr (x, rewrite_expr e)
 | LetStmt (mt, x, e) -> LetStmt (rewrite_mtype mt, x , rewrite_expr e)
-| ForStmt (mt, x, e, stmt) -> ForStmt (
+| ForeachStmt (mt, x, e, stmt) -> ForeachStmt (
     rewrite_mtype mt,
     x, 
     rewrite_expr e,
@@ -1331,8 +1331,8 @@ let rec _rewrite_stmt_stmt recurse selector rewriter place =
     | BreakStmt -> [BreakStmt]
     | ContinueStmt -> [ContinueStmt]
     | ExitStmt i -> [ExitStmt i]
-    | ForStmt (mt, x, e, stmt) ->
-        [ForStmt(mt, x, e, auto_place (BlockStmt (rewrite_stmt_stmt stmt)))]
+    | ForeachStmt (mt, x, e, stmt) ->
+        [ForeachStmt(mt, x, e, auto_place (BlockStmt (rewrite_stmt_stmt stmt)))]
     | IfStmt (e, stmt1, stmt2_opt) ->
         [IfStmt (
             e,
@@ -1608,7 +1608,7 @@ rewrite_type_aconstraint
         | BreakStmt -> BreakStmt
         | ContinueStmt -> ContinueStmt
         | ExitStmt i -> ExitStmt i
-        | ForStmt (mt, x, e, stmt) -> ForStmt (rmt mt, renaming x, re e, rstmt stmt)
+        | ForeachStmt (mt, x, e, stmt) -> ForeachStmt (rmt mt, renaming x, re e, rstmt stmt)
         | IfStmt (e, stmt1, stmt2_opt) -> IfStmt (re e, rstmt stmt1, Option.map rstmt stmt2_opt)
         | MatchStmt (e, branches) -> MatchStmt (re e, List.map (function (e, stmt) -> (re e, rstmt stmt)) branches) 
         | ReturnStmt e -> ReturnStmt (re e)

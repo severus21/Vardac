@@ -430,3 +430,17 @@ let t_leftregister () =
             ))
         ))
     ))
+
+let t_range () = 
+    mtype_of_ct (TArrow (
+        mtype_of_ft TInt,
+        mtype_of_ct (TArrow (
+            mtype_of_ft TInt,
+            mtype_of_ft TRange
+        ))
+    ))
+let t_time () = 
+    mtype_of_ct (TArrow (
+        mtype_of_ft TVoid,
+        mtype_of_ft TInt
+    ))

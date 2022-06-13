@@ -156,7 +156,7 @@ and _stmt =
     | BreakStmt
     | ContinueStmt
     | ExitStmt of int
-    | ForStmt of main_type * variable * expr * stmt
+    | ForeachStmt of main_type * variable * expr * stmt
     | IfStmt of expr * stmt * stmt option
     | MatchStmt of expr * (expr * stmt) list
     | ReturnStmt of expr

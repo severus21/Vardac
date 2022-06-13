@@ -46,6 +46,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "placeof", "abs -> place option", "Give the current place where the abstraction is running. Returns None if the abstraction is not yet placed.", t_placeof;
     "place_to_string", "place -> string", "", t_place_to_string;
     "int_to_string", "int -> string", "", t_place_to_string;
+    "long_to_string", "long -> string", "", t_place_to_string;
     "places", "() -> list<place>", "TODO", t_places;
     "print", "string -> unit", "TODO", t_print;
     "receive", "STReceive<'msg,'continuation> -> 'msg * 'continuation", "TODO", t_receive;
@@ -74,6 +75,9 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "rightactivations", "...", "discover activations interconnecting by the bridge", t_rightactivations;
     "leftregister", "...", "...", t_leftregister;
     "rightregister", "...", "...", t_leftregister;
+
+    "range", "int -> int -> range", "", t_range;
+    "time", "() -> int", "miliseconds", t_time; 
 
     (* Not expose to user, but should be implemented by the underlying plugin *)
     "__get_intermediate_port", "session -> port", "TODO", t___get_intermediate_port;

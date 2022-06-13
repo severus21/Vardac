@@ -75,8 +75,10 @@ type flat_type =
     | TActivationID (** can not be created by programmer -> no constructor *)
     | TBool
     | TInt
+    | TLong
     | TUUID
     | TFloat 
+    | TRange
     | TStr
     | TLabel
     | TBLabel (** label for non deterministic choices (STBranch/STSelect) only *)

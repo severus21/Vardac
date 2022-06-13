@@ -125,7 +125,7 @@ module Make () = struct
             (* TODO not processed neeed control flow - TODOC search spawn or activation in left hand side of a let then search where the activation is spawned then decide*)
 
             (* no direct exposure since inner binders can leak out ctx stmt *) 
-            | ForStmt (_, _, _, _) | IfStmt(_,_,_) | MatchStmt (_,_) | BlockStmt _ | WithContextStmt (_,_,_,_)  -> false 
+            | ForeachStmt (_, _, _, _) | IfStmt(_,_,_) | MatchStmt (_,_) | BlockStmt _ | WithContextStmt (_,_,_,_)  -> false 
 
             (* indirect *)
             (* TODO *)

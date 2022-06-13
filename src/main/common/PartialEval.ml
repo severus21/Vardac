@@ -460,12 +460,12 @@ end
 | ContinueStmt -> env, ContinueStmt
 | ExitStmt i -> env, ExitStmt i
 | ExpressionStmt e -> env, ExpressionStmt (snd(pe_expr env e))
-| ForStmt (mt, x, e, stmt) -> begin
+| ForeachStmt (mt, x, e, stmt) -> begin
     let stmt = snd (pe_stmt env stmt) in
     match stmt.value with
     | EmptyStmt -> env, EmptyStmt
     | BlockStmt [] -> env, EmptyStmt
-    | _ -> env, ForStmt (snd (pe_mtype env mt), x, snd (pe_expr env e), stmt)
+    | _ -> env, ForeachStmt (snd (pe_mtype env mt), x, snd (pe_expr env e), stmt)
 end
 | IfStmt (e, stmt, stmt_opt) -> begin 
     let e = snd (pe_expr env e) in

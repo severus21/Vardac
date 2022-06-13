@@ -198,9 +198,11 @@ module Make (Arg: sig val target:Target.target end) = struct
             (* When using Tuyple, Map, ... we need object so for ease we box atomic type in objects everywhere *)
             | AstUtils.TActivationID -> T.Atomic "UUID"
             | AstUtils.TBool -> T.Atomic "Boolean"
-            | AstUtils.TInt -> T.Atomic "Integer" (* only 32bits for uniformity, an option add TInt and TLong .. *)
+            | AstUtils.TInt -> T.Atomic "Integer" (* 32bits *)
+            | AstUtils.TLong -> T.Atomic "Long" (* 64bits *)
             | AstUtils.TFloat -> T.Atomic "Float"
             | AstUtils.TSessionID -> T.Atomic "UUID"
+            | AstUtils.TRange -> T.Atomic "IntegerRange"
             | AstUtils.TStr -> T.Atomic "String"
             | AstUtils.TVoid -> T.Atomic "Void" 
             | AstUtils.TUUID -> T.Atomic "UUID" 
@@ -677,7 +679,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         | S.BreakStmt -> T.BreakStmt
         | S.ContinueStmt -> T.ContinueStmt
         | S.ExitStmt _ -> failwith "Exist is not yet supported"
-        | S.ForStmt (mt,x,e,stmt) -> T.ForStmt(fmtype mt, x, fexpr e, fstmt stmt)
+        | S.ForeachStmt (mt,x,e,stmt) -> T.ForeachStmt(fmtype mt, x, fexpr e, fstmt stmt)
         | S.IfStmt (e, s1, s2_opt) -> T.IfStmt (fexpr e, fstmt s1, Option.map fstmt s2_opt)
         | S.MatchStmt (_,_) -> Core.Error.perror place "Match is not yet supported"
         | S.ReturnStmt e -> T.ReturnStmt (fexpr e) 

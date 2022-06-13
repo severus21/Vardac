@@ -86,6 +86,8 @@ let encode_builtin_fct_0 place name =
         fst (e_lg4dc_places place).value
     | "current_place" ->
          fst (e_lg4dc_current_place place).value
+    | "time" ->
+        T.RawExpr "System.currentTimeMillis()"
     | _ -> Error.perror place "%s takes zero argument" name
 
 let encode_builtin_fct_1 place name a =
@@ -136,7 +138,7 @@ let encode_builtin_fct_1 place name a =
             e2var (Atom.builtin "System.out.println"),
             [ a ]
         )
-    | "place_to_string" | "int_to_string" -> 
+    | "place_to_string" | "int_to_string" | "long_to_string" -> 
         T.CallExpr(
             e2_e (T.AccessExpr (
                 a,
@@ -355,6 +357,11 @@ let encode_builtin_fct_2 place name a b =
                 e2var (Atom.builtin "get")
             )),
             [ b ]
+        )
+    | "range" ->
+        T.NewExpr(
+            e2_e (T.RawExpr "IntegerRange"),
+            [ a; b ]
         )
     | "select_places" ->
         fst (e_lg4dc_select_places place a b).value

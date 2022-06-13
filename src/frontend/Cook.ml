@@ -778,7 +778,7 @@ module Make(Arg:ArgSig) = struct
     | S.BreakStmt -> env, T.BreakStmt
     | S.ContinueStmt -> env, T.ContinueStmt
     | S.ExitStmt i -> env, T.ExitStmt i
-    | S.ForStmt (mt, x, e, stmt) ->
+    | S.ForeachStmt (mt, x, e, stmt) ->
         if is_instance_expr env e then perror place "constructor can not be aliased";
 
         (* [new env] applies to [stmt] only and [stmt_env] does not applies outside the for*)
@@ -789,7 +789,7 @@ module Make(Arg:ArgSig) = struct
 
         register_gamma y mt;
 
-        env << [env; env0; env1; inner_env; env2], T.ForStmt (mt, y, e, stmt)
+        env << [env; env0; env1; inner_env; env2], T.ForeachStmt (mt, y, e, stmt)
     | S.IfStmt (e, stmt1, stmt2_opt) -> begin
         let env1, e = cexpr env e in
         let env2, stmt1 = cstmt env stmt1 in
