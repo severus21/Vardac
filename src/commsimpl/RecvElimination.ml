@@ -185,11 +185,49 @@ module Make () : Sig = struct
             ]
         in 
 
+        let register s = 
+            (* this.registered_sessions[s.id] = this.intermediate_port; *)
+            stmt2_e(
+                CallExpr(
+                    e2var (Atom.builtin "add2dict"),
+                    [
+                        e2_e (AccessExpr( e2_e This, e2var (a_registered_sessions)));
+                        e2_e (CallExpr( e2var (Atom.builtin "sessionid"), [s]));
+                        e_current_intermediate_port
+                    ]
+                )
+            )
+        in
+
+        let unregister s = 
+            (* del this.registered_sessions[s.id]; *)
+            stmt2_e(
+                CallExpr(
+                    e2var (Atom.builtin "remove2dict"),
+                    [
+                        e2_e (AccessExpr( e2_e This, e2var (a_registered_sessions)));
+                        e2_e (CallExpr( e2var (Atom.builtin "sessionid"), [s]))
+                    ]
+                )
+            )
+        in
+
         match intermediate_args with
         | [] -> (* Only load recv in the [res] variable *)
             let m2 = { m2 with 
                 (* TODO add cleansing when timeout *)
                 body = load_recv_result @ m2.body} in
+
+            (*** Add footer m1 - Registering the session in order to be able to do dynamic routing ***)
+            let m1 = { m1 with body = m1.body @ [ 
+                register (match s1_opt with
+                    | Some session -> session (* when we are in the first method of the list*)
+                    | None -> e2var param_session (* for all the intermediate (and last) methods *)
+                )
+            ]} in
+
+            (*** Add header m2 - to unregister the session ***)
+            let m2 = {m2 with body = m2.body @ [ unregister (e2var param_session)]} in
 
             (*** Returns ***)
             [], m1, m2
@@ -272,19 +310,6 @@ module Make () : Sig = struct
             } in
 
             (*** Add footer m1 - Registering the session in order to be able to do dynamic routing ***)
-            let register s = 
-                (* this.registered_sessions[s.id] = this.intermediate_port; *)
-                stmt2_e(
-                    CallExpr(
-                        e2var (Atom.builtin "add2dict"),
-                        [
-                            e2_e (AccessExpr( e2_e This, e2var (a_registered_sessions)));
-                            e2_e (CallExpr( e2var (Atom.builtin "sessionid"), [s]));
-                            e_current_intermediate_port
-                        ]
-                    )
-                )
-            in
             let m1 = { m1 with body = m1.body @ [ 
                 register (match s1_opt with
                     | Some session -> session (* when we are in the first method of the list*)
@@ -293,18 +318,6 @@ module Make () : Sig = struct
             ]} in
 
             (*** Add header m2 - to unregister the session ***)
-            let unregister s = 
-                (* del this.registered_sessions[s.id]; *)
-                stmt2_e(
-                    CallExpr(
-                        e2var (Atom.builtin "remove2dict"),
-                        [
-                            e2_e (AccessExpr( e2_e This, e2var (a_registered_sessions)));
-                            e2_e (CallExpr( e2var (Atom.builtin "sessionid"), [s]))
-                        ]
-                    )
-                )
-            in
             let m2 = {m2 with body = m2.body @ [ unregister (e2var param_session)]} in
 
             (*** Returns ***)

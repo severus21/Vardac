@@ -38,4 +38,19 @@ public final class InPort<A, B, C> extends AbstractPort {
         assert(callback != null);
         this.callback = callback;
     }
+
+    public BiFunction<A,B,C> getCallback(){
+        return this.callback;
+    }
+
+    public ASTStype.Base remaining_st() {
+        if( this.expecting_st.continuations.size() == 0 ){
+            return this.expecting_st;
+        } else if ( this.expecting_st.continuations.size() == 1 ){
+            return this.expecting_st.continuations.get(0)._3;
+        } else {
+            assert(false);
+            return null;
+        }
+    }
 }

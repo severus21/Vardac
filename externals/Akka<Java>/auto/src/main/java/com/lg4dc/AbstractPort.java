@@ -59,5 +59,4 @@ public abstract class AbstractPort {
         AbstractPort b = (AbstractPort) obj;
         return this.bridge.equals(b);
     }
-
 }

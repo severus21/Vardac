@@ -28,6 +28,7 @@ import java.util.*;
 
 public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     public static final String NAME = "{{system_name}}_component_";
+    HashMap<UUID,  InPort> registered_session = new HashMap();
 
     public AbstractComponent(ActorContext<T> context){
         super(context);
@@ -90,5 +91,14 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
             }
         }
         throw new RuntimeException("Intermediate port not found");
+    }
+
+    public void print_registered_sessions(){
+        String str = "Registered sessions :\n";
+        for (Map.Entry<UUID,InPort> entry : this.registered_session.entrySet()){
+            str += "\t-"+entry.getKey().toString()+"\n";
+        }
+        str += "\n";
+        getContext().getLog().debug(str);
     }
 }

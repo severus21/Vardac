@@ -77,7 +77,7 @@ component A {
     }
 
     result<void, error> run(activation_ref<B> d){
-        session<p> s0 = initiate_session_with(this.p_out, d);
+        session<ptest> s0 = initiate_session_with(this.p_out, d);
 
         ?string!int?string. s1 = fire(s0, 1)?;
         debug("Test2> Send int 1");
@@ -209,11 +209,10 @@ component TestA {
     }
 }
 
-
-
 component TopLevel {
     onstartup () {
         print(">> Entering toplevel");
+
         bridge<Mock, Dummy, inline p> b0 = bridge(p);
         activation_ref<Dummy> a = spawn Dummy(b0);
         activation_ref<Mock> b = spawn Mock(b0, a);  
@@ -223,6 +222,7 @@ component TopLevel {
         activation_ref<A> b = spawn A(b2, a);  
 
         activation_ref<TestA> test = spawn TestA();
+
         print(">> Ending toplevel");
     }
 }

@@ -1288,6 +1288,49 @@ module Make (Arg: sig val target:Target.target end) = struct
             let e_init_stage e = e2_e (T.AccessExpr (e, e2var (Atom.builtin "init_stage"))) in
             let e_hidden_right e = e2_e (T.AccessExpr (e, e2var (Atom.builtin "hidden_right"))) in
 
+            let a_session = Atom.builtin "s" in
+            let l_session = e2var a_session in
+
+            let generate_case_body ((e_port, e_remaining_st): T.expr * T.expr) (callback:T.expr) : T.stmt list = 
+                [
+                    auto_place (T.LetStmt (
+                        t_lg4dc_session place,
+                        a_session,
+                        Some ( e2_e (T.NewExpr(
+                            e_lg4dc_session place,
+                            [
+                                e_bridgeid l_event;
+                                e2_e (T.CastExpr(
+                                    auto_place (T.TVar (Atom.builtin "ActivationRef")),
+                                    e_get_self_activation place (e_get_context place)
+                                ));
+                                e_replyto l_event;
+                                e_remaining_st;
+                                e_init_stage l_event;
+                                e_hidden_right l_event;
+                                e_port;
+
+                            ]
+                        )))
+                    ));
+                    auto_place (T.ExpressionStmt (
+                        e2_e (T.CallExpr(
+                            e_setid_of_session fplace a_session,
+                            [ e_sessionid l_event]
+                        ))
+                    ));
+                    auto_place (T.ExpressionStmt (
+                        e_apply_headers fplace l_session
+                    ));
+                    auto_place (T.ExpressionStmt (
+                        e2_e (T.CallExpr(
+                            callback,
+                            [ l_event; l_session ]
+                        ))
+                    ))
+                ]
+            in
+
 
             (* Handle frozen/timeout session
                 if this.dead_sessions.contains(e.session_id) {
@@ -1328,6 +1371,48 @@ module Make (Arg: sig val target:Target.target end) = struct
                 ))
             in
 
+            let add_check_registered_session_for_callback ()=
+                (*
+                    if(this.registered_session.containsKey(e.session_id)){
+                        InPort p = this.registered_session.get(e.session_id);
+                        com.lg4dc.Session s = ...
+                        s.set_id(e.session_id);
+                        ASTStype.TimerHeader.apply_headers(...);
+ 
+                        p.callback.apply(...);
+                        return Behaviors.same();
+                    }
+                    *)
+                let l_port = Atom.fresh "port" in
+
+                auto_place (T.IfStmt(
+                    T_A2.e2_e(T.CallExpr(
+                        T_A2.e2_e (T.RawExpr "this.registered_session.containsKey"),
+                        [ e_sessionid l_event ]
+                    )),
+                    auto_place (T.BlockStmt ( 
+                        auto_place (T.LetStmt(
+                            auto_place (T.Atomic "InPort"),
+                            l_port,
+                            Some (T_A2.e2_e(T.CallExpr(
+                                T_A2.e2_e (T.RawExpr "this.registered_session.get"),
+                                [ e_sessionid l_event ]
+                            )))
+                        ))
+                        :: (
+                            generate_case_body 
+                                (
+                                    T_A2.e2var l_port, 
+                                    T_A2.e2_e (T.AccessExpr (T_A2.e2var l_port, T_A2.e2_e (T.RawExpr "remaining_st()")))
+                                ) 
+                                (T_A2.e2_e (T.AccessExpr (T_A2.e2var l_port, T_A2.e2_e (T.RawExpr "getCallback().apply"))))
+                        )
+                        @ [ auto_place(T.ReturnStmt (e_behaviors_same fplace)) ]
+                    )),
+                    None
+                ))
+            in
+
             (* Creating the statement*)
             (* TODO do it with a switch ??? *)
             (*
@@ -1343,8 +1428,6 @@ module Make (Arg: sig val target:Target.target end) = struct
                 }
             *)
 
-            let a_session = Atom.builtin "s" in
-            let l_session = e2var a_session in
 
             let add_case__disable_session (callback:T.expr) : T.stmt =
                 auto_place (T.ExpressionStmt (
@@ -1360,64 +1443,33 @@ module Make (Arg: sig val target:Target.target end) = struct
                     e2_e (T.BinopExpr(
                         e2_e (T.BinopExpr (e_bridgeid l_event, AstUtils.StructuralEqual, bridgeid port)),
                         AstUtils.And,
-                        (* TO REMOVE e2_e (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, fvstype (IRMisc.dual st)))*)
                         e2_e (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, bridgestdual port))
                     )),
-                    auto_place (T.BlockStmt [
-                        auto_place (T.LetStmt (
-                            t_lg4dc_session place,
-                            a_session,
-                            Some ( e2_e (T.NewExpr(
-                                e_lg4dc_session place,
-                                [
-                                    e_bridgeid l_event;
-                                    e2_e (T.CastExpr(
-                                        auto_place (T.TVar (Atom.builtin "ActivationRef")),
-                                        e_get_self_activation place (e_get_context place)
-                                    ));
-                                    e_replyto l_event;
-                                    fvstype remaining_st;
-                                    e_init_stage l_event;
-                                    e_hidden_right l_event;
-                                    e2_e (T.AccessExpr(
-                                        e2_e T.This,
-                                        e2var (fst port.value).name
-                                    ))
-                                ]
-                            )))
-                        ));
-                        auto_place (T.ExpressionStmt (
-                            e2_e (T.CallExpr(
-                                e_setid_of_session fplace a_session,
-                                [ e_sessionid l_event]
-                            ))
-                        ));
-                        auto_place (T.ExpressionStmt (
-                            e_apply_headers fplace l_session
-                        ));
-                        auto_place (T.ExpressionStmt (
-                            e2_e (T.CallExpr(
-                                callback,
-                                [ l_event; l_session ]
-                            ))
-                        ))
-                    ]),
+                    auto_place (T.BlockStmt (generate_case_body (
+                        e2_e (T.AccessExpr(
+                            e2_e T.This,
+                            e2var (fst port.value).name
+                        )), fvstype remaining_st) callback)),
                     Some acc
                 ))
             in
 
             let add_case (port, st, remaining_st) (callback:T.expr) acc : T.stmt =
-                if (fst (port : S.port).value)._disable_session then
-                    add_case__disable_session callback
+                if (fst (port : S.port).value)._is_intermediate then
+                    acc
                 else
-                    add_case__with_session (port, st, remaining_st) callback acc
+                    if (fst (port : S.port).value)._disable_session then
+                        add_case__disable_session callback
+                    else
+                        add_case__with_session (port, st, remaining_st) callback acc
+                
             in
 
             (* return Behaviors.same(); *)
             let ret_stmt = T.ReturnStmt (e_behaviors_same fplace) in
 
             (*(if Bool.not _disable_session then*)
-                 [ add_check_session_validity () ] 
+                 [ add_check_session_validity (); add_check_registered_session_for_callback () ] 
                 (*else [])*)
             @ 
             [
