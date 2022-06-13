@@ -409,7 +409,7 @@ let t_leftactivations () =
             protocol = mtype_of_st STEnd
         }),
         mtype_of_ct (TResult (
-            mtype_of_ct (TSet (mtype_of_ct (TActivationRef(mtype_of_ft TWildcard)))),
+            mtype_of_ct (TSet (mtype_of_ct (TActivationRef(mtype_of_ft TBottom)))),
             builtin_mt_error
         ))
     ))
@@ -423,7 +423,7 @@ let t_leftregister () =
             protocol = mtype_of_st STEnd
         }),
         mtype_of_ct (TArrow (
-            mtype_of_ct (TActivationRef(mtype_of_ft TWildcard)),
+            mtype_of_ct (TActivationRef(mtype_of_ft TBottom)),
             mtype_of_ct (TResult (
                 mtype_of_ft TBool,
                 builtin_mt_error

@@ -106,12 +106,14 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
     public Either<Error, Set<ActivationRef>> activationsOf(ActorContext context, ActorRef<SpawnProtocol.Command> guardian, Function<ActorRef, SpawnProtocol.Command> msg){
         assert( context != null);
         assert( guardian != null);
+        context.getLog().info(">>ActivationsOf 1");
 
         CompletionStage<WrappedActorRefs> ask = AskPattern.ask(
             guardian,
             replyTo -> msg.apply(replyTo),
             Duration.ofSeconds(10),
             context.getSystem().scheduler());
+        context.getLog().info(">>ActivationsOf 2");
 
         try{
             // blocking call
@@ -128,7 +130,7 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
             }
             return Either.right(res);
         } catch (Exception e){
-            System.out.println(e);
+            context.getLog().error(e.toString());
             return Either.left(new Error(e.toString()));
         }
     }

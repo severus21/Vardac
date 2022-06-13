@@ -7,6 +7,8 @@ component TestA {
         onstartup (bridge<A, B, inline ptest> _b){
             debug("TestA> Start A");
             bind(this.p_out, _b);
+
+            this.run();
         }
 
         result<void, error> run(){
@@ -22,6 +24,7 @@ component TestA {
             debug("TestA> Start B");
             bind(this.p_in, _b);
 
+            this.run();
         }
 
         result<void, error> run(){
