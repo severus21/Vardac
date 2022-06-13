@@ -1,17 +1,26 @@
 package com.lg4dc;
 
 import java.util.*;
+import java.util.function.BiFunction;
 import akka.actor.typed.javadsl.ActorContext;
 import com.bmartin.*;
 
 
 // FIXME a port should be serializable
-public final class InPort<P extends Protocol> extends AbstractPort<P> {
+public final class InPort<A, B, C> extends AbstractPort {
     public ASTStype.Base expecting_st;
     boolean is_intermediate = false;
+    BiFunction<A,B,C> callback;
 
-    public InPort (List<AbstractPort> children, boolean is_intermediate, ASTStype.Base expecting_st){
-        super();
+    /*
+      if(this.registered_session.containsKey(e.session_id)){
+         InPort p = this.registered_session.get(e.session_id);
+         getContext().getLog().info(">>>> find intermediate for "+e.session_id.toString());
+      }
+     */
+
+    public InPort (String name, List<AbstractPort> children, boolean is_intermediate, ASTStype.Base expecting_st){
+        super(name);
 
         assert( expecting_st != null);
         assert( children != null);
@@ -22,6 +31,11 @@ public final class InPort<P extends Protocol> extends AbstractPort<P> {
 
     @Override
     public String toString(){
-        return "InPort on "+this.bridge.toString();
+        return "InPort {name="+this.id.toString()+"; id="+this.name+"} [expecting_st="+this.expecting_st.toString()+"] binded with ["+this.bridge.id+"]";
+    }
+
+    public void setCallback(BiFunction<A,B,C> callback){
+        assert(callback != null);
+        this.callback = callback;
     }
 }

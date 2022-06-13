@@ -79,8 +79,8 @@ end) = struct
             | Rresult.Ok true ->
             begin
                 (match Bos.OS.Dir.create (Fpath.v path) with
-                | Rresult.Ok true -> ()
-                | _ -> Error.error "Can not create templates directory in build dir");
+                | Rresult.Ok _ -> ()
+                | Rresult.Error (`Msg msg) -> Error.error "Can not create templates directory in build dir\n\t%s" msg );
 
                 List.flatten (List.map explore (FileUtil.ls path)) 
             end

@@ -569,7 +569,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                 } in
 
 
-
+                                (* TODO rewrite using map_constructor *)
                                 let rec change_constructor : S.method0 list -> S.method0 list = function
                                 | [] -> []
                                 | m::ms when m.value.v.is_constructor ->

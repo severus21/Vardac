@@ -72,6 +72,15 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     public List<InPort> reflexivity_inports() {
         return List.of();
     }
+    
+    public void print_inports(){
+        String str = "Inports :\n";
+        for (InPort p : this.reflexivity_inports()){
+            str += "\t-"+p.toString()+"\n";
+        }
+        str += "\n";
+        getContext().getLog().debug(str);
+    }
 
     public InPort get_intermediate_port(Session s){
         //TODO could optimize by building indexes

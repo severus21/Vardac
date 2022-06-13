@@ -121,7 +121,9 @@ component B {
     }
 }
 
-(*** Test 3 ***)
+(*** Test 3  -
+    Scenario: confusion between inport and generated intermediate port for the same session type (and the same bridge)
+***)
 protocol pptest = !int!int.;
 component TestA {
     component A {

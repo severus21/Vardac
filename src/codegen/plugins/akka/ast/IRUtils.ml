@@ -2,6 +2,11 @@ open Core
 open AstUtils
 open AAst
 
+let rec map_constructor f : method0 list -> method0 list = function
+| [] -> []
+| m::ms when m.value.v.is_constructor -> (f m)::ms
+| m::ms -> m::(map_constructor f ms)
+
 let rec apply_rename_place (apply_rename : Core.Error.place -> 'a -> 'a) ({ Core.AstUtils.place ; Core.AstUtils.value}: 'a Core.AstUtils.placed) = 
     let value = apply_rename place value in
     {Core.AstUtils.place; Core.AstUtils.value}

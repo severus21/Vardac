@@ -1077,6 +1077,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                             e2_e (T.NewExpr(
                                 e2_e (T.RawExpr "OutPort"),
                                 [
+                                    fexpr (S_A2.e2_lit (S.StringLit (Atom.to_string _p.name)));
                                     fexpr (S_A2.e2_e (S.BlockExpr(AstUtils.List, 
                                         List.map (function name -> 
                                             S_A2.e2_e (S.AccessExpr( S_A2.e2_e S.This, S_A2.e2var name))
@@ -1095,15 +1096,28 @@ module Make (Arg: sig val target:Target.target end) = struct
         let states = 
             List.map (function p -> 
                 let _p : S._port = fst p.value in
+                let t_msg, t_cont, t_ret = match snd _p.callback.value with
+                    | {value=S.CType {value=S.TArrow (t_msg, {value=S.CType{value=S.TArrow (t_cont, t_ret)}})}} -> t_msg, t_cont, t_ret 
+                    | _ -> raise (Error.PlacedDeadbranchError ( _p.callback.place, "Callback is ill-typed"))
+                in
+
                 auto_place {   
                     T.persistent = false; (*TODO persistence True ??*)
                     stmts = [ auto_place(T.LetStmt (
-                        auto_place( T.Atomic "InPort"),
+                        auto_place (T.TParam(
+                            auto_place( T.Atomic "InPort"),
+                            [
+                                fmtype t_msg;
+                                fmtype t_cont;
+                                fmtype t_ret;
+                            ]
+                        )),
                         _p.name,
                         Some (
                             e2_e (T.NewExpr(
                                 e2_e (T.RawExpr "InPort"),
                                 [
+                                    fexpr (S_A2.e2_lit (S.StringLit (Atom.to_string _p.name)));
                                     fexpr (S_A2.e2_e (S.BlockExpr(AstUtils.List, 
                                         List.map (function name -> 
                                             S_A2.e2_e (S.AccessExpr( S_A2.e2_e S.This, S_A2.e2var name))
@@ -1111,7 +1125,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                                     )));
                                     fexpr (S_A2.e2_lit (S.BoolLit _p._is_intermediate));
                                     fvstype (match _p.expecting_st.value with
-                                    | S.SType st -> st)
+                                    | S.SType st -> st);
                                 ]
                             ))    
                         )
@@ -1119,6 +1133,30 @@ module Make (Arg: sig val target:Target.target end) = struct
                 }
             ) grp_items.ports
             @ states 
+        in
+
+        let hydrate_state = 
+            List.map (function p -> 
+                let _p : S._port = fst p.value in
+            
+                auto_place (T.ExpressionStmt (
+                    T_A2.e2_e (T.CallExpr(
+                        T_A2.e2_e (T.AccessExpr(
+                            T_A2.e2_e (T.AccessExpr(
+                                T_A2.e2_e T.This,
+                                T_A2.e2var _p.name
+                            )),
+                            T_A2.e2_e (T.RawExpr "setCallback")
+                        )),
+                        [ 
+                            match (fexpr (fst p.value).callback) with 
+                            | {place; value=T.AccessExpr (a, {value=T.VarExpr b,_}), mt} -> {place=place@fplace; value=T.AccessMethod (a, b), mt}
+                            | e -> e 
+                        
+                        ]
+                    ))
+                ))
+            ) grp_items.ports
         in
 
         (*** Eports 
@@ -1136,6 +1174,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                             e2_e (T.NewExpr(
                                 e2_e (T.RawExpr "EPort"),
                                 [
+                                    fexpr (S_A2.e2_lit (S.StringLit (Atom.to_string _p.name)));
                                     match _p.expecting_mt.value with
                                     | CType {value=TVar x} -> T_A2.e2_e (T.ClassOf (fmtype _p.expecting_mt))
                                     | _ -> Error.perror place "unsupported expecte type for eport"
@@ -1585,6 +1624,18 @@ module Make (Arg: sig val target:Target.target end) = struct
 
         (***** Building methods *****)
         let methods = receiver_methods @ (List.flatten (List.map (fmethod name) grp_items.methods)) in 
+
+        (* Update constructor to
+           - set InPort callback *)
+        let methods = Ast.map_constructor 
+            (function m -> 
+                { m with
+                    value = {m.value with v = { m.value.v with body = match m.value.v.body with
+                    | AbstractImpl stmts -> AbstractImpl (hydrate_state @ stmts)
+                    | body -> body }}
+                }
+            )
+            methods in
         
 
         (***** Sumup *****)

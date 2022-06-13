@@ -5,11 +5,17 @@ import akka.actor.typed.javadsl.ActorContext;
 import com.bmartin.*;
 
 public final class EPort<T> {
+    public UUID id;
+    public String name;
     public T empty;
     public Class<T> expecting_mt;
 
-    public EPort (Class<T> expecting_mt){
+    public EPort (String name, Class<T> expecting_mt){
+        assert(name != null);
         assert(expecting_mt != null);
+
+        this.name = name;
+        this.id = UUID.randomUUID();
         this.expecting_mt = expecting_mt;
     }
 

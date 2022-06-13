@@ -4,9 +4,10 @@ import java.util.*;
 import akka.actor.typed.javadsl.ActorContext;
 import com.bmartin.*;
 
-public abstract class AbstractPort<P extends Protocol> {
+public abstract class AbstractPort {
     public UUID id;
-    Bridge<P> bridge;
+    public String name;
+    Bridge bridge;
 
     // child is an other port such that 
     // its bindings follows those of its parents
@@ -14,11 +15,13 @@ public abstract class AbstractPort<P extends Protocol> {
     // since program can dinamically change the bindings of a port
     List<AbstractPort> children = new LinkedList<>();
     
-    public AbstractPort (){
+    public AbstractPort (String name){
+        assert(name != null);
+        this.name = name;
         this.id = UUID.randomUUID();
     }
 
-    public AbstractPort (Bridge<P> bridge){
+    public AbstractPort (Bridge bridge){
         this.bind(bridge);
     }
 
@@ -28,7 +31,7 @@ public abstract class AbstractPort<P extends Protocol> {
         return this.bridge.id;
     }
 
-    public Void bind(Bridge<P> bridge){
+    public Void bind(Bridge bridge){
         assert(bridge != null);
         this.bridge = bridge;
 

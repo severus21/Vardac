@@ -5,9 +5,9 @@ import akka.actor.typed.javadsl.ActorContext;
 import com.bmartin.*;
 
 // FIXME a port should be serializable
-public final class OutPort<P extends Protocol> extends AbstractPort<P> {
-    public OutPort (List<AbstractPort> children){
-        super();
+public final class OutPort extends AbstractPort {
+    public OutPort (String name, List<AbstractPort> children){
+        super(name);
 
         assert( children != null);
         this.children = children;
