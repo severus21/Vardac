@@ -3,7 +3,7 @@ event pong of;
 protocol p_pingpong = !ping?pong.;
 bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
 
-int n = 1000;
+int n = 2;
 
 (* 
 
@@ -47,6 +47,8 @@ component Ping {
         long elapse = end - start;
         string tmp = long_to_string(elapse);
         debug("Time elapse "+tmp);
+        debug("Terminated ueyiqu8R");
+        debug("JamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglog");
     }
 
     result<void, error> callback(pong msg, . s){
