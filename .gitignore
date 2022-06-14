@@ -1,4 +1,6 @@
 _coverage
+__pycache__
+db.sqlite3
 
 # Both are generated from dune.j2
 tests/dune

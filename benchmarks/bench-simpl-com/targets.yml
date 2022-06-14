@@ -6,7 +6,7 @@
     mains: 
       main:
         bootstrap: TopLevel 
-        entrypoint: no_main 
+        entrypoint: main 
   user_defined: |
     task jarConsole(type: ShadowJar) {
       archiveBaseName.set('console')

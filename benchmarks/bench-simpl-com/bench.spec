@@ -87,10 +87,15 @@ component Pong {
 
 void main (array<string> args){
     print("apossiblemain");
+    for(int i in range(0, asize(args) - 1)){
+        if( ((aget(args, i)) == "-ip") && (i < asize(args)) ){ (*(aget ..) needed otherwise not parsed as a binop*)
+            print(aget(args, i));
+        }
+    }
 }
 
 component TopLevel {
-    onstartup () {
+    onstartup (int m) {
         print(">> Entering toplevel");
         bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
         activation_ref<Pong> c = (spawn Pong(b0));
