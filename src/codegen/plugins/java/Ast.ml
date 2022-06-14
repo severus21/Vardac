@@ -4,7 +4,7 @@ open Core
 open AstUtils
 
 type unop = IR.unop 
-and binop = IR.binop 
+and binop = Akka.Ast.binop 
 and assign_operator = 
     | AssignOp (* = *)
     (* TODO += etc if needed*)

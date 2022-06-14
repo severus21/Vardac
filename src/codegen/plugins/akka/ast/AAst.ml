@@ -32,7 +32,27 @@ and ctype =_ctype placed
 (************************************ Expr & Stmt *****************************)
 
 and unop = IR.unop 
-and binop = IR.binop 
+and binop = (* Add structural equal *)
+    (* Boolean *)
+    | And    
+    | Or 
+
+    (* Numeric *)
+    | Plus
+    | Minus
+    | Mult
+    | Divide
+
+    (** Comparison *)
+    | StructuralEqual (** (e.g. like equals in Java or = in Ocaml)*)
+    | Equal 
+    | GreaterThanEqual
+    | LessThanEqual
+    | GreaterThan
+    | LessThan
+
+    (* Iterators *)
+    | In
 
 and _literal = 
     | VoidLit

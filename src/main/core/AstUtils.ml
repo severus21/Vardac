@@ -106,7 +106,6 @@ and binop =
     | Divide
 
     (** Comparison *)
-    | StructuralEqual (** (e.g. like equals in Java or = in Ocaml)*)
     | Equal 
     | GreaterThanEqual
     | LessThanEqual

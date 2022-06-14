@@ -83,7 +83,7 @@ let auto_place smth = {place = fplace; value=smth} in
     end
     | AssertExpr e -> AssertExpr (cexpr e)
     | AssignExpr (e1, op, e2) -> AssignExpr (cexpr e1, op, cexpr e2)
-    | BinaryExpr (e1, AstUtils.StructuralEqual, e2) -> 
+    | BinaryExpr (e1, StructuralEqual, e2) -> 
         AppExpr ( 
             auto_place (AccessExpr (
                 cexpr e1, 

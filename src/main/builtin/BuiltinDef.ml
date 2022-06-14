@@ -72,6 +72,9 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
 
     "exit", "() -> ()", "run in guardian, terminate the guardian and all activations", t_exit;
     "debug", "string -> ()", "TODO", t_debug;
+    
+    "aget", "array<item> -> int -> item", "...", t_aget;
+    "asize", "array<item> -> int", "...", t_asize;
 
     "leftactivations", "...", "discover activations interconnecting by the bridge", t_leftactivations;
     "rightactivations", "...", "discover activations interconnecting by the bridge", t_rightactivations;

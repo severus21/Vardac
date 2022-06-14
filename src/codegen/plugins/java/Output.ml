@@ -55,17 +55,17 @@ let rec output_unop out = function
     | AstUtils.Not -> pp_print_string out "!"
     | AstUtils.UnpackOrPropagateResult -> raise (Core.Error.DeadbranchError "output_unop : unpacking a result should have been encoded as a method call when translating from Akka to Java AST.")
 and output_binop out = function
-    | AstUtils.And -> pp_print_string out "&&"
-    | AstUtils.Equal -> pp_print_string out "=="
-    | AstUtils.GreaterThan -> pp_print_string out ">" 
-    | AstUtils.GreaterThanEqual -> pp_print_string out ">="
-    | AstUtils.LessThan -> pp_print_string out "<"
-    | AstUtils.LessThanEqual -> pp_print_string out "<="
-    | AstUtils.Plus -> pp_print_string out "+"
-    | AstUtils.Minus -> pp_print_string out "-"
-    | AstUtils.Mult -> pp_print_string out "*"
-    | AstUtils.Divide -> pp_print_string out "/"
-    | AstUtils.Or -> pp_print_string out "||"
+    | Akka.Ast.And -> pp_print_string out "&&"
+    | Akka.Ast.Equal -> pp_print_string out "=="
+    | Akka.Ast.GreaterThan -> pp_print_string out ">" 
+    | Akka.Ast.GreaterThanEqual -> pp_print_string out ">="
+    | Akka.Ast.LessThan -> pp_print_string out "<"
+    | Akka.Ast.LessThanEqual -> pp_print_string out "<="
+    | Akka.Ast.Plus -> pp_print_string out "+"
+    | Akka.Ast.Minus -> pp_print_string out "-"
+    | Akka.Ast.Mult -> pp_print_string out "*"
+    | Akka.Ast.Divide -> pp_print_string out "/"
+    | Akka.Ast.Or -> pp_print_string out "||"
 and output_assignop out : assign_operator -> unit = function
     | AssignOp -> pp_print_string out "="
 and output_literal out : _literal -> unit = function
@@ -302,6 +302,7 @@ let output_program package_name outpath items : unit =
         JModule (mock_placed (PackageDeclaration (String.lowercase_ascii package_name)));
 
         (* Java *)
+        JModule (mock_placed(ImportDirective "java.lang.reflect.Array"));
         JModule (mock_placed(ImportDirective "java.util.*"));
         JModule (mock_placed(ImportDirective "java.util.Iterator"));
         JModule (mock_placed(ImportDirective "java.time.Duration"));

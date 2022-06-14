@@ -101,6 +101,11 @@ let encode_builtin_fct_1 place name a =
             )),
             []
         )
+    | "asize" ->
+        T.AccessExpr(
+            a,
+            e2_e (T.RawExpr "length")
+        )
     | "is_ok" ->
         T.CallExpr(
             e2_e (T.AccessExpr(
@@ -355,13 +360,17 @@ let encode_builtin_fct_2 place name a b =
             ]
         ) 
     | "listget" ->
-        (* Vavr state at _1 and not _0 *)
         T.CallExpr(
             e2_e (T.AccessExpr (
                 a, 
                 e2var (Atom.builtin "get")
             )),
             [ b ]
+        )
+    | "aget" ->
+        T.CallExpr(
+            e2var (Atom.builtin "Array.get"),
+            [ a; b ]
         )
     | "range" ->
         T.NewExpr(

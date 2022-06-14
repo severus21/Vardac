@@ -147,7 +147,7 @@ module Make (Args: TArgs) = struct
         auto_fplace (IfStmt (
             e2_e (BinopExpr (
                 e2var param_schema,
-                StructuralEqual, 
+                Equal, 
                 schema_to_label fplace schema
             )),
             auto_fplace (BlockStmt [
@@ -793,7 +793,7 @@ module Make (Args: TArgs) = struct
                 ));
 
                 auto_fplace(IfStmt(
-                    e2_e(BinopExpr( e_local_to_opt, StructuralEqual, e2_e (OptionExpr None))),     
+                    e2_e(BinopExpr( e_local_to_opt, Equal, e2_e (OptionExpr None))),     
                     auto_fplace (BlockStmt [
                         auto_fplace(ExpressionStmt (e2_e (CallExpr(
                             e2var (Atom.builtin "print"),

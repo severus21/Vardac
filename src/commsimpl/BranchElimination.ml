@@ -31,7 +31,7 @@ module Make () : Sig = struct
 
         (* if label == branch_label => then use this branch *)
         IfStmt(
-            e2_e (BinopExpr(e_local_label, StructuralEqual, e2lit branch_label)),
+            e2_e (BinopExpr(e_local_label, Equal, e2lit branch_label)),
             auto_fplace (BlockStmt ([
 
                 (* localy set to the branch *)

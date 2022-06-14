@@ -418,7 +418,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                         auto_place (S.IfStmt(
                                             S_A2.e2_e (S.BinopExpr(
                                                 S_A2.e2var (Atom.builtin "run_now"),
-                                                AstUtils.Equal,
+                                                S.Equal,
                                                 S_A2.e2_lit (S.BoolLit true)
                                             )),
                                             auto_fplace (S.ExpressionStmt(
@@ -596,7 +596,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                                     auto_place (S.IfStmt(
                                                         S_A2.e2_e (S.BinopExpr(
                                                             S_A2.e2var (Atom.builtin "run_now"),
-                                                            AstUtils.Equal,
+                                                            S.Equal,
                                                             S_A2.e2_lit (S.BoolLit true)
                                                         )),
                                                         auto_fplace (S.ExpressionStmt(

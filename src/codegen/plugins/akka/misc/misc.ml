@@ -399,7 +399,7 @@ let e_error_of place (context:Ast.expr) (args:Ast.expr list) : Ast.expr =
             e_logger_of_context place context,
             auto_place (Ast.VarExpr (Atom.builtin "error"), auto_place Ast.TUnknown)
         ), auto_place Ast.TUnknown),
-        [List.fold_left (fun a b -> auto_place (Ast.BinopExpr (a, AstUtils.Plus, b), auto_place Ast.TUnknown)) (auto_place (Ast.RawExpr "\"\"", auto_place Ast.TUnknown)) args]
+        [List.fold_left (fun a b -> auto_place (Ast.BinopExpr (a, Ast.Plus, b), auto_place Ast.TUnknown)) (auto_place (Ast.RawExpr "\"\"", auto_place Ast.TUnknown)) args]
     ), auto_place Ast.TUnknown)
 
 let e_super place args = 

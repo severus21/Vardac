@@ -456,6 +456,20 @@ module Make (Arg: sig val target:Target.target end) = struct
 
     (************************************ Expr & Stmt *****************************)
 
+    and fbinop = function
+    | AstUtils.And                 -> T.And    
+    | AstUtils.Or                  -> T.Or 
+    | AstUtils.Plus                -> T.Plus
+    | AstUtils.Minus               -> T.Minus
+    | AstUtils.Mult                -> T.Mult
+    | AstUtils.Divide              -> T.Divide
+    | AstUtils.Equal               -> T.StructuralEqual 
+    | AstUtils.GreaterThanEqual    -> T.GreaterThanEqual
+    | AstUtils.LessThanEqual       -> T.LessThanEqual
+    | AstUtils.GreaterThan         -> T.GreaterThan
+    | AstUtils.LessThan            -> T.LessThan
+    | AstUtils.In                  -> T.In
+
     and finish_expr place (e, mt): T._expr * T.ctype =
     let fplace = place@(Error.forge_place "Plg=Akka/finish_expr" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
@@ -463,7 +477,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         | S.VarExpr x -> T.VarExpr x
         | S.AccessExpr (e1, {value=S.VarExpr x, _}) when Atom.is_builtin x -> Encode.encode_builtin_access place (fexpr e1) (Atom.value x)
         | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
-        | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, op, fexpr t2)
+        | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, fbinop op, fexpr t2)
         | S.LambdaExpr (params, e) -> 
             T.LambdaExpr (
                 List.map (map0_place (fun _ (mt, x) -> fmtype mt, x)) params,
@@ -1443,9 +1457,9 @@ module Make (Arg: sig val target:Target.target end) = struct
             let add_case__with_session (port, st, remaining_st) (callback:T.expr) acc : T.stmt =
                 auto_place (T.IfStmt (
                     e2_e (T.BinopExpr(
-                        e2_e (T.BinopExpr (e_bridgeid l_event, AstUtils.StructuralEqual, bridgeid port)),
-                        AstUtils.And,
-                        e2_e (T.BinopExpr (e_remaining_step l_event, AstUtils.StructuralEqual, bridgestdual port))
+                        e2_e (T.BinopExpr (e_bridgeid l_event, T.StructuralEqual, bridgeid port)),
+                        T.And,
+                        e2_e (T.BinopExpr (e_remaining_step l_event, T.StructuralEqual, bridgestdual port))
                     )),
                     auto_place (T.BlockStmt (generate_case_body (
                         e2_e (T.AccessExpr(

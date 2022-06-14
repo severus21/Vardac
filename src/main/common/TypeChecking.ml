@@ -102,7 +102,7 @@ match (op, mt_e1.value, mt_e2.value) with
     | CType{value=TFlatType TBool} -> () (*FIXME add subtype of bool *)
     | _ -> Error.perror place "Type error: this operation expect boolean arguments" 
 end
-| StructuralEqual, _ ,_ | Equal, _, _ ->
+| Equal, _, _ ->
     (*mt_ret == TBool by reconstruction algo *)
     if Bool.not (equal_mtype mt_e1 mt_e2) then (* No subtyping for equality *)
         Error.perror place "Type error: equality expected type equality (and not subtyping relation)"

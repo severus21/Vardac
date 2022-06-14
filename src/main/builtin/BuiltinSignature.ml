@@ -201,6 +201,31 @@ let t_listget () =
         ))
     ))
 
+let t_aget () =
+    (*quantify ["a"] (function [a] ->
+        mtype_of_ct(TArrow(
+            mtype_of_ct (TList (mtype_poly_of_var a)),
+            mtype_of_ct(TArrow(
+                mtype_of_ft TInt,
+                mtype_of_ft TPlace
+            ))
+        ))
+    )*)
+    mtype_of_ct(TArrow(
+        mtype_of_ft TWildcard,
+        mtype_of_ct(TArrow(
+            mtype_of_ft TWildcard,
+            mtype_of_ft TWildcard
+        ))
+    ))
+
+let t_asize () =
+    mtype_of_ct(TArrow(
+        mtype_of_ft TWildcard,
+        mtype_of_ft TInt
+    ))
+
+
 let t_placeof () = 
     (*mtype_of_ct(TArrow(
         quantify ["A"] (function  [a] -> mtype_of_ct (TActivationRef (mtype_poly_of_cvar a))),

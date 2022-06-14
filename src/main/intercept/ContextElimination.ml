@@ -393,7 +393,7 @@ module Make () = struct
             e2_e (TernaryExpr (
                 e2_e (BinopExpr(
                     e2var p_of_i,
-                    StructuralEqual,
+                    Equal,
                     e2_e (OptionExpr None)
                 )),
                 (e2_e (Spawn spawn)),

@@ -122,7 +122,7 @@ module Make () = struct
         let auto_fplace smth = {place = fplace; value=smth} in
         let of_tflat ft = auto_fplace(CType ( auto_fplace (TFlatType ft))) in
     match (op, mt_e1.value, mt_e2.value) with
-    | And, _,_ | Or, _, _ | StructuralEqual, _ ,_ | Equal, _, _ | GreaterThanEqual, _,_ | LessThanEqual, _,_ | GreaterThan, _, _ | LessThan, _, _| In, _, _ -> of_tflat TBool    
+    | And, _,_ | Or, _, _ | Equal, _, _ | GreaterThanEqual, _,_ | LessThanEqual, _,_ | GreaterThan, _, _ | LessThan, _, _| In, _, _ -> of_tflat TBool    
     | _, CType{value=TFlatType TInt},CType{value=TFlatType TInt} -> begin   
         match op with
         | Plus | Minus | Mult | Divide -> of_tflat TInt
