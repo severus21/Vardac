@@ -256,6 +256,11 @@ let encode_builtin_fct_1 place name a =
             a,
             e2var (Atom.builtin "bridge")
         )
+    | "long_of_int" ->
+        T.CallExpr(
+            e2_e (T.RawExpr "Long.valueOf"),
+            [ a ]
+        )
     | _ -> Error.perror place "%s with one argument is undefined" name
 
 let encode_builtin_fct_2 place name a b =

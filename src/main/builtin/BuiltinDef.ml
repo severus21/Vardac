@@ -68,6 +68,8 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "is_err", "result<..,..> -> bool", "TODO", t_is_ok;
     "get_err", "result<..., error> -> err", "TODO", t_get_err;
 
+    "long_of_int", "int -> long", "...", t_long_of_int;
+
     "exit", "() -> ()", "run in guardian, terminate the guardian and all activations", t_exit;
     "debug", "string -> ()", "TODO", t_debug;
 

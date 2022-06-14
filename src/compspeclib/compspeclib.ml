@@ -24,6 +24,7 @@ module TypeInference2 = IRCompilationPass.Make(Common.TypeInference.Make())
 module TypeInference3 = IRCompilationPass.Make(Common.TypeInference.Make())
 module TypeInference4 = IRCompilationPass.Make(Common.TypeInference.Make())
 module EventAutoBoxing = IRCompilationPass.Make(Common.EventAutoBoxing.Make())
+module ClassicalAutoBoxing = IRCompilationPass.Make(Common.ClassicalAutoBoxing.Make())
 
 let process_check build_dir places_file filename = 
     Utils.refresh_or_create_dir build_dir;
@@ -54,6 +55,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         |> UntypedCleansing.apply
         |> TypeInference1.apply
         (*|> TypeChecking.apply*)
+        |> ClassicalAutoBoxing.apply
         |> PartialEval.apply
     in
 

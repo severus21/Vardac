@@ -19,7 +19,7 @@ module MTHashtbl = Hashtbl.Make(
     struct  
         type t = main_type
         let equal x y = equal_mtype x y 
-        let hash mt = 
+        let hash mt = (* TODO try to replace it with ppx_hash *) 
             let base_ft = 2. in
             let base_ct = 3. in
             let base_st = 5. in

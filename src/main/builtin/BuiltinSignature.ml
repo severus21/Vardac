@@ -444,3 +444,9 @@ let t_time () =
         mtype_of_ft TVoid,
         mtype_of_ft TInt
     ))
+
+let t_long_of_int () = 
+    mtype_of_ct (TArrow (
+        mtype_of_ft TInt,
+        mtype_of_ft TLong
+    ))
