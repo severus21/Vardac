@@ -46,6 +46,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "placeof", "abs -> place option", "Give the current place where the abstraction is running. Returns None if the abstraction is not yet placed.", t_placeof;
     "place_to_string", "place -> string", "", t_place_to_string;
     "int_to_string", "int -> string", "", t_place_to_string;
+    "int_of_string", "string -> int", "", t_int_of_string;
     "long_to_string", "long -> string", "", t_place_to_string;
     "places", "() -> list<place>", "TODO", t_places;
     "print", "string -> unit", "TODO", t_print;

@@ -151,6 +151,11 @@ let encode_builtin_fct_1 place name a =
             )),
             []
         )
+    | "int_of_string" ->
+        T.CallExpr(
+            e2_e (T.RawExpr "Integer.parseInt"),
+            [ a ]
+        )
     | "first" -> 
         T.AccessExpr (
             a, 
@@ -367,11 +372,18 @@ let encode_builtin_fct_2 place name a b =
             )),
             [ b ]
         )
-    | "aget" ->
-        T.CallExpr(
-            e2var (Atom.builtin "Array.get"),
-            [ a; b ]
-        )
+    | "aget" -> begin
+        match (snd a.value).value with
+        | T.TArray mt -> 
+            T.CastExpr(
+                mt,
+                e2_e (T.CallExpr(
+                    e2var (Atom.builtin "Array.get"),
+                    [ a; b ]
+                ))
+            )
+        | _ -> raise (Error.PlacedDeadbranchError (a.place, "should be of type: array<?>"))
+    end
     | "range" ->
         T.NewExpr(
             e2_e (T.RawExpr "IntegerRange"),

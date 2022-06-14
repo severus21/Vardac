@@ -475,3 +475,9 @@ let t_long_of_int () =
         mtype_of_ft TInt,
         mtype_of_ft TLong
     ))
+
+let t_int_of_string () =
+    mtype_of_ct (TArrow (
+        mtype_of_ft TStr,
+        mtype_of_ft TInt
+    ))
