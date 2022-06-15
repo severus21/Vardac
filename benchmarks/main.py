@@ -15,6 +15,8 @@ import sys
 import tempfile
 import time
 import select
+import copy
+import numpy
 
 import os
 import re
@@ -104,6 +106,7 @@ class VardaBuilder(AbstractBuilder):
         return res.returncode == 0
 
 RUN_TIMEOUT = 30 # s
+
 class ShellRunner:
     def __init__(self, run_cmd, run_cwd=None, stdout_termination_token=None, error_token="[ERROR]") -> None:
         self.run_cmd    = run_cmd
@@ -114,10 +117,10 @@ class ShellRunner:
         self.run_stdout           = ""
         self.run_stderr           = ""
     
-    def run(self) -> bool:
+    def run(self, cmd_params="") -> bool:
         start_time = time.time()
         res = subprocess.Popen(
-            self.run_cmd, 
+            self.run_cmd+" "+cmd_params, 
             stdout= subprocess.PIPE,
             stderr= subprocess.PIPE,
             encoding='utf-8', 
@@ -203,19 +206,72 @@ class StdoutCollector(AbstractCollector):
     def collect(self, runner):
        return self.stdcollect(runner.run_stdout) 
 
+class RangeIterator:
+    # def = {
+    #   pname_1: range
+    # }
+    #
+    def __init__(self, defs):
+        self.defs = defs
+
+        self.keys = self.defs.keys()
+        self.last = 0
+        self.init = True
+        self.closed = set()
+
+        self.snapshot   = [ r.__next__() for k, r in self.defs.items()]
+        self.pos2key    = { i: k for i, k in enumerate(self.defs.keys())}
+
+    def prepare(self, snapshot):
+        return { list(self.defs.keys())[i]: v for i, v in enumerate(snapshot)}
+
+    def render(self, snapshot):
+        return snapshot
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if len(self.closed) == len(self.defs):
+            raise StopIteration
+        if self.last in self.closed:
+            return self.__next__()
+        if self.init:
+            self.init = False
+            return self.render(self.prepare(self.snapshot))
+
+        try:
+            self.snapshot[self.last] = self.defs[self.pos2key[self.last]].__next__()
+            self.last = (self.last + 1) % len(self.keys)
+            return self.render(self.prepare(self.snapshot))
+        except StopIteration:
+            self.closed.add(self.last)
+            return self.__next__()
+
+class ShellRangeIterator(RangeIterator):
+    def __init__(self, defs) -> None:
+        super().__init__(defs)
+
+    def render(self, snapshot):
+        return " ".join([f"-{k} {shlex.quote(str(v))}" for k,v in snapshot.items()])
 
 class Benchmark:
-    def __init__(self, name, builder, runner, collector) -> None:
+    def __init__(self, name, builder, runner, collector, generator) -> None:
         self.name                   = name
         self.builder                = builder
         self.runner                 = runner
         self.collector              = collector
+        self.generator              = generator
 
     def build(self) -> bool:
         return self.builder.build()
 
     def run(self) -> bool:
-        return self.runner.run() 
+        flag = True
+        for config in self.generator:
+            logging.info(f"Bench {self.name}> Start run for config {config}")
+            flag = self.runner.run(config)
+        return flag 
 
     def collect_results(self):
         return self.collector.collect(self.runner) 
@@ -239,15 +295,29 @@ class Benchmark:
         logging.info(f"Bench {self.name}> Stored results !")
         logging.info(f"Bench {self.name}> End !")
 
+
+def logrange(start, end, base):
+    for x in numpy.logspace(start,end,base=10, num = end-start+1, dtype='int'):
+        yield x
+
+def get_elapse_time(stdout):
+    res = re.search('Time elapse (\d+)', stdout)
+    return {"duration": 
+        {"metric": "duration", "unit":"s", "value":
+            res.group(1) if res else "N/A"},
+    }
+
 benchmarks = [
     Benchmark(
         "simpl-com-jvm",
         VardaBuilder("simpl-com", "benchmarks/bench-simpl-com", "make run -- compile --places benchmarks/bench-simpl-com/places.yml --targets benchmarks/bench-simpl-com/targets.yml --filename benchmarks/bench-simpl-com/bench.spec --impl benchmarks/bench-simpl-com/bench.impl --provenance 0 && cd compiler-build/akka && make", Path(os.getcwd()).absolute()),
-        ShellRunner("java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB", Path(os.getcwd())/"compiler-build"/"akka", "Terminated ueyiqu8R"),
-        StdoutCollector(lambda stdout : 
-            {"duration": 
-                {"metric": "duration", "unit":"s", "value":re.search('Time elapse (\d+)', stdout).group(1)},
-            })
+        ShellRunner(
+            "java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB", 
+            Path(os.getcwd())/"compiler-build"/"akka", 
+            "Terminated ueyiqu8R"
+        ),
+        StdoutCollector(get_elapse_time),
+        ShellRangeIterator({"n": logrange(1, 2, base=10)})
     )
 ]
 
