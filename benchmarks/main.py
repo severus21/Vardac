@@ -60,13 +60,25 @@ class AbstractBuilder:
 
         self._is_build = False
 
+
+    def get_bench_model(self):
+        return Bench.objects.get_or_create(
+            name = self.name,
+            host_spec = HostSpec.objects.get_or_create(name = HostSpec.get_hostname())[0],    
+            soft_spec = SoftSpec.objects.get_or_create(
+                os_version = SoftSpec.get_os_version(),
+                docker_version = SoftSpec.get_docker_version(),
+                varda_version = SoftSpec.get_varda_version(),
+                )[0],    
+            project_hash = dirhash(self.project_dir, 'md5'),
+            build_hash = dirhash(self.build_dir, 'md5')
+        )
+
     @property
     def is_build(self):
         if not self._is_build and self.build_dir and self.project_dir:
-            project_hash = dirhash(self.project_dir, 'md5')
-            build_hash = dirhash(self.build_dir, 'md5')
-            b, is_created = Bench.objects.get_or_create(name = self.name)
-            if not is_created and b.build_hash == build_hash and b.project_hash == project_hash:
+            _, is_created = self.get_bench_model()
+            if not is_created:
                 self._is_build = True
         return self._is_build
 
@@ -77,21 +89,10 @@ class AbstractBuilder:
         if not self.is_build:
             tmp = self._build(*args, **kwargs)
             self._is_build = True
-            b, _ = Bench.objects.get_or_create(
-                name = self.name,
-                host_spec = HostSpec.objects.get_or_create(name = HostSpec.get_hostname())[0],    
-                soft_spec = SoftSpec.objects.get_or_create(
-                    os_version = SoftSpec.get_os_version(),
-                    docker_version = SoftSpec.get_docker_version(),
-                    varda_version = SoftSpec.get_varda_version(),
-                    )[0],    
-            )
-            b.build_hash = dirhash(self.build_dir, 'md5')
-            b.project_hash = dirhash(self.project_dir, 'md5')
-            b.save()
-            return tmp
+            b, _ = self.get_bench_model()
+            return tmp, b
         else:
-            return True
+            return True, self.get_bench_model()[0]
 
 
 
@@ -279,8 +280,12 @@ class Benchmark:
         self.collector              = collector
         self.generator              = generator
 
-    def build(self) -> bool:
-        return self.builder.build()
+        self.bench                  = None
+
+    def build(self):
+        flag, bench = self.builder.build()
+        self.bench  = bench
+        return flag
 
     def run(self) -> bool:
         flag = True
@@ -292,6 +297,8 @@ class Benchmark:
             flag = runner.run()
             res = self.collect_results(runner)
             tmp = BenchResult.objects.create(run_config=res["config"], results=res['results'])
+            self.bench.results.add(tmp)
+            self.bench.save()
             print(tmp)
             logging.info(f"Bench {self.name}> Collected results !")
         return flag 
@@ -311,9 +318,7 @@ class Benchmark:
         if not self.run():
             logging.error(f"Bench {self.name}> Run failure !")
             return False
-        logging.info(f"Bench {self.name}> Ran !")
 
-        logging.info(f"Bench {self.name}> Stored results !")
         logging.info(f"Bench {self.name}> End !")
 
 
@@ -323,14 +328,14 @@ def logrange(start, end, base):
 
 def get_elapse_time(stdout):
     res = re.search('Time elapse (\d+)', stdout)
-    return [ {"metric": "duration", "unit":"s", "value":
+    return {"duration": {"unit":"s", "value":
             res.group(1) if res else "N/A"},
-    ]
+    }
 
 benchmarks = [
     Benchmark(
         "simpl-com-jvm",
-        VardaBuilder("simpl-com", "benchmarks/bench-simpl-com", "make run -- compile --places benchmarks/bench-simpl-com/places.yml --targets benchmarks/bench-simpl-com/targets.yml --filename benchmarks/bench-simpl-com/bench.spec --impl benchmarks/bench-simpl-com/bench.impl --provenance 0 && cd compiler-build/akka && make", Path(os.getcwd()).absolute()),
+        VardaBuilder("simpl-com", "benchmarks/bench-simpl-com", "dune exec --profile release -- compspec compile --places benchmarks/bench-simpl-com/places.yml --targets benchmarks/bench-simpl-com/targets.yml --filename benchmarks/bench-simpl-com/bench.spec --impl benchmarks/bench-simpl-com/bench.impl --provenance 0 && cd compiler-build/akka && make", Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
             "java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB", 
             Path(os.getcwd())/"compiler-build"/"akka", 
