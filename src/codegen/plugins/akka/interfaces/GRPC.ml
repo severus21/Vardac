@@ -7,6 +7,13 @@ open AstUtils
 open Jingoo
 
 let name = "gRPC"
+let version = "0.0.1"
+
+let display_info () = 
+    (* TODO use sites *)
+    let akka_grpc_version = Core.Utils.run_and_collect_stdout {|cat templates/Akka\<Java\>/auto/build.gradle.j2 |grep com.lightbend.akka.grpc.gradle|} in
+
+    List.iter print_endline (List.map (function str -> "\t\t"^str) akka_grpc_version)
 
 let fplace = (Error.forge_place ("Plg=Akka/interfaces/"^name) 0 0)
 let auto_fplace smth = {place = fplace; value=smth}

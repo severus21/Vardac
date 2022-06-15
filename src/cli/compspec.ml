@@ -68,9 +68,9 @@ let record a=
 action := a;
 match !action with
 | "compile" -> options := options_compile
-| "check" -> options := options_compile
+| "check"   -> options := options_compile
 | "info"    -> options := options_info 
-| "stats" -> options := options_stats
+| "stats"   -> options := options_stats
 | _ ->  raise (Arg.Bad "This action is undefined, allowed actions are [compile, info]")
 
 let usage =

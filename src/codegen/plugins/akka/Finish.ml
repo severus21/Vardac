@@ -7,6 +7,7 @@ open Misc
 
 (* Function composition, TODO put it in some Core file*)
 let plg_name = "Akka"
+let plg_version = "0.0.1"
 let logger = Logging.make_logger ("_1_ compspec.plg."^plg_name) Debug [];;
 
 let fplace = (Error.forge_place ("plg."^plg_name^".Finish") 0 0) 

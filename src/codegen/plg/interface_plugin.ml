@@ -35,6 +35,9 @@ module Make(Ast:S_Ast) = struct
 
     module type Interface_plg0 = sig
         val name : string
+        val version : string
+
+        val display_info : unit -> unit
 
         module Make (Arg:SigArg) : Interface__plg
     end
@@ -87,14 +90,16 @@ module Make(Ast:S_Ast) = struct
 
             let display_available_plugins () = 
                 let n = Hashtbl.length plugins in
-                Printf.fprintf stdout "%d interface plugin%s %s available:\n" n (if n>1 then "s" else "") (if n>1 then "are" else "is");
+                Printf.fprintf stdout "\t\t%d interface plugin%s %s available:\n" n (if n>1 then "s" else "") (if n>1 then "are" else "is");
 
                 let display_plug (key, value) = 
                     let module Plug = (val value:Interface_plg0) in    
                     if Core.Config.debug () then
-                        Printf.fprintf stdout "- %s at key %s\n" Plug.name key
-                    else
-                        Printf.fprintf stdout "- %s\n" Plug.name
+                        Printf.fprintf stdout "\t\t- %s at key %s\n" Plug.name key
+                    else begin
+                        Printf.fprintf stdout "\t\t- %s [version=%s]\n" Plug.name Plug.version;
+                        Plug.display_info ()
+                    end
                 in
                 Seq.iter display_plug (Hashtbl.to_seq plugins)
 

@@ -142,3 +142,17 @@ let deduplicate key elts =
         | None -> Hashtbl.add keys k (); true 
         | Some _ -> false 
     ) elts
+
+let run_and_collect_stdout cmd : string list = 
+    (* TODO use sites *)
+    let ic = Unix.open_process_in cmd in
+    let all_input = ref [] in
+    try
+        while true do
+            all_input := input_line ic :: !all_input;
+        done;
+        !all_input
+    with
+        End_of_file -> close_in ic;
+
+    !all_input

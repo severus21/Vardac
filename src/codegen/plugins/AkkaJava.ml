@@ -5,7 +5,10 @@ open Easy_logging
 open Plg
 
 let name = "Akka<Java>"
+let version = "0.0.1"
 
+module Rt = Akka
+module Lg = Java
 
 let fplace = (Error.forge_place "Plg=AkkaJava" 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
@@ -15,11 +18,12 @@ module Make (Arg: Plugin.CgArgSig) = struct
     let headers = Arg.headers
     let dependencies = Arg.dependencies
 
-    let name = "Akka<Java>"
+    let name = name 
+    let version = version
     let logger = Logging.make_logger ("_1_ compspec.plg."^name) Debug [];;
 
-    module Rt = Akka
-    module Lg = Java
+    module Rt = Rt 
+    module Lg = Lg
 
     (** Finish program*)
 

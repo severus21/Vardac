@@ -30,7 +30,13 @@ let display_available_plugins () =
         if Core.Config.debug () then
             Printf.fprintf stdout "- %s at key %s\n" Plug.name key
         else
-            Printf.fprintf stdout "- %s\n" Plug.name
+            Printf.fprintf stdout "- %s [version=%s]\n" Plug.name Plug.version;
+            Printf.fprintf stdout "\t- language: %s [version=%s]\n" Plug.Lg.name Plug.Lg.version;
+            Plug.Lg.display_info();
+            Printf.fprintf stdout "\t- runtime: %s [version=%s]\n" Plug.Rt.name Plug.Rt.version;
+            Plug.Rt.display_info();
+            Plug.Rt.Interfaces.display_available_plugins ();
+
     in
     Seq.iter display_plug (Hashtbl.to_seq cg_plugins)
 

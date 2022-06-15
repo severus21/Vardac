@@ -8,7 +8,11 @@ module S = IRI
 
 
 module type Rt_plg = sig
-    (*val name: string ifwe need the name we will have to load it from module Desc.name*)
+    val name: string
+    val version: string
+
+    val display_info : unit -> unit
+
     module Ast : S_Ast
     
     module Prepare: IRICompilationPass.Pass
@@ -25,7 +29,11 @@ module type Rt_plg = sig
 end
 
 module type Lg_plg = sig
-    (*val name: string*)
+    val name: string
+    val version: string
+
+    val display_info : unit -> unit
+
     module Ast : S_Ast
 
     module Output: sig
@@ -43,6 +51,7 @@ end
 
 module type Cg_plg = sig
     val name: string
+    val version: string
     val logger: Easy_logging.Logging.logger
 
     module Rt : Rt_plg
@@ -87,6 +96,10 @@ end
 
 module type CCg_plg = sig
     val name: string
+    val version: string
+    module Rt : Rt_plg
+    module Lg : Lg_plg 
+
     module Make : functor (Arg:CgArgSig) -> Cg_plg
 end
 
