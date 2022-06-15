@@ -106,6 +106,7 @@ and binop =
     | Divide
 
     (** Comparison *)
+    | NotEqual
     | Equal 
     | GreaterThanEqual
     | LessThanEqual

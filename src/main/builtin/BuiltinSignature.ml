@@ -481,3 +481,18 @@ let t_int_of_string () =
         mtype_of_ft TStr,
         mtype_of_ft TInt
     ))
+
+let t_list2array () =
+    mtype_of_ct (TArrow (
+        mtype_of_ct (TList (mtype_of_ft TWildcard)),
+        mtype_of_ct (TArray (mtype_of_ft TWildcard))
+    ))
+
+let t_list_append () =
+    mtype_of_ct (TArrow (
+        mtype_of_ct (TList (mtype_of_ft TWildcard)),
+        mtype_of_ct (TArrow (
+            mtype_of_ft TWildcard,
+            mtype_of_ft TVoid
+        ))
+    ))

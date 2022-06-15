@@ -271,6 +271,23 @@ let encode_builtin_fct_1 place name a =
             e2_e (T.RawExpr "Long.valueOf"),
             [ a ]
         )
+    | "list2array" -> begin
+        match (snd a.value).value with
+        | T.TList mt -> 
+            T.CallExpr(
+                e2_e (T.AccessExpr(
+                    a,
+                    e2_e (T.RawExpr "toArray")
+                )),
+                [  
+                    e2_e (T.AccessMethod(
+                      Ast.encodectype (auto_fplace (T.TArray mt)),
+                        Atom.builtin "new"
+                    ))
+                ]
+            )
+        | _ -> raise (Error.PlacedDeadbranchError (a.place, "should be of type: list<?>")) 
+    end
     | _ -> Error.perror place "%s with one argument is undefined" name
 
 let encode_builtin_fct_2 place name a b =
@@ -384,6 +401,14 @@ let encode_builtin_fct_2 place name a b =
             )
         | _ -> raise (Error.PlacedDeadbranchError (a.place, "should be of type: array<?>"))
     end
+    | "append" -> 
+        T.CallExpr(
+            e2_e (T.AccessExpr(
+                a,
+                e2_e (T.RawExpr "add")
+            )),
+            [ b ]
+        )
     | "range" ->
         T.NewExpr(
             e2_e (T.RawExpr "IntegerRange"),

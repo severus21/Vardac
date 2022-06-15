@@ -86,15 +86,22 @@ component Pong {
     returns (res : result<void, error> -> is_ok(res) )
 }
 
-int main (array<string> args){
+tuple<array<string>, int> main (array<string> args){
     print("apossiblemain");
     int n = 100;
+    list<string> nargs = [];
+    int skip = -1;
     for(int i in range(0, asize(args) - 1)){
         if( ((aget(args, i)) == "-n") && ((i - 1)< asize(args)) ){ (*(aget ..) needed otherwise not parsed as a binop*)
             n = int_of_string(aget(args, i+1));
+            skip = i + 1;
+        } else { 
+            if (i != skip) {
+                append(nargs, aget(args, i));
+            }
         }
     }
-    return n;
+    return (list2array(nargs), n);
 }
 
 component TopLevel {

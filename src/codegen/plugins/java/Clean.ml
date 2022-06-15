@@ -91,6 +91,12 @@ let auto_place smth = {place = fplace; value=smth} in
             ), auto_place TUnknown),
             [cexpr e2]
         ) 
+    | BinaryExpr (e1, NotStructuralEqual, e2) -> 
+        fst (cexpr (auto_place( UnaryExpr( 
+            AstUtils.Not, 
+            {
+                place = place@fplace; 
+                value = BinaryExpr (e1, StructuralEqual, e2), jtype}), auto_place TUnknown))).value
     | BinaryExpr (e1, op, e2) -> BinaryExpr (cexpr e1, op, cexpr e2)
     | CastExpr (ct, e) -> CastExpr (ct, cexpr e)
     | LiteralExpr l -> LiteralExpr l

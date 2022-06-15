@@ -159,50 +159,68 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
             let wrap_main (name:string) (guardian:S.expr) (_main:S.method0) : S.term= 
                 (* e.g. 
-                TupleK<...> margs = _main(args); 
+                Tuple2<String[], TupleK<..>> tmp = _main(args); 
+                String[] nargs = tmp._1;
+                TupleK<...> nargs = tmp._1;
                 ActorSystem<?> system = ActorSystem.create(KeyValueStoreActorSystem.create(true, margs._1, ..., margs._n),
                     KeyValueStoreActorSystem.NAME,
                     config.withFallback(ConfigFactory.load()));*)
                 let a_system = Atom.fresh "system" in
                 let a_margs = Atom.fresh "margs" in
-                
-                let margs_let, margs_params = 
+                let a_nargs = Atom.fresh "nargs" in
+                let a_tmpargs = Atom.fresh "tmpargs" in
+               
+                let margs_lets, margs_params = 
                     match _main.value.v.ret_type.value with 
-                    | S.Atomic "Void" | S.Atomic "void" -> auto_place(S.ExpressionStmt(
-                        auto_place (S.CallExpr (
-                            auto_place (S.VarExpr _main.value.v.name, auto_place S.TUnknown),
-                            [
-                                auto_place (S.VarExpr (Atom.builtin "args"), auto_place S.TUnknown)
-                            ]
-                        ), auto_place S.TUnknown)
-                    )), [] 
-                    | S.TTuple mts -> 
-                        auto_place (S.LetStmt(
-                            auto_place (S.TTuple mts),
-                            a_margs,
-                            Some (auto_place (S.CallExpr (
-                                auto_place (S.VarExpr _main.value.v.name, auto_place S.TUnknown),
-                                [
-                                    auto_place (S.VarExpr (Atom.builtin "args"), auto_place S.TUnknown)
-                                ]
-                            ), auto_place S.TUnknown))
-                        )), List.mapi (fun i mt -> 
-                            auto_place (S.AccessExpr(
-                                S_A2.e2var a_margs,
-                                S_A2.e2_e (S.RawExpr ("_"^string_of_int (i+1)))
-                            ), mt)
-                        ) mts
-                    | _ -> 
-                        auto_place (S.LetStmt(
-                            _main.value.v.ret_type,
-                            a_margs,
-                            Some (auto_place (S.CallExpr (
-                                auto_place (S.VarExpr _main.value.v.name, auto_place S.TUnknown),
-                                [
-                                    auto_place (S.VarExpr (Atom.builtin "args"), auto_place S.TUnknown)
-                                ]
-                            ), auto_place S.TUnknown))
-                        )), [ S_A2.e2var a_margs ]
+                    | S.Atomic "Void" | S.Atomic "void" -> 
+                        [
+                            auto_place (S.ExpressionStmt(
+                                S_A2.e2_e (S.CallExpr (
+                                    S_A2.e2var _main.value.v.name,
+                                    [
+                                        S_A2.e2var (Atom.builtin "args")
+                                    ]
+                                ))
+                            ))
+                        ], [] 
+                    | S.TTuple [mt_args; mt_margs] -> begin
+                        [
+                            auto_place (S.LetStmt(
+                                auto_place (S.TTuple [mt_args; mt_margs]),
+                                a_tmpargs,
+                                Some (auto_place (S.CallExpr (
+                                    auto_place (S.VarExpr _main.value.v.name, auto_place S.TUnknown),
+                                    [ S_A2.e2var (Atom.builtin "args") ]
+                                ), auto_place S.TUnknown))
+                            )) ;
+                            auto_place (S.LetStmt(
+                                mt_args,
+                                a_nargs,
+                                Some (S_A2.e2_e (S.AccessExpr (
+                                    S_A2.e2var a_tmpargs,
+                                    S_A2.e2var (Atom.builtin "_1")
+                                )))
+                            ));
+                            auto_place (S.LetStmt(
+                                mt_margs,
+                                a_margs,
+                                Some (auto_place (S.AccessExpr (
+                                    S_A2.e2var a_tmpargs,
+                                    S_A2.e2var (Atom.builtin "_2")
+                                ), auto_place S.TUnknown))
+                            ))
+                        ], 
+                        match mt_margs.value with
+                        | S.TTuple mts ->
+                            List.mapi (fun i mt -> 
+                                auto_place (S.AccessExpr(
+                                    S_A2.e2var a_margs,
+                                    S_A2.e2_e (S.RawExpr ("_"^string_of_int (i+1)))
+                                ), mt)
+                            ) mts
+                        | _ -> [ S_A2.e2var a_margs ]
+                    end
+                    | _ -> Error.perror _main.place "main should have type tuple<string[], ...> not" 
                 in
                 let actor_system = auto_place (S.LetStmt (
                     auto_place (S.TParam (
@@ -234,7 +252,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                     auto_place (S.VarExpr (Atom.builtin "get_config"), auto_place S.TUnknown)
                                 ), auto_place S.TUnknown),
                                 [
-                                    auto_place (S.VarExpr (Atom.builtin "args"), auto_place S.TUnknown)
+                                    S_A2.e2var a_nargs
                                 ]
                             ), auto_place S.TUnknown)
                         ]
@@ -270,9 +288,8 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                         is_constructor = false;
                                         body = match _main.value.v.body with 
                                             |S.AbstractImpl _ -> S.AbstractImpl (
-                                                margs_let
-                                                :: actor_system
-                                                :: []
+                                                margs_lets 
+                                                @ [ actor_system ]
                                             ) 
                                             | _ -> _main.value.v.body 
                                     }

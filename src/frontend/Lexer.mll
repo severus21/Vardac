@@ -176,6 +176,8 @@ rule entry = parse
     { BINOP And}
 | "=="
     { BINOP Equal}
+| "!="
+    { BINOP NotEqual}
 | "not" 
     { UNOP Not}
 | "+"

@@ -82,6 +82,9 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "leftregister", "...", "...", t_leftregister;
     "rightregister", "...", "...", t_leftregister;
 
+    "list2array", "array<item> -> list<item>", "...", t_list2array; 
+    "append", "list<item> -> item -> ()", "...", t_list_append;
+
     "range", "int -> int -> range", "", t_range;
     "time", "() -> int", "miliseconds", t_time; 
 

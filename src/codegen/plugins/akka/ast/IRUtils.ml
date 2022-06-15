@@ -1,6 +1,19 @@
-open Core
-open AstUtils
+open Core.AstUtils
+module Atom = Core.Atom
 open AAst
+
+let fplace = (Core.Error.forge_place "Plg=AkkaJava" 0 0)
+let auto_fplace smth = {place = fplace; value=smth}
+open AstUtils2.Make(struct let fplace = fplace end)
+
+let encodectype = function
+    | {value=TVar x; place} -> e2var x
+    | {value=Atomic x; place} -> e2var (Atom.builtin x)
+    | {value=TTuple xs} -> e2var (Atom.builtin (Printf.sprintf "io.vavr.Tuple%d" (List.length xs)))
+    | {value=TArray {value=Atomic x}} -> e2var (Atom.builtin (Printf.sprintf "%s[]" x))
+    | _ -> failwith "TODO encodectype_Finish"
+
+open Core
 
 let rec map_constructor f : method0 list -> method0 list = function
 | [] -> []

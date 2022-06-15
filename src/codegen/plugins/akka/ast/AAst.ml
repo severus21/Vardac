@@ -44,6 +44,8 @@ and binop = (* Add structural equal *)
     | Divide
 
     (** Comparison *)
+    | NotEqual
+    | NotStructuralEqual
     | StructuralEqual (** (e.g. like equals in Java or = in Ocaml)*)
     | Equal 
     | GreaterThanEqual

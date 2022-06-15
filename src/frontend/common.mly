@@ -363,10 +363,10 @@ any_stmt_:
     { ContinueStmt }
 | EXIT i=INTLITERAL SEMICOLON
     { ExitStmt i}
-| IF LPAREN e1=any_expr RPAREN LCURLYBRACKET e2=any_stmt RCURLYBRACKET ELSE  LCURLYBRACKET e3=any_stmt RCURLYBRACKET 
-    { IfStmt (e1, e2, Some e3) }
-| IF LPAREN e1=any_expr RPAREN LCURLYBRACKET e2=any_stmt RCURLYBRACKET
-    { IfStmt (e1, e2, None) }
+| IF LPAREN e1=any_expr RPAREN LCURLYBRACKET stmts1=flexible_sequence(any_stmt) RCURLYBRACKET ELSE  LCURLYBRACKET stmts2=flexible_sequence(any_stmt) RCURLYBRACKET 
+    { IfStmt (e1, {place=[$loc]; value=BlockStmt stmts1}, Some {place=[$loc]; value=BlockStmt stmts2}) }
+| IF LPAREN e1=any_expr RPAREN LCURLYBRACKET stmts1=flexible_sequence(any_stmt) RCURLYBRACKET
+    { IfStmt (e1, {place=[$loc]; value=BlockStmt stmts1}, None) }
 | FOR LPAREN mt = any_type x=LID IN e=any_expr RPAREN LCURLYBRACKET stmts = flexible_sequence(any_stmt) RCURLYBRACKET
     { 
         match stmts with

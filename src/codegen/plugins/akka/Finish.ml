@@ -299,12 +299,7 @@ module Make (Arg: sig val target:Target.target end) = struct
     | S.SetFireTimer (x, i) -> e_ASTStype_TimerHeader_of place x i 
     and encode_guard_header header : T.expr = encode_guard_header_ header.place header.value in 
 
-    let encodectype = function
-        | {value=T.TVar x; place} -> {value=T.VarExpr x, auto_place T.TUnknown; place} 
-        | {value=T.Atomic x; place} -> {value=T.VarExpr (Atom.builtin x), auto_place T.TUnknown; place} 
-        | {value=T.TTuple xs} -> {value=T.VarExpr (Atom.builtin (Printf.sprintf "io.vavr.Tuple%d" (List.length xs))), auto_place T.TUnknown; place}
-        | ct -> failwith "TODO encodectype_Finish"
-    in
+
 
     function 
         | S.STEnd -> T.NewExpr (e2var (a_ASTStype_of "End"), []), auto_place T.TUnknown
@@ -327,7 +322,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                         e_ASTStype_MsgT_of place (
                             e2_e (T.CallExpr(
                                 e2_e (T.AccessExpr(
-                                    e2_e (T.AccessExpr (encodectype ct, e2var (Atom.builtin "class"))),
+                                    e2_e (T.AccessExpr (Ast.encodectype ct, e2var (Atom.builtin "class"))),
                                     e2_e (T.RawExpr "toString")
                                 )),
                                 []
@@ -355,7 +350,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                         e_ASTStype_MsgT_of place (
                             e2_e (T.CallExpr(
                                 e2_e (T.AccessExpr(
-                                    e2_e (T.AccessExpr (encodectype ct, e2var (Atom.builtin "class"))),
+                                    e2_e (T.AccessExpr (Ast.encodectype ct, e2var (Atom.builtin "class"))),
                                     e2_e (T.RawExpr "toString")
                                 )),
                                 []
@@ -464,6 +459,7 @@ module Make (Arg: sig val target:Target.target end) = struct
     | AstUtils.Mult                -> T.Mult
     | AstUtils.Divide              -> T.Divide
     | AstUtils.Equal               -> T.StructuralEqual 
+    | AstUtils.NotEqual            -> T.NotStructuralEqual 
     | AstUtils.GreaterThanEqual    -> T.GreaterThanEqual
     | AstUtils.LessThanEqual       -> T.LessThanEqual
     | AstUtils.GreaterThan         -> T.GreaterThan
