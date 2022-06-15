@@ -77,13 +77,23 @@ class AbstractBuilder:
         if not self.is_build:
             tmp = self._build(*args, **kwargs)
             self._is_build = True
-            b, _ = Bench.objects.get_or_create(name = self.name)
+            b, _ = Bench.objects.get_or_create(
+                name = self.name,
+                host_spec = HostSpec.objects.get_or_create(name = HostSpec.get_hostname())[0],    
+                soft_spec = SoftSpec.objects.get_or_create(
+                    os_version = SoftSpec.get_os_version(),
+                    docker_version = SoftSpec.get_docker_version(),
+                    varda_version = SoftSpec.get_varda_version(),
+                    )[0],    
+            )
             b.build_hash = dirhash(self.build_dir, 'md5')
             b.project_hash = dirhash(self.project_dir, 'md5')
             b.save()
             return tmp
         else:
             return True
+
+
 
 class VardaBuilder(AbstractBuilder):
     def __init__(self, name, project_dir, build_cmd, build_cwd, build_dir=Path(os.getcwd())/"compiler-build") -> None:
@@ -107,21 +117,35 @@ class VardaBuilder(AbstractBuilder):
         return res.returncode == 0
 
 RUN_TIMEOUT = 30 # s
+class ShellRunnerFactory:
+    def __init__(self, run_cmd, run_cwd=None, stdout_termination_token=None, error_token="[ERROR]") -> None:
+        self.run_cmd                    = run_cmd
+        self.run_cwd                    = run_cwd
+        self.stdout_termination_token   = stdout_termination_token
+        self.error_token                = error_token
+
+    def make(self, config):
+        return ShellRunner(self.run_cmd, self.run_cwd, self.stdout_termination_token, self.error_token, config)
 
 class ShellRunner:
-    def __init__(self, run_cmd, run_cwd=None, stdout_termination_token=None, error_token="[ERROR]") -> None:
+    def __init__(self, run_cmd, run_cwd, stdout_termination_token, error_token, config) -> None:
         self.run_cmd    = run_cmd
         self.run_cwd    = run_cwd
         self.stdout_termination_token = stdout_termination_token
         self.error_token    = error_token
+
+        self.config =   config
         
         self.run_stdout           = ""
         self.run_stderr           = ""
+
+    def render(self, snapshot):
+        return " ".join([f"-{k} {shlex.quote(str(v))}" for k,v in snapshot.items()])
     
-    def run(self, cmd_params="") -> bool:
+    def run(self) -> bool:
         start_time = time.time()
         res = subprocess.Popen(
-            self.run_cmd+" "+cmd_params, 
+            self.run_cmd+" "+self.render(self.config), 
             stdout= subprocess.PIPE,
             stderr= subprocess.PIPE,
             encoding='utf-8', 
@@ -226,9 +250,6 @@ class RangeIterator:
     def prepare(self, snapshot):
         return { list(self.defs.keys())[i]: v for i, v in enumerate(snapshot)}
 
-    def render(self, snapshot):
-        return snapshot
-
     def __iter__(self):
         return self
 
@@ -239,28 +260,22 @@ class RangeIterator:
             return self.__next__()
         if self.init:
             self.init = False
-            return self.render(self.prepare(self.snapshot))
+            return self.prepare(self.snapshot)
 
         try:
             self.snapshot[self.last] = self.defs[self.pos2key[self.last]].__next__()
             self.last = (self.last + 1) % len(self.keys)
-            return self.render(self.prepare(self.snapshot))
+            return self.prepare(self.snapshot)
         except StopIteration:
             self.closed.add(self.last)
             return self.__next__()
 
-class ShellRangeIterator(RangeIterator):
-    def __init__(self, defs) -> None:
-        super().__init__(defs)
-
-    def render(self, snapshot):
-        return " ".join([f"-{k} {shlex.quote(str(v))}" for k,v in snapshot.items()])
 
 class Benchmark:
-    def __init__(self, name, builder, runner, collector, generator) -> None:
+    def __init__(self, name, builder, runner_factory, collector, generator) -> None:
         self.name                   = name
         self.builder                = builder
-        self.runner                 = runner
+        self.runner_factory         = runner_factory
         self.collector              = collector
         self.generator              = generator
 
@@ -271,16 +286,18 @@ class Benchmark:
         flag = True
         for config in self.generator:
             logging.info(f"Bench {self.name}> Start run for config {config}")
-            flag = self.runner.run(config)
 
-            res = self.collect_results(config)
+            runner = self.runner_factory.make(config)
+
+            flag = runner.run()
+            res = self.collect_results(runner)
             tmp = BenchResult.objects.create(run_config=res["config"], results=res['results'])
             print(tmp)
             logging.info(f"Bench {self.name}> Collected results !")
         return flag 
 
-    def collect_results(self, config):
-        return {'config': config, 'results': self.collector.collect(self.runner)}
+    def collect_results(self, runner):
+        return {'config': runner.config, 'results': self.collector.collect(runner)}
 
     def start(self):
         logging.info(f"Bench {self.name}> Started !")
@@ -314,13 +331,13 @@ benchmarks = [
     Benchmark(
         "simpl-com-jvm",
         VardaBuilder("simpl-com", "benchmarks/bench-simpl-com", "make run -- compile --places benchmarks/bench-simpl-com/places.yml --targets benchmarks/bench-simpl-com/targets.yml --filename benchmarks/bench-simpl-com/bench.spec --impl benchmarks/bench-simpl-com/bench.impl --provenance 0 && cd compiler-build/akka && make", Path(os.getcwd()).absolute()),
-        ShellRunner(
+        ShellRunnerFactory(
             "java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB", 
             Path(os.getcwd())/"compiler-build"/"akka", 
             "Terminated ueyiqu8R"
         ),
         StdoutCollector(get_elapse_time),
-        ShellRangeIterator({"n": logrange(1, 2, base=10)})
+        RangeIterator({"n": logrange(1, 2, base=10)})
     )
 ]
 
