@@ -23,7 +23,7 @@ def gen_curve(data, destfile, **kwargs):
     ye = np.array(list(map(lambda x: x["stdev"]/2 if "stdev" in x else 0, data.values())))
 
     fig, ax = plt.subplots()
-    ax.errorbar(x, y, yerr=ye)
+    ax.errorbar(x, y, yerr=ye, fmt='o')
 
     ax.set(**kwargs)
     ax.grid()
