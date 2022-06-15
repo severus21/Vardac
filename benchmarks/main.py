@@ -5,6 +5,7 @@ import argparse
 from distutils.log import error
 import logging
 from tracemalloc import start
+from unittest import result
 import coloredlogs
 import os
 import re
@@ -271,10 +272,15 @@ class Benchmark:
         for config in self.generator:
             logging.info(f"Bench {self.name}> Start run for config {config}")
             flag = self.runner.run(config)
+
+            res = self.collect_results(config)
+            tmp = BenchResult.objects.create(run_config=res["config"], results=res['results'])
+            print(tmp)
+            logging.info(f"Bench {self.name}> Collected results !")
         return flag 
 
-    def collect_results(self):
-        return self.collector.collect(self.runner) 
+    def collect_results(self, config):
+        return {'config': config, 'results': self.collector.collect(self.runner)}
 
     def start(self):
         logging.info(f"Bench {self.name}> Started !")
@@ -290,8 +296,6 @@ class Benchmark:
             return False
         logging.info(f"Bench {self.name}> Ran !")
 
-        print(self.collect_results())
-        logging.info(f"Bench {self.name}> Collected results !")
         logging.info(f"Bench {self.name}> Stored results !")
         logging.info(f"Bench {self.name}> End !")
 
@@ -302,10 +306,9 @@ def logrange(start, end, base):
 
 def get_elapse_time(stdout):
     res = re.search('Time elapse (\d+)', stdout)
-    return {"duration": 
-        {"metric": "duration", "unit":"s", "value":
+    return [ {"metric": "duration", "unit":"s", "value":
             res.group(1) if res else "N/A"},
-    }
+    ]
 
 benchmarks = [
     Benchmark(
