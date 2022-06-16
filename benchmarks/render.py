@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 # coding: utf-8
 
+from cairo import STATUS_JBIG2_GLOBAL_MISSING
 import django
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,58 +35,78 @@ def gen_curve(data, destfile, **kwargs):
 
 def gen_curve2(data1, data2, destfile, **kwargs):
     xs1 = np.array(list(data1.keys()))
-    ys1 = np.array(list(data1.values()))
+    ys1 = np.array(list(map(lambda x: x["avg"], data1.values())))
+    ye1 = np.array(list(map(lambda x: x["stdev"]/2 if "stdev" in x else 0, data1.values())))
     xs2 = np.array(list(data2.keys()))
-    ys2 = np.array(list(data2.values()))
+    ys2 = np.array(list(map(lambda x: x["avg"], data2.values())))
+    ye2 = np.array(list(map(lambda x: x["stdev"]/2 if "stdev" in x else 0, data2.values())))
 
     fig, ax = plt.subplots()
-    ax.plot(xs2, ys2, 'b', label="H")
-    ax.plot(xs1, ys1, 'r', label="F")
+    ax.errorbar(xs1, ys1, yerr=ye2, fmt='o', label="A")
+    ax.errorbar(xs2, ys2, yerr=ye2, fmt='o', label="B")
+    #ax.plot(xs2, ys2, 'b', label="A")
+    #ax.plot(xs1, ys1, 'r', label="B")
 
     ax.set(**kwargs)
 
     # ax.grid()
     ax.legend()
 
-    fig.savefig(destfile)
-    # plt.show()
+    #fig.savefig(destfile)
+    plt.show()
 
 
-q1 = Bench.objects.filter(name="simpl-com")
+q1 = Bench.objects.filter(name="simpl-com-jvm-varda", id=32)
 assert(len(q1) == 1)
-results = q1[0].results.all()
+results1 = q1[0].results.all()
+print(len(results1))
+
+q2 = Bench.objects.filter(name="simpl-com-jvm-akka", id=30) 
+assert(len(q2) == 1)
+results2 = q2[0].results.all()
+print(len(results2))
 
 
 def hash_run_config(rcfg):
     return '__'.join(map(lambda x: f"{x[0]}_{x[1]}", rcfg.items()))
 
 
-params = {hash_run_config(r.run_config): r.run_config for r in results}
 
-# group results per args
-grps = defaultdict(list)
-for r in results:
-    grps[hash_run_config(r.run_config)].append(r)
+def stats_of_results(results):
+    # group results per args
+    grps = defaultdict(list)
+    for r in results:
+        grps[hash_run_config(r.run_config)].append(r)
 
-print(grps)
+    print(grps)
 
-# compute avgs per grps
-stats = defaultdict(dict)
-for k, items in grps.items():
-    for m_name, m_body in items[0].results.items():
-        if m_name not in stats[k]:
-            stats[k][m_name]= {
-                "unit"      : m_body["unit"], 
-                "items"     : [float(m_body["value"])],
-            }
-        else: 
-            stats[k][m_name]["items"]    += m_body["value"]
+    # compute avgs per grps
+    stats = defaultdict(dict)
+    for k, items in grps.items():
+        for item in items:
+            for m_name, m_body in item.results.items():
+                # remove N/A, TODO biais ?
+                if not m_body["value"] == "N/A":
+                    if m_name not in stats[k]:
+                        stats[k][m_name]= {
+                            "unit"      : m_body["unit"], 
+                            "items"     : [float(m_body["value"])],
+                        }
+                    else: 
+                        stats[k][m_name]["items"].append(float(m_body["value"]))
 
-for k in stats.keys():
-    for m_name in stats[k].keys():
-        stats[k][m_name]["avg"] = statistics.mean(stats[k][m_name]["items"] )
-        if len(stats[k][m_name]["items"]) > 1:
-            stats[k][m_name]["stdev"] = statistics.stdev(stats[k][m_name]["items"] )
+    print()
+    print(stats)
+    print()
+
+
+    for k in stats.keys():
+        for m_name in stats[k].keys():
+            stats[k][m_name]["avg"] = statistics.mean(stats[k][m_name]["items"] )
+            if len(stats[k][m_name]["items"]) > 1:
+                stats[k][m_name]["stdev"] = statistics.stdev(stats[k][m_name]["items"] )
+
+    return stats
 
 def extract_metrics(stats, wanted_metric):
     nstats = {}
@@ -93,12 +114,23 @@ def extract_metrics(stats, wanted_metric):
         nstats[k] = stats[k][wanted_metric]
     return nstats
 
-def map_on_param(stats, wanted_param):
+def map_on_param(results, stats, wanted_param):
+    params = {hash_run_config(r.run_config): r.run_config for r in results}
     nstats = {}
     for k in stats.keys():
         nstats[params[k][wanted_param]] = stats[k]
     return nstats
 
-print(stats)
 
-gen_curve(map_on_param(extract_metrics(stats, "duration"), "n"), "toto.png")
+stats1 = stats_of_results(results1)
+stats2 = stats_of_results(results2)
+print(stats1)
+print(stats2)
+
+#gen_curve(map_on_param(results1, extract_metrics(stats1, "duration"), "n"), "toto.png")
+#gen_curve(map_on_param(results2, extract_metrics(stats2, "duration"), "n"), "toto.png")
+
+gen_curve2(
+    map_on_param(results1, extract_metrics(stats1, "duration"), "n"),
+    map_on_param(results2, extract_metrics(stats2, "duration"), "n"),
+    "toto.png")

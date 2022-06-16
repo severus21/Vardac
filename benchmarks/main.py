@@ -4,6 +4,7 @@
 import argparse
 from distutils.log import error
 import logging
+from telnetlib import theNULL
 from tracemalloc import start
 from unittest import result
 import coloredlogs
@@ -46,11 +47,13 @@ parser   = argparse.ArgumentParser()
 
 subparsers = parser.add_subparsers(help='sub-command help', dest="cmdaction")
 parser_run = subparsers.add_parser('run', help='TODO')
+parser_run.add_argument("--bench-selector", default="all",
+                    help=f"all or name1:name2:")
 
 args = parser.parse_args()
 
 cmdactions = defaultdict(lambda *args: parser.print_help())
-cmdactions['run'] = lambda kwargs: do_run()
+cmdactions['run'] = lambda kwargs: do_run(**kwargs)
 
 class AbstractBuilder:
     def __init__(self, name, project_dir=None, build_dir=None) -> None:
@@ -62,7 +65,7 @@ class AbstractBuilder:
 
 
     def get_bench_model(self):
-        return Bench.objects.get_or_create(
+        bench, flag = Bench.objects.get_or_create(
             name = self.name,
             host_spec = HostSpec.objects.get_or_create(name = HostSpec.get_hostname())[0],    
             soft_spec = SoftSpec.objects.get_or_create(
@@ -73,6 +76,13 @@ class AbstractBuilder:
             project_hash = dirhash(self.project_dir, 'md5'),
             build_hash = dirhash(self.build_dir, 'md5')
         )
+
+        if flag:
+            logging.debug(f"Bench {self.name}> Create bench model {bench.id} in DB !")
+        else:
+            logging.debug(f"Bench {self.name}> Load bench model {bench.id} from DB !\n\t(new results will be append to it)")
+
+        return bench, flag
 
     @property
     def is_build(self):
@@ -87,11 +97,15 @@ class AbstractBuilder:
 
     def build(self, *args, **kwargs):
         if not self.is_build:
+            logging.info(f"Bench {self.name}> Building !")
             tmp = self._build(*args, **kwargs)
             self._is_build = True
             b, _ = self.get_bench_model()
+            if b:
+                logging.info(f"Bench {self.name}> Built !")
             return tmp, b
         else:
+            logging.info(f"Bench {self.name}> Already built !")
             return True, self.get_bench_model()[0]
 
 
@@ -313,10 +327,10 @@ class Benchmark:
             logging.error(f"Bench {self.name}> Built failure !")
             print(self.builder.build_stderr)
             return False
-        logging.info(f"Bench {self.name}> Built !")
 
         if not self.run():
             logging.error(f"Bench {self.name}> Run failure !")
+            print(self.runner.build_stderr)
             return False
 
         logging.info(f"Bench {self.name}> End !")
@@ -327,15 +341,15 @@ def logrange(start, end, base):
         yield x
 
 def get_elapse_time(stdout):
-    res = re.search('Time elapse (\d+)', stdout)
-    return {"duration": {"unit":"s", "value":
+    res = re.search('Time elapse (\d+) ms', stdout)
+    return {"duration": {"unit":"ms", "value":
             res.group(1) if res else "N/A"},
     }
 
-benchmarks = [
+BENCHMARKS = [
     Benchmark(
-        "simpl-com-jvm",
-        VardaBuilder("simpl-com", "benchmarks/bench-simpl-com", "dune exec --profile release -- compspec compile --places benchmarks/bench-simpl-com/places.yml --targets benchmarks/bench-simpl-com/targets.yml --filename benchmarks/bench-simpl-com/bench.spec --impl benchmarks/bench-simpl-com/bench.impl --provenance 0 && cd compiler-build/akka && make", Path(os.getcwd()).absolute()),
+        "simpl-com-jvm-varda",
+        VardaBuilder("simpl-com-jvm-varda", "benchmarks/bench-simpl-com/varda", "dune exec --profile release -- compspec compile --places benchmarks/bench-simpl-com/varda/places.yml --targets benchmarks/bench-simpl-com/varda/targets.yml --filename benchmarks/bench-simpl-com/varda/bench.spec --impl benchmarks/bench-simpl-com/varda/bench.impl --provenance 0 && cd compiler-build/akka && make", Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
             "java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB", 
             Path(os.getcwd())/"compiler-build"/"akka", 
@@ -343,10 +357,27 @@ benchmarks = [
         ),
         StdoutCollector(get_elapse_time),
         RangeIterator({"n": logrange(1, 2, base=10)})
-    )
+    ),
+    Benchmark(
+        "simpl-com-jvm-akka",
+        VardaBuilder("simpl-com-jvm-akka", "benchmarks/bench-simpl-com/akka", "cd benchmarks/bench-simpl-com/akka && make", Path(os.getcwd()).absolute()),
+        ShellRunnerFactory(
+            "java -enableassertions -jar build/libs/main.jar", 
+            Path(os.getcwd())/"benchmarks"/"bench-simpl-com"/"akka", 
+            "Terminated ueyiqu8R" 
+        ),
+        StdoutCollector(get_elapse_time),
+        RangeIterator({"n": logrange(1, 2, base=10)})
+    ),
+
 ]
 
-def do_run():
+def do_run(bench_selector):
+    if bench_selector == "all":
+        benchmarks = BENCHMARKS
+    else:
+        selected_bench_names = set(bench_selector.split(":"))
+        benchmarks = [ b for b in BENCHMARKS if b.name in selected_bench_names]
     for bench in benchmarks:
         res = bench.start()
         print(res)

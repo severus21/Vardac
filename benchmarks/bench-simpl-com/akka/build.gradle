@@ -1,0 +1,104 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import com.github.jengelman.gradle.plugins.shadow.transformers.AppendingTransformer
+
+plugins {
+    id 'java'
+    id "com.github.johnrengelman.shadow" version "7.1.2"
+    id "com.lightbend.akka.grpc.gradle" version "2.1.4"
+}
+
+group 'com.author'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+def versions = [
+        AkkaVersion: "2.6.13",
+        ScalaBinary: "2.13"
+]
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.0'
+//    testRuntimeOnly 'org.slf4j:slf4j-simple:1.7.28'
+
+    implementation "com.google.guava:guava:31.0.1-jre"
+    implementation group: "commons-cli", name: "commons-cli", version: "1.4"
+    implementation "ch.qos.logback:logback-classic:1.2.3"
+    implementation "org.slf4j:slf4j-api:1.7.28"
+    implementation group: 'com.typesafe.akka', name: "akka-actor-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+    implementation group: 'com.typesafe.akka', name: "akka-cluster-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+    implementation group: 'com.typesafe.akka', name: "akka-cluster-sharding-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+//    implementation group: 'eu.antidotedb', name: 'antidote-java-client', version: '0.3.1'
+
+    implementation platform(group: 'com.typesafe.akka', name: "akka-bom_${versions.ScalaBinary}", version: "${versions.AkkaVersion}")
+//    implementation group: 'com.typesafe.akka', name: "akka-discovery_2.13", version: "2.6.13"
+    implementation group: 'com.typesafe.akka', name: "akka-serialization-jackson_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+    implementation group: 'com.typesafe.akka', name: "akka-persistence-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+    implementation group: 'com.typesafe.akka', name: "akka-persistence-query_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+//    implementation group: 'com.lightbend.akka', name: "akka-projection-core_${versions.ScalaBinary}", version: "1.1.0"
+//    implementation group: 'com.lightbend.akka', name: "akka-projection-eventsourced_${versions.ScalaBinary}", version: "1.1.0"
+    testImplementation group: 'com.typesafe.akka', name: "akka-persistence-testkit_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+    testImplementation group: 'com.typesafe.akka', name: "akka-actor-testkit-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
+
+    // http
+    implementation platform("com.typesafe.akka:akka-http-bom_${versions.ScalaBinary}:10.2.8")
+    implementation "com.typesafe.akka:akka-stream_${versions.ScalaBinary}:${versions.AkkaVersion}"
+    implementation "com.typesafe.akka:akka-http_${versions.ScalaBinary}"
+    implementation "com.typesafe.akka:akka-http-jackson_${versions.ScalaBinary}"
+
+    // interactive console
+    implementation "org.jline:jline:3.20.0"
+
+    // telemetry
+    // JMX exporter
+    implementation "io.prometheus.jmx:jmx_prometheus_javaagent:0.15.0"
+    implementation "org.jgrapht:jgrapht-core:1.5.1"
+    // https://github.com/RustedBones/akka-http-metrics
+//    implementation "io.prometheus:simpleclient:0.10.0"
+//    implementation "fr.davit:akka-http-metrics-core:1.6.0"
+//    implementation "fr.davit:akka-http-metrics-core_${versions.ScalaBinary}:1.6.0"
+//    implementation "fr.davit:akka-http-metrics-prometheus_${versions.ScalaBinary}:1.6.0"
+
+    // Lg4dc - adding types + functional behavior
+    implementation "io.vavr:vavr:0.10.3"
+
+    // Tracing - needed for grpc client for some (unknown) reasons
+    implementation 'io.perfmark:perfmark-api:0.25.0'
+    implementation 'io.perfmark:perfmark-traceviewer:0.25.0'
+
+
+    // Specialized dependencies 
+    
+    
+
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        showStandardStreams = true
+    }
+    maxParallelForks = 1 //Runtime.runtime.availableProcessors().intdiv(2) ?: 1 
+}
+
+/*
+    FAT jar tasks
+ */
+
+task jarMain(type: ShadowJar) {
+    archiveBaseName.set('main')
+    archiveClassifier.set('')
+    archiveVersion.set('')
+    configurations = [project.configurations.compileClasspath]
+    manifest {
+        attributes('Main-Class': 'com.varda.AkkaMassiveTellToSingleActor')
+    }
+    transform(AppendingTransformer) {
+        resource = 'reference.conf'
+    }
+    with jar
+}
