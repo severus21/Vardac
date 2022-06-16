@@ -204,6 +204,11 @@ let encode_builtin_fct_1 place name a =
             e2var (Atom.builtin "getContext().getLog().debug"),
             [ a ]
         )
+    | "info" -> 
+        T.CallExpr(
+            e2var (Atom.builtin "getContext().getLog().info"),
+            [ a ]
+        )
     | "option_get" -> 
         T.CallExpr(
             e2_e (T.AccessExpr( 

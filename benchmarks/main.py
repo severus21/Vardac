@@ -11,7 +11,7 @@ import subprocess
 import time
 import select
 import numpy
-
+import json
 import os
 import re
 import signal
@@ -238,6 +238,19 @@ class StdoutCollector(AbstractCollector):
     def collect(self, runner):
        return self.stdcollect(runner.run_stdout) 
 
+class FileCollector(AbstractCollector):
+    def __init__(self, filename, flambda) -> None:
+        super().__init__()
+        self.filename = filename
+        self.flambda = flambda
+
+    def collect(self, runner):
+        if os.path.exists(self.filename):
+            return self.flambda(self.filename)
+        else:
+            logging.warning(f"filename {self.filename} does not exists !!")
+            return []
+
 class RangeIterator:
     # def = {
     #   pname_1: range
@@ -275,15 +288,16 @@ class RangeIterator:
             return self.prepare(self.snapshot)
         except StopIteration:
             self.closed.add(self.last)
+            print(self.closed, self.last)
             return self.__next__()
 
 
 class Benchmark:
-    def __init__(self, name, builder, runner_factory, collector, generator) -> None:
+    def __init__(self, name, builder, runner_factory, collectors, generator) -> None:
         self.name                   = name
         self.builder                = builder
         self.runner_factory         = runner_factory
-        self.collector              = collector
+        self.collectors             = collectors
         self.generator              = generator
 
         self.bench                  = None
@@ -303,6 +317,7 @@ class Benchmark:
 
                 flag = flag and runner.run()
                 res = self.collect_results(runner)
+                print(res)
                 tmp = BenchResult.objects.create(run_config=res["config"], results=res['results'])
                 self.bench.results.add(tmp)
                 self.bench.save()
@@ -313,7 +328,12 @@ class Benchmark:
         return flag 
 
     def collect_results(self, runner):
-        return {'config': runner.config, 'results': self.collector.collect(runner)}
+        res = []
+        for collector in self.collectors:
+            tmp = collector.collect(runner)
+            if tmp:
+                res.append(tmp)
+        return {'config': runner.config, 'results': res}
 
     def start(self):
         logging.info(f"Bench {self.name}> Started !")
@@ -339,6 +359,10 @@ def get_elapse_time(stdout):
             res.group(1) if res else "N/A"},
     }
 
+def get_rtts(filename):
+    with open(filename) as fp:
+        return {"rtt": {"unit": "ms", "value":json.load(fp)}}
+
 class Generator:
     def __init__(self, config_range, n_run=1):
         self.config_range   = config_range
@@ -353,8 +377,14 @@ BENCHMARKS = [
             Path(os.getcwd())/"compiler-build"/"akka", 
             "Terminated ueyiqu8R"
         ),
-        StdoutCollector(get_elapse_time),
-        Generator(RangeIterator({"n": logrange(1, 5, base=10)}), 3)
+        [ 
+            StdoutCollector(get_elapse_time),
+            FileCollector(Path(os.getcwd())/"compiler-build"/"akka"/"rtts.json", get_rtts),
+        ],
+        Generator(RangeIterator({
+            "n": logrange(1, 5, base=10),
+            "warmup": range(1000, 1000+1).__iter__()
+        }), 3)
     ),
     Benchmark(
         "simpl-com-jvm-akka",
@@ -364,8 +394,14 @@ BENCHMARKS = [
             Path(os.getcwd())/"benchmarks"/"bench-simpl-com"/"akka", 
             "Terminated ueyiqu8R" 
         ),
-        StdoutCollector(get_elapse_time),
-        Generator(RangeIterator({"n": logrange(1, 2, base=10)}), 3)
+        [ 
+            StdoutCollector(get_elapse_time),
+            FileCollector(Path(os.getcwd())/"benchmarks"/"bench-simpl-com"/"akka"/"rtts.json", get_rtts),
+        ],
+        Generator(RangeIterator({
+            "n": logrange(1, 2, base=10),
+            "warmup": range(1000, 1000+1).__iter__()
+            }), 3)
     ),
 
 ]
