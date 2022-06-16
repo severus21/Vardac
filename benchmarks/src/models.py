@@ -1,13 +1,7 @@
-import logging
 from django.db import models  # type: ignore
-from django.core.files.base import ContentFile  # type: ignore
-from django.db.utils import OperationalError
 from jsonfield import JSONField
 
 import collections
-import unidecode  # type: ignore
-import os.path
-import mimetypes
 
 import platform
 
@@ -81,6 +75,8 @@ class Bench(models.Model):
 
     build_hash = models.CharField(max_length=64, default="")
     project_hash = models.CharField(max_length=64, default="")
+
+    build_cmd = models.CharField(max_length=4196, default="")
 
     results = models.ManyToManyField(BenchResult, blank=True)
 

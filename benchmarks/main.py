@@ -2,29 +2,20 @@
 # coding: utf-8
 
 import argparse
-from distutils.log import error
 import logging
-from telnetlib import theNULL
-from tracemalloc import start
-from unittest import result
 import coloredlogs
 import os
 import re
 import shlex
-import shutil
 import subprocess
-import sys
-import tempfile
 import time
 import select
-import copy
 import numpy
 
 import os
 import re
 import signal
 
-from more_itertools import last
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "orm.settings")
 import django
 django.setup()
@@ -56,10 +47,16 @@ cmdactions = defaultdict(lambda *args: parser.print_help())
 cmdactions['run'] = lambda kwargs: do_run(**kwargs)
 
 class AbstractBuilder:
-    def __init__(self, name, project_dir=None, build_dir=None) -> None:
+    def __init__(self, name, project_dir=None, build_dir=None, build_cmd=None, build_cwd=None) -> None:
         self.name= name
         self.project_dir = project_dir
         self.build_dir = build_dir
+
+        self.build_cmd = build_cmd
+        self.build_cwd = build_cwd
+
+        self.build_stdout           = ""
+        self.build_stderr           = ""
 
         self._is_build = False
 
@@ -74,7 +71,8 @@ class AbstractBuilder:
                 varda_version = SoftSpec.get_varda_version(),
                 )[0],    
             project_hash = dirhash(self.project_dir, 'md5'),
-            build_hash = dirhash(self.build_dir, 'md5')
+            build_hash = dirhash(self.build_dir, 'md5'),
+            build_cmd = self.build_cmd 
         )
 
         if flag:
@@ -92,8 +90,18 @@ class AbstractBuilder:
                 self._is_build = True
         return self._is_build
 
-    def _build(self) -> bool: 
-       return True
+    def _build(self) -> bool:
+        res = subprocess.run(
+            self.build_cmd, 
+            capture_output=True, 
+            encoding='utf-8',
+            cwd = self.build_cwd,
+            shell=True)
+
+        self.build_stdout = res.stdout
+        self.build_stderr = res.stderr
+        return res.returncode == 0
+
 
     def build(self, *args, **kwargs):
         if not self.is_build:
@@ -112,24 +120,8 @@ class AbstractBuilder:
 
 class VardaBuilder(AbstractBuilder):
     def __init__(self, name, project_dir, build_cmd, build_cwd, build_dir=Path(os.getcwd())/"compiler-build") -> None:
-        super().__init__(name, project_dir, build_dir)
-        self.build_cmd = build_cmd
-        self.build_cwd = build_cwd
+        super().__init__(name, project_dir, build_dir, build_cmd, build_cwd)
 
-        self.build_stdout           = ""
-        self.build_stderr           = ""
-
-    def _build(self) -> bool:
-        res = subprocess.run(
-            self.build_cmd, 
-            capture_output=True, 
-            encoding='utf-8',
-            cwd = self.build_cwd,
-            shell=True)
-
-        self.build_stdout = res.stdout
-        self.build_stderr = res.stderr
-        return res.returncode == 0
 
 RUN_TIMEOUT = 30 # s
 class ShellRunnerFactory:
@@ -303,18 +295,21 @@ class Benchmark:
 
     def run(self) -> bool:
         flag = True
-        for config in self.generator:
-            logging.info(f"Bench {self.name}> Start run for config {config}")
+        for config in self.generator.config_range:
+            for i, _ in enumerate(range(self.generator.n_run)):
+                logging.info(f"Bench {self.name}> Start run {i+1}/{self.generator.n_run} for config {config}")
 
-            runner = self.runner_factory.make(config)
+                runner = self.runner_factory.make(config)
 
-            flag = runner.run()
-            res = self.collect_results(runner)
-            tmp = BenchResult.objects.create(run_config=res["config"], results=res['results'])
-            self.bench.results.add(tmp)
-            self.bench.save()
-            print(tmp)
-            logging.info(f"Bench {self.name}> Collected results !")
+                flag = flag and runner.run()
+                res = self.collect_results(runner)
+                tmp = BenchResult.objects.create(run_config=res["config"], results=res['results'])
+                self.bench.results.add(tmp)
+                self.bench.save()
+                print(tmp)
+                logging.info(f"Bench {self.name}> Collected results !")
+                if not flag:
+                    logging.error(f"Bench {self.name}> Run failure !\n"+runner.build_stderr)
         return flag 
 
     def collect_results(self, runner):
@@ -329,8 +324,6 @@ class Benchmark:
             return False
 
         if not self.run():
-            logging.error(f"Bench {self.name}> Run failure !")
-            print(self.runner.build_stderr)
             return False
 
         logging.info(f"Bench {self.name}> End !")
@@ -346,17 +339,22 @@ def get_elapse_time(stdout):
             res.group(1) if res else "N/A"},
     }
 
+class Generator:
+    def __init__(self, config_range, n_run=1):
+        self.config_range   = config_range
+        self.n_run          = n_run
+
 BENCHMARKS = [
     Benchmark(
         "simpl-com-jvm-varda",
-        VardaBuilder("simpl-com-jvm-varda", "benchmarks/bench-simpl-com/varda", "dune exec --profile release -- compspec compile --places benchmarks/bench-simpl-com/varda/places.yml --targets benchmarks/bench-simpl-com/varda/targets.yml --filename benchmarks/bench-simpl-com/varda/bench.spec --impl benchmarks/bench-simpl-com/varda/bench.impl --provenance 0 && cd compiler-build/akka && make", Path(os.getcwd()).absolute()),
+        VardaBuilder("simpl-com-jvm-varda", "benchmarks/bench-simpl-com/varda", "dune exec --profile release -- compspec compile --places benchmarks/bench-simpl-com/varda/places.yml --targets benchmarks/bench-simpl-com/varda/targets.yml --filename benchmarks/bench-simpl-com/varda/bench.spec --impl benchmarks/bench-simpl-com/varda/bench.impl --provenance 0 && cd compiler-build/akka && sed -i 's/DEBUG/INFO/g' src/main/resources/logback.xml && make", Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
             "java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB", 
             Path(os.getcwd())/"compiler-build"/"akka", 
             "Terminated ueyiqu8R"
         ),
         StdoutCollector(get_elapse_time),
-        RangeIterator({"n": logrange(1, 2, base=10)})
+        Generator(RangeIterator({"n": logrange(1, 5, base=10)}), 3)
     ),
     Benchmark(
         "simpl-com-jvm-akka",
@@ -367,7 +365,7 @@ BENCHMARKS = [
             "Terminated ueyiqu8R" 
         ),
         StdoutCollector(get_elapse_time),
-        RangeIterator({"n": logrange(1, 2, base=10)})
+        Generator(RangeIterator({"n": logrange(1, 2, base=10)}), 3)
     ),
 
 ]

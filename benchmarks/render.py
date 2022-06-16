@@ -42,7 +42,7 @@ def gen_curve2(data1, data2, destfile, **kwargs):
     ye2 = np.array(list(map(lambda x: x["stdev"]/2 if "stdev" in x else 0, data2.values())))
 
     fig, ax = plt.subplots()
-    ax.errorbar(xs1, ys1, yerr=ye2, fmt='o', label="A")
+    ax.errorbar(xs1, ys1, yerr=ye1, fmt='o', label="A")
     ax.errorbar(xs2, ys2, yerr=ye2, fmt='o', label="B")
     #ax.plot(xs2, ys2, 'b', label="A")
     #ax.plot(xs1, ys1, 'r', label="B")
@@ -56,9 +56,10 @@ def gen_curve2(data1, data2, destfile, **kwargs):
     plt.show()
 
 
-q1 = Bench.objects.filter(name="simpl-com-jvm-varda", id=32)
+q1 = Bench.objects.filter(name="simpl-com-jvm-varda", id=41)
 assert(len(q1) == 1)
-results1 = q1[0].results.all()
+results1 = q1[0].results.exclude(run_config__regex='"n": 100000')
+#results1 = q1[0].results.all()
 print(len(results1))
 
 q2 = Bench.objects.filter(name="simpl-com-jvm-akka", id=30) 
