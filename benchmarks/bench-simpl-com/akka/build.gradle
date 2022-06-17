@@ -104,3 +104,31 @@ task jarMain(type: ShadowJar) {
     }
     with jar
 }
+
+task jarPingService(type: ShadowJar) {
+    archiveBaseName.set('pingService')
+    archiveClassifier.set('')
+    archiveVersion.set('')
+    configurations = [project.configurations.compileClasspath]
+    manifest {
+        attributes('Main-Class': 'com.varda.AkkaMassiveTellToSingleActorPing')
+    }
+    transform(AppendingTransformer) {
+        resource = 'reference.conf'
+    }
+    with jar
+}
+
+task jarPongService(type: ShadowJar) {
+    archiveBaseName.set('pongService')
+    archiveClassifier.set('')
+    archiveVersion.set('')
+    configurations = [project.configurations.compileClasspath]
+    manifest {
+        attributes('Main-Class': 'com.varda.AkkaMassiveTellToSingleActorPong')
+    }
+    transform(AppendingTransformer) {
+        resource = 'reference.conf'
+    }
+    with jar
+}

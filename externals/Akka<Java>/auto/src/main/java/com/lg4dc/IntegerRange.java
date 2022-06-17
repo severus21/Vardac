@@ -25,7 +25,7 @@ public class IntegerRange implements Iterable<Integer> {
 
         @Override
         public boolean hasNext() {
-            return current <= end;
+            return current < end;
         }
 
         @Override

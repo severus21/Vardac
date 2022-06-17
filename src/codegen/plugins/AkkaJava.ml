@@ -802,6 +802,9 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         | S.ClassOrInterfaceDeclaration cid -> [cid.name]
                         | S.Event e -> [e.value.name]
                         | S.Stmt {value = LetStmt (_,x,_);} -> [x]
+                        | S.MethodDeclaration m -> 
+                            (* Top-level fcts are the only method seen by this cases, others are inside sub-ClassOrInterfaceDeclaration *)
+                            [m.value.v.name]
                         | t -> []
                 in
 
@@ -846,8 +849,11 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
                 let main_renaming (x:Atom.atom) : Atom.atom = 
                     match Hashtbl.find_opt main_state_rename x with 
-                    | None -> x
+                    | None -> 
+                    logger#debug "not renaming %s" (Atom.to_string x);
+                        x
                     | Some new_x ->
+                    logger#debug "renaming %s" (Atom.to_string x);
                             new_x
                 in
 

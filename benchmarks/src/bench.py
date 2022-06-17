@@ -18,6 +18,9 @@ class Benchmark:
         return flag
 
     def run(self) -> bool:
+        for collector in self.collectors:
+            collector.clean()
+
         flag = True
         for config in self.generator.config_range:
             for i, _ in enumerate(range(self.generator.n_run)):

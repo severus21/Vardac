@@ -20,3 +20,4 @@ let read filename : Ast_impl.program =
   | Sys_error msg ->
       prerr_endline msg;
       exit 1
+  | End_of_file -> Error.error "End of file %s" filename 
