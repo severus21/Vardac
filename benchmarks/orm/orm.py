@@ -3,7 +3,6 @@
 
 from django.conf import settings
 from .settings import DATABASES
-print("toto")
 settings.configure( DATABASES = DATABASES )
 
 from django.db import models

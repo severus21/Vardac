@@ -1,0 +1,1 @@
+RUN_TIMEOUT = 30 # s
