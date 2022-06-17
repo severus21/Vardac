@@ -8,6 +8,7 @@ from src.citerators import *
 from src.cgenerators import *
 
 BENCHMARKS = [
+    # Mono jvm
     Benchmark(
         "simpl-com-jvm-varda",
         VardaBuilder("simpl-com-jvm-varda", "benchmarks/bench-simpl-com/varda", "dune exec --profile release -- compspec compile --places benchmarks/bench-simpl-com/varda/places.yml --targets benchmarks/bench-simpl-com/varda/targets.yml --filename benchmarks/bench-simpl-com/varda/bench.spec --impl benchmarks/bench-simpl-com/varda/bench.impl --provenance 0 && cd compiler-build/akka && sed -i 's/DEBUG/INFO/g' src/main/resources/logback.xml && make", Path(os.getcwd()).absolute()),
@@ -42,4 +43,5 @@ BENCHMARKS = [
             "warmup": range(1000, 1000+1).__iter__()
             }), 3)
     ),
+    # Multi jvm
 ]
