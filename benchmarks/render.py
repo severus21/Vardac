@@ -60,12 +60,11 @@ q1 = Bench.objects.filter(name="simpl-com-jvm-varda", id=41)
 assert(len(q1) == 1)
 results1 = q1[0].results.exclude(run_config__regex='"n": 100000')
 #results1 = q1[0].results.all()
-print(len(results1))
 
-q2 = Bench.objects.filter(name="simpl-com-jvm-akka", id=30) 
+q2 = Bench.objects.filter(name="simpl-com-jvm-akka", id=69) 
 assert(len(q2) == 1)
 results2 = q2[0].results.all()
-print(len(results2))
+print(results2)
 
 
 def hash_run_config(rcfg):
@@ -74,16 +73,15 @@ def hash_run_config(rcfg):
 
 
 def stats_of_results(results):
-    # group results per args
+    # group results per config 
     grps = defaultdict(list)
     for r in results:
         grps[hash_run_config(r.run_config)].append(r)
 
-    print(grps)
-
-    # compute avgs per grps
+    # per group, group per measure
     stats = defaultdict(dict)
     for k, items in grps.items():
+        print(">>",items)
         for item in items:
             for m_name, m_body in item.results.items():
                 # remove N/A, TODO biais ?
@@ -91,16 +89,20 @@ def stats_of_results(results):
                     if m_name not in stats[k]:
                         stats[k][m_name]= {
                             "unit"      : m_body["unit"], 
-                            "items"     : [float(m_body["value"])],
+                            "items"     : m_body["value"] if type(m_body["value"]) == list else [float(m_body["value"])],
                         }
                     else: 
-                        stats[k][m_name]["items"].append(float(m_body["value"]))
+                        if type(m_body["value"]) == list:
+                            stats[k][m_name]["items"].extend(map(float, m_body["value"]))
+                        else:
+                            stats[k][m_name]["items"].append(float(m_body["value"]))
 
     print()
     print(stats)
     print()
 
 
+    # compute avgs per grps
     for k in stats.keys():
         for m_name in stats[k].keys():
             stats[k][m_name]["avg"] = statistics.mean(stats[k][m_name]["items"] )
@@ -130,8 +132,14 @@ print(stats2)
 
 #gen_curve(map_on_param(results1, extract_metrics(stats1, "duration"), "n"), "toto.png")
 #gen_curve(map_on_param(results2, extract_metrics(stats2, "duration"), "n"), "toto.png")
+#gen_curve(map_on_param(results2, extract_metrics(stats2, "rtt"), "n"), "toto.png")
 
 gen_curve2(
     map_on_param(results1, extract_metrics(stats1, "duration"), "n"),
     map_on_param(results2, extract_metrics(stats2, "duration"), "n"),
+    "toto.png")
+
+gen_curve2(
+    map_on_param(results1, extract_metrics(stats1, "rtt"), "n"),
+    map_on_param(results2, extract_metrics(stats2, "rtt"), "n"),
     "toto.png")

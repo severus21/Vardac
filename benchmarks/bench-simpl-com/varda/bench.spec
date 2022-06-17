@@ -1,5 +1,5 @@
-event ping of;
-event pong of;
+event ping of int, bool, long; (* i * warmup * init_timestamp*)
+event pong of int, bool, long;
 protocol p_pingpong = !ping?pong.;
 bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
 
@@ -16,6 +16,9 @@ Mono JVM
 3) Select/branch
 *)
 
+array<long> array(int n);
+result<void, error> tosjon(array<long> rtts, string filename);
+
 component Ping {
     outport p_out expecting (inline p_pingpong);
     inport p_in :: bridge<Ping, Pong, inline p_pingpong> expecting ?pong. = this.callback;
@@ -23,6 +26,7 @@ component Ping {
     int n = 0;
     int counter = 0;
     long starttime = 0;
+    array<long> rtts;
     
     onstartup (int n, bridge<Ping, Pong, inline p_pingpong> b0, activation_ref<Pong> b) {
         debug("> Starting Ping");
@@ -32,14 +36,17 @@ component Ping {
         bind(this.p_in, b0);
 
         this.starttime = time();
+        this.rrts = array(this.n);
+
         for(int i in range(0, this.n)){
             this.start(b);
         }
 
+        tojson(this.rrts);
     }
-    result<void, error> start(activation_ref<Pong> b){
+    result<void, error> start(int i, activation_ref<Pong> b){
         session<p_pingpong> s0 = initiate_session_with(this.p_out, b);
-        ?pong. s1 = fire(s0, ping())?; 
+        ?pong. s1 = fire(s0, ping(i, false, time()))?; 
     }
 
     void sumup(){
@@ -54,6 +61,7 @@ component Ping {
 
     result<void, error> callback(pong msg, . s){
         this.counter = this.counter + 1;
+        aput(this.rrts, i, time() - msg._2_);
 
         // Last pong
         (* TODO multiple stmts in an if => unable to parse *)
@@ -75,7 +83,7 @@ component Pong {
 
     result<void, error> callback (ping msg, ?pong. s0) {
         debug("> Ping received");
-        . s1 = fire(s0, pong())?; 
+        . s1 = fire(s0, pong(msg._0_, msg._1_, msg._2_))?; 
         debug(">> Pong fired");
         return ok(());
     }

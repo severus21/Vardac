@@ -284,11 +284,10 @@ class RangeIterator:
 
         try:
             self.snapshot[self.last] = self.defs[self.pos2key[self.last]].__next__()
-            self.last = (self.last + 1) % len(self.keys)
             return self.prepare(self.snapshot)
         except StopIteration:
             self.closed.add(self.last)
-            print(self.closed, self.last)
+            self.last = (self.last + 1) % len(self.keys)
             return self.__next__()
 
 
@@ -317,22 +316,20 @@ class Benchmark:
 
                 flag = flag and runner.run()
                 res = self.collect_results(runner)
-                print(res)
                 tmp = BenchResult.objects.create(run_config=res["config"], results=res['results'])
                 self.bench.results.add(tmp)
                 self.bench.save()
-                print(tmp)
                 logging.info(f"Bench {self.name}> Collected results !")
                 if not flag:
                     logging.error(f"Bench {self.name}> Run failure !\n"+runner.build_stderr)
         return flag 
 
     def collect_results(self, runner):
-        res = []
+        res = {} 
         for collector in self.collectors:
             tmp = collector.collect(runner)
             if tmp:
-                res.append(tmp)
+                res = res | tmp
         return {'config': runner.config, 'results': res}
 
     def start(self):
