@@ -6,7 +6,7 @@ from src.builders import *
 from src.runners import *
 from src.citerators import *
 from src.cgenerators import *
-
+ 
 BENCHMARKS = [
     # Mono jvm
     Benchmark(
@@ -44,4 +44,29 @@ BENCHMARKS = [
             }), 3)
     ),
     # Multi jvm
+    Benchmark(
+        "simpl-com-jvm-akka-multi-jvm",
+        VardaBuilder("simpl-com-jvm-akka-multi-jvm", "benchmarks/bench-simpl-com/akka", "cd benchmarks/bench-simpl-com/akka && make", Path(os.getcwd()).absolute()),
+        MultiShellRunnerFactory([
+            ShellRunnerFactory(
+                "java -enableassertions -jar build/libs/pongService.jar -ip 127.0.0.1 -p 25520 -s akka://systemAkkaBench@127.0.0.1:25520", 
+                Path(os.getcwd())/"benchmarks"/"bench-simpl-com"/"akka", 
+                "Terminated ueyiqu8R",
+                config_adaptor=lambda config: remove_dict(config, ["n", "warmup"]) 
+            ),
+            ShellRunnerFactory(
+                "java -enableassertions -jar build/libs/pingService.jar -ip 127.0.0.1 -p 25521 -s akka://systemAkkaBench@127.0.0.1:25520", 
+                Path(os.getcwd())/"benchmarks"/"bench-simpl-com"/"akka", 
+                "Terminated ueyiqu8R" 
+            )
+        ]),
+        [ 
+            StdoutCollector(get_elapse_time),
+            FileCollector(Path(os.getcwd())/"benchmarks"/"bench-simpl-com"/"akka"/"rtts.json", get_rtts),
+        ],
+        Generator(RangeIterator({
+            "n": logrange(1, 4, base=10),
+            "warmup": range(1000, 1000+1).__iter__()
+            }), 3)
+    ),
 ]

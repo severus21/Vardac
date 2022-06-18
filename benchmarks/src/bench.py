@@ -28,14 +28,15 @@ class Benchmark:
 
                 runner = self.runner_factory.make(config)
 
-                flag = flag and runner.run()
+                flag = flag and runner.run_async()
+                #flag = flag and runner.run()
                 res = self.collect_results(runner)
                 tmp = BenchResult.objects.create(run_config=res["config"], results=res['results'])
                 self.bench.results.add(tmp)
                 self.bench.save()
                 logging.info(f"Bench {self.name}> Collected results !")
                 if not flag:
-                    logging.error(f"Bench {self.name}> Run failure !\n"+runner.run_stderr)
+                    logging.error(f"Bench {self.name}> Run failure !\n"+runner.run_stderr+"\n"+runner.run_stdout)
         return flag 
 
     def collect_results(self, runner):
