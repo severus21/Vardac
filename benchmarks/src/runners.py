@@ -6,39 +6,75 @@ import select
 import os
 import signal
 import asyncio
-import trio
+import logging
+import uuid
 
 from .models import *
 from .settings import *
 
+"""fix yelling at me error"""
+from functools import wraps
+ 
+from asyncio.base_subprocess import BaseSubprocessTransport 
+ 
+def silence_event_loop_closed(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except RuntimeError as e:
+            if str(e) != 'Event loop is closed':
+                raise
+    return wrapper
+ 
+BaseSubprocessTransport.__del__ = silence_event_loop_closed(BaseSubprocessTransport.__del__)
+"""fix yelling at me error end"""
+
+async def display_time(stop_display_time, start_time, last_elapse=0):
+    if stop_display_time.is_set():
+        return True
+    else:
+        if int(time.time() - start_time) > last_elapse:
+            last_elapse = int(time.time() - start_time)
+            print(f"{id}Ran for {last_elapse} s [Timeout: {RUN_TIMEOUT}s]")
+        await asyncio.sleep(0.1) #at least
+        await display_time(stop_display_time, start_time, last_elapse) 
+
+class Runner:
+    def __init__(self, name) -> None:
+        self.name   = name
+
 class RunnerFactory:
-    def __init__(self, config_adaptor=lambda x: x) -> None:
+    def __init__(self, name, config_adaptor=lambda x: x) -> None:
+        self.name                       = name
         self.config_adaptor             = config_adaptor
 
 class ShellRunnerFactory(RunnerFactory):
-    def __init__(self, run_cmd, run_cwd=None, stdout_termination_token=None, error_token="[ERROR]", config_adaptor=lambda x: x) -> None:
-        super().__init__(config_adaptor)
+    def __init__(self, name, run_cmd, run_cwd=None, stdout_termination_token=None, error_token="[ERROR]", config_adaptor=lambda x: x, set_stop_event=False) -> None:
+        super().__init__(name, config_adaptor)
         self.run_cmd                    = run_cmd
         self.run_cwd                    = run_cwd
         self.stdout_termination_token   = stdout_termination_token
         self.error_token                = error_token
+        self.set_stop_event             = set_stop_event
 
     def make(self, config):
-        return ShellRunner(self.run_cmd, self.run_cwd, self.stdout_termination_token, self.error_token, self.config_adaptor(config))
+        return ShellRunner(self.name, self.run_cmd, self.run_cwd, self.stdout_termination_token, self.error_token, self.config_adaptor(config), self.set_stop_event)
 
 class MultiShellRunnerFactory(RunnerFactory):
     # factories order by start order
-    def __init__(self, factories, config_adaptor=lambda x: x):
-        super().__init__(config_adaptor)
+    def __init__(self, name, factories, config_adaptor=lambda x: x):
+        super().__init__(name, config_adaptor)
         self.factories = factories
 
     def make(self, config):
         config = self.config_adaptor(config)
         runners = [ factory.make(config) for factory in self.factories]
-        return OrderedMultiShellRunner(runners, config)
+        return OrderedMultiShellRunner(self.name, runners, config)
 
-class OrderedMultiShellRunner:
-    def __init__(self, runners, config):
+class OrderedMultiShellRunner(Runner):
+    def __init__(self, name, runners, config):
+        super().__init__(name)
         self.runners    = runners
         self.config     = config
 
@@ -67,72 +103,33 @@ class OrderedMultiShellRunner:
             res.wait()
         time.sleep(1)
 
-    def run(self) -> bool:
-        start_time = time.time()
-        poll_obj = select.poll()
+    async def _run_async(self, stop_event, stop_display_time):
+        return await asyncio.gather(
+            *[runner.run_async_shell(stop_event, stop_display_time) for runner in self.runners],
+            display_time(stop_display_time, time.time()),
+            return_exceptions=True
+        )
 
-        results = []
-        for runner in self.runners:
-            res = runner.popen()
-            results.append(res)
-            poll_obj.register(res.stdout, select.POLLIN)
+    def run_async(self):
+        stop_event = asyncio.Event()
+        stop_display_time = asyncio.Event()
 
-        # All stdout are aggregated due to the poll
-        stdout_buffer = ""
-        last_elapse = 0
+        results = asyncio.run(self._run_async(stop_event, stop_display_time))
+        if results:
+            results = False not in results[:-1]
 
-        def returncodes ():
-            return [ res.returncode for res in results ]
+        return results
 
-        i = 0
-        while None in returncodes() and not time.time() - start_time > RUN_TIMEOUT:
-            poll_result = poll_obj.poll(0)
-            if int(time.time() - start_time) > last_elapse:
-                last_elapse = int(time.time() - start_time)
-                print(f"Ran for {last_elapse} s [Timeout: {RUN_TIMEOUT}s]")
-            if poll_result:
-                print(f"E <{i}> !")
-                stdout_buffer += res.stdout.readline()
-
-                if self.is_terminated(stdout_buffer):
-                    print("C !")
-                    self.terminate(results)
-                    self._run_stdout = stdout_buffer
-                    return True
-                if self.has_failed(stdout_buffer):
-                    print("B !")
-                    self.terminate(results)
-                    self._run_stdout = stdout_buffer
-                    self._run_stderr = res.stderr.read()
-                    print(stdout_buffer)
-                    print(self.run_stderr)
-                    return False
-                else:
-                    i+=1
-                    print(f"D <{i}> !")
-
-        print("A !")
-
-        if not None in returncodes():
-            self._run_stdout = stdout_buffer 
-            self._run_stderr = res.stderr.read()
-            return sum(returncodes()) == 0
-        else:
-            self.terminate(results)
-            self._run_stdout = stdout_buffer 
-            self._run_stderr = res.stderr.read()
-            print(stdout_buffer)
-            print("Timeout !")
-            return False
-
-class ShellRunner:
-    def __init__(self, run_cmd, run_cwd, stdout_termination_token, error_token, config) -> None:
+class ShellRunner(Runner):
+    def __init__(self, name, run_cmd, run_cwd, stdout_termination_token, error_token, config, set_stop_event) -> None:
+        super().__init__(name)
         self.run_cmd    = run_cmd
         self.run_cwd    = run_cwd
         self.stdout_termination_token = stdout_termination_token
         self.error_token    = error_token
 
         self.config =   config
+        self.set_stop_event = set_stop_event
         
         self.run_stdout           = ""
         self.run_stderr           = ""
@@ -140,63 +137,8 @@ class ShellRunner:
     def render(self, snapshot):
         return " ".join([f"-{k} {shlex.quote(str(v))}" for k,v in snapshot.items()])
 
-
-    async def run_trio_shell(self):
-        stdout_buffer = ""
-
+    async def run_async_shell(self, stop_event, stop_display_time):
         # Start child process
-        # NOTE: universal_newlines parameter is not supported
-        #process = await trioio.create_subprocess_shell(
-        with trio.move_on_after(RUN_TIMEOUT):
-            try:
-                process = await trio.run_process(
-                        self.run_cmd+" "+self.render(self.config),
-                        capture_stdout = True,
-                        capture_stderr = True,
-                        #stdout=trioio.subprocess.PIPE, 
-                        #stderr=trioio.subprocess.PIPE,
-                        cwd=self.run_cwd,
-                        shell=True,
-                        preexec_fn=os.setpgrp
-                        )
-            except subprocess.CalledProcessError:
-                print(stdout_buffer)
-                print(self.run_stderr)
-                return False
-
-            #try:
-            async for line in process.stdout.decode():
-                print(line)
-                if self.is_terminated(line):
-                    self.terminate(process)
-                    self.run_stdout = stdout_buffer
-                    return True
-                elif self.has_failed(line):
-                    self._run_stdout = stdout_buffer
-                    self._run_stderr = process.stderr.read()
-                    print(stdout_buffer)
-                    print(self.run_stderr)
-                    self.terminate(process)
-                    return False
-                else: 
-                    stdout_buffer += line 
-                    continue
-        if process.returncode == 0:
-            return True
-        else:
-            print("Timeout !")
-            self.terminate(process)
-            return False
-
-    def run_trio(self):
-        return trio.run(self.run_trio_shell)
-    
-    async def run_async_shell(self):
-        start_time = time.time()
-        last_elapse = 0
-
-        # Start child process
-        # NOTE: universal_newlines parameter is not supported
         process = await asyncio.create_subprocess_shell(
             self.run_cmd+" "+self.render(self.config),
             stdout=asyncio.subprocess.PIPE, 
@@ -210,62 +152,59 @@ class ShellRunner:
 
         # Read line (sequence of bytes ending with b'\n') asynchronously
         while True:
+            # Parent event
+            if stop_event != None and stop_event.is_set():
+                logging.debug(f"{self.name}> Cancelled from parent!")
+                await self.terminate(process, stop_event, stop_display_time)
+
+                # stdout_termination_token == None => this task never terminates by itself
+                return self.stdout_termination_token == None or self.is_terminated(stdout_buffer) 
+
             try:
                 line = await asyncio.wait_for(process.stdout.readline(), RUN_TIMEOUT)
             except asyncio.TimeoutError:
-                self.terminate(process)
+                logging.error(f"{self.name}> Timeout !")
                 print(stdout_buffer)
-                print("Timeout !")
+                await self.terminate(process, stop_event, stop_display_time)
                 return False
             except asyncio.CancelledError:
-                self.terminate(process)
-                print("Cancelled !")
+                logging.error(f"{self.name}> Cancelled !")
+                await self.terminate(process, stop_event, stop_display_time)
                 return False
             else:
                 line = line.decode()
+                stdout_buffer += line 
 
-                if int(time.time() - start_time) > last_elapse:
-                    last_elapse = int(time.time() - start_time)
-                    print(f"Ran for {last_elapse} s [Timeout: {RUN_TIMEOUT}s]")
-
-                
                 if not line: # EOF
-                    return await process.wait()
+                    logging.debug(f"{self.name}> EOF")
+                    await self.terminate(process, stop_event, stop_display_time)
+                    return True
                 elif self.is_terminated(line):
-                    self.terminate(process)
+                    logging.debug(f"{self.name}> Is terminated")
+                    await self.terminate(process, stop_event, stop_display_time)
                     self.run_stdout = stdout_buffer
                     return True
                 elif self.has_failed(line):
+                    logging.error(f"{self.name}> Has failed")
                     self._run_stdout = stdout_buffer
                     self._run_stderr = process.stderr.read()
                     print(stdout_buffer)
                     print(self.run_stderr)
-                    self.terminate(process)
+                    await self.terminate(process, stop_event, stop_display_time)
                     return False
-                else: 
-                    stdout_buffer += line 
-                    continue
+
+    async def run_async_with_displaytime(self):
+        stop_display_time = asyncio.Event()
+        return await asyncio.gather( 
+            self.run_async_shell(None, stop_display_time), 
+            display_time(stop_display_time, time.time()), 
+            return_exceptions=True)
 
     def run_async(self):
-        try:
-            tmp = asyncio.run(self.run_async_shell())
-            return True
-        except RuntimeError as e:
-            if str(e) != 'Event loop is closed':
-                raise
-            print(f"Event loop is closed - {tmp}")
-            return True
-
-    def popen(self):
-        return subprocess.Popen(
-            self.run_cmd+" "+self.render(self.config), 
-            stdout= subprocess.PIPE,
-            stderr= subprocess.PIPE,
-            encoding='utf-8', 
-            cwd=self.run_cwd,
-            shell=True,
-            preexec_fn=os.setpgrp,
-        ) 
+        result = asyncio.run(self.run_async_with_displaytime())
+        if result:
+            result = result[0]
+        return result
 
     def is_terminated(self, buffer):
         return self.stdout_termination_token and self.stdout_termination_token in buffer 
@@ -273,46 +212,13 @@ class ShellRunner:
     def has_failed(self, buffer):
         return self.error_token and self.error_token in buffer 
 
-    def terminate(self, result):
-        print("Try terminate")
-        os.killpg(os.getpgid(result.pid),signal.SIGTERM)
-        #result.wait()
-
-
-    def run(self) -> bool:
-        start_time = time.time()
-        res = self.popen() 
-
-        poll_obj = select.poll()
-        poll_obj.register(res.stdout, select.POLLIN)
-
-        stdout_buffer = ""
-        last_elapse = 0
-        while res.returncode == None and not time.time() - start_time > RUN_TIMEOUT :
-            poll_result = poll_obj.poll(0)
-            if int(time.time() - start_time) > last_elapse:
-                last_elapse = int(time.time() - start_time)
-                print(f"Ran for {last_elapse} s [Timeout: {RUN_TIMEOUT}s]")
-            if poll_result:
-                stdout_buffer += res.stdout.readline()
-                if self.is_terminated(stdout_buffer):
-                    self.terminate(res)
-                    self.run_stdout = stdout_buffer
-                    return True
-                if self.has_failed(stdout_buffer):
-                    self.terminate(res)
-                    self.run_stdout = stdout_buffer
-                    self.run_stderr = res.stderr.read()
-                    print(stdout_buffer)
-                    print(self.run_stderr)
-                    return False
-
-        if res.returncode:
-            self.run_stdout = stdout_buffer 
-            self.run_stderr = res.stderr.read()
-            return res.returncode == 0
-        else:
-            self.terminate(res)
-            print(stdout_buffer)
-            print("Timeout !")
-            return False
+    async def terminate(self, result, stop_event, stop_display_time):
+        print(f"Try terminate{self.name} {result.pid}")
+        stop_display_time.set()
+        if stop_event != None and self.set_stop_event:
+            stop_event.set()
+        result.terminate()
+        os.killpg(os.getpgid(result.pid), signal.SIGTERM)
+        await result.wait()
+        await asyncio.sleep(1) #Needed to be able to bind ports afterwards
+        print(f"End terminate {self.name}")

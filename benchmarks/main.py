@@ -37,6 +37,10 @@ def do_run(bench_selector):
         selected_bench_names = set(bench_selector.split(":"))
         benchmarks = [ b for b in BENCHMARKS if b.name in selected_bench_names]
 
+    if not benchmarks:
+        print("No selected benchmarks!")
+        print("\t- "+"\n\t- ".join([b.name for b in BENCHMARKS]))
+
     n_error = 0
     for bench in benchmarks:
         tmp_flag = bench.start()
@@ -44,7 +48,7 @@ def do_run(bench_selector):
         n_error += int(not tmp_flag)
 
     if n_error > 0:
-        logging.error(f"{n_error} benchmarks ha{'ve' if n_error > 1 else 's'} failed !")
+        logging.error(f"{n_error} benchmark{'s' if n_error > 1 else ''} ha{'ve' if n_error > 1 else 's'} failed !")
 
 cmdaction = args.cmdaction
 kwargs = vars(args)

@@ -97,7 +97,6 @@ public class PingActor extends AbstractBehavior<PingActor.Command> {
 			long endTimestamp = System.currentTimeMillis();
 			long rtt = endTimestamp - pong.initTimestamp;
 			this.rtts[pong.i] = rtt;
-			getContext().getLog().info("rtt of " + pong.i +": "+rtt);
 
 			if (bitset.isEmpty()) {
 				long end = System.currentTimeMillis();
