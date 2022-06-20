@@ -6,6 +6,7 @@ import select
 import os
 import signal
 import asyncio
+import trio
 
 from .models import *
 from .settings import *
@@ -138,8 +139,62 @@ class ShellRunner:
 
     def render(self, snapshot):
         return " ".join([f"-{k} {shlex.quote(str(v))}" for k,v in snapshot.items()])
+
+
+    async def run_trio_shell(self):
+        stdout_buffer = ""
+
+        # Start child process
+        # NOTE: universal_newlines parameter is not supported
+        #process = await trioio.create_subprocess_shell(
+        with trio.move_on_after(RUN_TIMEOUT):
+            try:
+                process = await trio.run_process(
+                        self.run_cmd+" "+self.render(self.config),
+                        capture_stdout = True,
+                        capture_stderr = True,
+                        #stdout=trioio.subprocess.PIPE, 
+                        #stderr=trioio.subprocess.PIPE,
+                        cwd=self.run_cwd,
+                        shell=True,
+                        preexec_fn=os.setpgrp
+                        )
+            except subprocess.CalledProcessError:
+                print(stdout_buffer)
+                print(self.run_stderr)
+                return False
+
+            #try:
+            async for line in process.stdout.decode():
+                print(line)
+                if self.is_terminated(line):
+                    self.terminate(process)
+                    self.run_stdout = stdout_buffer
+                    return True
+                elif self.has_failed(line):
+                    self._run_stdout = stdout_buffer
+                    self._run_stderr = process.stderr.read()
+                    print(stdout_buffer)
+                    print(self.run_stderr)
+                    self.terminate(process)
+                    return False
+                else: 
+                    stdout_buffer += line 
+                    continue
+        if process.returncode == 0:
+            return True
+        else:
+            print("Timeout !")
+            self.terminate(process)
+            return False
+
+    def run_trio(self):
+        return trio.run(self.run_trio_shell)
     
     async def run_async_shell(self):
+        start_time = time.time()
+        last_elapse = 0
+
         # Start child process
         # NOTE: universal_newlines parameter is not supported
         process = await asyncio.create_subprocess_shell(
@@ -162,8 +217,18 @@ class ShellRunner:
                 print(stdout_buffer)
                 print("Timeout !")
                 return False
+            except asyncio.CancelledError:
+                self.terminate(process)
+                print("Cancelled !")
+                return False
             else:
                 line = line.decode()
+
+                if int(time.time() - start_time) > last_elapse:
+                    last_elapse = int(time.time() - start_time)
+                    print(f"Ran for {last_elapse} s [Timeout: {RUN_TIMEOUT}s]")
+
+                
                 if not line: # EOF
                     return await process.wait()
                 elif self.is_terminated(line):
@@ -182,8 +247,14 @@ class ShellRunner:
                     continue
 
     def run_async(self):
-        asyncio.set_event_loop(asyncio.new_event_loop())
-        return asyncio.run(self.run_async_shell())
+        try:
+            tmp = asyncio.run(self.run_async_shell())
+            return True
+        except RuntimeError as e:
+            if str(e) != 'Event loop is closed':
+                raise
+            print(f"Event loop is closed - {tmp}")
+            return True
 
     def popen(self):
         return subprocess.Popen(
@@ -203,6 +274,7 @@ class ShellRunner:
         return self.error_token and self.error_token in buffer 
 
     def terminate(self, result):
+        print("Try terminate")
         os.killpg(os.getpgid(result.pid),signal.SIGTERM)
         #result.wait()
 
