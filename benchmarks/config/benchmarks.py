@@ -48,7 +48,7 @@ BENCHMARKS = [
     # Multi jvm
     Benchmark(
         "simpl-com-akka-multi-jvms",
-        VardaBuilder("simpl-com-akka-multi-jvm", "benchmarks/bench-simpl-com/akka", "cd benchmarks/bench-simpl-com/akka && make", Path(os.getcwd()).absolute()),
+        VardaBuilder("simpl-com-akka-multi-jvms", "benchmarks/bench-simpl-com/akka", "cd benchmarks/bench-simpl-com/akka && make", Path(os.getcwd()).absolute()),
         MultiShellRunnerFactory(
             "simpl-com-akka-multi-jvms",
             [
