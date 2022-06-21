@@ -28,15 +28,41 @@ class StatMetric:
             if StatMetric.pattern.search(a):
                 delattr(self, a)
 
+    # Center
+    @property
+    def mean(self):
+        if hasattr(self, "_mean"):
+            return self._mean
+        else:
+            self._mean    = statistics.mean(self.items) 
+            return self._mean
 
     @property
-    def avg(self):
-        if hasattr(self, "_avg"):
-            return self._avg
+    def median(self):
+        if hasattr(self, "_median"):
+            return self._median
         else:
-            self._avg    = statistics.mean(self.items) 
-            return self._avg
+            self._median    = statistics.median(self.items) 
+            return self._median
     
+    # Dispersion 
+
+    @property
+    def min(self):
+        if hasattr(self, "_min"):
+            return self._min
+        else:
+            self._min    = min(self.items) 
+            return self._min
+
+    @property
+    def max(self):
+        if hasattr(self, "_max"):
+            return self._max
+        else:
+            self._max    = max(self.items) 
+            return self._max
+
     @property
     def stdev(self):
         if hasattr(self, "_stdev"):

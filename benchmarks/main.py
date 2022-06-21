@@ -43,7 +43,7 @@ def do_render(fig_selector):
         selected_fig_names = set(fig_selector.split(":"))
         figures = [ f for f in FIGURES if f.title in selected_fig_names]
 
-    if not benchmarks:
+    if not figures:
         print("No selected figures!")
         print("\t- "+"\n\t- ".join([b.title for b in FIGURES]))
 

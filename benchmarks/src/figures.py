@@ -30,14 +30,19 @@ class Figure:
             plt.show()
 
 class Curve:
-    def __init__(self, name, data) -> None:
+    def __init__(self, name, data, descriptive_statistics_center, descriptive_statistics_dispersion) -> None:
         self.name = name
         self.data = data 
+        self.descriptive_statistics_center = descriptive_statistics_center
+        self.descriptive_statistics_dispersion = descriptive_statistics_dispersion
 
     def render(self, ax):
+        # Center the error if needed
+        q = 2 if self.descriptive_statistics_dispersion in ['stdev', 'variance'] else 1
+        
         xs = np.array(list(self.data.keys()))
-        ys = np.array(list(map(lambda x: x.avg, self.data.values())))
-        ye = np.array(list(map(lambda x: x.stdev/2, self.data.values())))
+        ys = np.array(list(map(lambda v: getattr(v, self.descriptive_statistics_center), self.data.values())))
+        ye = np.array(list(map(lambda v: getattr(v, self.descriptive_statistics_dispersion)/q, self.data.values())))
         print(xs)
         print(ys)
         ax.errorbar(xs, ys, yerr=ye, fmt='o', label=self.name)

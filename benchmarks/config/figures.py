@@ -6,19 +6,27 @@ from src.postprocess.postprocess import *
 
 from src.figures import *
 
+# Allowed measure of central tendency
+DESCRIPTIVE_STATISTICS_CENTER = set(['mean', 'median'])
+# Allowed measure of the dispersion/variability
+DESCRIPTIVE_STATISTICS_DISPERSION = set(['min','max', 'stdev'])
 
 class FigureFactory:
-    def compare(fig_name, xy, args):
+    def compare(fig_name, xy, args, descriptive_statistics_center='mean', descriptive_statistics_dispersion='stdev'):
+        assert(descriptive_statistics_center in DESCRIPTIVE_STATISTICS_CENTER)
+        assert(descriptive_statistics_dispersion in DESCRIPTIVE_STATISTICS_DISPERSION)
         figures = []
         for x,y in xy:
             curves = []
             for (name, results) in args:
                 curves.append(Curve(
                         name,
-                        Stats(results).extract(x, y)
+                        Stats(results).extract(x, y),
+                        descriptive_statistics_center,
+                        descriptive_statistics_dispersion
                     ))
             figures.append(Figure(
-                fig_name + f" ({x},{y})",
+                fig_name + f" ({x},{y})[{descriptive_statistics_center}, {descriptive_statistics_dispersion}]",
                 x,
                 y,
                 curves
