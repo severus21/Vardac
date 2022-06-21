@@ -7,9 +7,9 @@ from src.postprocess.postprocess import *
 from src.figures import *
 
 # Allowed measure of central tendency
-DESCRIPTIVE_STATISTICS_CENTER = set(['mean', 'median'])
+DESCRIPTIVE_STATISTICS_CENTER = set(['mean', 'median', 'min', 'max'])
 # Allowed measure of the dispersion/variability
-DESCRIPTIVE_STATISTICS_DISPERSION = set(['min','max', 'stdev'])
+DESCRIPTIVE_STATISTICS_DISPERSION = set([None, 'stdev'])
 
 class FigureFactory:
     def compare(fig_name, xy, args, descriptive_statistics_center='mean', descriptive_statistics_dispersion='stdev'):

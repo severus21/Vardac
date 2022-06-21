@@ -42,7 +42,8 @@ class Curve:
         
         xs = np.array(list(self.data.keys()))
         ys = np.array(list(map(lambda v: getattr(v, self.descriptive_statistics_center), self.data.values())))
-        ye = np.array(list(map(lambda v: getattr(v, self.descriptive_statistics_dispersion)/q, self.data.values())))
-        print(xs)
-        print(ys)
-        ax.errorbar(xs, ys, yerr=ye, fmt='o', label=self.name)
+        if self.descriptive_statistics_dispersion == None:
+            ax.plot(xs, ys, fmt='o', label=self.name)
+        else:
+            ye = np.array(list(map(lambda v: getattr(v, self.descriptive_statistics_dispersion)/q, self.data.values())))
+            ax.errorbar(xs, ys, yerr=ye, fmt='o', label=self.name)
