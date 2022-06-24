@@ -1508,22 +1508,13 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
             (** FIXME public/protected/private should parametrized*)
 
-            let extended_types = match extended_types with
-            | [] -> [ 
-                auto_place (T.ClassOrInterfaceType (
+            let extended_types = 
+                (auto_place (T.ClassOrInterfaceType (
                     fctype (Rt.Misc.t_lg4dc_abstract_component fplace),
                     [ 
                         fctype (Rt.Misc.t_command_of_actor place name)     
                     ]) 
-                )
-                (*auto_place (T.ClassOrInterfaceType (
-                    auto_place (T.TAtomic "AbstractBehavior"), 
-                    [ 
-                        fctype (Rt.Misc.t_command_of_actor place name)     
-                    ]) 
-                )*)
-            ]
-            | _ -> List.map fctype extended_types
+                ))::(List.map fctype extended_types)
             in
 
             let command_cl = auto_place ( T.Body (
