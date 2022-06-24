@@ -150,7 +150,7 @@ module Make (Arg: sig val target:Target.target end) = struct
 
 
     let group_cdcl_by (citems:  S.component_item list) : items_grps =
-        let dispatch grp (citem: S.component_item) = match citem.value with
+        let dispatch grp (citem: S.component_item) = match citem.value.v with
             | S.Contract _  -> raise (Core.Error.PlacedDeadbranchError  (citem.place, "Contract term should have been remove from AST by the cook pass and binded to a method"))
             | S.Include _   -> Core.Error.perror citem.place "Include is not yet supported in Akka plg"
             | S.Method  m   -> {grp with methods=m::grp.methods}
@@ -159,8 +159,8 @@ module Make (Arg: sig val target:Target.target end) = struct
             | S.Eport p     -> {grp with eports=p::grp.eports}
             | S.Outport p   -> {grp with outports=p::grp.outports}
             (* Shallow search of Typealias, FIXME do we need deep search ?*)
-            | S.Term {place; value=S.Component cdcl} -> {grp with nested=cdcl::grp.nested}
-            | S.Term {place; value=S.Typedef ({value=EventDef _;_} as edef)} -> {grp with eventdefs=edef::grp.eventdefs}
+            | S.Term {place; value={v=S.Component cdcl}} -> {grp with nested=cdcl::grp.nested}
+            | S.Term {place; value={v=S.Typedef ({value=EventDef _;_} as edef)}} -> {grp with eventdefs=edef::grp.eventdefs}
             | S.Term t      -> {grp with others=t::grp.others}
         in
 
@@ -1013,7 +1013,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         let grp_items = group_cdcl_by body in
         List.iter (function x -> 
             (* Ensure that x is static otherwise it should be a state *)
-            match x.value with
+            match x.value.v with
             | S.Typedef _ -> ()
             | S.Comments _ -> () (* TODO needs to get ride of grp_items to support comments at the right place *)
             | _ -> raise (Error.PlacedDeadbranchError (x.place, "Non static term in others"));
@@ -1775,11 +1775,13 @@ module Make (Arg: sig val target:Target.target end) = struct
         } in
         List.mapi make_getter args
 
-    and finish_term place : S._term -> T.term list = 
+    and finish_term place plg_annotations : S._term -> T.term list = 
     let fplace = place@(Error.forge_place "Plg=Akka/finish_term" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
     function
-    | S.Comments c -> [{
+    | S.Comments c -> 
+        assert(plg_annotations = []);
+        [{
         place;
         value= {
             T.annotations = [];
@@ -1787,15 +1789,33 @@ module Make (Arg: sig val target:Target.target end) = struct
             v = T.Comments c.value
         }
     }]
-    | S.Component cdcl -> List.map (function a -> {
-        place=a.place; 
-        value= {
-            T.annotations = [];
-            decorators = [];
-            v=T.Actor a
-        }
-    }) (fcdcl cdcl)
-    | S.Stmt stmt -> [{
+    | S.Component cdcl ->
+        List.map (function a -> 
+            let a, res = List.fold_left_map (fun (a:T.actor) -> map0_place (function place -> function
+                | T.AOverride -> Error.perror place "Component can not be overrided !"
+                | AExtends x ->
+                    {a with 
+                    value = {a.value with T.extended_types = (auto_fplace (T.Atomic x))::a.value.extended_types}},  ([], [])
+                | AImplements x ->
+                    {a with 
+                    value = {a.value with extended_types = (auto_fplace (T.Atomic x))::a.value.implemented_types}}, ([],[])
+            )) a plg_annotations in
+            let (annotations, decorators) = List.split res in
+            let annotations = List.flatten annotations in
+            let decorators = List.flatten decorators in
+
+            {
+                place=a.place; 
+                value= {
+                    T.annotations = annotations;
+                    decorators = decorators;
+                    v=T.Actor a
+                }
+            }
+        ) (fcdcl cdcl)
+    | S.Stmt stmt -> 
+        assert(plg_annotations = []);
+        [{
         place; 
         value= {
             T.annotations = [];
@@ -1803,15 +1823,29 @@ module Make (Arg: sig val target:Target.target end) = struct
             v = T.Stmt (fstmt stmt)
         }
     }]
-    | S.Function f -> List.map (function m -> {
-        place; 
-        value= {
-            T.annotations = [];
-            decorators = [];
-            v = T.MethodDeclaration m
-        }
+    | S.Function f -> 
+        List.map (function m -> 
+           let m, res = List.fold_left_map (fun (m:T.method0) -> map0_place (function place -> function
+                | T.AOverride -> 
+                    m, ([], [T.Override])
+                    
+                | AExtends _ | AImplements _ -> Error.perror place "Function does not support neither extends nor implements !"
+            )) m plg_annotations in
+
+            let (annotations, decorators) = List.split res in
+            let annotations = List.flatten annotations in
+            let decorators = List.flatten decorators in 
+            
+            {
+                place; 
+                value= {
+                    T.annotations = annotations;
+                    decorators = decorators;
+                    v = T.MethodDeclaration m
+                }
     }) (ffunction f)
     | S.Typedef {value=S.ProtocolDef (name, {value=S.SType st; _});_} -> 
+        assert(plg_annotations = []);
         (*** Helpers ***)
         let fplace = (Error.forge_place "Plg=Akka/finish_term/protocoldef" 0 0) in
         let auto_place smth = {place = fplace; value=smth} in
@@ -1922,12 +1956,18 @@ module Make (Arg: sig val target:Target.target end) = struct
 
         (* TODO generate the dynamic checking of protocol order if needed *)
 
-    | S.Typealias (v, S.AbstractTypealias body) -> raise (Error.PlacedDeadbranchError (place, "partial evaluation should have removed type alias exept those from impl"))
+    | S.Typealias (v, S.AbstractTypealias body) -> 
+        assert(plg_annotations = []);
+        raise (Error.PlacedDeadbranchError (place, "partial evaluation should have removed type alias exept those from impl"))
     | S.Typealias (x, S.BBTypealias body) as term -> 
+        assert(plg_annotations = []);
+
         (* Java does not support type aliasing *)
         Hashtbl.add typealias x body;
         []
     |Typedef {value= EventDef (name, mts, None) as tdef; place = inner_place} ->
+        assert(plg_annotations = []);
+
         (* Registration *)
         Hashtbl.add to_capitalize_variables name ();
 
@@ -1942,6 +1982,7 @@ module Make (Arg: sig val target:Target.target end) = struct
 
     (* Inductive type definition *)
     | S.Typedef  {value= ClassicalDef (name, args, None) as tdef; place} -> (* implicit constructor should translate to akka *)
+        assert(plg_annotations = []);
         (* Registration *)
         Hashtbl.add to_capitalize_variables name ();
 
@@ -2015,6 +2056,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             }
         }]
     | S.Typedef {value = ClassicalDef (v, _, Some body); _} ->
+        assert(plg_annotations = []);
         (* Registration *)
         Hashtbl.add to_capitalize_variables v ();
         [{
@@ -2033,8 +2075,11 @@ module Make (Arg: sig val target:Target.target end) = struct
             }
         }]
 
-    | S.Typedef {value = EventDef (v, _, Some body); _} -> Error.perror place "eventdef with body is not yet supported by the akka.finish"
+    | S.Typedef {value = EventDef (v, _, Some body); _} -> 
+        assert(plg_annotations = []);
+        Error.perror place "eventdef with body is not yet supported by the akka.finish"
     | S.Typedef {value = VPlaceDef x;} -> 
+        assert(plg_annotations = []);
         (* Registration *)
         Hashtbl.add to_capitalize_variables x ();
         [{
@@ -2055,7 +2100,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             }
         }]
 
-    and fterm : S.term -> T.term list = function t -> finish_term t.place t.value
+    and fterm : S.term -> T.term list = function t -> finish_term t.place (List.flatten(List.map Plgfrontend.Parse.parse t.value.plg_annotations)) t.value.v
 
     let cstate = ref (empty_cstate ())
 

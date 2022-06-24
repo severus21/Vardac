@@ -20,10 +20,10 @@ let rec find_atom_citem place : string list -> Core.IR.component_item list -> At
 | [] -> raise (Error.DeadbranchError "empty clpath") 
 | name::clpath -> begin function
     | [] -> Error.perror place "atom not found %s" name
-    | {value=Method m;}::_  when Atom.hint m.value.name = name -> 
+    | {value={v=Method m;}}::_  when Atom.hint m.value.name = name -> 
         assert(clpath = []);
         m.value.name
-    | {value=Term t;}::citems -> begin  
+    | {value={v=Term t;}}::citems -> begin  
         try
             find_atom_term place clpath [t]
         with Error.DeadbranchError _ -> find_atom_citem place (name::clpath) citems 
@@ -34,22 +34,22 @@ and find_atom_term place : string list -> Core.IR.term list -> Atom.atom = funct
 | [] -> raise (Error.DeadbranchError "empty clpath") 
 | name::clpath -> begin function
     | [] -> Error.perror place "atom not found %s" name
-    | {value=Function f;}::_ when Atom.hint (f.value.name) = name -> 
+    | {value={v=Function f;}}::_ when Atom.hint (f.value.name) = name -> 
         assert(clpath = []);
         f.value.name
-    | {value=Component {value=ComponentAssign c;}}::_  when Atom.hint (c.name) = name -> 
+    | {value={v=Component {value=ComponentAssign c;}}}::_  when Atom.hint (c.name) = name -> 
         assert(clpath = []);
         c.name
-    | {value=Component {value=ComponentStructure c;}}::_  when Atom.hint (c.name) = name -> 
+    | {value={v=Component {value=ComponentStructure c;}}}::_  when Atom.hint (c.name) = name -> 
         if clpath = [] then c.name
         else find_atom_citem place clpath c.body
-    | {value=Typedef {value=ClassicalDef (inner_name, _,_);};}::_ when Atom.hint inner_name = name ->   
+    | {value={v=Typedef {value=ClassicalDef (inner_name, _,_);};}}::_ when Atom.hint inner_name = name ->   
         assert(clpath = []);
         inner_name 
-    | {value=Typedef {value=EventDef (inner_name, _,_);};}::_ when Atom.hint inner_name = name ->   
+    | {value={v=Typedef {value=EventDef (inner_name, _,_);};}}::_ when Atom.hint inner_name = name ->   
         assert(clpath = []);
         inner_name
-    | {value=Typedef {value=ProtocolDef (inner_name, _);};}::_ when Atom.hint inner_name = name ->   
+    | {value={v=Typedef {value=ProtocolDef (inner_name, _);};}}::_ when Atom.hint inner_name = name ->   
         assert(clpath = []);
         inner_name 
     | _::ts -> find_atom_term place (name::clpath) ts

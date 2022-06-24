@@ -20,7 +20,8 @@ let make_component2target () =
     let rec _explore_citem target place = function 
     | Term t -> explore_term target t
     | _ -> ()
-    and explore_citem target = map0_place (_explore_citem target)
+    and explore_citem target = map0_place (map0_plgannot(_explore_citem target))
+
     and _explore_term target place = function 
     | Component {value = ComponentStructure cdcl} -> 
         Hashtbl.add component2target cdcl.name target; 
@@ -28,7 +29,7 @@ let make_component2target () =
     | Component {value=ComponentAssign cdcl} -> 
         Hashtbl.add component2target cdcl.name target 
     | _ -> ()
-    and explore_term target = map0_place (_explore_term target)
+    and explore_term target = map0_place (map0_plgannot (_explore_term target))
     in
 
     Hashtbl.iter (fun target -> List.iter (explore_term target)) targets2ast;
@@ -46,7 +47,7 @@ let rec split_toplvl_term (term:IRI.term) : unit =
     - component description terms are to their target only
     - TODO remove unneeded term in targets or undefined ref of component
 *)
-match term.value with
+match term.value.v with
 | Component {value=ComponentStructure cstruct;_} -> add_to_target cstruct.target_name term
 | _ -> 
     Seq.iter 

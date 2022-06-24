@@ -293,7 +293,7 @@ module Make () = struct
             logger#warning ">> Parent %s" (match opt with | None -> "None" | Some x -> Atom.to_string x)
         ) parents;
 
-        IRUtils.insert_terms_into_lca (List.of_seq (AtomOptionSet.to_seq parents)) [(auto_fplace (Component interceptor_dcl))] program   
+        IRUtils.insert_terms_into_lca (List.of_seq (AtomOptionSet.to_seq parents)) [(auto_fplace (auto_plgannot (Component interceptor_dcl)))] program   
 
     (*************** Step 2 - Bridge handling  ******************)
 
@@ -350,7 +350,7 @@ module Make () = struct
                     Hashtbl.find interceptor_parents key 
                 with Not_found -> failwith "key %s not found in interceptor_parents" key
             in
-            IRUtils.insert_terms_into_lca (List.of_seq (AtomOptionSet.to_seq parents)) [auto_fplace p_onboard_def] program   
+            IRUtils.insert_terms_into_lca (List.of_seq (AtomOptionSet.to_seq parents)) [auto_fplace (auto_plgannot p_onboard_def)] program   
 
     (*************** Step 3 - Generate the interceptor factory  ******************)
     (* 

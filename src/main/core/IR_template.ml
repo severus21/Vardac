@@ -301,7 +301,7 @@ module Make (Params : IRParams) = struct
             include mylist[0];
         *)
         | Include of component_expr
-    and component_item = _component_item placed
+    and component_item = (_component_item plg_annotated) placed
 
     and component_structure = {
         target_name: target_name; 
@@ -385,7 +385,7 @@ module Make (Params : IRParams) = struct
         | Typealias of type_variable * _typealias_body
         | Typedef of typedef 
         | Derive of derivation (* Used to rewrite the ast *)
-    and term = _term placed
+    and term = (_term plg_annotated) placed
 
     and program = term list
 
@@ -397,13 +397,13 @@ module Make (Params : IRParams) = struct
     
     module type IR_utils_sig = sig 
         val free_tvars_component_item : Atom.Set.t ->
-            _component_item AstUtils.placed ->
+            component_item ->
             Atom.Set.t * type_variable list
         val free_tvars_program : Atom.Set.t ->
             term list -> Atom.Set.t * type_variable list
 
         val free_vars_component_item : Atom.Set.t ->
-            _component_item AstUtils.placed ->
+            component_item ->
             Atom.Set.t *
             (main_type * expr_variable) list
         val free_vars_component_dcl : Atom.Set.t ->
@@ -428,8 +428,8 @@ module Make (Params : IRParams) = struct
 
         val rewrite_type_component_item : (_main_type -> bool) ->
             (_main_type -> _main_type) ->
-            _component_item AstUtils.placed ->
-            _component_item AstUtils.placed
+            component_item ->
+            component_item
 
         val collect_type_program : Atom.Set.t ->
             (_main_type -> bool) ->
@@ -464,8 +464,8 @@ module Make (Params : IRParams) = struct
             (main_type * expr_variable) list
         val rewrite_expr_component_item : (_expr -> bool) ->
             (main_type -> _expr -> _expr) ->
-            _component_item AstUtils.placed ->
-            _component_item AstUtils.placed
+            component_item ->
+            component_item
         val rewrite_expr_term : (_expr -> bool) ->
             (main_type -> _expr -> _expr) ->
             term -> term
@@ -529,8 +529,8 @@ module Make (Params : IRParams) = struct
             term list -> term list
 
         val rename_component_item : (Atom.atom -> Atom.atom) ->
-            _component_item AstUtils.placed ->
-            _component_item AstUtils.placed
+            component_item ->
+            component_item
 
         val find_lca_program : Atom.Set.t -> program -> Atom.atom option
         val insert_in_terms : term list -> term list -> term list
@@ -636,7 +636,7 @@ module Make (Params : IRParams) = struct
             | Outport p  -> collect_expr_outport parent_opt already_binded selector collector p
             | Term t -> collect_expr_term  parent_opt already_binded selector collector t    
         and collect_expr_component_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
-            map0_place (collect_expr_component_item_ parent_opt already_binded selector collector) citem
+            map0_place (map0_plgannot(collect_expr_component_item_ parent_opt already_binded selector collector)) citem
 
         and free_vars_component_item already_binded citem = 
             let already_binded, _, fvars = collect_expr_component_item None  already_binded (function e -> false) (fun parent_opt env e -> []) citem in
@@ -657,7 +657,7 @@ module Make (Params : IRParams) = struct
             (* Shallow scan because fields and methods could be recursive *)
             let already_binded = List.fold_left (
                 fun already_binded citem -> 
-                    match citem.value with
+                    match citem.value.v with
                     | Contract _ -> already_binded
                     | Method m -> Atom.Set.add m.value.name already_binded
                     | State s -> 
@@ -717,7 +717,7 @@ module Make (Params : IRParams) = struct
             | Typedef typedef -> collect_expr_typedef parent_opt already_binded selector collector typedef
             | Derive derive ->  collect_expr_derivation parent_opt already_binded selector collector place derive 
         and collect_expr_term parent_opt (already_binded:Atom.Set.t) selector (collector:'a sig_expr_collector) t = 
-            map0_place (collect_expr_term_ parent_opt already_binded selector collector) t
+            map0_place (map0_plgannot(collect_expr_term_ parent_opt already_binded selector collector)) t
 
         let rec collect_expr_program already_binded selector collector program = 
             let _, res = List.fold_left_map (fun already_binded term -> 
@@ -811,7 +811,7 @@ module Make (Params : IRParams) = struct
             | Outport p  -> collect_cexpr_outport parent_opt  already_binded selector collector p
             | Term t -> collect_cexpr_term  parent_opt  already_binded selector collector t    
         and collect_cexpr_component_item parent_opt already_binded selector collector citem =              
-            map0_place (collect_cexpr_component_item_ parent_opt already_binded selector collector) citem
+            map0_place (map0_plgannot(collect_cexpr_component_item_ parent_opt already_binded selector collector)) citem
 
         and collect_cexpr_component_dcl_ parent_opt already_binded selector collector place = function 
         | ComponentStructure cdcl ->
@@ -843,7 +843,7 @@ module Make (Params : IRParams) = struct
             | Typedef typedef -> collect_cexpr_typedef parent_opt  already_binded selector collector typedef
             | Derive derive ->  collect_cexpr_derivation parent_opt  already_binded selector collector place derive 
         and collect_cexpr_term parent_opt already_binded selector collector t = 
-            map0_place (collect_cexpr_term_ parent_opt  already_binded selector collector) t
+            map0_place (map0_plgannot(collect_cexpr_term_ parent_opt  already_binded selector collector)) t
 
         and collect_cexpr_program  already_binded selector collector program = 
             List.flatten (List.map (collect_cexpr_term None  already_binded selector collector) program)
@@ -899,7 +899,7 @@ module Make (Params : IRParams) = struct
             | Outport p     -> collect_stmt_outport parent_opt selector collector p
             | Term t        -> collect_stmt_term parent_opt  selector collector t    
         and collect_stmt_component_item parent_opt selector collector citem =              
-            map0_place (collect_stmt_component_item_ parent_opt  selector collector) citem
+            map0_place (map0_plgannot(collect_stmt_component_item_ parent_opt  selector collector)) citem
 
         and collect_stmt_component_dcl_ parent_opt selector collector place = function 
         | ComponentStructure cdcl ->
@@ -929,7 +929,7 @@ module Make (Params : IRParams) = struct
             | Typedef typedef -> collect_stmt_typedef parent_opt  selector collector typedef
             | Derive derive ->  collect_stmt_derivation parent_opt  selector collector place derive 
         and collect_stmt_term parent_opt selector collector t = 
-            map0_place (collect_stmt_term_ parent_opt  selector collector) t
+            map0_place (map0_plgannot(collect_stmt_term_ parent_opt  selector collector)) t
 
         and collect_stmt_program  selector collector program = 
             List.flatten (List.map (collect_stmt_term None  selector collector) program)
@@ -1033,7 +1033,7 @@ module Make (Params : IRParams) = struct
             | Outport p  -> collect_type_outport parent_opt already_binded selector collector p
             | Term t -> collect_type_term  parent_opt already_binded selector collector t    
         and collect_type_component_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
-            map0_place (collect_type_component_item_ parent_opt already_binded selector collector) citem
+            map0_place (map0_plgannot(collect_type_component_item_ parent_opt already_binded selector collector)) citem
 
         and free_tvars_component_item already_binded citem = 
             let already_binded, _, ftvars = collect_type_component_item None  already_binded (function e -> false) (fun parent_opt env e -> []) citem in
@@ -1054,14 +1054,14 @@ module Make (Params : IRParams) = struct
             (* Shallow scan because because component type def could be recursive *)
             let already_binded = List.fold_left (
                 fun already_binded citem -> 
-                    match citem.value with
+                    match citem.value.v with
                     | Contract _ -> already_binded
                     | Method m -> already_binded
                     | State s -> already_binded
                     | Inport p -> already_binded
                     | Eport p -> already_binded
                     | Outport p -> already_binded
-                    | Term {value=Component {value=ComponentStructure {name}}} -> Atom.Set.add name already_binded
+                    | Term {value={v=Component {value=ComponentStructure {name}}}} -> Atom.Set.add name already_binded
                     | Term _ -> already_binded
             ) already_binded cdcl.body in
 
@@ -1135,13 +1135,13 @@ module Make (Params : IRParams) = struct
             | Typedef typedef -> collect_type_typedef parent_opt already_binded selector collector typedef
             | Derive derive ->  collect_type_derivation parent_opt already_binded selector collector place derive 
         and collect_type_term parent_opt (already_binded:Atom.Set.t) selector collector t = 
-            map0_place (collect_type_term_ parent_opt already_binded selector collector) t
+            map0_place (map0_plgannot(collect_type_term_ parent_opt already_binded selector collector)) t
 
         and collect_type_program already_binded selector collector program = 
             (* Shallow scan because because component type def could be recursive *)
             let already_binded = List.fold_left (
                 fun already_binded term -> 
-                    match term.value with
+                    match term.value.v with
                     | Component {value=ComponentStructure {name}} -> Atom.Set.add name already_binded
                     | _ -> already_binded
             ) already_binded program in
@@ -1251,7 +1251,7 @@ module Make (Params : IRParams) = struct
             | Eport p       -> Eport (rewrite_type_eport selector rewriter p)
             | Outport p     -> Outport (rewrite_type_outport selector rewriter p)
             | Term t        -> Term (rewrite_type_term selector rewriter t)
-        and rewrite_type_component_item selector rewriter = map_place (rewrite_type_component_item_ selector rewriter) 
+        and rewrite_type_component_item selector rewriter = map_place (map_plgannot(rewrite_type_component_item_ selector rewriter))
 
         and rewrite_type_component_dcl_  selector rewriter place = function 
         | ComponentStructure cdcl -> 
@@ -1293,7 +1293,7 @@ module Make (Params : IRParams) = struct
             ) 
 
         | Derive derive -> Derive { derive with eargs = List.map (rewrite_type_expr selector rewriter) derive.eargs}
-        and rewrite_type_term selector rewriter = map_place (rewrite_type_term_ selector rewriter) 
+        and rewrite_type_term selector rewriter = map_place (map_plgannot(rewrite_type_term_ selector rewriter)) 
         and rewrite_type_program selector rewriter (program : program) : program = List.map (rewrite_type_term selector rewriter) program
 
 
@@ -1362,7 +1362,7 @@ module Make (Params : IRParams) = struct
             | Eport p       -> Eport (rewrite_expr_eport selector rewriter p)
             | Outport p     -> Outport (rewrite_expr_outport selector rewriter p)
             | Term t        -> Term (rewrite_expr_term selector rewriter t)
-        and rewrite_expr_component_item selector rewriter = map_place (rewrite_expr_component_item_ selector rewriter) 
+        and rewrite_expr_component_item selector rewriter = map_place (map_plgannot(rewrite_expr_component_item_ selector rewriter))
 
         and rewrite_expr_component_dcl_  selector rewriter place = function 
         | ComponentStructure cdcl -> 
@@ -1377,7 +1377,7 @@ module Make (Params : IRParams) = struct
         | Function fdcl -> Function (rewrite_expr_function_dcl selector rewriter fdcl)
         | (Typealias _ as t) |(Typedef _ as t) -> t
         | Derive derive -> Derive { derive with eargs = List.map (rewrite_expr_expr selector rewriter) derive.eargs}
-        and rewrite_expr_term selector rewriter = map_place (rewrite_expr_term_ selector rewriter) 
+        and rewrite_expr_term selector rewriter = map_place (map_plgannot(rewrite_expr_term_ selector rewriter))
         and rewrite_expr_program selector rewriter (program : program) : program = List.map (rewrite_expr_term selector rewriter) program
 
         let make x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) = 
@@ -1393,7 +1393,7 @@ module Make (Params : IRParams) = struct
         let rec collect_term_component_item_ recursive parents selector collector place = function 
         | Term t -> collect_term_term recursive (List.rev parents) selector collector t
         | citem -> []
-        and collect_term_component_item recursive parents selector collector = map0_place (collect_term_component_item_ recursive parents selector collector) 
+        and collect_term_component_item recursive parents selector collector = map0_place (map0_plgannot(collect_term_component_item_ recursive parents selector collector)) 
 
         and collect_term_component_dcl_  recursive parents selector collector place = function 
         | ComponentStructure cdcl -> List.flatten (List.map (collect_term_component_item recursive (cdcl.name::parents) selector collector) cdcl.body)
@@ -1413,7 +1413,7 @@ module Make (Params : IRParams) = struct
             )
         | Component cdcl -> collect_term_component_dcl recursive parents selector collector cdcl
         | t -> [] 
-        and collect_term_term recursive parents selector collector = map0_place (collect_term_term_ recursive parents selector collector) 
+        and collect_term_term recursive parents selector collector = map0_place (map0_plgannot(collect_term_term_ recursive parents selector collector)) 
 
         (*
             recursive = true means that even if a term is selected, its sub-terms could be selector also. 
@@ -1424,7 +1424,7 @@ module Make (Params : IRParams) = struct
         let rec rewrite_term_component_item_  selector rewriter place = function 
         | Term t -> List.map (function x -> Term x) (rewrite_term_term selector rewriter t)
         | citem -> [citem]
-        and rewrite_term_component_item selector rewriter = map_places (rewrite_term_component_item_ selector rewriter) 
+        and rewrite_term_component_item selector rewriter = map_places (map_plgannots(rewrite_term_component_item_ selector rewriter))
 
         and rewrite_term_component_dcl_  selector rewriter place = function 
         | ComponentStructure cdcl -> ComponentStructure { cdcl with body = List.flatten (List.map (rewrite_term_component_item selector rewriter) cdcl.body)}
@@ -1444,7 +1444,7 @@ module Make (Params : IRParams) = struct
         end
         | Component cdcl -> [Component (rewrite_term_component_dcl selector rewriter cdcl)]
         | t -> [ t ]
-        and rewrite_term_term ?(nested_rewrite=true) selector rewriter = map_places (rewrite_term_term_ ~nested_rewrite:nested_rewrite selector rewriter) 
+        and rewrite_term_term ?(nested_rewrite=true) selector rewriter = map_places (map_plgannots(rewrite_term_term_ ~nested_rewrite:nested_rewrite selector rewriter))
 
         and rewrite_term_program ?(nested_rewrite=true) (selector : _term -> bool) (rewriter : Error.place -> _term -> _term list) program = List.flatten (List.map (rewrite_term_term ~nested_rewrite:nested_rewrite selector rewriter) program )
 
@@ -1453,7 +1453,7 @@ module Make (Params : IRParams) = struct
         | t when selector t -> rewriter place t
         | Term t -> List.map (function x -> Term x) (rewrite_citem_term selector rewriter t)
         | citem -> [citem]
-        and rewrite_citem_component_item selector rewriter = map_places (rewrite_citem_component_item_ selector rewriter) 
+        and rewrite_citem_component_item selector rewriter = map_places (map_plgannots(rewrite_citem_component_item_ selector rewriter))
 
         and rewrite_citem_component_dcl_  selector rewriter place = function 
         | ComponentStructure cdcl -> ComponentStructure { cdcl with body = List.flatten (List.map (rewrite_citem_component_item selector rewriter) cdcl.body)}
@@ -1463,7 +1463,7 @@ module Make (Params : IRParams) = struct
         and rewrite_citem_term_ selector rewriter place = function 
         | Component cdcl -> [Component (rewrite_citem_component_dcl selector rewriter cdcl)]
         | t -> [ t ]
-        and rewrite_citem_term selector rewriter = map_places (rewrite_citem_term_ selector rewriter) 
+        and rewrite_citem_term selector rewriter = map_places (map_plgannots(rewrite_citem_term_ selector rewriter))
 
         and rewrite_citem_program (selector : _component_item -> bool) (rewriter : Error.place -> _component_item -> _component_item list) program = List.flatten (List.map (rewrite_citem_term selector rewriter) program )
 
@@ -1481,16 +1481,16 @@ module Make (Params : IRParams) = struct
         let rec rewrite_scopeterm_component_item_  selector rewriter place = function 
         | Term t -> List.map (function x -> Term x) (rewrite_scopeterm_term selector rewriter t)
         | citem -> [citem]
-        and rewrite_scopeterm_component_item selector rewriter = map_places (rewrite_scopeterm_component_item_ selector rewriter) 
+        and rewrite_scopeterm_component_item selector rewriter = map_places (map_plgannots(rewrite_scopeterm_component_item_ selector rewriter))
 
         and rewrite_scopeterm_component_dcl_  selector rewriter place = function 
         | ComponentStructure cdcl -> 
             
-            if List.exists (function |{value=Term t} -> selector t | _ -> false) cdcl.body then (* Scope of the searched term is the current component *)
-                let scope = List.map (function | {value=Term t} -> t) (List.filter (function |{value=Term _} -> true | _ -> false) cdcl.body) in
-                let remaining_body = List.filter (function |{value=Term _} -> false | _ -> true) cdcl.body in
+            if List.exists (function |{value={v=Term t; plg_annotations}} -> selector t | _ -> false) cdcl.body then (* Scope of the searched term is the current component *)
+                let scope = List.map (function | {value={v=Term t}} -> t) (List.filter (function |{value={v=Term _}} -> true | _ -> false) cdcl.body) in
+                let remaining_body = List.filter (function |{value={v=Term _}} -> false | _ -> true) cdcl.body in
 
-                ComponentStructure { cdcl with body = (List.map (function t -> {place=t.place; value=Term t}) (rewriter scope)) @ remaining_body }
+                ComponentStructure { cdcl with body = (List.map (function t -> {place=t.place; value={v=Term t; plg_annotations=[]}}) (rewriter scope)) @ remaining_body }
             else
                 ComponentStructure { cdcl with body = List.flatten (List.map (rewrite_scopeterm_component_item selector rewriter) cdcl.body)}
         | x -> x
@@ -1499,7 +1499,7 @@ module Make (Params : IRParams) = struct
         and rewrite_scopeterm_term_ selector rewriter place = function 
         | Component cdcl -> [Component (rewrite_scopeterm_component_dcl selector rewriter cdcl)]
         | t -> [ t ]
-        and rewrite_scopeterm_term selector rewriter = map_places (rewrite_scopeterm_term_ selector rewriter) 
+        and rewrite_scopeterm_term selector rewriter = map_places (map_plgannots(rewrite_scopeterm_term_ selector rewriter))
 
         and rewrite_scopeterm_program (selector : term -> bool) (rewriter : term list -> term list) program = 
             if List.exists selector program then( (* Scope of the searched term is [Top-level]*)
@@ -1696,7 +1696,7 @@ module Make (Params : IRParams) = struct
         | Term t -> List.map (function t -> Term t) (rewrite_exprstmts_term parent_opt exclude_stmt selector rewriter t)
         (* citem without statement *)
         | Contract _ | Include _ | Inport _ | Eport _ | Outport _ | State _ -> [citem]
-        and rewrite_exprstmts_component_item parent_opt exclude_stmt selector rewriter = map_places (rewrite_exprstmts_component_item_ parent_opt exclude_stmt selector rewriter) 
+        and rewrite_exprstmts_component_item parent_opt exclude_stmt selector rewriter = map_places (map_plgannots(rewrite_exprstmts_component_item_ parent_opt exclude_stmt selector rewriter)) 
 
 
         and rewrite_exprstmts_component_dcl_ parent_opt  exclude_stmt selector rewriter place = function
@@ -1706,7 +1706,7 @@ module Make (Params : IRParams) = struct
             cdcl with 
                 body = List.flatten (List.map (rewrite_exprstmts_component_item parent_opt exclude_stmt selector rewriter) cdcl.body)
         }
-        and rewrite_exprstmts_component_dcl parent_opt  exclude_stmt selector rewriter = map_place (rewrite_exprstmts_component_dcl_ parent_opt  exclude_stmt selector rewriter) 
+        and rewrite_exprstmts_component_dcl parent_opt  exclude_stmt selector rewriter = map_place (rewrite_exprstmts_component_dcl_ parent_opt  exclude_stmt selector rewriter)
 
         and rewrite_exprstmts_term_ (parent_opt:component_variable option) exclude_stmt selector rewriter place t =  
         match t with
@@ -1720,7 +1720,7 @@ module Make (Params : IRParams) = struct
 
         (* Term without statement*)
         | EmptyTerm | Comments _ | Typealias _ | Typedef _ | Derive _ -> [t]
-        and rewrite_exprstmts_term parent_opt exclude_stmt selector rewriter = map_places (rewrite_exprstmts_term_  parent_opt exclude_stmt selector rewriter) 
+        and rewrite_exprstmts_term parent_opt exclude_stmt selector rewriter = map_places (map_plgannots(rewrite_exprstmts_term_  parent_opt exclude_stmt selector rewriter))
 
         and rewrite_exprstmts_program exclude_stmt selector rewriter program =
             List.flatten (List.map (rewrite_exprstmts_term None exclude_stmt selector rewriter) program)
@@ -1739,7 +1739,7 @@ module Make (Params : IRParams) = struct
         | Term t -> List.map (function t -> Term t) (rewrite_stmt_term recurse selector rewriter t)
         (* citem without statement *)
         | Contract _ | Include _ | Inport _ | Eport _ | Outport _ | State _ -> [citem]
-        and rewrite_stmt_component_item recurse selector rewriter = map_places (rewrite_stmt_component_item_ recurse selector rewriter) 
+        and rewrite_stmt_component_item recurse selector rewriter = map_places (map_plgannots(rewrite_stmt_component_item_ recurse selector rewriter))
 
 
         and rewrite_stmt_component_dcl_ recurse selector rewriter place = function
@@ -1761,7 +1761,7 @@ module Make (Params : IRParams) = struct
 
         (* Term without statement*)
         | EmptyTerm | Comments _ | Typealias _ | Typedef _ | Derive _ -> [t]
-        and rewrite_stmt_term recurse selector rewriter = map_places (rewrite_stmt_term_ recurse selector rewriter) 
+        and rewrite_stmt_term recurse selector rewriter = map_places (map_plgannots(rewrite_stmt_term_ recurse selector rewriter))
 
         and rewrite_stmt_program recurse selector rewriter program =
             List.flatten (List.map (rewrite_stmt_term recurse selector rewriter) program)
@@ -1816,7 +1816,7 @@ module Make (Params : IRParams) = struct
         | Outport p     -> Outport (rename_outport renaming p)
         | Term t        -> Term (rename_term renaming t)
         | Include ce    -> Include (rename_component_expr renaming ce)
-        and rename_component_item renaming = map_place (_rename_component_item (protect_renaming renaming))
+        and rename_component_item renaming = map_place (map_plgannot(_rename_component_item (protect_renaming renaming)))
 
         and _rename_component_dcl renaming place = function
         | ComponentAssign {name; value} -> ComponentAssign {
@@ -1867,7 +1867,7 @@ module Make (Params : IRParams) = struct
         | Typealias (x, mt_opt) -> Typealias (renaming x, rename_typealias_body renaming mt_opt)
         | Typedef tdef -> Typedef (rename_typedef renaming tdef)
         | Derive d -> Derive (rename_derivation renaming d)
-        and rename_term renaming = map_place (_rename_term (protect_renaming renaming))
+        and rename_term renaming = map_place (map_plgannot(_rename_term (protect_renaming renaming)))
 
         let rename_program renaming = List.map (rename_term renaming)
 
@@ -1883,7 +1883,7 @@ module Make (Params : IRParams) = struct
 
             (*Since rec def*)
             let shallow_scan already_binded = function
-            | {value = Component {value=ComponentStructure {name}}} -> Atom.Set.add name already_binded 
+            | {value = {v=Component {value=ComponentStructure {name}}}} -> Atom.Set.add name already_binded 
             | _ -> already_binded
             in
             let toplevel_components =  List.fold_left shallow_scan Atom.Set.empty terms in
@@ -1932,16 +1932,16 @@ module Make (Params : IRParams) = struct
         and find_lca_cdcl_ names place : _component_dcl ->  bool * Atom.atom option = function
         | ComponentStructure cdcl when Atom.Set.mem cdcl.name names -> true, None
         | ComponentStructure cdcl -> 
-            let subcomponents = List.filter (function | {value=Term{value=Component _}} -> true | _ -> false) cdcl.body in
-            let subcomponents = List.map (function | {value=Term{value=Component cdcl}} -> cdcl) subcomponents in
+            let subcomponents = List.filter (map0_place(map0_plgannot(function place -> function | Term{value={v=Component _}} -> true | _ -> false))) cdcl.body in
+            let subcomponents = List.map (map0_place(map0_plgannot(function place -> function | Term{value={v=Component cdcl}} -> cdcl))) subcomponents in
 
             aux_find_lca names (Some cdcl.name) subcomponents
         and find_lca_cdcl names : component_dcl ->  bool * Atom.atom option = map0_place (find_lca_cdcl_ names)
 
         and find_lca_program names program =  
             if Atom.Set.cardinal names > 1 then (
-                let subcomponents = List.filter (function | {value=Component _} -> true | _ -> false) program in
-                let subcomponents = List.map (function | {value=Component cdcl} -> cdcl) subcomponents in
+                let subcomponents = List.filter (function | {value={v=Component _}} -> true | _ -> false) program in
+                let subcomponents = List.map (function | {value={v=Component cdcl}} -> cdcl) subcomponents in
 
                 snd (aux_find_lca names None subcomponents)
             )else Some (Atom.Set.min_elt names)
@@ -1950,7 +1950,7 @@ module Make (Params : IRParams) = struct
             lca_name = None -> toplevel
             see semantics of IR_utils.insert_in_terms for insertion into lca
         *)
-        let insert_terms_into_lca (parents: (Atom.atom option) list) terms_to_insert program = 
+        let insert_terms_into_lca (parents: (Atom.atom option) list) terms_to_insert (program:program) = 
             assert( parents <> []);
 
             let common_ancestor_name = 
@@ -1976,11 +1976,11 @@ module Make (Params : IRParams) = struct
                     in
                     let ancestor_rewriter place = function
                         | Component {place; value=ComponentStructure cdcl} ->
-                            let terms_body = List.map (function | {value=Term t} -> t) (List.filter (function |{value=Term _} -> true | _ -> false) cdcl.body) in
-                            let remaining_body = List.filter (function |{value=Term _} -> false | _ -> true) cdcl.body in
+                            let terms_body = List.map (function | {value={v=Term t}} -> t) (List.filter (function |{value={v=Term _}} -> true | _ -> false) cdcl.body) in
+                            let remaining_body = List.filter (function |{value={v=Term _}} -> false | _ -> true) cdcl.body in
 
                             let terms_body = insert_in_terms terms_to_insert terms_body in 
-                            let terms_body = List.map (function t -> {place=t.place; value=Term t}) terms_body in
+                            let terms_body = List.map (function t -> {place=t.place; value={v=Term t; plg_annotations=[]}}) terms_body in
 
 
                             [ 

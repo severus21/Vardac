@@ -27,8 +27,8 @@ module Make (Args: TArgs) = struct
 
     (*************** Step 0 - gather intell ******************)
     let methods_of (base_interceptor : component_structure) : method0 list =
-        let citems = List.filter (function {value=Method _} -> true | _ -> false) base_interceptor.body in
-        List.map (function |{value=Method m} -> m) citems
+        let citems = List.filter (function {value={v=Method _}} -> true | _ -> false) base_interceptor.body in
+        List.map (function |{value={v=Method m}} -> m) citems
 
     let extract_onboard_methods (bi_methods : method0 list) : method0 list = 
         List.filter (function (m : method0) -> List.exists (function | Onboard _ -> true | _ -> false ) m.value.annotations ) bi_methods 
@@ -56,7 +56,7 @@ module Make (Args: TArgs) = struct
     *)
     let extract_intercepted_ports_of_schema (schema_struct : component_structure) : InterceptedPortSet.t = 
         let intercepted_ports = List.map (function
-        | {value=Inport p} -> Some ((fst p.value).name, p.value) | _ -> None ) schema_struct.body in
+        | {value={v=Inport p}} -> Some ((fst p.value).name, p.value) | _ -> None ) schema_struct.body in
         let intercepted_ports = List.filter Option.is_some intercepted_ports in
         let intercepted_ports = List.map Option.get intercepted_ports in
 
@@ -80,7 +80,7 @@ module Make (Args: TArgs) = struct
     *)
     let extract_intercepted_outputports_of_schema (schema_struct : component_structure) : InterceptedOutportSet.t = 
         let intercepted_outputports = List.map (function
-        | {value=Outport p} -> Some ((fst p.value).name, p.value) | _ -> None ) schema_struct.body in
+        | {value={v=Outport p}} -> Some ((fst p.value).name, p.value) | _ -> None ) schema_struct.body in
         let intercepted_outputports = List.filter Option.is_some intercepted_outputports in
         let intercepted_outputports = List.map Option.get intercepted_outputports in
 
@@ -276,12 +276,12 @@ module Make (Args: TArgs) = struct
                 e2_e This, 
                 e2var this_b_onboard
             )) in
-        let statedef_b_onboard = auto_fplace (State (auto_fplace {
+        let statedef_b_onboard = auto_fplace (auto_plgannot(State (auto_fplace {
             ghost = false;
             type0 = interceptor_info.onboard_info.b_onboard_mt;
             name = this_b_onboard;
             body = None;
-        })) in
+        }))) in
 
         let this_onboarded_activations = Atom.fresh "onboarded_activations" in 
         assert( interceptor_info.this_onboarded_activations = None );
@@ -293,16 +293,16 @@ module Make (Args: TArgs) = struct
             e2_e This, 
             e2var this_onboarded_activations
         )) in
-        let statedef_onboarded_activations = auto_fplace (State (auto_fplace ({
+        let statedef_onboarded_activations = auto_fplace (auto_plgannot(State (auto_fplace ({
             ghost = false;
             type0 = mtype_of_ct (TDict (mtype_of_ft TActivationID, mtype_of_ct (TActivationRef (mt_internals_of fplace (Atom.Set.to_list interceptor_info.intercepted_schemas)))) );
             name = this_onboarded_activations;
             body = Some ( e2_e (Block2Expr (Dict, [])));
-        }))) in
+        })))) in
 
         let callback_onboard = Atom.fresh "onboard" in
         let port_onboard = Atom.fresh "port_onboard" in
-        let port_onboard_def = auto_fplace (Inport (auto_fplace (
+        let port_onboard_def = auto_fplace (auto_plgannot(Inport (auto_fplace (
             {
                 name = port_onboard;
                 expecting_st = mtype_of_st interceptor_info.onboard_info.st_onboard.value; 
@@ -315,11 +315,11 @@ module Make (Args: TArgs) = struct
                 _is_intermediate = false;
             },
             auto_fplace EmptyMainType
-        ))) in
+        )))) in
 
         (*** Generate default_onboard ***)
         let default_onboard = Atom.fresh "default_onboard" in
-        let default_onboard_def = auto_fplace (Method (auto_fplace {
+        let default_onboard_def = auto_fplace (auto_plgannot(Method (auto_fplace {
             annotations = [];
             ghost = false;
             ret_type = mtype_of_ft TBool;
@@ -336,7 +336,7 @@ module Make (Args: TArgs) = struct
                     e2_lit (BoolLit true)
                 ))
             ]
-        })) in
+        }))) in
 
 
         (*** Main callback ***)
@@ -344,7 +344,7 @@ module Make (Args: TArgs) = struct
         let param_s, e_param_s = e_param_of "s" in
 
 
-        let callback_onboard_def = auto_fplace (Method (auto_fplace {
+        let callback_onboard_def = auto_fplace (auto_plgannot(Method (auto_fplace {
             annotations = [];
             ghost = false;
             ret_type = mtype_of_ft TVoid;
@@ -357,12 +357,12 @@ module Make (Args: TArgs) = struct
             on_startup = false;
             contract_opt = None;
             body = List.map (generate_main_callback_branch interceptor_info default_onboard onboard_index (e_this_b_onboard, e_this_onboarded_activations) ((param_schema, e_param_schema), (param_s, e_param_s))) (Atom.Set.to_list interceptor_info.intercepted_schemas)
-        })) in
+        }))) in
 
         interceptor_info, [
-            auto_fplace (Term (auto_fplace (Comments
+            auto_fplace (auto_plgannot(Term (auto_fplace (auto_plgannot(Comments
                 (auto_fplace(DocComment "******************** Onboarding Block ********************"))
-            )));
+            )))));
             statedef_b_onboard;
             statedef_onboarded_activations;
             port_onboard_def;
@@ -378,7 +378,7 @@ module Make (Args: TArgs) = struct
     let include_base_citems interceptor_info (base_interceptor : component_structure) : interceptor_info * component_item list = 
         (*** Collect intells ***)
         let base_onstartup_opt = get_onstartup base_interceptor in
-        let citems_wo_onstartup = List.filter (function | {value=Method m} -> Bool.not m.value.on_startup | _ -> true) base_interceptor.body in 
+        let citems_wo_onstartup = List.filter (function | {value={v=Method m}} -> Bool.not m.value.on_startup | _ -> true) base_interceptor.body in 
 
         (*** Add states to store in/out bridges and onboarding bridge ***)
         
@@ -396,18 +396,18 @@ module Make (Args: TArgs) = struct
 
         let inout_bridges_states = List.flatten (List.map ( function (b_out, b_in, b_mt) ->
             [ 
-                auto_fplace (State (auto_fplace ({
+                auto_fplace (auto_plgannot(State (auto_fplace ({
                     ghost = false;
                     type0 = b_mt;
                     name = b_in;
                     body = None 
-                } )));
-                auto_fplace (State (auto_fplace ({
+                } ))));
+                auto_fplace (auto_plgannot(State (auto_fplace ({
                     ghost = false;
                     type0 = b_mt;
                     name = b_out;
                     body = None 
-                } )))
+                } ))))
             ]
         ) (Option.get interceptor_info.inout_statebridges_info)) in
 
@@ -431,7 +431,7 @@ module Make (Args: TArgs) = struct
             )
         in
 
-        let onstartup = auto_fplace (Method (auto_fplace {
+        let onstartup = auto_fplace (auto_plgannot(Method (auto_fplace {
             annotations = (match base_onstartup_opt with Some m -> m.value.annotations | _ -> []);
             ghost = false;
             ret_type = mtype_of_ft TVoid;
@@ -462,7 +462,7 @@ module Make (Args: TArgs) = struct
             );
             on_startup = true;
             on_destroy = false;
-        })) in
+        }))) in
 
         (*** Retrun citems ***)
         interceptor_info, onstartup :: (citems_wo_onstartup @ inout_bridges_states)
@@ -485,34 +485,34 @@ module Make (Args: TArgs) = struct
         } in
 
         interceptor_info, [
-            auto_fplace (Term (auto_fplace (Comments
+            auto_fplace (auto_plgannot(Term (auto_fplace (auto_plgannot(Comments
                 (auto_fplace(DocComment "******************** Intercepted Sessions Handling Block ********************"))
-            )));
+            )))));
 
-            auto_fplace (State (auto_fplace ({
+            auto_fplace (auto_plgannot(State (auto_fplace ({
                 ghost = false;
                 type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TSessionID));
                 name = this_4external2internal;
                 body = Some (e2_e (Block2Expr (Dict, [])));
-            })));
-            auto_fplace (State (auto_fplace ({
+            }))));
+            auto_fplace (auto_plgannot(State (auto_fplace ({
                 ghost = false;
                 type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TSessionID));
                 name = this_4internal2external;
                 body = Some (e2_e (Block2Expr (Dict, [])));
-            })));
-            auto_fplace (State (auto_fplace ({
+            }))));
+            auto_fplace (auto_plgannot(State (auto_fplace ({
                 ghost = false;
                 type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TWildcard));
                 name = this_4external;
                 body = Some (e2_e (Block2Expr (Dict, [])));
-            })));
-            auto_fplace (State (auto_fplace ({
+            }))));
+            auto_fplace (auto_plgannot(State (auto_fplace ({
                 ghost = false;
                 type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TWildcard));
                 name = this_4internal;
                 body = Some (e2_e (Block2Expr (Dict, [])));
-            })));
+            }))));
         ]
 
 
@@ -850,14 +850,14 @@ module Make (Args: TArgs) = struct
 
         (***Inport & Outport generation ***)
         let outport_name = Atom.fresh (Printf.sprintf "%s_outport__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i) in
-        let outport = auto_fplace (Outport (auto_fplace ({
+        let outport = auto_fplace (auto_plgannot(Outport (auto_fplace ({
             name = outport_name;
             protocol = mtype_of_st (dual (auto_fplace st_stage)).value;
             _children = [];
-        }, auto_fplace EmptyMainType))) in
+        }, auto_fplace EmptyMainType)))) in
 
         let inport_name = Atom.fresh (Printf.sprintf "%s_inport__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i) in
-        let inport = auto_fplace (Inport (auto_fplace ({
+        let inport = auto_fplace (auto_plgannot(Inport (auto_fplace ({
             name = inport_name;
             expecting_st = mtype_of_st st_stage;
             callback = e2_e (AccessExpr(
@@ -867,7 +867,7 @@ module Make (Args: TArgs) = struct
             _disable_session = false;
             _children = [];
             _is_intermediate = false;
-        }, auto_fplace EmptyMainType))) in
+        }, auto_fplace EmptyMainType)))) in
 
 
         let (tmsg, st_continuation) : main_type * session_type = msgcont_of_st (auto_fplace st_stage) in
@@ -940,12 +940,12 @@ module Make (Args: TArgs) = struct
         [
             outport;
             inport;
-            auto_fplace (Method callback);
+            auto_fplace (auto_plgannot(Method callback));
         ]
         @ (if i = 0 then
             [
-                auto_fplace (Method (Option.get callback_session_init));
-                auto_fplace (Method callback_msg);
+                auto_fplace (auto_plgannot(Method (Option.get callback_session_init)));
+                auto_fplace (auto_plgannot(Method callback_msg));
             ]
         else [])
 
@@ -1077,15 +1077,15 @@ module Make (Args: TArgs) = struct
         let msg_interceptors = extract_message_intercept_methods (methods_of base_interceptor) in
         let session_interceptors = extract_message_intercept_methods (methods_of base_interceptor) in
 
-        auto_fplace (Term (auto_fplace (Comments
+        auto_fplace (auto_plgannot(Term (auto_fplace (auto_plgannot(Comments
             (auto_fplace(DocComment "******************** Ingress Block ********************"))
-        )))
+        )))))
         :: List.flatten(
             List.map (function ((b_intercepted, _, b_mt), (this_b_out, this_b_int, _)) ->
                 if Bool.not (has_kind_ingress interceptor_info b_mt) then []
                 else begin
-                    auto_fplace (Term (auto_fplace (Comments
-                        (auto_fplace(DocComment (Printf.sprintf "*** Ingress Block for bridge [%s] ***" (Atom.to_string b_intercepted))))
+                    auto_fplace (auto_plgannot(Term (auto_fplace (auto_plgannot(Comments
+                        (auto_fplace(DocComment (Printf.sprintf "*** Ingress Block for bridge [%s] ***" (Atom.to_string b_intercepted))))))
                     )))
                     :: (generate_ingress_block_per_intercepted_bridge interceptor_info  msg_interceptors session_interceptors b_intercepted this_b_out this_b_int b_mt) 
                 end
@@ -1206,15 +1206,15 @@ module Make (Args: TArgs) = struct
         let msg_interceptors = extract_message_intercept_methods (methods_of base_interceptor) in
         let session_interceptors = extract_message_intercept_methods (methods_of base_interceptor) in
 
-        auto_fplace (Term (auto_fplace (Comments
+        auto_fplace (auto_plgannot(Term (auto_fplace (auto_plgannot(Comments
             (auto_fplace(DocComment "******************** Egress Block ********************"))
-        )))
+        )))))
         :: List.flatten(
             List.map (function ((b_intercepted, _, b_mt), (this_b_out, this_b_int, _)) ->
                 if Bool.not (has_kind_egress interceptor_info b_mt) then []
                 else begin
-                    auto_fplace (Term (auto_fplace (Comments
-                        (auto_fplace(DocComment (Printf.sprintf "*** Egress Block for bridge [%s] ***" (Atom.to_string b_intercepted))))
+                    auto_fplace (auto_plgannot(Term (auto_fplace (auto_plgannot(Comments
+                        (auto_fplace(DocComment (Printf.sprintf "*** Egress Block for bridge [%s] ***" (Atom.to_string b_intercepted))))))
                     )))
                     :: (generate_egress_block_per_intercepted_bridge interceptor_info  msg_interceptors session_interceptors b_intercepted this_b_out this_b_int b_mt) 
                 end
@@ -1262,7 +1262,7 @@ module Make (Args: TArgs) = struct
             (* Attribute fresh name for all citems to fulfills the semantics of binders. Each binders introduce a fresh name. *)
 
             (* No name for onstartup / ondestroy *)
-            let citems_wo_onstartup = List.filter (function | {value=Method m} -> Bool.not m.value.on_startup && Bool.not m.value.on_destroy | _ -> true) base_interceptor.body in 
+            let citems_wo_onstartup = List.filter (function | {value={v=Method m}} -> Bool.not m.value.on_startup && Bool.not m.value.on_destroy | _ -> true) base_interceptor.body in 
 
             (** Rename citems (refreshing all identity of bindings) *)
             let _, freevars = List.split (List.map (free_vars_component_item Atom.Set.empty) citems_wo_onstartup) in

@@ -158,9 +158,9 @@ module Make (Args:Params) : Sig = struct
 
         (* Add ports *)
         let inports = List.map (function (cstruct:component_structure) -> 
-            List.filter_map (map0_place (fun _ -> function | Inport p -> 
+            List.filter_map (map0_place (map0_plgannot(fun _ -> function | Inport p -> 
                 Hashtbl.add port2component (fst p.value).name cstruct.name;
-                Some (fst p.value) | _ -> None)) cstruct.body
+                Some (fst p.value) | _ -> None))) cstruct.body
         ) components in
         List.iter (function ps -> 
             List.iter (function (p:_port) ->
@@ -169,9 +169,9 @@ module Make (Args:Params) : Sig = struct
             ) inports;
 
         let outports = List.map (function (cstruct:component_structure) -> 
-            List.filter_map (map0_place (fun _ -> function | Outport p -> 
+            List.filter_map (map0_place (map0_plgannot(fun _ -> function | Outport p -> 
                 Hashtbl.add port2component (fst p.value).name cstruct.name;
-                Some (fst p.value) | _ -> None)) cstruct.body
+                Some (fst p.value) | _ -> None))) cstruct.body
         ) components in
         List.iter (function ps -> 
             List.iter (function (p:_outport) ->
@@ -180,9 +180,9 @@ module Make (Args:Params) : Sig = struct
             ) outports;
 
         let eports = List.map (function (cstruct:component_structure) -> 
-            List.filter_map (map0_place (fun _ -> function | Eport p -> 
+            List.filter_map (map0_place (map0_plgannot(fun _ -> function | Eport p -> 
                 Hashtbl.add port2component (fst p.value).name cstruct.name;
-                Some (fst p.value) | _ -> None)) cstruct.body
+                Some (fst p.value) | _ -> None))) cstruct.body
         ) components in
         List.iter (function ps -> 
             List.iter (function (p:_eport) ->

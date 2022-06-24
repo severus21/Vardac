@@ -142,3 +142,26 @@ let map_places (fct:Error.place -> 'a -> 'b list) ({place; value}:'a placed) : (
 let map2_places (fct:Error.place -> 'a -> 'b * 'c list) ({place; value}:'a placed) : 'b * ('c placed list)= 
     let env, values = fct place value in
     env, List.map (function v -> { place; value = v}) values
+
+type plg_annotation = string (* parsed by plg logic *)
+
+and 'a plg_annotated = {
+    plg_annotations: plg_annotation list;
+    v: 'a;
+}
+[@@deriving show { with_path = false }, hash]
+
+let map0_plgannot f place {plg_annotations; v} =
+    f place v
+let map_plgannot f place {plg_annotations; v} =
+    {plg_annotations; v = f place v}
+let map_plgannots f place {plg_annotations; v} =
+    List.map (function v -> {plg_annotations; v}) (f place v)
+let map2_plgannot f place {plg_annotations; v} =
+    let env, tmp = f place v in
+    env, {plg_annotations; v = tmp}
+let map2_plgannots ?(f_annot=Fun.id) f place {plg_annotations; v} =
+    let env, tmp = f place v in
+    env, List.map (function v -> {plg_annotations = f_annot plg_annotations; v}) tmp
+
+let auto_plgannot v = {plg_annotations=[]; v}

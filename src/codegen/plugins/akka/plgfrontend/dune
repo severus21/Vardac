@@ -1,0 +1,30 @@
+
+;; Constructing the lexer, parser, and executable.
+
+; Compile tokens.mly into a definition of the type [token].
+(menhir
+  (modules tokens)
+  (flags --only-tokens)
+)
+
+(ocamllex Lexer)
+
+(menhir
+  (modules tokens ../../../../frontend/utils Parser)
+  (merge_into Parser)
+  (flags 
+    -lg 1 
+    -la 1 
+    --explain 
+    --external-tokens Tokens
+  )
+)
+
+(library
+    (name plgfrontend)
+    (public_name compspec.codegen.plugins.akka.plgfrontend)
+    (preprocess (pps ppx_deriving.show ppx_import ppx_fields_conv))
+    (modules :standard)
+    (libraries fieldslib ounit2 yaml "yaml.unix" "rresult" "fileutils" process main core builtin common compspec.codegen.plugins.akka.ast)
+    (instrumentation (backend bisect_ppx))
+)

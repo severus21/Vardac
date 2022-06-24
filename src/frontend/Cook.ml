@@ -172,9 +172,9 @@ let combine (env1:component_env) (env2: component_env) =
     end
 
 let _terms_of_eventdef_from_labels env =
-    List.map (function (edef:IR.typedef) -> {AstUtils.place=edef.place; value=T.Typedef edef})(List.map snd (List.of_seq (Env.to_seq env.eventdef_from_labels))) 
+    List.map (function (edef:IR.typedef) -> {AstUtils.place=edef.place; value= auto_plgannot (T.Typedef edef)})(List.map snd (List.of_seq (Env.to_seq env.eventdef_from_labels))) 
 let _citems_of_eventdef_from_labels env =
-    List.map (function (t:IR.term) -> {AstUtils.place=t.place; value=T.Term t}) (_terms_of_eventdef_from_labels env) 
+    List.map (function (t:IR.term) -> {AstUtils.place=t.place; value=auto_plgannot(T.Term t)}) (_terms_of_eventdef_from_labels env) 
 
 (************************** Environement wrapper  ****************************)
 let print_components_env (env:(IR.component_variable Env.t) Atom.VMap.t) =
@@ -1040,7 +1040,7 @@ module Make(Arg:ArgSig) = struct
         new_env << [env1; env1], ({ name; protocol=protocol; _children = []}, protocol)
     and coutport env: S.outport -> env * T.outport = map2_place (cook_outport env)
 
-    and cook_component_item env _ : S._component_item -> env * T._component_item list = function
+    and cook_component_item env place : S._component_item -> env * T._component_item list = function
     | S.State s ->
         let new_env, new_s = cstate env s in
         new_env, [T.State new_s]
@@ -1064,7 +1064,12 @@ module Make(Arg:ArgSig) = struct
     | S.Include ce -> 
         let env1, ce = ccexpr env ce in
         env << [env1], [T.Include (ce)]
-    and ccitem env: S.component_item -> env * T.component_item list = map2_places (cook_component_item env)
+    and ccitem env: S.component_item -> env * T.component_item list = 
+        let aux env place v = 
+            let env, vs = cook_component_item env place v in
+            env , List.map (function v -> {plg_annotations = []; v}) vs
+        in
+        map2_places (aux env) 
 
     and cook_component_dcl env place : S._component_dcl -> env * T._component_dcl = function
     | S.ComponentStructure cdcl -> 
@@ -1112,7 +1117,7 @@ module Make(Arg:ArgSig) = struct
         let body = List.flatten body in
 
         (* Add collected label events to body *)
-        let collect_labelevents = citems_of_eventdef_from_labels inner_env in 
+        let collect_labelevents : T.component_item list = citems_of_eventdef_from_labels inner_env in 
         let body = collect_labelevents @ body in
 
         let annotations = List.map (function 
@@ -1268,7 +1273,12 @@ module Make(Arg:ArgSig) = struct
         }]
     | S.Annotation _ -> raise (Error.PlacedDeadbranchError (place, "Annotation should have been paired before calling Cook!"))
         
-    and cterm env: S.term -> env * T.term list = map2_places (cook_term env)
+    and cterm env: S.term -> env * T.term list = 
+        let aux env place v = 
+            let env, vs = cook_term env place v in
+            env , List.map (function v -> {plg_annotations = []; v}) vs
+        in
+    map2_places (aux env)
 
     let cook_program terms =    
         let rec hydrate_places parent_name (p:IR.vplace) = 

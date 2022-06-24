@@ -100,7 +100,7 @@ end) = struct
         let collector _ _ = function
             | S.Component {value= S.ComponentStructure cstruct} -> 
                 [(cstruct.name, List.filter_map (function 
-                    | {value= S.Method m} when List.mem S.Expose m.value.annotations -> Some m
+                    | {value= {v=S.Method m}} when List.mem S.Expose m.value.annotations -> Some m
                     | _ -> None
                 ) cstruct.body)]
             | _ -> []
@@ -434,7 +434,7 @@ end) = struct
                             e.replyTo.tell(.tell(TrucMsg(res), getSelf())
                         *)
                         let lambda_e = Atom.fresh "e" in
-                        let callback = auto_fplace {
+                        let callback = auto_fplace ({
                             S.annotations = [];
                             ghost = false;
                             ret_type = S_A2.mtype_of_ft Core.AstUtils.TVoid;
@@ -474,9 +474,9 @@ end) = struct
                                     ]
                                 ))
                             ))];
-                        } in
+                        }) in
 
-                        auto_fplace(S.Method callback), auto_fplace (S.Inport (auto_fplace ({
+                        auto_fplace(auto_plgannot (S.Method callback)), auto_fplace (auto_plgannot(S.Inport (auto_fplace ({
                             S.name = Atom.fresh ("port_service2actor_"^(Atom.value e1.value.name));
                             _disable_session = true;
                             expecting_st = S_A2.mtype_of_st (S.STRecv (S_A2.mtype_of_ct (S.TVar e1.value.name), auto_fplace (S.STSend (S_A2.mtype_of_ct (S.TVar e2.value.name), auto_fplace S.STEnd))));
@@ -486,7 +486,7 @@ end) = struct
                             )); 
                             _children = [];
                             _is_intermediate = false;
-                        }, auto_fplace S.EmptyMainType)))
+                        }, auto_fplace S.EmptyMainType))))
                     ) !service2actor_events in
 
                     let callbacks, inports = List.split inports in

@@ -41,4 +41,5 @@ impl component Dummy {
         }
     =}
 }
+
 impl component TopLevel {}

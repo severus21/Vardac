@@ -19,7 +19,8 @@ let fresh_env () : env = {
     default_target = None
 }
 
-let rec cook_item_impl env place : S._component_item_impl -> env * T._component_item_impl = function 
+
+let rec cook_item_impl env place = function 
 | S.MethodImpl mimpl -> env, T.MethodImpl {
     name = mimpl.name;
     body = mimpl.body;
@@ -29,7 +30,7 @@ let rec cook_item_impl env place : S._component_item_impl -> env * T._component_
     body = mstate.body;
 }
 | S.ComponentHeadersImpl body -> env, T.ComponentHeadersImpl body
-and citem_impl env :  S.component_item_impl -> env * T.component_item_impl = map2_place (cook_item_impl env)
+and citem_impl env :  S.component_item_impl -> env * T.component_item_impl = map2_place (map2_plgannot (cook_item_impl env))
 
 and cook_component_impl place env (cimpl:S.component_impl) :  env * T.component_impl = 
     let _, items = List.fold_left_map citem_impl env cimpl.body in
@@ -42,40 +43,42 @@ and cook_component_impl place env (cimpl:S.component_impl) :  env * T.component_
             body = items
         }
 
-and cook_term env {AstUtils.place; value} : env * T.term list=
-match value with 
+and _cook_term env place = function
 | S.ComponentImpl ({target=None; _} as item) -> begin
     match env.default_target with
     | Some target -> 
         let new_env, item = cook_component_impl place env {item with target = Some target} in
-        new_env, [{place; value=T.ComponentImpl item}]
+        new_env, [T.ComponentImpl item]
     | None -> Error.perror place "no default target defined and no target assigned to this component" 
 end
 | S.ComponentImpl impl -> 
     let env, item = cook_component_impl place env impl in
-    env, [{place; value= T.ComponentImpl item}]
+    env, [T.ComponentImpl item]
 | S.CurrentDefaultTarget target as term->
     let new_env = { env with default_target = Some target } in
     new_env, [] 
-| S.FunctionImpl timpl -> env, [{place; value=T.FunctionImpl {
+| S.FunctionImpl timpl -> env, [T.FunctionImpl {
     name = timpl.name;
     body = timpl.body
-}}]
-| S.TypeImpl timpl -> env, [{place; value=T.TypeImpl {
+}]
+| S.TypeImpl timpl -> env, [T.TypeImpl {
     name = timpl.name;
     body = timpl.body
-}}]
+}]
 | (S.HeadersImpl body as t) | (S.DependenciesImpl body as t) -> begin
     match env.default_target with
     | Some target -> 
-        env, [{place; value=
+        env, [
             match t with 
             | S.HeadersImpl _ -> T.HeadersImpl {target; body}
             | S.DependenciesImpl _ -> T.DependenciesImpl {target; body}
-        }]
+        ]
     | None -> Error.perror place "no default target defined and no target assigned to headers" 
 end
+and cook_term env :  S.term -> env * T.term list = map2_places (map2_plgannots (_cook_term env))
 
 let cook_program impl_terms =    
     let terms = List.flatten (snd(List.fold_left_map cook_term (fresh_env ()) impl_terms)) in
-    List.filter (function | {AstUtils.value=T.CurrentDefaultTarget _;_} -> false |_ -> true ) terms (* works since no recursive structure here*)
+    terms
+
+    (* TODO post condition no more CurrentDefaultTarget in program*)

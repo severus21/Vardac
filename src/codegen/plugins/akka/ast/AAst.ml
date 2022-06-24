@@ -130,6 +130,12 @@ and 'a annotated = {
     v: 'a;
 }
 
+and _plg_annotation = 
+    | AOverride
+    | AExtends of string
+    | AImplements of string
+and plg_annotation = _plg_annotation placed
+
 and blackbox_body = 
 | Text of string
 | Varda of expr 

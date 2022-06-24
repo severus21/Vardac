@@ -110,7 +110,7 @@ module Make () = struct
         List.of_seq (
             Seq.map 
                 (function  (mt, e) -> 
-                    auto_fplace (Typedef (auto_fplace (EventDef (e, [mt], ()))))
+                    auto_fplace (auto_plgannot(Typedef (auto_fplace (EventDef (e, [mt], ())))))
                 )
                 (MTHashtbl.to_seq_values hashtbl_mt2event)
         )

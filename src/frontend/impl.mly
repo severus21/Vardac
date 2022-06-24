@@ -83,13 +83,18 @@ any_state_impl_:
   t = placed(any_state_impl_)
     {t}
 
-any_component_item_impl:
+_any_component_item_impl:
 | m = any_core_method_impl 
-    { m }
+    { {place = [$loc]@m.place; value = { plg_annotations = []; v = m.value }} }
 | s = any_state_impl
-    { s }
+    { {place = [$loc]@s.place; value = { plg_annotations = []; v = s.value }} }
 | HEADERS body = any_blackbox_term
-    { {place=[$loc]; value=ComponentHeadersImpl body }}
+    { {place=[$loc]; value={ plg_annotations = []; v =ComponentHeadersImpl body }}}
+
+any_component_item_impl:
+| annots=list(PLG_ANNOT) item=_any_component_item_impl(* replace UID *) 
+    { {item with 
+        value = { item.value with plg_annotations = annots@item.value.plg_annotations }} }
 
 any_component_impl:
 | IMPL COMPONENT name=right_flexible_list(DOUBLE_COLON, UID) LCURLYBRACKET body=flexible_sequence(any_component_item_impl) RCURLYBRACKET 
@@ -97,7 +102,7 @@ any_component_impl:
 | IMPL COMPONENT name=right_flexible_list(DOUBLE_COLON, UID) TARGET target=LID LCURLYBRACKET body=flexible_sequence(any_component_item_impl) RCURLYBRACKET 
     { {name; body; target = Some(target)} }
 
-any_term_:
+any_term__:
 | TARGET target = LID SEMICOLON
     { CurrentDefaultTarget target }
 | IMPL HEADERS body = any_blackbox_term
@@ -110,6 +115,12 @@ any_term_:
     { FunctionImpl f_impl }
 | t_impl = any_type_impl
     { TypeImpl t_impl }
+
+any_term_:
+| annots=list(PLG_ANNOT) t=any_term__
+    { { plg_annotations = annots; v = t} }
+| t = any_term__
+    { { plg_annotations = []; v = t} }
 %inline any_term:
     t = placed(any_term_)
     { t }

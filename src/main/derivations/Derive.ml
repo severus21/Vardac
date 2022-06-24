@@ -10,7 +10,7 @@ open IR
 let rec _collect_derive_component_item place = function
 | Term t -> collect_derive_term t
 | citem -> []
-and collect_derive_component_item (citem:component_item) = map0_place _collect_derive_component_item citem
+and collect_derive_component_item (citem:component_item) = map0_place (map0_plgannot _collect_derive_component_item) citem
 
 and _collect_derive_component_dcl place = function
 | ComponentAssign _ ->[] 
@@ -21,21 +21,21 @@ and _collect_derive_term place = function
 | Component c -> collect_derive_component_dcl c
 | Derive derive -> [ {place; value=derive}]
 | t -> [] 
-and collect_derive_term t = map0_place _collect_derive_term t
+and collect_derive_term t = map0_place (map0_plgannot _collect_derive_term) t
 
 let collect_derive_program program = List.flatten (List.map collect_derive_term program)
 
 
 let rec remove_derive_citem = function
-| {place; value=Term t} -> {place; value = Term (remove_derive_term t)}
+| {place; value={v=Term t; plg_annotations}} -> {place; value = {plg_annotations; v=Term (remove_derive_term t)}}
 | citem -> citem
-and remove_derive_term = function
-| {place=p1; value=Component {place=p2; value=ComponentStructure cdcl}} -> {place=p1; value = Component {place=p2; value=ComponentStructure {
+and remove_derive_term : term -> term = function
+| {place=p1; value={plg_annotations=plg_annotations1; v=Component {place=p2; value=ComponentStructure cdcl}}} -> {place=p1; value = {plg_annotations=plg_annotations1; v=Component {place=p2; value=ComponentStructure {
     cdcl with 
-        body = List.filter (function | {value=Term {value=Derive _}} -> false | _ -> true)  (List.map remove_derive_citem cdcl.body)
-}}}
+        body = List.filter (function | {value={v=Term {value={v=Derive _}}}} -> false | _ -> true)  (List.map remove_derive_citem cdcl.body)
+}}}}
 | t -> t
-let remove_derive_program program = List.filter (function | {value=Derive _} -> false | _ -> true) (List.map remove_derive_term program)
+let remove_derive_program program = List.filter (function | {value={v=Derive _}} -> false | _ -> true) (List.map remove_derive_term program)
 
 
 (* Derivation *)

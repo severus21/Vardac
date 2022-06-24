@@ -4,6 +4,7 @@ open AstUtils
 (************************************* Base types ****************************)
 type variable = string list
 
+
 and blackbox_body = 
 | Text of string
 | Varda of Ast.expr 
@@ -35,7 +36,7 @@ and _component_item_impl =
     | MethodImpl of method_impl 
     | StateImpl of state_impl 
     | ComponentHeadersImpl of blackbox_term
-and component_item_impl = _component_item_impl placed
+and component_item_impl = (_component_item_impl plg_annotated) placed
 
 and component_impl = { target: string; name: variable; body: component_item_impl list}
 and type_impl = {name: variable; body: blackbox_term}
@@ -49,7 +50,7 @@ and _term =
     | HeadersImpl of term_impl 
     | DependenciesImpl of term_impl
 
-and term = _term placed
+and term = (_term plg_annotated) placed
 
 and program = term list
 [@@deriving show { with_path = false }]

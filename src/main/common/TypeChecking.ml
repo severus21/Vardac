@@ -365,7 +365,7 @@ and _tcheck_component_item place = function
 |Inport p -> tcheck_port p
 | State s -> tcheck_state s
 | Term t -> tcheck_term t
-and tcheck_component_item citem= map0_place _tcheck_component_item citem
+and tcheck_component_item citem= map0_place (map0_plgannot _tcheck_component_item) citem
 
 
 and _tcheck_component_dcl place = function 
@@ -417,7 +417,7 @@ and _tcheck_term place = function
 | Function f -> tcheck_function_dcl f
 | Typealias (x, body) -> Option.iter tcheck_main_type body
 | Typedef tdef -> tcheck_typedef tdef
-and tcheck_term t = map0_place _tcheck_term t
+and tcheck_term t = map0_place (map0_plgannot _tcheck_term) t
 
 and tcheck_program program = 
     List.iter tcheck_term program;

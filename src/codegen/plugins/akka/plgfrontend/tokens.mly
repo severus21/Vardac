@@ -1,0 +1,8 @@
+%token EMPTYTOKEN
+%token EOF
+%token<string> LID UID STRLITERAL
+%token EXTENDS IMPLEMENTS 
+%token OVERRIDE
+%token LPAREN RPAREN
+
+%%

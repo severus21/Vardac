@@ -1,0 +1,6 @@
+target akka;
+
+@@ extends TOTO
+impl component Dummy {}
+
+impl component TopLevel {}

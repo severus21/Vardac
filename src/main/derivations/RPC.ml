@@ -92,7 +92,7 @@ module Make(Args:Args) : Sig = struct
             (* TODO add annotations to restrict method concerned by rpc *)
             let rpc_methods = List.flatten (List.map (
                 function 
-                |{value=Method m} when false = (m.value.on_startup || m.value.on_destroy) -> [m] 
+                |{value={v=Method m}} when false = (m.value.on_startup || m.value.on_destroy) -> [m] 
                 |_ -> []
             ) cstruct.body) in
 
@@ -168,7 +168,7 @@ module Make(Args:Args) : Sig = struct
                     (*mt_rpc_bridge*)
                 )) in
                 let a_port = Atom.fresh (prefix^"port") in
-                let port = auto_fplace (Inport(auto_fplace ({
+                let port = auto_fplace (auto_plgannot(Inport(auto_fplace ({
                         name = a_port;
                         (*input = auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge);*)
                         expecting_st = mtype_of_st (dual _expecting_st).value;
@@ -179,7 +179,7 @@ module Make(Args:Args) : Sig = struct
                         _disable_session = false;
                         _children = [];
                         _is_intermediate = false;
-                    }, mt_port))) in
+                    }, mt_port)))) in
 
 
                 let l_selector = Atom.fresh (prefix^"label") in 
@@ -271,16 +271,16 @@ module Make(Args:Args) : Sig = struct
                 let entry = {
                     method_name = m.value.name;
                     e_call;
-                    e_call_def = auto_fplace (Typedef (auto_fplace (EventDef (e_call, List.map (function {value} -> fst value) m.value.args, ()))));
+                    e_call_def = auto_fplace (auto_plgannot(Typedef (auto_fplace (EventDef (e_call, List.map (function {value} -> fst value) m.value.args, ())))));
                     e_ret;
-                    e_ret_def = auto_fplace (Typedef (auto_fplace (EventDef (e_ret, [m.value.ret_type], ()))));
+                    e_ret_def = auto_fplace (auto_plgannot(Typedef (auto_fplace (EventDef (e_ret, [m.value.ret_type], ())))));
 
 
                     l_selector;
 
                     expecting_st = _expecting_st; 
                     port = port;
-                    callback = auto_fplace (Method callback);
+                    callback = auto_fplace (auto_plgannot(Method callback));
 
                     local_function
                 } in
@@ -324,11 +324,11 @@ module Make(Args:Args) : Sig = struct
                 map_values (function entry -> entry.e_call_def) @
                 map_values (function entry -> entry.e_ret_def) @ 
                 [
-                    auto_fplace (Typedef (auto_fplace(ProtocolDef(
+                    auto_fplace (auto_plgannot(Typedef (auto_fplace(ProtocolDef(
                         a_rpc_protocol,
                         mtype_of_st full_expecting_st.value
-                    ))));
-                    auto_fplace (Stmt let_rpc_bridge);
+                    )))));
+                    auto_fplace (auto_plgannot(Stmt let_rpc_bridge));
                 ]
                 (* N.B: Local function is not defined as a fct but inlined where need since we can not have receive inside a toplevel fct (Rewrite - at least for Akka: receive => port + async) *)
             ;
@@ -355,7 +355,7 @@ module Make(Args:Args) : Sig = struct
         in
 
         let scope_selector = function 
-            | {value=Component {value=ComponentStructure {name}}} -> cname = name
+            | {value={v=Component {value=ComponentStructure {name}}}} -> cname = name
             | _ -> false
         in
 
@@ -381,7 +381,7 @@ module Make(Args:Args) : Sig = struct
                 because using implicit is not enough, it can not breach binary fronter. 
                 A unique bridge id is given at compile time to a static RPC bridge  and partial-evaluation inline it everywhere.
             *)
-            let rpc_outport = auto_fplace (Outport (auto_fplace (
+            let rpc_outport = auto_fplace (auto_plgannot(Outport (auto_fplace (
                 { 
                     name = Hashtbl.find rpc_outports_translator caller_name;
                     protocol = mt_rpc_protocol;
@@ -389,7 +389,7 @@ module Make(Args:Args) : Sig = struct
                     (*input = auto_fplace (VarExpr a_rpc_bridge, mt_rpc_bridge);*)
                 },    
                 mtype_of_ct (TOutport mt_rpc_protocol)
-            ))) in
+            )))) in
             [
                 {cstruct with 
                     body = rpc_outport :: cstruct.body;

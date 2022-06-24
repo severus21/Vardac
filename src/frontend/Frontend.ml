@@ -59,6 +59,7 @@ let to_impl gamma gamma_types sealed_envs targets filename program =
     filename
     |> ParseImpl.read
     |> function ast -> logger#sinfo "Main impl file has been read"; ast 
+    |> dump_selected "ParseImpl" "ParseImpl" Ast_impl.show_program
     |> CookImpl.cook_program
     |> function ast -> logger#sinfo "Impl AST is built"; ast 
     |> dump_selected "Impl" "Impl" Impl.show_program

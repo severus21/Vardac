@@ -12,14 +12,14 @@ let rec reduce_component_item place : _component_item -> _component_item = funct
 | Term t -> Term ((r_term t))
 | citem -> citem
 
-and r_component_item citem : component_item = map_place (reduce_component_item) citem
+and r_component_item citem : component_item = map_place (map_plgannot(reduce_component_item)) citem
 
 and reduce_component_dcl place : _component_dcl -> _component_dcl = function  
 | ComponentAssign _ as citem -> citem 
 | ComponentStructure cdcl ->
     (* Collect contracts *)
     let collect_contracts env (x:component_item) = 
-        match x.value with
+        match x.value.v with
         | Contract c -> 
             Atom.VMap.add c.value.method_name c env 
         | _ -> env 
@@ -28,7 +28,7 @@ and reduce_component_dcl place : _component_dcl -> _component_dcl = function
 
     (* Remove contracts from body and pair method with contracts *)
     let body = List.filter_map (function (item:component_item) ->
-        match item.value with 
+        match item.value.v with 
         | Contract _ -> None 
         | Method m -> begin
             let rec aux (m: method0) = 
@@ -37,7 +37,7 @@ and reduce_component_dcl place : _component_dcl -> _component_dcl = function
                 { AstUtils.place; value = { _m with contract_opt = Some contract } }
             in
             try
-                Some { AstUtils.place; value = Method (aux m) }
+                Some {AstUtils.place; value = {plg_annotations = item.value.plg_annotations; v=Method (aux m) }}
             with Not_found ->
                 Some item 
         end
@@ -53,7 +53,7 @@ and reduce_term place : _term -> _term = function
 | Component comp -> Component (r_component_dcl comp)
 | t -> t
 
-and r_term t : term = map_place (reduce_term) t
+and r_term t : term = map_place (map_plgannot(reduce_term)) t
 
 and reduce_program (terms: IR.program) : IR.program = 
     List.map r_term terms

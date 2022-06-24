@@ -28,7 +28,7 @@ let rewrite_program program =
 
     let rewriter place = function
         | Component {place; value=ComponentStructure cstruct} -> 
-            let inports = List.filter_map (function | {value=Inport p} -> Some p |_ -> None) cstruct.body in
+            let inports = List.filter_map (function | {value={v=Inport p}} -> Some p |_ -> None) cstruct.body in
             let e_inports = List.map (function (p:port)-> 
                 e2_e (AccessExpr(
                     e2_e This,
@@ -42,7 +42,7 @@ let rewrite_program program =
                     value=ComponentStructure {
                         cstruct with
                             body = 
-                                ( auto_fplace (Method (auto_fplace ({
+                                ( auto_fplace {plg_annotations = []; v=(Method (auto_fplace ({
                                     ghost = false;
                                     annotations = [];
                                     ret_type = mtype_of_ct (TList (mtype_of_ct (TInport (mtype_of_st STBottom))));
@@ -53,7 +53,7 @@ let rewrite_program program =
                                     on_destroy = false;
                                     on_startup = false;
                                     contract_opt = None;
-                                })))) :: cstruct.body
+                                })))}) :: cstruct.body
                 }}
             ]
     in

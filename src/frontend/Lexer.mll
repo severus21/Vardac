@@ -256,6 +256,8 @@ rule entry = parse
     {SIMPLE_QUOTE}
 
 (* Placement keywords*)
+| "@@"
+    { PLG_ANNOT ((string_of_chars(aspeconeline (place lexbuf) lexbuf))) }
 | "@"
     { AT }
 
@@ -288,7 +290,7 @@ rule entry = parse
     { ocamlcomment (place lexbuf) lexbuf; entry lexbuf }
 (* Comments that should be propagated to codegen*)
 | "//"
-    { COMMENTS (LineComment (string_of_chars(aspeconelinecomment (place lexbuf) lexbuf))) }
+    { COMMENTS (LineComment (string_of_chars(aspeconeline (place lexbuf) lexbuf))) }
 | "/*"
     { COMMENTS (BlockComment (string_of_chars(aspeccomment (place lexbuf) lexbuf)))}
 | "/**"
@@ -303,13 +305,13 @@ rule entry = parse
     { perror (place lexbuf) "unexpected character: '%c'." c }
 
 
-and aspeconelinecomment p = parse
+and aspeconeline p = parse
 | newline
     { new_line lexbuf; [] }
 | eof
     { [] }
 | _ as x
-    { x::(aspeconelinecomment p lexbuf) }
+    { x::(aspeconeline p lexbuf) }
 and aspeccomment p = parse
 | "*/"
     { [] }

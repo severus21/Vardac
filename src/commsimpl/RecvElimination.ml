@@ -584,24 +584,24 @@ module Make () : Sig = struct
     let auto_fplace smth = {place = fplace; value=smth} in
     function
     | State _ as citem -> 
-        ([], []), [auto_place citem]
+        ([], []), [auto_place (auto_plgannot citem)]
     | Contract _ as citem -> 
-        ([], []), [auto_place citem] 
+        ([], []), [auto_place (auto_plgannot citem)] 
     | Method m as citem -> 
         let receive_entries, intermediate_states, intermediate_methods = rmethod0 a_registered_sessions m in
 
         (
             List.map (function (s : state) -> s.value.name) intermediate_states,
             receive_entries
-        ), (List.map (function s-> auto_fplace (State s)) intermediate_states)
-            @ (List.map (function m-> auto_fplace (Method m)) intermediate_methods)
+        ), (List.map (function s-> auto_fplace (auto_plgannot(State s))) intermediate_states)
+            @ (List.map (function m-> auto_fplace (auto_plgannot(Method m))) intermediate_methods)
     | (Inport _ as citem) | (Eport _ as citem) | (Outport _ as citem) -> 
-        ([], []), [auto_place citem]
+        ([], []), [auto_place (auto_plgannot citem)]
     | Term t -> 
-        ([], []), [auto_place (Term (rterm t))]
+        ([], []), [auto_place (auto_plgannot(Term (rterm t)))]
     | Include _ as citem -> 
-        ([], []), [auto_place citem]
-    and rcitem a_registered_sessions = map0_place (rewrite_component_item a_registered_sessions) 
+        ([], []), [auto_place (auto_plgannot citem)]
+    and rcitem a_registered_sessions = map0_place (map0_plgannot(rewrite_component_item a_registered_sessions))
 
     and rewrite_component_dcl place : _component_dcl -> _component_dcl = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
@@ -630,10 +630,10 @@ module Make () : Sig = struct
 
             Warning: needed since ports can be binded dynamically.
         *)
-        let ports = List.filter_map (function {value=Inport p } -> Some p | _ -> None) body in
-        let body_wo_ports = List.filter (function {value=Inport _ } -> false | _ -> true) body in
-        let outports = List.filter_map (function {value=Outport p} -> Some p | _ -> None) body in
-        let body_wo_ports_outports = List.filter (function {value=Outport _ } -> false | _ -> true) body_wo_ports in
+        let ports = List.filter_map (function {value={v=Inport p }} -> Some p | _ -> None) body in
+        let body_wo_ports = List.filter (function {value={v=Inport _ }} -> false | _ -> true) body in
+        let outports = List.filter_map (function {value={v=Outport p}} -> Some p | _ -> None) body in
+        let body_wo_ports_outports = List.filter (function {value={v=Outport _} } -> false | _ -> true) body_wo_ports in
 
         (* main_port_name -> list of newly created children *)
         let children = Hashtbl.create 32 in
@@ -718,8 +718,8 @@ module Make () : Sig = struct
         ) outports in
 
         let body = 
-            (List.map (function port -> {value=Inport port; place = port.place@fplace}) ports) @
-            (List.map (function port -> {value=Outport port; place = port.place@fplace}) outports) @
+            (List.map (function port -> {value=auto_plgannot(Inport port); place = port.place@fplace}) ports) @
+            (List.map (function port -> {value=auto_plgannot (Outport port); place = port.place@fplace}) outports) @
             body_wo_ports_outports in
 
         (** get_intermediate_port (session, st) 
@@ -734,7 +734,7 @@ module Make () : Sig = struct
                     FIXME Atom.builtin -> Atom.fresh to preserve binder unicity
                 *)
                 let a_intermediate_states = Atom.builtin "intermediate_states" in
-                let intermediate_states_index = auto_place(State( auto_place({ 
+                let intermediate_states_index = auto_place(auto_plgannot(State( auto_place({ 
                     ghost = false;
                     type0 = mtype_of_ct (TList(
                                 mtype_of_ct (TDict(
@@ -744,7 +744,7 @@ module Make () : Sig = struct
                     ));
                     name = a_intermediate_states;
                     body = Some (e2_e(BlockExpr(List, [])))
-                }))) in
+                })))) in
                
                 (* Registere session in case there exists other ports,
                     intermediate session are routed to intermediate_receive port 
@@ -752,7 +752,7 @@ module Make () : Sig = struct
                     TODO REFACTOR: 
                     Maybe an option is just to maintain one port and to update the callback instead of create intermediate ports
                 *)
-                let registerd_sessions = auto_place(State( auto_place({ 
+                let registerd_sessions = auto_place(auto_plgannot(State( auto_place({ 
                     ghost = false;
                     type0 = mtype_of_ct (TDict(
                         mtype_of_ft TUUID, 
@@ -760,7 +760,7 @@ module Make () : Sig = struct
                     ));
                     name = a_registered_sessions;
                     body = Some (e2_e(Block2Expr(Dict, [])))
-                }))) in
+                })))) in
 
                 body @ [intermediate_states_index; registerd_sessions]
             end
@@ -781,7 +781,7 @@ module Make () : Sig = struct
     | Typealias _ as t -> t
     | Typedef _ as t -> t
     | Derive _ as t -> t
-    and rterm term = map_place rewrite_term term
+    and rterm term = map_place (map_plgannot rewrite_term) term
 
     and rewrite_program program = 
         List.map rterm program
@@ -802,8 +802,8 @@ module Make () : Sig = struct
         (* Check: no receive in function_declaration
                 since we can not create async port to handle it (not in a component)
         *)
-        let fdcls = List.filter (function |{value=Function _} -> true |_ -> false) program in
-        let fdcls = List.map (function |{value=Function fdcl} -> fdcl.value) fdcls in
+        let fdcls = List.filter (function |{value={v=Function _}} -> true |_ -> false) program in
+        let fdcls = List.map (function |{value={v=Function fdcl}} -> fdcl.value) fdcls in
         List.iter (function (fdcl:_function_dcl) -> 
             List.iter 
                 (function stmt -> ignore (collect_expr_stmt (Some fdcl.name) Atom.Set.empty receive_selector (receive_collector "receive can not be defined into function (only inside component methods)") stmt))

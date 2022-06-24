@@ -32,6 +32,7 @@
 %token USE INLINE DUAL
 %token<Ast._comments> COMMENTS 
 %token ERR NONE OK SOME
+%token<string> PLG_ANNOT
 
 %token DEPENDENCIES IMPL HEADERS TARGET WHERE
 %token<string> BLACKBOX_BODY

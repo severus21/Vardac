@@ -607,7 +607,7 @@ and peval_component_item env place : _component_item -> env * _component_item = 
     env, State (snd(pe_state env s))
 | Term t        -> env, Term (snd(pe_term env t))
 
-and pe_component_item env: component_item -> env * component_item = map2_place (peval_component_item env)
+and pe_component_item env: component_item -> env * component_item = map2_place (map2_plgannot(peval_component_item env))
 
 and peval_component_dcl env place : _component_dcl -> env * _component_dcl = function  
 | ComponentAssign {name; value} -> env, ComponentAssign {
@@ -690,11 +690,11 @@ end
     let _, targs = List.split (List.map (pe_mtype env) targs) in
     let _, eargs = List.split (List.map (pe_expr env) eargs) in
     env, Derive {name; cargs; targs; eargs}
-and pe_term env: term -> env * term = map2_place (peval_term env)
+and pe_term env: term -> env * term = map2_place (map2_plgannot(peval_term env))
 
 and pe_terms env terms : env * IR.term list =
     let env, program = List.fold_left_map pe_term env terms in
-    env, List.filter (function |{AstUtils.value=EmptyTerm; _} -> false | _-> true) program
+    env, List.filter (function |{AstUtils.value={v=EmptyTerm; _}} -> false | _-> true) program
 
 
 let peval_program (terms: IR.program) : IR.program = 

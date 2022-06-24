@@ -117,20 +117,20 @@ let rec st_branch_of mt_st branch_label =
 
 let get_onstartup (schema : component_structure) : method0 option= 
     Option.map 
-        (function {value=Method m} -> m) 
+        (function {value={v=Method m}} -> m) 
         (List.find_opt 
-            (function | {value=Method m} -> m.value.on_startup | _ -> false) schema.body
+            (function | {value={v=Method m}} -> m.value.on_startup | _ -> false) schema.body
         )
 
 let replace_onstartup (schema : component_structure) onstartup =
     let flag = ref false in
 
-    let item = {place=onstartup.place; value= Method onstartup} in
+    let item = {place=onstartup.place; value= {plg_annotations = []; v=Method onstartup}} in
 
     let body = 
         List.map 
         (function 
-            | {value=Method m} when m.value.on_startup -> 
+            | {value={v=Method m}} when m.value.on_startup -> 
                 flag := true;
                 item 
             | citem -> citem 
