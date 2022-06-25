@@ -127,10 +127,10 @@ module Make (Arg: sig val target:Target.target end) = struct
     (* XXXX *)
 
     type items_grps = { 
-        methods:    S.method0 list; 
+        methods:    (S.method0 plg_annotated) list; 
         eventdefs:  S.typedef list;
         states:     S.state list; 
-        nested:     S.component_dcl list; 
+        nested:     (S.component_dcl plg_annotated) list; 
         ports:      S.port list;
         eports:     S.eport list;
         outports:   S.outport list;
@@ -153,13 +153,13 @@ module Make (Arg: sig val target:Target.target end) = struct
         let dispatch grp (citem: S.component_item) = match citem.value.v with
             | S.Contract _  -> raise (Core.Error.PlacedDeadbranchError  (citem.place, "Contract term should have been remove from AST by the cook pass and binded to a method"))
             | S.Include _   -> Core.Error.perror citem.place "Include is not yet supported in Akka plg"
-            | S.Method  m   -> {grp with methods=m::grp.methods}
+            | S.Method  m   -> {grp with methods={v=m; plg_annotations=citem.value.plg_annotations}::grp.methods}
             | S.State f     -> {grp with states=f::grp.states}
             | S.Inport p    -> {grp with ports=p::grp.ports}
             | S.Eport p     -> {grp with eports=p::grp.eports}
             | S.Outport p   -> {grp with outports=p::grp.outports}
             (* Shallow search of Typealias, FIXME do we need deep search ?*)
-            | S.Term {place; value={v=S.Component cdcl}} -> {grp with nested=cdcl::grp.nested}
+            | S.Term {place; value={v=S.Component cdcl; plg_annotations}} -> {grp with nested={v=cdcl;plg_annotations = plg_annotations@citem.value.plg_annotations}::grp.nested}
             | S.Term {place; value={v=S.Typedef ({value=EventDef _;_} as edef)}} -> {grp with eventdefs=edef::grp.eventdefs}
             | S.Term t      -> {grp with others=t::grp.others}
         in
@@ -950,8 +950,16 @@ module Make (Arg: sig val target:Target.target end) = struct
         methods
     and fcontract actor_name (method0 : T.method0) : S.contract -> T.method0 list = function m -> finish_contract m.place method0 m.value
         
-    and finish_method place actor_name (m0 : S._method0) : T.method0 list = 
+    and finish_method actor_name plg_annotations place (m0 : S._method0) : T.method0 list = 
         assert( false = m0.on_destroy); (* TODO not yet supported*)
+
+        let decorators, annotations = List.split (List.map (map0_place (function place -> function
+            | T.AOverride ->  [T.Override], []
+            | T.AExtends _ | T.AImplements _ -> Error.perror place "extends or implements plg_annotations are not supported for [target=akka] methods"
+        )) plg_annotations) in
+        let decorators = List.flatten decorators in
+        let annotations = List.flatten annotations in
+
         let body = match m0.body with
             | S.AbstractImpl stmts -> T.AbstractImpl (List.map fstmt stmts)
             | S.BBImpl body -> T.BBImpl (fbbterm body)
@@ -960,8 +968,8 @@ module Make (Arg: sig val target:Target.target end) = struct
         let new_method : T.method0 = {
             place;
             value = { 
-                decorators      = []; 
-                annotations     = [ T.Visibility T.Public ]; 
+                decorators      = decorators; 
+                annotations     = [ T.Visibility T.Public ] @ annotations; 
                 v = {
                     ret_type        = fmtype m0.ret_type;
                     name            = if m0.on_startup then actor_name else m0.name;
@@ -978,8 +986,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             | None -> [new_method]
             | Some contract -> fcontract actor_name new_method contract 
         end
-    and fmethod actor_name : S.method0 -> T.method0 list = function m -> finish_method m.place actor_name m.value
-
+    and fmethod actor_name {v; plg_annotations} = map0_place (finish_method actor_name (fplgannot plg_annotations)) v
     and finish_bbterm place {S.language; body} = 
     {
         T.language;
@@ -991,6 +998,20 @@ module Make (Arg: sig val target:Target.target end) = struct
     }
     and fbbterm bbterm: T.blackbox_term = (map_place finish_bbterm) bbterm
 
+    and finish_plgannot_component  a plg_annotations =
+        let a, res = List.fold_left_map (fun (a:T.actor) -> map0_place (function place -> function
+            | T.AOverride -> Error.perror place "Component can not be overrided !"
+            | AExtends x ->
+                {a with 
+                value = {a.value with T.extended_types = (auto_fplace (T.Atomic x))::a.value.extended_types}},  ([], [])
+            | AImplements x ->
+                {a with 
+                value = {a.value with extended_types = (auto_fplace (T.Atomic x))::a.value.implemented_types}}, ([],[])
+        )) a plg_annotations in
+        let (annotations, decorators) = List.split res in
+        let annotations = List.flatten annotations in
+        let decorators = List.flatten decorators in
+        a, annotations, decorators
 
 
     and finish_component_dcl place : S._component_dcl -> T.actor list = function
@@ -1716,18 +1737,18 @@ module Make (Arg: sig val target:Target.target end) = struct
                 states;
                 events;
                 nested_items= List.map 
-                    (function (x: T.actor) -> { 
+                    (function {plg_annotations; v=x}-> 
+                        let x, annotations, decorators = finish_plgannot_component x (fplgannot plg_annotations) in
+
+                        { 
                         place = x.place; 
                         value={ 
-                            T.annotations=[ T.Visibility T.Public ];
-                            decorators= [];
-                            v = T.Actor {
-                                place=x.place; 
-                                value=x.value
-                            }
+                            T.annotations=annotations@[ T.Visibility T.Public ];
+                            decorators= decorators;
+                            v = T.Actor x 
                         }
                     })
-                    (List.flatten (List.map fcdcl grp_items.nested)
+                    (List.flatten (List.map (function {v; plg_annotations} -> List.map (function y -> {v=y; plg_annotations}) (fcdcl v)) grp_items.nested)
                 ); 
                 static_items = List.flatten (List.map fterm grp_items.others); 
                 receiver = receiver
@@ -1791,18 +1812,7 @@ module Make (Arg: sig val target:Target.target end) = struct
     }]
     | S.Component cdcl ->
         List.map (function a -> 
-            let a, res = List.fold_left_map (fun (a:T.actor) -> map0_place (function place -> function
-                | T.AOverride -> Error.perror place "Component can not be overrided !"
-                | AExtends x ->
-                    {a with 
-                    value = {a.value with T.extended_types = (auto_fplace (T.Atomic x))::a.value.extended_types}},  ([], [])
-                | AImplements x ->
-                    {a with 
-                    value = {a.value with extended_types = (auto_fplace (T.Atomic x))::a.value.implemented_types}}, ([],[])
-            )) a plg_annotations in
-            let (annotations, decorators) = List.split res in
-            let annotations = List.flatten annotations in
-            let decorators = List.flatten decorators in
+            let a, annotations, decorators = finish_plgannot_component a plg_annotations in
 
             {
                 place=a.place; 
@@ -2100,7 +2110,12 @@ module Make (Arg: sig val target:Target.target end) = struct
             }
         }]
 
-    and fterm : S.term -> T.term list = function t -> finish_term t.place (List.flatten(List.map Plgfrontend.Parse.parse t.value.plg_annotations)) t.value.v
+    and fterm : S.term -> T.term list = function t -> finish_term t.place (fplgannot t.value.plg_annotations) t.value.v
+
+    and fplgannot plg_annotations = 
+        plg_annotations
+        |> List.map Plgfrontend.Parse.parse
+        |> List.flatten
 
     let cstate = ref (empty_cstate ())
 
