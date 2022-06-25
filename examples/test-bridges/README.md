@@ -1,6 +1,6 @@
 1. Generate code
     ```bash
-    make run -- compile --places examples/test-bridges/places.yml --targets examples/test-bridges/targets.yml --filename examples/test-bridges/test.spec --impl examples/test-bridges/test.impl --provenance 0
+    make run -- compile --places examples/test-bridges/places.yml --targets examples/test-bridges/targets.yml --filename examples/test-bridges/test.varch --impl examples/test-bridges/test.vimpl --provenance 0
     ```
 1. ```1> cd compiler-build/akka```
 1. Build Varda targets

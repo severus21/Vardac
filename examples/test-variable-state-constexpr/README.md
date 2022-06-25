@@ -1,7 +1,7 @@
 
 1. Generate code
     ```bash
-    1> make run -- compile --places examples/test-grpc/places.yml --targets examples/test-grpc/targets.yml --filename examples/test-grpc/test.spec --impl examples/test-grpc/test.impl --provenance 0
+    1> make run -- compile --places examples/test-grpc/places.yml --targets examples/test-grpc/targets.yml --filename examples/test-grpc/test.varch --impl examples/test-grpc/test.vimpl --provenance 0
     ```
 1. ```1,2,3> cd compiler-build/akka```
 1. Build Varda targets

@@ -1,1 +1,1 @@
-au BufRead,BufNewFile *.spec set filetype=aspeclg
+au BufRead,BufNewFile *.varch set filetype=aspeclg

@@ -19,7 +19,7 @@
                     "aspec"
                 ],
                 "extensions": [
-                    ".spec"
+                    ".varch"
                 ],
                 "configuration": "./language-configuration.json"
             },
@@ -30,7 +30,7 @@
                     "impl"
                 ],
                 "extensions": [
-                    ".impl"
+                    ".vimpl"
                 ],
                 "configuration": "./language-configuration.json"
             }

@@ -187,7 +187,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         )
 
         | S.TVar x ->  begin
-            (* Remove type alias introduced by *.impl if any *)
+            (* Remove type alias introduced by *.vimpl if any *)
             match Hashtbl.find_opt typealias x with
             | None ->
                 if Atom.is_builtin x then 

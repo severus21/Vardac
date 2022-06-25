@@ -4,7 +4,7 @@ Scenario
 
 1. Generate code
     ```bash
-    1> make run -- compile --places examples/test-plgannot/places.yml --targets examples/test-plgannot/targets.yml --filename examples/test-plgannot/test.spec --impl examples/test-plgannot/test.impl --provenance 0
+    1> make run -- compile --places examples/test-plgannot/places.yml --targets examples/test-plgannot/targets.yml --filename examples/test-plgannot/test.varch --impl examples/test-plgannot/test.vimpl --provenance 0
     ```
 1. Check that generated code is well-formed
     ```1> ./examples/test-plgannot/is_well_formed.py ```

@@ -11,7 +11,7 @@ BENCHMARKS = [
     # Mono jvm
     Benchmark(
         "simpl-com-varda-one-jvm",
-        VardaBuilder("simpl-com-varda-one-jvm", "benchmarks/bench-simpl-com/varda", "dune exec --profile release -- vardac compile --places benchmarks/bench-simpl-com/varda/places.yml --targets benchmarks/bench-simpl-com/varda/targets.yml --filename benchmarks/bench-simpl-com/varda/bench.spec --impl benchmarks/bench-simpl-com/varda/bench.impl --provenance 0 && cd compiler-build/akka && sed -i 's/DEBUG/INFO/g' src/main/resources/logback.xml && make", Path(os.getcwd()).absolute()),
+        VardaBuilder("simpl-com-varda-one-jvm", "benchmarks/bench-simpl-com/varda", "dune exec --profile release -- vardac compile --places benchmarks/bench-simpl-com/varda/places.yml --targets benchmarks/bench-simpl-com/varda/targets.yml --filename benchmarks/bench-simpl-com/varda/bench.varch --impl benchmarks/bench-simpl-com/varda/bench.vimpl --provenance 0 && cd compiler-build/akka && sed -i 's/DEBUG/INFO/g' src/main/resources/logback.xml && make", Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
             "simpl-com-varda-one-jvm",
             "java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB", 

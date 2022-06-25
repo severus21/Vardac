@@ -20,8 +20,8 @@ open OUnit2
 
 (*  Examples/
         examples1/
-            main.spec main.impl targets.yml places.yml
-            bbla/other*.spec bbla/other*.impl
+            main.varch main.vimpl targets.yml places.yml
+            bbla/other*.varch bbla/other*.impl
 *)
 
 let find_examples f = 
@@ -33,8 +33,8 @@ let collect_examples f =
     List.map ( function dirname ->
         Printf.fprintf stdout "Loading example %s\n" dirname;
         Filename.basename dirname,
-        (let [f] = Core.Utils.scandir dirname ".spec" in f),
-        (let [f] = Core.Utils.scandir dirname ".impl" in f),
+        (let [f] = Core.Utils.scandir dirname ".varch" in f),
+        (let [f] = Core.Utils.scandir dirname ".vimpl" in f),
         Filename.concat dirname "targets.yml",
         Filename.concat dirname "places.yml",
         Filename.concat dirname "is_well_formed.py"

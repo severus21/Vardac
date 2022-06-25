@@ -6,9 +6,9 @@ module IRCParams : (AstUtils.IRParams with type Variable.t = Atom.t)= struct
 end 
 
 type ir_target_name = 
-    | UserDefined (* i.e. defined in *.impl *)
+    | UserDefined (* i.e. defined in *.vimpl *)
     | SameAs of Atom.atom (* 
-    B.target_name = SameAs A means that when A load from *.impl B will be completed as well 
+    B.target_name = SameAs A means that when A load from *.vimpl B will be completed as well 
     SameAs can not be chained -> PairImpl issue a "Target should have been assign to .."
     *)
 and ir_state_dcl_body = expr option 

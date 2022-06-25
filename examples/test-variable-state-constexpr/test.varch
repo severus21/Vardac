@@ -1,4 +1,4 @@
-int global = 43; //Error if used in *.impl since it is compiled away before (peval)
+int global = 43; //Error if used in *.vimpl since it is compiled away before (peval)
 
 component Dummy {
     string token = "static_token";

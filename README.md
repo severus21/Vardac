@@ -59,31 +59,31 @@ make distclean # Same as clean, but also removes library checking files.
 
 * message-passing with simple varda (only port and continuation) 
 ```bash
-make run -- compile --places examples/00-ping-pong-simpl-varda/places.yml --targets examples/00-ping-pong-simpl-varda/targets.yml --filename examples/00-ping-pong-simpl-varda/pingpong.spec --impl examples/00-ping-pong-simpl-varda/pingpong.impl --provenance 0
+make run -- compile --places examples/00-ping-pong-simpl-varda/places.yml --targets examples/00-ping-pong-simpl-varda/targets.yml --filename examples/00-ping-pong-simpl-varda/pingpong.varch --impl examples/00-ping-pong-simpl-varda/pingpong.vimpl --provenance 0
 ```
 * message-passing encoding
 ```bash
-make run -- compile --places examples/0-ping-pong/places.yml --targets examples/0-ping-pong/targets.yml --filename examples/0-ping-pong/pingpong.spec --impl examples/0-ping-pong/pingpong.impl --provenance 0
+make run -- compile --places examples/0-ping-pong/places.yml --targets examples/0-ping-pong/targets.yml --filename examples/0-ping-pong/pingpong.varch --impl examples/0-ping-pong/pingpong.vimpl --provenance 0
 ```
 * message-passing with interception 
 ```bash
-make run -- compile --places examples/2-ping-pong-intercept/places.yml --targets examples/2-ping-pong-intercept/targets.yml --filename examples/2-ping-pong-intercept/pingpong.spec --impl examples/2-ping-pong-intercept/pingpong.impl --provenance 0
+make run -- compile --places examples/2-ping-pong-intercept/places.yml --targets examples/2-ping-pong-intercept/targets.yml --filename examples/2-ping-pong-intercept/pingpong.varch --impl examples/2-ping-pong-intercept/pingpong.vimpl --provenance 0
 ```
 * counter
 ```bash
-make run -- compile --places examples/1-counter/places.yml --targets examples/1-counter/targets.yml --filename examples/1-counter/counter.spec --impl examples/1-counter/counter.impl --provenance 0
+make run -- compile --places examples/1-counter/places.yml --targets examples/1-counter/targets.yml --filename examples/1-counter/counter.varch --impl examples/1-counter/counter.vimpl --provenance 0
 ```
 * minimal-kv
 ```bash
-make run -- compile --places examples/3-minimal-simple-kv/places.yml --targets examples/3-minimal-simple-kv/targets.yml --filename examples/3-minimal-simple-kv/kv.spec --impl examples/3-minimal-simple-kv/kv.impl --provenance 0
+make run -- compile --places examples/3-minimal-simple-kv/places.yml --targets examples/3-minimal-simple-kv/targets.yml --filename examples/3-minimal-simple-kv/kv.varch --impl examples/3-minimal-simple-kv/kv.vimpl --provenance 0
 ```
 * s-kv
 ```bash
-make run -- compile --places examples/4-sharded-kv/places.yml --targets examples/4-sharded-kv/targets.yml --filename examples/4-sharded-kv/kv.spec --impl examples/4-sharded-kv/kv.impl --provenance 0
+make run -- compile --places examples/4-sharded-kv/places.yml --targets examples/4-sharded-kv/targets.yml --filename examples/4-sharded-kv/kv.varch --impl examples/4-sharded-kv/kv.vimpl --provenance 0
 ```
 * kvs
 ```bash
-make run -- compile --places examples/kvs/places.yml --targets examples/kvs/targets.yml --filename examples/kvs/kvs.spec --impl examples/kvs/kvs.impl --provenance 0
+make run -- compile --places examples/kvs/places.yml --targets examples/kvs/targets.yml --filename examples/kvs/kvs.varch --impl examples/kvs/kvs.vimpl --provenance 0
 ```
 
 ```

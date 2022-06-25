@@ -73,8 +73,8 @@ let typedef_suite () = [
     ("type definition st choice", "type test = &{l_get: !Msg. };");
     ("type definition st select", "type test = §{l_get: !Msg. };");
     ("type definition st rec", "type test = µ x. !int ?float - x;");
-    ("type definition st protocol", Core.Utils.file_get_contents ( dataset_lookup_file "protocol1.spec"));
-    ("type definition st protocol with constraints", Core.Utils.file_get_contents ( dataset_lookup_file "protocol1_with_constraints.spec"));
+    ("type definition st protocol", Core.Utils.file_get_contents ( dataset_lookup_file "protocol1.vspec"));
+    ("type definition st protocol with constraints", Core.Utils.file_get_contents ( dataset_lookup_file "protocol1_with_constraints.vspec"));
 ]
 
 let typedef_error_suite () = [
@@ -141,11 +141,11 @@ let stmt_error_suite () = [
 (************************* Parsing - component dcl *********************)
 let cdcl_suite () = [
     ("componentdcl base", "component TransactionManager {}");
-    ("componentdcl abstract method", Core.Utils.file_get_contents ( dataset_lookup_file "cdcl_abstract_method.spec"));
-    ("componentdcl method", Core.Utils.file_get_contents (dataset_lookup_file  "cdcl_method.spec"));
-    ("componentdcl port", Core.Utils.file_get_contents (dataset_lookup_file  "cdcl_port.spec"));
-    ("componentdcl state", Core.Utils.file_get_contents (dataset_lookup_file "cdcl_state.spec"));
-    ("componentdcl contract", Core.Utils.file_get_contents (dataset_lookup_file "cdcl_contract.spec"));
+    ("componentdcl abstract method", Core.Utils.file_get_contents ( dataset_lookup_file "cdcl_abstract_method.vspec"));
+    ("componentdcl method", Core.Utils.file_get_contents (dataset_lookup_file  "cdcl_method.vspec"));
+    ("componentdcl port", Core.Utils.file_get_contents (dataset_lookup_file  "cdcl_port.vspec"));
+    ("componentdcl state", Core.Utils.file_get_contents (dataset_lookup_file "cdcl_state.vspec"));
+    ("componentdcl contract", Core.Utils.file_get_contents (dataset_lookup_file "cdcl_contract.vspec"));
 ]
 
 let cdcl_error_suite () = [
@@ -154,7 +154,7 @@ let cdcl_error_suite () = [
 (************************* Parsing - architecture **********************)
 (************************* Parsing - component expr ********************)
 let cexpr_suite () = [
-    ("cexpr base", Core.Utils.file_get_contents (dataset_lookup_file "cexpr_base.spec"));
+    ("cexpr base", Core.Utils.file_get_contents (dataset_lookup_file "cexpr_base.vspec"));
 ]
 let cexpr_error_suite () = [
 

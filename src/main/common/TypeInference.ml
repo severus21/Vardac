@@ -535,7 +535,7 @@ module Make () = struct
                     | _ -> Error.perror place "Function [%s] expect %d args, not %d" (show_expr e) ((List.length es)-depth) (List.length es)
                 in
                 
-                (* Debug - at this point there is no call(..) that return lambda in kv.spec *)
+                (* Debug - at this point there is no call(..) that return lambda in kv.varch *)
                 assert( 
                     match (ret_typeof (List.length es) (snd e.value)).value with
                     | CType{value=TArrow _} -> 

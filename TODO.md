@@ -53,7 +53,7 @@ Semantics
 | detecting inconsistency from mixing multiple consistency layer       | :x: | see. MixT and CISE
 | --- | --- | --- | 
 | **builtin**   |
-| set/map implem should be defined in *.impl file not forced during encoding    | :question:
+| set/map implem should be defined in *.vimpl file not forced during encoding    | :question:
 | _0_, ..., _n_ should be rewritten to smth else to access tuple elmts | :x: | last ``_`` because variables ending with a [0-9] can be confused
 | --- | --- | --- | 
 | **verif: detect unwanted (unsafe) composition** |
@@ -67,7 +67,7 @@ Semantics
 | variable representation = each binder introduce an unique name |
 | recv transformation for async (+garbage collection) | :x:
 | place management and remote instanciation | :x:
-| equality in *.spec is structural equality | :x:
+| equality in *.varch is structural equality | :x:
 | write the akka-encoding.md from sources   | :x:
 | implicit elimination and why              | :x:  | 
 | derivation definition/elimination     | :x: | diff with annotations + derivation are statically reduced + diff with metaprogrammation + deriviation are not location specific
