@@ -1,6 +1,10 @@
 Compspec, a compiler for Varda 
 =====================================================================
 
+[![pipeline status](https://gitlab.lip6.fr/lprosperi/Lg4DC/badges/master/pipeline.svg)](https://gitlab.lip6.fr/lprosperi/Lg4DC/-/commits/master)
+[![coverage report](https://gitlab.lip6.fr/lprosperi/Lg4DC/badges/master/coverage.svg)](https://gitlab.lip6.fr/lprosperi/Lg4DC/-/commits/master)
+
+
 [User Manual](XXXX)
 -------------
 
