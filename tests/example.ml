@@ -1,10 +1,11 @@
 (*
     Pick each examples and run the various functional testing (one per stage):
-        - should be parsed without errors ( r*.spec, *.impl, targets.yml and places.yml)
+        - should be parsed without errors ( *.spec, *.impl, targets.yml and places.yml)
         - should be type checked without errors
         - (future work) should be verified without errors (*TODO FIXME*)
         - the glue should be generated without errors
-        - the glue should compiles without errors
+        - the (optional) well-formedness check of the glue should be run without errors (is_well_formed.py)
+        - the glue should compiled without errors
         - the (generated) tests of the glue should be run without errors
         - (future work) the glue should run without errors -> run docker testbench (*TODO FIXME*)
 
@@ -35,17 +36,25 @@ let collect_examples f =
         (let [f] = Core.Utils.scandir dirname ".spec" in f),
         (let [f] = Core.Utils.scandir dirname ".impl" in f),
         Filename.concat dirname "targets.yml",
-        Filename.concat dirname "places.yml"
+        Filename.concat dirname "places.yml",
+        Filename.concat dirname "is_well_formed.py"
     ) (find_examples f)
 
 let examples () = collect_examples Core.Testutils.example_location
 
 (* Generate tests for an example *)
-let testsfrom (name, spec_file, impl_file, targets_file, places_file) : OUnit2.test = 
+let testsfrom (name, spec_file, impl_file, targets_file, places_file, is_well_formed_file) : OUnit2.test = 
     name >::: [ 
     ((Printf.sprintf "Glue generation of %s" name) >:: function ctx -> begin 
         let build_dir = OUnit2.bracket_tmpdir ctx in
         ignore (Compspeclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
+    end);
+    ((Printf.sprintf "Glue well-formdness tests of %s" name) >:: function ctx -> begin 
+        let build_dir = OUnit2.bracket_tmpdir ctx in
+        ignore (Compspeclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
+        let code = Sys.command (Printf.sprintf "python3 %s %s 2> /tmp/toto-%s"  is_well_formed_file build_dir name) in
+        Printf.fprintf stdout "Code %d\n" code;
+        assert_equal 0 code 
     end);
     ((Printf.sprintf "Glue compilation of %s" name) >:: function ctx -> begin 
         let build_dir = OUnit2.bracket_tmpdir ctx in

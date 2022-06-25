@@ -2,10 +2,10 @@ open OUnit2
 
 let () =
     let tests = [
-        Api.unittests ();
+        (*Api.unittests ();*)
         
         (* Inner tests*)
-        Frontend.unittests ();
+        (*Frontend.unittests ();*)
 
         (* External/functional tests*)
         Example.unittests ();
