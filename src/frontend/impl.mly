@@ -70,8 +70,10 @@ any_type_impl:
     { {name; body} }
 
 any_core_method_impl_:
-| ret_type=any_type name=any_var LPAREN args=right_flexible_list(COMMA, any_param) RPAREN body = any_blackbox_term 
-{ MethodImpl {ret_type; name; args; body}}
+| IMPL METHOD name=any_var body = any_blackbox_term 
+{ MethodImpl {name; body = Some(body)}}
+| IMPL METHOD name=any_var SEMICOLON 
+{ MethodImpl {name; body = None}}
 %inline any_core_method_impl:
   t = placed(any_core_method_impl_)
     {t}

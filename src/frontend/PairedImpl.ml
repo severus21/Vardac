@@ -192,32 +192,34 @@ module Make (Arg: ArgSig) = struct
 
     and paired_method0 parents place : S2._method0 -> plg_annotation list * T._method0 = function
     |{ annotations; ghost; ret_type; name; args; body=[]; contract_opt; on_destroy; on_startup} -> begin
-        try 
-            let key = List.rev ((Atom.hint name)::parents) in 
-            mark_method key;
-            let m_impl = Hashtbl.find method_impls key in
-            let bb_impl = cook_bb_term name m_impl.value.body in
-            let plg_annots = Hashtbl.find plgannotations key in
+        let key = List.rev ((Atom.hint name)::parents) in 
+        let plg_annots = match Hashtbl.find_opt plgannotations key with | None -> [] |Some l -> l in
+        mark_method key;
+
+        match Hashtbl.find_opt method_impls key with
+        | Some m_impl when m_impl.value.body <> None -> 
+            let bb_impl = cook_bb_term name (Option.get m_impl.value.body) in
 
             plg_annots, { annotations; ghost; ret_type; name; args; body= T.BBImpl bb_impl; contract_opt; on_destroy; on_startup }
-        with Not_found -> begin
+        | _ -> begin
             (* Methods that accept an empty body *)
             match ret_type with
             | {value=S2.CType{value=S2.TFlatType AstUtils.TVoid;}} ->
-                [], { annotations; ghost; ret_type; name; args; body= T.AbstractImpl []; contract_opt; on_destroy; on_startup } 
+                plg_annots, { annotations; ghost; ret_type; name; args; body= T.AbstractImpl []; contract_opt; on_destroy; on_startup } 
             | _ when on_destroy || on_startup -> 
-                [], { annotations; ghost; ret_type; name; args; body= T.AbstractImpl []; contract_opt; on_destroy; on_startup } 
+                plg_annots, { annotations; ghost; ret_type; name; args; body= T.AbstractImpl []; contract_opt; on_destroy; on_startup } 
             | _ -> Error.perror place "Method \"%s\" has no implementation (neither abstract nor blackbox)" (Atom.hint name) 
         end
     end
     |{ annotations; ghost; ret_type; name; args; body= body; contract_opt; on_destroy; on_startup} -> begin 
-        try 
-            let key = List.rev ((Atom.hint name)::parents) in 
-            mark_method key;
-            let bb_impl = Hashtbl.find method_impls key in
-            let plg_annots = Hashtbl.find plgannotations key in
-            Error.perror (place@bb_impl.place) "Method has two implementations : one abstract and one blackbox"
-        with | Not_found -> [], { annotations; ghost; ret_type; name; args; body= T.AbstractImpl body; contract_opt; on_destroy; on_startup }
+        let key = List.rev ((Atom.hint name)::parents) in 
+        let plg_annots = match Hashtbl.find_opt plgannotations key with | None -> [] |Some l -> l in
+        mark_method key;
+
+        match Hashtbl.find_opt method_impls key with
+        | Some m_impl when m_impl.value.body <> None -> 
+            Error.perror (place@m_impl.place) "Method has two implementations : one abstract and one blackbox"
+        | _ -> plg_annots, { annotations; ghost; ret_type; name; args; body= T.AbstractImpl body; contract_opt; on_destroy; on_startup }
     end
     and umethod0 parents: S2.method0 -> plg_annotation list * T.method0 = map2_place (paired_method0 parents)
 

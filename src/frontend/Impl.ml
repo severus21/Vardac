@@ -21,7 +21,7 @@ and method_impl = {
         (*ret_type: Ast.main_type;*)
         name: variable; 
         (*args: Ast.param list;*)
-        body: blackbox_term;
+        body: blackbox_term option;
     }
 and function_impl = {
         name: variable;

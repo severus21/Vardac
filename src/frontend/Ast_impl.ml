@@ -7,10 +7,8 @@ type variable = string list
 and blackbox_term = Impl.blackbox_term
 
 and method_impl = {
-        ret_type: Ast.main_type; 
         name: variable; 
-        args: Ast.param list; 
-        body: blackbox_term;
+        body: blackbox_term option; (* None => juste adding plg_annotations to the method *)
     }
 and state_impl = {
         type0: Ast.main_type;
