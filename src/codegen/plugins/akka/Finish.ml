@@ -1132,7 +1132,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 let _p : S._port = fst p.value in
                 let t_msg, t_cont, t_ret = match snd _p.callback.value with
                     | {value=S.CType {value=S.TArrow (t_msg, {value=S.CType{value=S.TArrow (t_cont, t_ret)}})}} -> t_msg, t_cont, t_ret 
-                    | _ -> raise (Error.PlacedDeadbranchError ( _p.callback.place, "Callback is ill-typed"))
+                    | mt -> raise (Error.PlacedDeadbranchError ( _p.callback.place, (Printf.sprintf "Callback is ill-typed %s" (S.show_main_type mt))))
                 in
 
                 auto_place {   

@@ -15,7 +15,7 @@ impl component Dummy {
     =}
 
     (* binding for the get method *)
-    void _get () java:{=
+    impl method _get java:{=
         // Open a socket to the local redis backend
         JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%this.docker_port%}});
         // Perform the GET request on key [k]
@@ -27,7 +27,7 @@ impl component Dummy {
         }
     =}
 
-    void _put () java:{=
+    impl method _put java:{=
         // Open a socket to the local redis backend
         JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%this.docker_port%}});
         // Perform the PUT request on key [k]
