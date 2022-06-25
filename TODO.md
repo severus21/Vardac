@@ -2,13 +2,7 @@
 
 ## Setup/Working environment
 * Setup CI
-* Setup logging functionalities
-* Unify error handling
 * Test coverage + fuzzing coverage + gadt
-
-## Code structure
-* Load plugin from target files
-
 
 ## Features
 
@@ -26,44 +20,35 @@ Semantics
 
 | Name                      | Status    | Plan   |
 | ---                       | ---       | ---           |
-| [first-class time value](#time-value)    | :question: |
-| signature construct for component schema | :x: |
-| [interface with existing code](#interface-existing-code) | :x: |
-| high order session                        | :x: | discuss with Gio
-| recursive session type                    | :scroll: |
+| [first-class time value](#time-value)                 | :question: |
+| signature construct for component schema              | :x: |
+| high order session                                    | :x: | discuss with Gio
+| recursive session type                                | :scroll: |
 | --- | --- | --- | 
-| **programmin model**                       |
-| re-think the place of bridge              | :x:      | broadcast bridge, tls bridge, ...
-| bridge with multiple activation at the right/left | :x: |
-| introduce dynamic port                    | :x:
-| monitoring activation like in Actor model | :question: |
-| communication are forbidden in contract/ghost/pattern of match | :x: 
-| define pattern matching: pattern + encoding in Java | :x:| 
-| separate port definition from port biding | :question: |
+| **programmin model**                                  |
+| re-think the place of bridge                          | :x:      | broadcast bridge, tls bridge, ...
+| introduce dynamic port                                | :x:
+| monitoring activation like in Actor model             | :question: |
+| communication are forbidden in contract/ghost         | :x: 
+| define pattern matching: pattern + encoding in Java   | :x:| 
 | **type system** |
-| remove vplace info from place type or use subtyping based on type hierarchy ? | :question:
 | progress and preservation proof
 | add subtyping for bridge
 | rewrite type inference(reconstruction) with constraints (see 3.2.2)
 | **compiler**
-| specify what pass to dump | :x:
-| get ride of recv second arg since it is just used to infer ??? | :question: |
-| rename *constraint* to *guard*    | :question:
-| timer operation only support *<* *>* not *=* (no physical sens)
-| add parsing priority to support x<5 && x>1 <=> (x<5) && (x>1) | :x:
-| variable ``.*[0-9]$`` right trailing number are erased there fore ``a`` and ``a1`` became the same -> is it true ??? if so fix it | :question:
-| rename shallow_scan in TypeInference.ml to collectsignature or smth meaning full | :x:
-| rewrite 
+| rename *constraint* to *guard*                                    | :question:
+| timer operation only support *<* *>* not *=* (no physical sens)   | :x:
+| add parsing priority to support x<5 && x>1 <=> (x<5) && (x>1)     | :x:
 | direct method call a::method() works only for RPC and inlined (is it working ????????????
-| what if we have two kind of target for activation : process and thread / thread and actor / container and pods / thread + container + pod | :question:
-| metadata for protocol guard | :x:
+| what if we have two kind of target for activation                 | :question:
+| metadata for protocol guard                                       | :x:
 | **garbage collection**        |
 | intermediate_state (i.e.) recv        | :anger:
 | --- | --- | --- | 
-| **static analysis**                       |
-| detect un handle msg (i.e. missing port)  | :x: | like in P
-| **distributed data** |
-| expose (runtime) distributed data service   | :x:  | Akka ShareData, what is done by Benoit, an external service
+| **static analysis**                                               |
+| detect un handle msg (i.e. missing port)                          | :x: | like in P
+| **distributed data**                                              |
+| expose (runtime) distributed data service                         | :x:  | Akka ShareData, what is done by Benoit, an external service
 | adding consistency construct: consistency layer + replicas + object + view + version | :x:
 | detecting inconsistency from mixing multiple consistency layer       | :x: | see. MixT and CISE
 | --- | --- | --- | 
@@ -75,6 +60,7 @@ Semantics
 | CISE, TLA+ (see. DCal), Why3, SMT
 | concolict testing 
 | liquid type
+| observables testing of Cezara PhD student
 | **implicit elimination**
 | implicit in type guard not supported yet (and not detetected as an error) | :x:
 | **to doc/techreport**     |
@@ -89,15 +75,13 @@ Semantics
 | **Akka**  |
 | use akka blocking primitive for sleep | :x: | to avoid blocking a thread of the pool
 | is_instance only work for VarExpr arg | :x: | see Akka/misc.ml
-| custom main: args and return are not yet use for guardian creation    | :x: |
 | limitation: akka timer is not accurate |
 | **defensive programming**
 | write tests for each pass and for each features 
 | write pre/post condition for each pass
 | write functional tests
-| pass could be replaced by coq generated code | :x:
+| write fuzzing tests       | :x:
 | **tooling**
-| topology do not display subcomponent 
 
 
 technical debts
@@ -140,24 +124,7 @@ Trough:
 
 ##### gRPC
 
-* jar MainGRPCServer144 (where 144 = atom.id) -> MainGRPCServer
 * custom port for server and client, currently fixed at 8090
-* MainGrpcClient 
-    ```rust
-    >>> *.varda
-    @expose 
-    ... api_get
-    >>> (currently) MainGRPCClientXX.java
-    ... api_getYY //where YY is the id of api_get atom
-    >>> (should be) MaingGRPCClientXX.java
-    ... api_get
-    ```
-
-    two solutions: 
-
-    * MainGRPCClient -> builtin method name + unique check 
-    * or globaly add a pass to remove id if unique per context:w
-
 
 ### Java plugin
 * Handle indentation when generating the source code
