@@ -22,9 +22,9 @@
 
 (library
     (name plgfrontend)
-    (public_name compspec.codegen.plugins.akka.plgfrontend)
+    (public_name vardac.codegen.plugins.akka.plgfrontend)
     (preprocess (pps ppx_deriving.show ppx_import ppx_fields_conv))
     (modules :standard)
-    (libraries fieldslib ounit2 yaml "yaml.unix" "rresult" "fileutils" process main core builtin common compspec.codegen.plugins.akka.ast)
+    (libraries fieldslib ounit2 yaml "yaml.unix" "rresult" "fileutils" process main core builtin common vardac.codegen.plugins.akka.ast)
     (instrumentation (backend bisect_ppx))
 )

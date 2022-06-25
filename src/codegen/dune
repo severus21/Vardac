@@ -1,7 +1,7 @@
 
 (library
     (name codegen)
-    (public_name compspec.codegen)
+    (public_name vardac.codegen)
     (preprocess (pps ppx_deriving.show ppx_import))
     (modules :standard)
     (libraries ounit2 yaml easy_logging "yaml.unix" "rresult" "fileutils" process core plugins)

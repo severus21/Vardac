@@ -5,8 +5,8 @@ description: "TODO"
 maintainer: ["laurent.prosperi@inria.fr"]
 authors: ["Laurent Prosperi"]
 license: "CECILL-2.1"
-homepage: "https://github.com/severus21/compspec"
-bug-reports: "https://github.com/severus21/compspec/issues"
+homepage: "https://github.com/severus21/vardac"
+bug-reports: "https://github.com/severus21/vardac/issues"
 depends: [
   "dune" {>= "2.8"}
   "ocaml" {>= "4.11.0"}
@@ -27,4 +27,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/severus21/compspec.git"
+dev-repo: "git+https://github.com/severus21/vardac.git"

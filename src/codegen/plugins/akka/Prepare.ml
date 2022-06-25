@@ -7,7 +7,7 @@ open Misc
 open IRI
 
 let plg_name = "Akka"
-let logger = Logging.make_logger ("_1_ compspec.plg."^plg_name) Debug [];;
+let logger = Logging.make_logger ("_1_ vardac.plg."^plg_name) Debug [];;
 
 
 let fplace = (Error.forge_place ("plg."^plg_name^".PrepareIRI") 0 0) 

@@ -6,7 +6,7 @@ open Easy_logging
 open Fieldslib
 open AstUtils
 
-let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
+let logger = Logging.make_logger "_1_ vardac.frontend" Debug [];;
 
 let fplace = (Error.forge_place "Frontend.Cook" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}

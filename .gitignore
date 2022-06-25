@@ -10,7 +10,7 @@ externals/dune
 .vscode
 
 # Opam
-compspec.install
+vardac.install
 
 # Vagrant 
 ubuntu-bionic-18.04-cloudimg-console.log

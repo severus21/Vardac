@@ -7,7 +7,7 @@ open Misc
 
 (* FIXME maybe some global transformation*)
 let plg_name = "Akka"
-let logger = Logging.make_logger ("_1_ compspec.plg."^plg_name) Debug [];;
+let logger = Logging.make_logger ("_1_ vardac.plg."^plg_name) Debug [];;
 
 (* The source calculus. *)
 module S = IRI 

@@ -11,7 +11,7 @@ module S = IR
 module T = IR
 open IR
 
-let logger = Logging.make_logger "_1_ compspec.TypeInference" Debug [];;
+let logger = Logging.make_logger "_1_ vardac.TypeInference" Debug [];;
 
 let fplace = (Error.forge_place "TypeInference" 0 0)
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)

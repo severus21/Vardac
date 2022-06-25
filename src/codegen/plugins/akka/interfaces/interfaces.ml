@@ -7,7 +7,7 @@ module TMP = Plg.Interface_plugin.Make(Ast)
 open TMP
 
 include TMP.InterfaceFactory.Make(struct
-    let logger = Logging.make_logger "_1_ compspec.codegen.Akka.Interfaces" Debug [];;
+    let logger = Logging.make_logger "_1_ vardac.codegen.Akka.Interfaces" Debug [];;
 
     let plugins : (string, (module Interface_plg0)) Hashtbl.t = (Hashtbl.create 10)
 

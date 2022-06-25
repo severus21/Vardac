@@ -5,7 +5,7 @@ open Easy_logging
 open Jingoo
 
 let name = "Java"
-let logger = Logging.make_logger ("_1_ compspec.plg."^name) Debug [];;
+let logger = Logging.make_logger ("_1_ vardac.plg."^name) Debug [];;
 
 
 let failwith s = failwith "[Plg=Java] %s" s

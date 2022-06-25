@@ -3,7 +3,7 @@ open Cplugins
 
 open Easy_logging
 
-let logger = Logging.make_logger "_1_ compspec.check" Debug [];;
+let logger = Logging.make_logger "_1_ vardac.check" Debug [];;
 
 let plugins : (string, (module Plugin.Plug)) Hashtbl.t = (Hashtbl.create 10)
 

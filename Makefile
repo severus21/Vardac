@@ -1,5 +1,5 @@
 #TODO incorporate Makefile from https://github.com/Deducteam/lambdapi
-NAME = compspec
+NAME = vardac
 
 #### Compilation (binary, library and documentation) #########################
 .PHONY: all 
@@ -81,7 +81,7 @@ endif
 
 
 run: generatedune bin 
-	@dune exec --profile release -- compspec $(RUN_ARGS)
+	@dune exec --profile release -- vardac $(RUN_ARGS)
 
 #### Cleaning targets ########################################################
 

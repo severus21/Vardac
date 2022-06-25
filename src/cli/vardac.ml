@@ -3,9 +3,9 @@ open Core
 open Utils
 open Codegen
 open Easy_logging
-open Compspeclib
+open Vardaclib
 
-let logger = Logging.make_logger "_1_ compspec" Debug [Cli Debug];;
+let logger = Logging.make_logger "_1_ vardac" Debug [Cli Debug];;
 
 
 (* Parse the command line. *)

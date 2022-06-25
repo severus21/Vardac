@@ -1,11 +1,11 @@
 (library
     (name interfaces)
-    (public_name compspec.codegen.plugins.akka.interfaces)
+    (public_name vardac.codegen.plugins.akka.interfaces)
     (modules :standard)
-    (libraries dune-site ounit2 easy_logging core dynlink jingoo compspec.codegen.plg compspec.codegen.plugins.akka.ast compspec.codegen.plugins.akka.misc)
+    (libraries dune-site ounit2 easy_logging core dynlink jingoo vardac.codegen.plg vardac.codegen.plugins.akka.ast vardac.codegen.plugins.akka.misc)
     (instrumentation (backend bisect_ppx)) 
 )
 
 (generate_sites_module
  (module mysites)
- (sites compspec))
+ (sites vardac))

@@ -3,7 +3,7 @@ open Core
 open Core.AstUtils
 open Easy_logging
 
-let logger = Logging.make_logger ("_1_ compspec.plg.Java") Debug [];;
+let logger = Logging.make_logger ("_1_ vardac.plg.Java") Debug [];;
 let fplace = (Error.forge_place "Plg=Java.HumanReadable" 0 0)
 
 (* Atom.value -> already binded in the scope *)

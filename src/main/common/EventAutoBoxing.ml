@@ -6,7 +6,7 @@ open AstUtils
 open IRMisc
  
 
-let logger = Logging.make_logger "_1_ compspec.EventAutoBoxing" Debug [];;
+let logger = Logging.make_logger "_1_ vardac.EventAutoBoxing" Debug [];;
 let fplace = (Error.forge_place "EventAutoBoxing" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)

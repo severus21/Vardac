@@ -1,5 +1,5 @@
  (install
-  (section (site (compspec templates)))
+  (section (site (vardac templates)))
   (files 
    {% for location in locations %} ({{location.filename}} as {{location.filename}})
    {% endfor %}

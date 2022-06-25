@@ -5,7 +5,7 @@ open IR
 open Easy_logging
  
 
-let logger = Logging.make_logger ("_1_ compspec.Intercept") Debug [];;
+let logger = Logging.make_logger ("_1_ vardac.Intercept") Debug [];;
 
 module ContextElimination0 = ContextElimination.Make()
 module ContextElimination = Core.IRCompilationPass.Make(ContextElimination0)

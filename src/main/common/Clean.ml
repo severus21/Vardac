@@ -16,7 +16,7 @@ open IR
 open Easy_logging
  
 
-let logger = Logging.make_logger ("_1_ compspec") Debug [];;
+let logger = Logging.make_logger ("_1_ vardac") Debug [];;
 
 
 

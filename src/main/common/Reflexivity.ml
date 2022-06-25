@@ -14,7 +14,7 @@ open IR
  
 open Easy_logging
 
-let logger = Logging.make_logger ("_1_ compspec.Reflexivity") Debug [];;
+let logger = Logging.make_logger ("_1_ vardac.Reflexivity") Debug [];;
 
 let fplace = (Error.forge_place "Reflexivity" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}

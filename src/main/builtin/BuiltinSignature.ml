@@ -5,7 +5,7 @@ open Easy_logging
 
 open BuiltinTypes
 
-let logger = Logging.make_logger "_1_ compspec.Builtin.BuiltinSignature" Debug [];;
+let logger = Logging.make_logger "_1_ vardac.Builtin.BuiltinSignature" Debug [];;
 let fplace = (Error.forge_place "BuiltinSignature.*" 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
 

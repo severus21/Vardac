@@ -1,5 +1,5 @@
 (install
- (section (site (compspec test_dataset)))
+ (section (site (vardac test_dataset)))
   (files 
    {% for location in locations %} ({{location.filename}} as {{location.filename}})
    {% endfor %}

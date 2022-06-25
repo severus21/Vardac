@@ -2,7 +2,7 @@ open Ast
 open Easy_logging
 open Core
 open AstUtils
-let logger = Logging.make_logger "_1_ compspec.Frontend" Debug [];;
+let logger = Logging.make_logger "_1_ vardac.Frontend" Debug [];;
 
 let rec apair_component_item place : _component_item -> _component_item = function 
 | Term t -> Term (a_term t)

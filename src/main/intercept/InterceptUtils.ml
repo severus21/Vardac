@@ -4,7 +4,7 @@ open IR
 open Easy_logging
  
 
-let logger = Logging.make_logger ("_1_ compspec.InterceptUtils") Debug [];;
+let logger = Logging.make_logger ("_1_ vardac.InterceptUtils") Debug [];;
 
 let fplace = (Error.forge_place "InterceptUtils" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}

@@ -1,6 +1,6 @@
 (executable
  (name fuzz_me)
- (libraries crowbar compspec.core compspec.compspeclib))
+ (libraries crowbar vardac.core vardac.vardaclib))
 
 (rule
   (alias fuzz)

@@ -14,7 +14,7 @@ su vagrant && opam config env
 su vagrant && echo "test -r /home/$(whoami)/.opam/opam-init/init.sh && . /home/i$(whoami)/.opam/opam-init/init.sh > /dev/null 2> /dev/null || true" >> ~/.profile
 su vagrant && echo "source /home/$(whoami)/.profile" >> ~/.bashrc
 
-# Install packages requirements for compspec
+# Install packages requirements for vardac
 su vagrant && cd /vagrant
 su vagrant && ./requirements.sh
 

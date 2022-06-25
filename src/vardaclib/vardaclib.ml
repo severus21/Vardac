@@ -5,7 +5,7 @@ open Codegen
 open Easy_logging
 open Common
 
-let logger = Logging.make_logger "_1_ compspec" Debug [];;
+let logger = Logging.make_logger "_1_ vardac" Debug [];;
 
 let process_impl filename =
     Frontend.to_impl filename

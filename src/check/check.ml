@@ -3,7 +3,7 @@ open AstUtils
 
 open Easy_logging
 
-let logger = Logging.make_logger "_1_ compspec.check" Debug [];;
+let logger = Logging.make_logger "_1_ vardac.check" Debug [];;
 
 let display_available_plugins = Factory.display_available_plugins 
 

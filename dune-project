@@ -1,17 +1,17 @@
 (lang dune 2.8)
 (using dune_site 0.1)
-(name compspec)
+(name vardac)
 
 (using menhir 2.1)
 
 (generate_opam_files true)
 
-(source (github severus21/compspec))
+(source (github severus21/vardac))
 (license CECILL-2.1)
 (authors "Laurent Prosperi")
 (maintainers "laurent.prosperi@inria.fr")
 (package
- (name compspec)
+ (name vardac)
  (synopsis "TODO")
  (description "TODO")
  (depends

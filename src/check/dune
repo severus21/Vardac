@@ -1,6 +1,6 @@
 (library
     (name check)
-    (public_name compspec.check)
+    (public_name vardac.check)
     (preprocess (pps ppx_deriving.show ppx_import))
     (modules :standard)
     (libraries ounit2 yaml easy_logging "yaml.unix" "rresult" "fileutils" process core cplugins)

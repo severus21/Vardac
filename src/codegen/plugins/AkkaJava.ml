@@ -20,7 +20,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
     let name = name 
     let version = version
-    let logger = Logging.make_logger ("_1_ compspec.plg."^name) Debug [];;
+    let logger = Logging.make_logger ("_1_ vardac.plg."^name) Debug [];;
 
     module Rt = Rt 
     module Lg = Lg

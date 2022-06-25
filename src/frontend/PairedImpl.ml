@@ -6,7 +6,7 @@ open Easy_logging
 open AstUtils
 open IR.IRUtils
  
-let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
+let logger = Logging.make_logger "_1_ vardac.frontend" Debug [];;
 
 (* The source calculus. *)
 module S1 = Impl

@@ -3,7 +3,7 @@ open Utils
 open AstUtils
 
 open Easy_logging
-let logger = Logging.make_logger "_1_ compspec.frontend" Debug [];;
+let logger = Logging.make_logger "_1_ vardac.frontend" Debug [];;
 
 (* Export AST *)
 module Ast = Ast 

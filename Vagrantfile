@@ -9,7 +9,7 @@ Vagrant.configure("2") do |config|
   
     # Configure virtual machine specs. Keep it simple, single user.
     config.vm.provider :virtualbox do |p|
-        p.name = "Lg4DC_compspec"
+        p.name = "Lg4DC_vardac"
         p.memory = 2048 
         p.cpus = 4 
         #host CPU execution cap of 50%, meaning that no matter how much CPU is used in the VM

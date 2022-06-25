@@ -1,5 +1,5 @@
 (install
- (section (site (compspec test_dataset)))
+ (section (site (vardac test_dataset)))
   (files 
     (cdcl_state.spec as cdcl_state.spec)
     (protocol1.spec as protocol1.spec)

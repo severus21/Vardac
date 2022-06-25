@@ -1,9 +1,9 @@
 (test
  (name main)
  (action (run %{test}))
- (libraries dune-site ounit2 compspec.core compspec.compspeclib)
+ (libraries dune-site ounit2 vardac.core vardac.vardaclib)
 )
 
 (generate_sites_module
  (module mysites)
- (sites compspec))
+ (sites vardac))

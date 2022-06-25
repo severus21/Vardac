@@ -3,7 +3,7 @@ open Core.Error
 open Core.AstUtils
 open Easy_logging
 
-let logger = Logging.make_logger ("_1_ compspec.frontend") Debug [];;
+let logger = Logging.make_logger ("_1_ vardac.frontend") Debug [];;
 (* variable : string => Atom.atom + check env *)
 (* The source calculus. *)
 module S = RawTarget 

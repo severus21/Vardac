@@ -3,7 +3,7 @@ open RawTarget
 
 open Easy_logging
 
-let logger = Logging.make_logger "_1_ compspec.codegen" Debug [];;
+let logger = Logging.make_logger "_1_ vardac.codegen" Debug [];;
 
 let read_targets (filename_target:string) =
     if Sys.file_exists filename_target then 

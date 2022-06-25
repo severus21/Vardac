@@ -1,5 +1,5 @@
 open Easy_logging
-let logger = Logging.make_logger ("_1_ compspec.core") Debug [];;
+let logger = Logging.make_logger ("_1_ vardac.core") Debug [];;
 (* -------------------------------------------------------------------------- *)
 
 (* Printing a syntax tree in an intermediate language (for debugging). *)

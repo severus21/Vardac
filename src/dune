@@ -1,4 +1,4 @@
 (library
- (public_name compspec)
+ (public_name vardac)
  (instrumentation (backend bisect_ppx)) 
 )

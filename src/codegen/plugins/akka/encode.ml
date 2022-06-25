@@ -6,7 +6,7 @@ open Fieldslib
 open Misc
 
 let plg_name = "Akka"
-let logger = Logging.make_logger ("_1_ compspec.plg."^plg_name) Debug [];;
+let logger = Logging.make_logger ("_1_ vardac.plg."^plg_name) Debug [];;
 let fplace = (Error.forge_place ("plg."^plg_name^".Encode") 0 0) 
 include Ast.AstUtil2.Make(struct let fplace = fplace end)
 

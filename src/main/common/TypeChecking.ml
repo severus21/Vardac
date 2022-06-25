@@ -11,7 +11,7 @@ module S = IR
 module T = IR
 open IR
 
-let logger = Logging.make_logger "_1_ compspec.TypeChecking" Debug [];;
+let logger = Logging.make_logger "_1_ vardac.TypeChecking" Debug [];;
 
 
 (*

@@ -2,7 +2,7 @@
 ;; Constructing the lexer, parser, and executable.
 (library
     (name common)
-    (public_name compspec.common)
+    (public_name vardac.common)
     (preprocess (pps ppx_deriving.show ppx_deriving.enum ppx_import ppx_fields_conv ppx_hash))
     (modules :standard)
     (libraries fieldslib ocamlgraph ounit2 yaml easy_logging "yaml.unix" "rresult" "fileutils" process core builtin)

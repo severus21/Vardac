@@ -47,25 +47,25 @@ let testsfrom (name, spec_file, impl_file, targets_file, places_file, is_well_fo
     name >::: [ 
     ((Printf.sprintf "Glue generation of %s" name) >:: function ctx -> begin 
         let build_dir = OUnit2.bracket_tmpdir ctx in
-        ignore (Compspeclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
+        ignore (Vardaclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
     end);
     ((Printf.sprintf "Glue well-formdness tests of %s" name) >:: function ctx -> begin 
         let build_dir = OUnit2.bracket_tmpdir ctx in
-        ignore (Compspeclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
+        ignore (Vardaclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
         let code = Sys.command (Printf.sprintf "python3 %s %s 2> /tmp/toto-%s"  is_well_formed_file build_dir name) in
         Printf.fprintf stdout "Code %d\n" code;
         assert_equal 0 code 
     end);
     ((Printf.sprintf "Glue compilation of %s" name) >:: function ctx -> begin 
         let build_dir = OUnit2.bracket_tmpdir ctx in
-        ignore (Compspeclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
+        ignore (Vardaclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
         let code = Sys.command (Printf.sprintf "cd %s/akka && make build > /tmp/varda-test-log-example-%s-generation.log" build_dir name) in
         Printf.fprintf stdout "Code %d\n" code;
         assert_equal 0 code 
     end);
     ((Printf.sprintf "Glue target tests of %s" name) >:: function ctx -> begin 
         let build_dir = OUnit2.bracket_tmpdir ctx in
-        ignore (Compspeclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
+        ignore (Vardaclib.process_compile (Fpath.v build_dir) places_file targets_file impl_file spec_file);
         let code = Sys.command (Printf.sprintf "cd %s/akka && make test > /tmp/varda-test-log-example-%s-target-tests.log" build_dir name) in
         Printf.fprintf stdout "Code %d\n" code;
         assert_equal 0 code 

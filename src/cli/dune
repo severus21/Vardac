@@ -1,9 +1,9 @@
 (executable
-    (name compspec)
-    (public_name compspec)
+    (name vardac)
+    (public_name vardac)
     (modes byte native)
     (modules :standard)
-    (libraries ounit2 yaml "yaml.unix" "rresult" "fileutils" compspeclib) ;TODO clean libraries
+    (libraries ounit2 yaml "yaml.unix" "rresult" "fileutils" vardaclib) ;TODO clean libraries
 )
 
 (rule

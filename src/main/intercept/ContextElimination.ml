@@ -7,7 +7,7 @@ open IRMisc
 open IRUtils
  
 
-let logger = Logging.make_logger ("_1_ compspec.Intercept") Debug [];;
+let logger = Logging.make_logger ("_1_ vardac.Intercept") Debug [];;
 
 let fplace = (Error.forge_place "Intercept.ContextElimination" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}

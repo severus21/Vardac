@@ -8,7 +8,7 @@ open IRMisc
 open Common
  
 
-let logger = Logging.make_logger ("_1_ compspec.derive") Debug [];;
+let logger = Logging.make_logger ("_1_ vardac.derive") Debug [];;
 
 let fplace = (Error.forge_place "Plg=AkkaJava/derive_rpc" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}

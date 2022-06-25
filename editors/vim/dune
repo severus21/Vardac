@@ -1,6 +1,6 @@
 (install
  (section share_root)
- (package compspec)
+ (package vardac)
  (files
   (ftdetect/aspeclg.vim as vim/ftdetect/aspeclg.vim)
   (syntax/aspeclg.vim as vim/syntax/aspeclg.vim)))

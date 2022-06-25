@@ -1,5 +1,5 @@
 (install
- (section (site (compspec test_examples)))
+ (section (site (vardac test_examples)))
   (files 
     (test-error-propagation/README.md as test-error-propagation/README.md)
     (test-error-propagation/places.yml as test-error-propagation/places.yml)

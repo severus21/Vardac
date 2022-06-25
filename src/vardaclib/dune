@@ -1,0 +1,9 @@
+(library
+    (name vardaclib)
+    (public_name vardac.vardaclib)
+    (preprocess (pps ppx_deriving.show ppx_import))
+    (modules :standard)
+    (libraries ounit2 yaml "yaml.unix" "rresult" "fileutils" vardac.core vardac.frontend vardac.codegen vardac.codegen.plugins.java vardac.codegen.plugins.akka vardac.codegen.plugins vardac.check vardac.derive vardac.statistic vardac.intercept vardac.commsimpl) ;TODO clean libraries
+    (instrumentation (backend bisect_ppx)) 
+)
+

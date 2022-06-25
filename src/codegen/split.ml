@@ -4,7 +4,7 @@ open IRI
 open Easy_logging
 open Utils
 
-let logger = Logging.make_logger "_1_ compspec" Debug [];;
+let logger = Logging.make_logger "_1_ vardac" Debug [];;
 
 let targets2ast : (string, IRI.program) Hashtbl.t = Hashtbl.create 10 
 let targets2targets : (string, Target.target) Hashtbl.t = Hashtbl.create 10

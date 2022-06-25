@@ -1,8 +1,8 @@
 (library
     (name akka)
-    (public_name compspec.codegen.plugins.akka)
+    (public_name vardac.codegen.plugins.akka)
     (preprocess (pps ppx_deriving.show ppx_deriving.map ppx_import ppx_fields_conv))
     (modules :standard)
-    (libraries fieldslib ounit2 yaml "yaml.unix" "rresult" "fileutils" process compspec.core compspec.builtin plg compspec.codegen.plugins.akka.ast  compspec.codegen.plugins.akka.misc compspec.codegen.plugins.akka.interfaces compspec.codegen.plugins.akka.plgfrontend)
+    (libraries fieldslib ounit2 yaml "yaml.unix" "rresult" "fileutils" process vardac.core vardac.builtin plg vardac.codegen.plugins.akka.ast  vardac.codegen.plugins.akka.misc vardac.codegen.plugins.akka.interfaces vardac.codegen.plugins.akka.plgfrontend)
     (instrumentation (backend bisect_ppx)) 
 )

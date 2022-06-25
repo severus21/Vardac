@@ -1,4 +1,4 @@
-Compspec, a compiler for Varda 
+vardac, a compiler for Varda 
 =====================================================================
 
 [![pipeline status](https://gitlab.lip6.fr/lprosperi/Lg4DC/badges/master/pipeline.svg)](https://gitlab.lip6.fr/lprosperi/Lg4DC/-/commits/master)
@@ -21,7 +21,7 @@ You can get the sources using `git` as follows:
 git clone git@gitlab.lip6.fr:lprosperi/compiler.git
 ```
 
-Dependencies are described in `compspec.opam`. For building the source
+Dependencies are described in `vardac.opam`. For building the source
 code documentation, one needs
 [odoc](https://github.com/ocaml/odoc). For building the User Manual,
 see `docs/README.md`.
@@ -32,23 +32,23 @@ opam switch 4.12.0
 ./requirements.sh
 ```
 
-To compile Compspec, just run the command `make` in the source directory.
-This produces the `_build/install/default/bin/compspec` binary.
+To compile vardac, just run the command `make` in the source directory.
+This produces the `_build/install/default/bin/vardac` binary.
 Use the `--help` option for more information. Other make targets are:
 
 ```bash
-make                        # Build compspec 
+make                        # Build vardac 
 #make doc                    # Build the user documentation (avalaible on readthedocs)
 make odoc                   # Build the developer documentation
-make install                # Install compspec 
+make install                # Install vardac 
 #make vscode                 # Install vscode extension
 make tests
 ```
 
-**Note:** you can run `compspec` without installing it with `dune exec -- compspec`.
+**Note:** you can run `vardac` without installing it with `dune exec -- vardac`.
 
 **Note:** the starting file of the source code html documentation is
-`_build/default/_doc/_html/compspec/index.html`.
+`_build/default/_doc/_html/vardac/index.html`.
 
 The following commands can be used to clean up the repository:
 ```bash

@@ -43,7 +43,7 @@ class SoftSpec(models.Model):
 
     def get_varda_version():
         import subprocess
-        res = subprocess.run("dune exec --profile release -- compspec info --codegen-plgs --check-plgs", 
+        res = subprocess.run("dune exec --profile release -- vardac info --codegen-plgs --check-plgs", 
             capture_output=True, 
             encoding='utf-8',
             shell=True,

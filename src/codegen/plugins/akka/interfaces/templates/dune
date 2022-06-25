@@ -1,5 +1,5 @@
  (install
-  (section (site (compspec akka_interfaces_grpc_templates)))
+  (section (site (vardac akka_interfaces_grpc_templates)))
   (files 
     (auto/grpc/proto.j2 as auto/grpc/proto.j2)
    
