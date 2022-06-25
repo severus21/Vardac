@@ -7,6 +7,12 @@ component Dummy {
     void methoda(){
         debug("> methoda");
     }
+
+    component Inner {
+        void methodb (){
+            debug("> methodb");
+        }
+    }
 }
 
 component TopLevel {

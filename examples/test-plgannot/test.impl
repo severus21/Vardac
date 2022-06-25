@@ -1,6 +1,17 @@
 target akka;
 
 @@ extends TOTO
-impl component Dummy {}
+impl component Dummy {
+
+    @@ override
+    impl method methoda; 
+}
+
+@@ extends TITI
+impl component Dummy::Inner {
+
+    @@ override
+    impl method methodb; 
+}
 
 impl component TopLevel {}

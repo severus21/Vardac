@@ -23,6 +23,7 @@
     (test-eport/test.impl as test-eport/test.impl)
     (test-plgannot/README.md as test-plgannot/README.md)
     (test-plgannot/places.yml as test-plgannot/places.yml)
+    (test-plgannot/is_well_formed.py as test-plgannot/is_well_formed.py)
     (test-plgannot/targets.yml as test-plgannot/targets.yml)
     (test-plgannot/templates/Akka<Java>/auto/src/test/java/author/project_name/ObservablesTest.java.j2 as test-plgannot/templates/Akka<Java>/auto/src/test/java/author/project_name/ObservablesTest.java.j2)
     (test-plgannot/templates/Akka<Java>/auto/docker-compose.yml.j2 as test-plgannot/templates/Akka<Java>/auto/docker-compose.yml.j2)
