@@ -219,3 +219,11 @@ More about fuzzing
     make opam-release
     dune-release publish
 ```
+
+## Register a runner for Gitlab (using docker compose)
+```bash
+    #https://techoverflow.net/2021/01/12/how-to-install-gitlab-runner-using-docker-compose/
+    # executor: docker
+    # default image: alpine:3.14
+    # tags: empty
+```
