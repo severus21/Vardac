@@ -1,0 +1,6 @@
+target akka;
+
+impl component A {}
+impl component B {}
+
+impl component TopLevel {}

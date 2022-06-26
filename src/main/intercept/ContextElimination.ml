@@ -385,6 +385,7 @@ module Make () = struct
                             (List.of_seq (Hashtbl.to_seq_values generated_bridges))
                     );
                 at = None;
+                inline_in = None;
             }
         in
 

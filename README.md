@@ -272,6 +272,7 @@ check_interval = 0
   url = "https://gitlab.lip6.fr/"
   token = "<TOKEN>"
   executor = "docker"
+  output_limit = "32768" #in KB-> 32MB
   [runners.custom_build_dir]
   [runners.cache]
     Type = "s3"

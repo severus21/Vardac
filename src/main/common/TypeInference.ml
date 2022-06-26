@@ -570,6 +570,7 @@ module Make () = struct
                 c = c;
                 args = List.map (tannot_expr parent_opt) spawn.args;
                 at = Option.map (tannot_expr parent_opt) spawn.at;
+                inline_in = Option.map (tannot_expr parent_opt) spawn.inline_in;
             }, ctypeof(TActivationRef(snd c.value))
             | TernaryExpr (e1, e2, e3) ->
                 let e1 = tannot_expr parent_opt e1 in

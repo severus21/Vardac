@@ -127,7 +127,7 @@ and _expr =
     | This (* current activation *)
 
     (* Activation lifetime expr *)
-    | Spawn of {c: component_expr; args: expr list; at: expr option}
+    | Spawn of {c: component_expr; args: expr list; at: expr option; inline_in: expr option}
 
     (* Structure expr *)
     | BoxCExpr of component_expr
@@ -296,6 +296,7 @@ and _annotation =
         kind: IR.session_interceptor_kind;
     }
     | Onboard of variable list
+    | InlinableIn of variable list
     | Expose
 and annotation = _annotation placed
 

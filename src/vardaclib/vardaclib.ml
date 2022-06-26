@@ -25,6 +25,7 @@ module TypeInference3 = IRCompilationPass.Make(Common.TypeInference.Make())
 module TypeInference4 = IRCompilationPass.Make(Common.TypeInference.Make())
 module EventAutoBoxing = IRCompilationPass.Make(Common.EventAutoBoxing.Make())
 module ClassicalAutoBoxing = IRCompilationPass.Make(Common.ClassicalAutoBoxing.Make())
+module InlineElim = IRCompilationPass.Make(Common.InlineElim.Make())
 
 let process_check build_dir places_file filename = 
     Utils.refresh_or_create_dir build_dir;
@@ -89,6 +90,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
         (* Every pass that change ports and components should be performed before runngin the Intercept transformation *)
         |> Intercept.apply
+        |> InlineElim.apply (* FIXME can not intercept A if B is inlined inside*) 
         |> TypeInference3.apply (*Needed since we introduce new constructions *)
         (*|> TypeChecking.apply*)
         |> PartialEval.apply

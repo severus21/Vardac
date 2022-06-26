@@ -312,9 +312,11 @@ any_expr_:
 
 (* Activation lifetime *)
 | SPAWN c = UID LPAREN args = right_flexible_list(COMMA, any_expr) RPAREN
-    { Spawn {c={place=[$loc]; value=VarCExpr c}; args=args; at=None} }
+    { Spawn {c={place=[$loc]; value=VarCExpr c}; args=args; at=None; inline_in =None} }
 | SPAWN c = UID LPAREN args = right_flexible_list(COMMA, any_expr) RPAREN AT at=any_expr
-    { Spawn {c={place=[$loc]; value=VarCExpr c}; args=args; at=Some at} }
+    { Spawn {c={place=[$loc]; value=VarCExpr c}; args=args; at=Some at; inline_in=None} }
+| SPAWN c = UID LPAREN args = right_flexible_list(COMMA, any_expr) RPAREN IN inline_in=any_expr
+    { Spawn {c={place=[$loc]; value=VarCExpr c}; args=args; at=None; inline_in=Some inline_in} }
 
 (* *)
 | NONE
@@ -655,6 +657,7 @@ any_annotation_:
         match x with
         | "onboard" -> Onboard schemas 
         | "capturable" -> Capturable {allowed_interceptors = schemas; } 
+        | "inline_in" -> InlinableIn schemas
         | _ -> Core.Error.perror [$loc] "Unknown annotation: %s" x 
     }
 | AT x=LID

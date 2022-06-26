@@ -311,6 +311,18 @@ module Make (Params : IRParams) = struct
         headers: component_headers;
     }
 
+    and _class_item =
+        | CLContract of contract 
+        | CLMethod of method0 
+        | CLState of state 
+    and class_item = (_class_item plg_annotated) placed
+
+    and class_structure = {
+        annotations: component_annotation list;
+        name: component_variable; 
+        body: class_item list;
+    }
+
     and _component_dcl = 
         | ComponentAssign of {
             name: component_variable; 
@@ -377,6 +389,7 @@ module Make (Params : IRParams) = struct
         | Stmt of stmt
 
         (** Structure part*)
+        | Class of class_structure
         | Component of component_dcl
         | Function of function_dcl
 
@@ -1775,6 +1788,7 @@ module Make (Params : IRParams) = struct
 
         and rename_component_annotation renaming = function
         | Capturable {allowed_interceptors} -> Capturable {allowed_interceptors = List.map renaming allowed_interceptors}
+        | InlinableIn schemas -> InlinableIn (List.map renaming schemas)
 
         and _rename_contract renaming place c = {
             method_name = renaming c.method_name;

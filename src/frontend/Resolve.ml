@@ -20,7 +20,8 @@ function
 | S.Spawn spawn -> S.Spawn {
         c= rcexpr spawn.c;
         args= List.map rexpr spawn.args;
-        at= Option.map rexpr spawn.at
+        at= Option.map rexpr spawn.at;
+        inline_in= Option.map rexpr spawn.inline_in
     } 
 | S.BoxCExpr cexpr -> S.BoxCExpr (rcexpr cexpr) 
 | S.OptionExpr e_opt -> S.OptionExpr (Option.map rexpr e_opt)

@@ -388,11 +388,12 @@ and peval_expr env place (e, mt) :  env * (_expr * main_type) =
                 (Option.map (function e -> snd(pe_expr env e)) ok_opt),
                 (Option.map (function e -> snd(pe_expr env e)) err_opt)
             )
-        | Spawn {c; args; at} -> 
+        | Spawn {c; args; at; inline_in} -> 
             (* TODO peval c *)
             let args = List.map (function arg -> snd (pe_expr env arg)) args in
             let at = Option.map (function at -> snd(pe_expr env at)) at in
-            env, Spawn {c; args; at}
+            let inline_in = Option.map (function inline_in -> snd(pe_expr env inline_in)) inline_in in
+            env, Spawn {c; args; at; inline_in}
         | This -> env, This
         | UnopExpr (op, e) -> 
             let _, e = pe_expr env e in

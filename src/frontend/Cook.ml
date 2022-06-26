@@ -718,11 +718,16 @@ module Make(Arg:ArgSig) = struct
 
                 let env1, c = ccexpr env spawn.c in
                 let env_args, args = List.split (List.map (cexpr env) spawn.args) in
-                match spawn.at with 
-                    | None -> env << (env1::env_args), T.Spawn {c; args; at = None} 
-                    | Some at -> 
+                match spawn.at, spawn.inline_in with 
+                    | None, None -> env << (env1::env_args), T.Spawn {c; args; at = None; inline_in = None} 
+                    | Some at, None -> 
                         let env_at, at = cexpr env at in
-                        env << (env1::env_at::env_args), T.Spawn {c; args; at = Some at}
+                        env << (env1::env_at::env_args), T.Spawn {c; args; at = Some at; inline_in=None}
+
+                    | None, Some inline_in -> 
+                        let env_inline_in, inline_in = cexpr env inline_in in
+                        env << (env1::env_inline_in::env_args), T.Spawn {c; args; at=None; inline_in = Some inline_in}
+                    | _, _ -> raise (Error.PlacedDeadbranchError (place,"spawn can not have @ and in set"))
             end
             | S.BoxCExpr ce -> 
                 let env1, ce = ccexpr env ce in
@@ -1125,6 +1130,8 @@ module Make(Arg:ArgSig) = struct
                 T.Capturable {
                     allowed_interceptors = List.map (cook_var_component env place) allowed_interceptors;
                 }
+            | {value=S.InlinableIn schemas} -> 
+                T.InlinableIn (List.map (cook_var_component env place) schemas)
             | a -> Error.perror a.place "%s is not a component annotation!" (S.show_annotation a)
         ) cdcl.annotations in
 

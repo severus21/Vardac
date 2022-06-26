@@ -1,0 +1,29 @@
+component A {
+    onstartup (){
+        debug("> init");
+        this.methoda();
+    }
+
+    void methoda(){
+        debug("> methoda");
+    }
+}
+
+(* Make B inlinable in A*)
+@inline_in([A])
+component B {
+    onstartup (){
+        debug("> init");
+        this.methodb();
+    }
+
+    void methodb(){
+        debug("> methodb");
+    }
+}
+component TopLevel {
+    onstartup (){
+        activation_ref<A> a = spawn A();
+        activation_ref<B> b = spawn B() in a;
+    }
+}

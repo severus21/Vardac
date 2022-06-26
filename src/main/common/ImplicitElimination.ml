@@ -100,7 +100,7 @@ module Make (Args : Params ) : Sig = struct
             | _ -> false
         in
         let replace_spawn mt = function
-            | Spawn {c={value=VarCExpr name, _} as c; args; at} when name = cdcl.name-> 
+            | Spawn {c={value=VarCExpr name, _} as c; args; at; inline_in} when name = cdcl.name-> 
                 logger#debug "Replacing spawn for %s" (Atom.to_string name);
                 Spawn {
                 c; 
@@ -115,7 +115,8 @@ module Make (Args : Params ) : Sig = struct
                     ),
                     mt)
                 ) implicit_vars)@args;
-                at} 
+                at;
+                inline_in} 
             | _ as e -> e 
         in
         spawn_rewritings := (select_spawn, replace_spawn) :: !spawn_rewritings; (* Collect golbal rewriting - works since each binders create a unique variable name *)

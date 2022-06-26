@@ -156,7 +156,8 @@ and block2 = AstUtils.block2
 
 (************************************ Expr & Stmt *****************************)
 
-and spawn = {c: component_expr; args: expr list; at: expr option}
+and spawn = {c: component_expr; args: expr list; at: expr option; inline_in: expr option}
+and create = {c: component_expr; args: expr list}
 and _expr = 
     | EmptyExpr
     | VarExpr of expr_variable 
@@ -191,6 +192,7 @@ and _expr =
     | This (* current activation *)
 
     (* Activation lifetime expr *)
+    | Create of create
     | Spawn of spawn  
 
     (* Structure expr *)
@@ -284,6 +286,7 @@ and method_annotation =
 
 and component_annotation = 
     | Capturable of {allowed_interceptors: component_variable list;}
+    | InlinableIn of component_variable list
 
 (******************************** Contracts **********************************)
 and _contract = { (* TODO GADT *)
@@ -351,7 +354,7 @@ let rec collect_expr_expr_ parent_opt (already_binded:Atom.Set.t) selector colle
             collected_elts@acc0, fvars@acc1
         ) ([], []) es in 
         already_binded, collected_elts0@collected_elts, fvars
-    | CallExpr (e, es) | NewExpr (e, es) | Spawn {args=es; at = Some e} ->
+    | CallExpr (e, es) | NewExpr (e, es) | Spawn {args=es; at = Some e} | Spawn {args=es; inline_in = Some e}->
         (* TODO factorization create a collect_expr_exprs like the collect_types_mtypes *)
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e in
         let collected_elts2, fvars2 = List.fold_left (fun (acc0, acc1) e -> 
@@ -739,7 +742,8 @@ and collect_type_expr_ parent_opt already_binded selector collector place (e, mt
         let _, collected_elts1, ftvars1 = collect_type_cexpr  parent_opt already_binded selector collector spawn.c in
         let collected_elts2, ftvars2 = collect_exprs spawn.args in
         let _, collected_elts3, ftvars3 = collect_expropt spawn.at in
-        collected_elts1@collected_elts2@collected_elts3, ftvars1@ftvars2@ftvars3
+        let _, collected_elts4, ftvars4 = collect_expropt spawn.inline_in in
+        collected_elts1@collected_elts2@collected_elts3@collected_elts4, ftvars1@ftvars2@ftvars3@ftvars4
     | BoxCExpr _ -> failwith "Not yet supported in free_tvars_expr"
     | OptionExpr e_opt ->
         let _, collected_elts, ftvars = collect_expropt e_opt in
@@ -1028,7 +1032,8 @@ let rec _rewrite_expr_expr selector rewriter place (e, mt) =
     )
     | Spawn sp -> Spawn { sp with 
         args = List.map (rewrite_expr_expr selector rewriter) sp.args;
-        at = Option.map (rewrite_expr_expr selector rewriter) sp.at
+        at = Option.map (rewrite_expr_expr selector rewriter) sp.at;
+        inline_in = Option.map (rewrite_expr_expr selector rewriter) sp.inline_in
     }
     | BoxCExpr _ as e -> e
     | OptionExpr e_opt -> OptionExpr (
@@ -1221,7 +1226,8 @@ and _rewrite_type_expr selector rewriter place (e, mt) =
         | Spawn spawn -> Spawn {
             c = rewrite_type_cexpr selector rewriter spawn.c;
             args = spawn.args;
-            at = Option.map rewrite_expr spawn.at
+            at = Option.map rewrite_expr spawn.at;
+            inline_in = Option.map rewrite_expr spawn.inline_in
         } 
         | BoxCExpr ce -> BoxCExpr (rewrite_type_cexpr selector rewriter ce)
         | OptionExpr e_opt -> OptionExpr (Option.map rewrite_expr e_opt)
@@ -1583,6 +1589,7 @@ rewrite_type_aconstraint
                 c = rename_component_expr renaming spawn.c;
                 args = List.map re spawn.args;
                 at = Option.map re spawn.at;
+                inline_in = Option.map re spawn.inline_in;
             }
             | BoxCExpr ce -> BoxCExpr (rename_component_expr renaming ce)
             | OptionExpr e_opt -> OptionExpr (Option.map re e_opt)
@@ -1804,7 +1811,8 @@ and _equal_expr = function
 | Spawn sp1, Spawn sp2 ->
     equal_cexpr sp1.c sp2.c &&
     List.equal equal_expr sp1.args sp2.args &&
-    Option.equal equal_expr sp1.at sp2.at
+    Option.equal equal_expr sp1.at sp2.at &&
+    Option.equal equal_expr sp1.inline_in sp2.inline_in
 | BoxCExpr ce1, BoxCExpr ce2 -> equal_cexpr ce1 ce2
 | OptionExpr e1_opt, OptionExpr e2_opt -> Option.equal equal_expr e1_opt e2_opt
 | ResultExpr (e1a_opt, e1b_opt), ResultExpr (e2a_opt, e2b_opt) -> 
