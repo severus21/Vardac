@@ -227,3 +227,69 @@ More about fuzzing
     # default image: alpine:3.14
     # tags: empty
 ```
+
+```yaml
+    version: '3'
+    services:
+        minio:
+            image: minio/minio:latest
+            expose:
+                - "9000"
+            # environment:
+                # MINIO_ROOT_USER: minioadmin
+                # MINIO_ROOT_PASSWORD: minioadmin
+            healthcheck:
+                test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+                interval: 30s
+                timeout: 20s
+                retries: 3
+
+            volumes:
+            - ./minio:/root/.minio
+            - ./minio/export:/export
+            restart: unless-stopped
+            command: server --address 0.0.0.0:9000 /export
+        gitlab-runner:
+            image: 'gitlab/gitlab-runner:latest'
+            volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ./config:/etc/gitlab-runner
+            restart: unless-stopped
+            depends_on: 
+            - minio
+```
+
+config.toml
+```toml
+concurrent = 1
+check_interval = 0
+
+[session_server]
+  session_timeout = 1800
+
+[[runners]]
+  name = "PIMS"
+  url = "https://gitlab.lip6.fr/"
+  token = "<TOKEN>"
+  executor = "docker"
+  [runners.custom_build_dir]
+  [runners.cache]
+    Type = "s3"
+    Path = "mycustom-s3"
+    Shared = true  
+    [runners.cache.s3]
+      ServerAddress = "minio:9005"
+      AccessKey = "minioadmin"
+      SecretKey = "minioadmin"
+      BucketName = "runner"
+      Insecure = true
+  [runners.docker]
+    tls_verify = false
+    image = "alpine:3.14"
+    privileged = false
+    disable_entrypoint_overwrite = false
+    oom_kill_disable = false
+    disable_cache = false
+    volumes = ["/cache"]
+    shm_size = 0
+```
