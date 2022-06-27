@@ -47,6 +47,8 @@ and _composed_type =
     | TInductive of main_type list
     | TVPlace of main_type
 
+    | TObject of component_variable 
+
     | TUnion of main_type * main_type
 
 
@@ -1508,6 +1510,7 @@ rewrite_type_aconstraint
         | STInline x -> STInline (renaming x)
         | STPolyVar x -> STPolyVar (renaming x)
         | STDual st -> STDual (rst st)
+        | STBottom  -> STBottom
         and rename_session_type renaming : session_type -> session_type = map_place (_rename_session_type (protect_renaming renaming))
 
         and _rename_component_type renaming place = 
