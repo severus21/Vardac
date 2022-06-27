@@ -108,6 +108,8 @@ module Make () = struct
             | Component {place; value=ComponentStructure cstruct_in} -> 
                 let schema_in = cstruct_in.name in
                 let schemas = List.of_seq (Atom.Set.to_seq (Hashtbl.find inv_is_inlineable_in schema_in)) in
+                
+                let spawn_bridges = ref [] in
 
                 let n_body = List.map (function schema -> 
                     let cstruct = Hashtbl.find inlineable_cstructs schema in 
@@ -246,7 +248,7 @@ module Make () = struct
                                     _is_intermediate = port._is_intermediate;
 
                                 }, auto_fplace EmptyMainType)) in
-                                failwith "TODO inports inline"
+                                n_port
                         ))) inports 
                     in
                     
@@ -380,31 +382,127 @@ module Make () = struct
                     Hashtbl.add tdefs (spawn_request schema) spawn_request_tdef;
                     Hashtbl.add tdefs (spawn_protocol schema) spawn_protocol_tdef;
 
-                    let spawn_port = Inport (auto_fplace (
+                    
+                    let a_ref = Atom.fresh "ref" in
+                    let a_request = Atom.fresh "request" in
+                    let a_session = Atom.fresh "s" in
+                    let spawn_callback = {
+                        annotations = [];
+                        ghost = false;
+                        ret_type = mtype_of_ft TVoid;
+                        name = Atom.builtin (Printf.sprintf "spawn_callback_%s" (Atom.to_string schema));
+                        args = [
+                            auto_fplace (mtype_of_var (spawn_request schema),a_request);
+                            auto_fplace (mtype_of_st (STSend (
+                                mtype_of_var (spawn_response schema),
+                                auto_fplace STEnd
+                            )), a_session);
+                        ];
+                        body = [
+                            (* Activation_ref<B> ref = this.spawn_B15(...); *)
+                            auto_fplace(LetStmt(
+                                mtype_of_ct (TActivationRef (mtype_of_cvar schema)),
+                                a_ref,
+                                e2_e(CallExpr(
+                                    e2_e(AccessExpr(
+                                        e2_e This,
+                                        e2var spawn_inline.name
+                                    )),
+                                    List.mapi (fun i {value=(mt, x)} -> 
+                                        e2_e (AccessExpr(
+                                            e2var a_request,
+                                            e2var (Atom.builtin (Printf.sprintf "_%d_" i))
+                                        ))
+                                    ) spawn_inline_args
+                                ))
+                            ));
+                            (* fire(s, response(ref));*)
+                            auto_fplace (ExpressionStmt(
+                                e2_e (CallExpr(
+                                    e2var (Atom.builtin "fire"),
+                                    [
+                                        e2var a_session;
+                                        e2_e (CallExpr(
+                                            e2var (spawn_response schema),
+                                            [
+                                                e2var a_ref
+                                            ]
+                                        ))
+                                    ]
+                                ))
+                            ));
+                        ];
+                        contract_opt = None;
+                        on_destroy = false;
+                        on_startup = false;
+                    } 
+                    in
+                    
+                    let spawn_port_name = Atom.fresh (Printf.sprintf "spawn_port_%s_" (Atom.to_string schema)) in
+                    let spawn_port = (
                         {
-                            name = Atom.builtin (Printf.sprintf "spawn_port_%s" (Atom.to_string schema));
+                            name = spawn_port_name;
                             expecting_st = mtype_of_st (IRMisc.dual (spawn_protocol_st schema)).value;
-                            callback = failwith "TODO spawn_port callback";
+                            callback = e2_e(AccessExpr(e2_e This, e2var spawn_callback.name));
                             _children = [];
                             _disable_session = false;
                             _is_intermediate = false;
                         },
                         mtype_of_ct (TInport (mtype_of_st (IRMisc.dual (spawn_protocol_st schema)).value))
-                    )) in
+                    ) in
 
-                    failwith "TODO spawn request/resonse/inports/callback in A";
                     failwith "TODO add bridge for spawn_protocol + bind in A constructor"
+
+                    (*** Register a spawn_bridge_B argument to A constructor + bind it with spawn port in constructor ***)
+                    spawn_bridges := (   
+                        spawn_port_name,
+                        Atom.fresh (Printf.sprintf "spawn_bridge_%s_in_%s_" (Atom.to_string schema) (Atom.to_string schema_in)),
+                        mtype_of_ct (TBridge{ 
+                            in_type = mtype_of_cmt CompTBottom;
+                            out_type = mtype_of_cvar schema_in; 
+                            protocol = mtype_of_st (spawn_protocol_st schema).value;
+                        })
+                    ) :: !spawn_bridges;
+
 
                     (*** returns ***)
                     (List.map (function x -> auto_fplace (auto_plgannot x))
                     ([
                         Term (auto_fplace (auto_plgannot (Class cl))); 
                         State (auto_fplace inlined_instances); 
-                        Method (auto_fplace spawn_inline)]))
+                        Method (auto_fplace spawn_inline);
+                        Method (auto_fplace spawn_callback);
+                        Inport (auto_fplace spawn_port);
+                    ]))
                     @n_inports@n_outports@n_eports
                 ) schemas in
 
-                failwith "TODO add sspawn_request/respons_tdef lca in program";
+                (*** Add a spawn_bridge_B argument to A constructor + bind it with spawn port in constructor ***)
+                let cstruct_in = List.fold_left (fun cstruct_in (spawn_port_name, spawn_bridge_name, spawn_bridge_mt) -> 
+                    match IRMisc.get_onstartup cstruct_in with
+                    | Some onstartup -> 
+                        IRMisc.replace_onstartup cstruct_in { onstartup with
+                            value = {onstartup.value with 
+                                args = auto_fplace (spawn_bridge_mt, spawn_bridge_name)::onstartup.value.args;
+                                body = (
+                                    auto_fplace(ExpressionStmt(
+                                        e2_e(
+                                            CallExpr(
+                                                e2var (Atom.builtin "bind"),
+                                                [ 
+                                                    e2var spawn_port_name;
+                                                    e2var spawn_bridge_name
+                                                ]
+                                            )
+                                        )
+                                    ))
+                                )::onstartup.value.body;
+                            }
+                        }
+                    | None -> failwith "TODO no onstartup not supported yet, for inline elim" 
+                    
+                ) cstruct_in !spawn_bridges in 
+
                 [ Component {
                     place = place @ fplace; 
                     value=ComponentStructure { cstruct_in with
@@ -412,9 +510,12 @@ module Make () = struct
                     }} ]
 
         in
+
         program
         |> rewrite_term_program select_component_with_inlinable rewriter_inlinable
         |> rewrite_term_program select_component_inline_in rewriter_inline_in
+        (* add sspawn_request/respons_tdef/protocol_def lca in program *)
+        |> insert_terms_into_lca [None] (List.map (fun (key,tdef) -> auto_fplace (auto_plgannot tdef)) (List.of_seq (Hashtbl.to_seq tdefs)))
     let eliminate_dynamic_inline_in program = 
 
         let rewriter mt = function

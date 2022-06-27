@@ -33,6 +33,8 @@ module Mtype = struct
             auto_fplace(CompType(auto_fplace (TPolyCVar x)))
         let mtype_of_ct ct = 
             auto_fplace(CType(auto_fplace ct))
+        let mtype_of_cmt cmt = 
+            auto_fplace(CompType(auto_fplace cmt))
         let mtype_of_st st = 
             auto_fplace(SType(auto_fplace st))
         let mtype_of_ft ft = 
