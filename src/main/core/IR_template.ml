@@ -545,6 +545,10 @@ module Make (Params : IRParams) = struct
             component_item ->
             component_item
 
+        val rename_class_item : (Atom.atom -> Atom.atom) ->
+            class_item ->
+            class_item
+
         val find_lca_program : Atom.Set.t -> program -> Atom.atom option
         val insert_in_terms : term list -> term list -> term list
         val insert_terms_into_lca : (Atom.atom option) list -> term list -> program -> program
@@ -1831,6 +1835,13 @@ module Make (Params : IRParams) = struct
         | Term t        -> Term (rename_term renaming t)
         | Include ce    -> Include (rename_component_expr renaming ce)
         and rename_component_item renaming = map_place (map_plgannot(_rename_component_item (protect_renaming renaming)))
+
+        and _rename_class_item renaming place = function
+        | CLContract c    -> CLContract (rename_contract renaming c)
+        | CLMethod m      -> CLMethod (rename_method renaming m)
+        | CLState s       -> CLState (rename_state renaming s)
+        and rename_class_item renaming = map_place (map_plgannot(_rename_class_item (protect_renaming renaming)))
+
 
         and _rename_component_dcl renaming place = function
         | ComponentAssign {name; value} -> ComponentAssign {
