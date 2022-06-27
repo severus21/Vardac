@@ -29,6 +29,8 @@ module Make () = struct
     (* B -> bstruct *)
     let inlineable_cstructs = Hashtbl.create 256
 
+    let tdefs = Hashtbl.create 256 
+
     let rec extract_ainline = function
         | [] -> []
         | InlinableIn schemas::xs -> schemas@(extract_ainline xs)
@@ -110,7 +112,7 @@ module Make () = struct
                 let n_body = List.map (function schema -> 
                     let cstruct = Hashtbl.find inlineable_cstructs schema in 
 
-                    (* derive a "class" [InlineB15A] *)
+                    (*** derive a "class" [InlineB15A] ***)
                     let body = List.flatten (List.map (map_places(map_plgannots(function place -> function 
                             | Contract item -> [CLContract item]
                             | Method item -> [CLMethod item] 
@@ -130,7 +132,7 @@ module Make () = struct
                         body =  body;
                     } in
 
-                    (* add state [instances_B15] in A *)
+                    (*** add state [instances_B15] in A ***)
                     let name_inlined_instances = Atom.builtin (Printf.sprintf "instances_%s" (Atom.to_string schema)) in
                     let inlined_instances = {
                         ghost = false;
@@ -142,10 +144,10 @@ module Make () = struct
                         body = Some (e2_e (Block2Expr(Dict,[])))
                     } in
 
-                    (* add method [spawn_B15] in A 
+                    (*** add method [spawn_B15] in A 
                         spawn_B15 (args of spawn B15) -> ActivationRef<A> 
                         return this;
-                    *)
+                    ***)
                     let spawn_inline_args = 
                         match  IRMisc.get_onstartup cstruct with
                         | Some schema_onstartup -> List.map (rename_param refresh_atom) schema_onstartup.value.args
@@ -172,7 +174,7 @@ module Make () = struct
                     in
 
 
-                    (* add inports [p_B15_pb15name] in A + routing to the corresponding instance in [instances_B15] *)
+                    (*** add inports [p_B15_pb15name] in A + routing to the corresponding instance in [instances_B15] ***)
                     let n_inports = 
                         let inports = List.filter (function 
                             | {value={v=Inport _}} -> true
@@ -248,7 +250,7 @@ module Make () = struct
                         ))) inports 
                     in
                     
-                    (* add outports [p_B15_pb15name] in A *)
+                    (*** add outports [p_B15_pb15name] in A ***)
                     let cl_renaming = Hashtbl.create 16 in
                     let n_outports = 
                         let outports = List.filter (function 
@@ -271,7 +273,7 @@ module Make () = struct
                                 n_port
                         ))) outports 
                     in
-                    (* apply cl_renaming i.e. rename output ports *)
+                    (*** apply cl_renaming i.e. rename output ports ***)
                     let cl = {cl with 
                         body = List.map (rename_class_item (function x -> 
                             match Hashtbl.find_opt cl_renaming x with
@@ -280,7 +282,7 @@ module Make () = struct
                         )) cl.body
                     } in
 
-                    (* add eports [p_B15_pb15name] in A + routing to **all** instances in [instances_B15]*)
+                    (*** add eports [p_B15_pb15name] in A + routing to ******all****** instances in [instances_B15]***)
                     let n_eports : component_item list = 
                         let eports = List.filter (function 
                             | {value={v=Eport _}} -> true
@@ -343,7 +345,57 @@ module Make () = struct
                         ))) eports 
                     in
 
-                    (* returns *)
+                    (*** Spwan request/response + inport + callback ***)
+                    let spawn_request schema = Atom.builtin (Printf.sprintf "spawn_request_%s" (Atom.to_string schema)) in
+                    let spawn_request_tdef = Typedef (auto_fplace (EventDef( 
+                        spawn_request schema,
+                        List.map (function {value=(mt, x)} -> mt) spawn_inline_args
+                        ,
+                        ()
+                    ))) in
+                    let spawn_response schema = Atom.builtin (Printf.sprintf "spawn_response_%s" (Atom.to_string schema))in
+                    let spawn_response_tdef = Typedef (auto_fplace (EventDef( 
+                        spawn_response schema,
+                        [
+                            mtype_of_ct (TActivationRef (mtype_of_cvar schema));
+                        ],
+                        ()
+                    ))) in
+                    let spawn_protocol schema = Atom.builtin (Printf.sprintf "spawn_protocol_%s" (Atom.to_string schema)) in
+                    let spawn_protocol_st schema = 
+                        (* !spawn_request?spawn_response. *)
+                        auto_fplace (STSend(
+                            mtype_of_var (spawn_request schema), 
+                            auto_fplace (STRecv (
+                                mtype_of_var (spawn_response schema),
+                                auto_fplace STEnd
+                            ))))
+                    in
+                    let spawn_protocol_tdef = Typedef (auto_fplace (ProtocolDef(
+                        spawn_protocol schema,
+                        mtype_of_st (spawn_protocol_st schema).value
+                    ))) in
+                    (* register for inclusion *)
+                    Hashtbl.add tdefs (spawn_response schema) spawn_response_tdef;
+                    Hashtbl.add tdefs (spawn_request schema) spawn_request_tdef;
+                    Hashtbl.add tdefs (spawn_protocol schema) spawn_protocol_tdef;
+
+                    let spawn_port = Inport (auto_fplace (
+                        {
+                            name = Atom.builtin (Printf.sprintf "spawn_port_%s" (Atom.to_string schema));
+                            expecting_st = mtype_of_st (IRMisc.dual (spawn_protocol_st schema)).value;
+                            callback = failwith "TODO spawn_port callback";
+                            _children = [];
+                            _disable_session = false;
+                            _is_intermediate = false;
+                        },
+                        mtype_of_ct (TInport (mtype_of_st (IRMisc.dual (spawn_protocol_st schema)).value))
+                    )) in
+
+                    failwith "TODO spawn request/resonse/inports/callback in A";
+                    failwith "TODO add bridge for spawn_protocol + bind in A constructor"
+
+                    (*** returns ***)
                     (List.map (function x -> auto_fplace (auto_plgannot x))
                     ([
                         Term (auto_fplace (auto_plgannot (Class cl))); 
@@ -352,6 +404,7 @@ module Make () = struct
                     @n_inports@n_outports@n_eports
                 ) schemas in
 
+                failwith "TODO add sspawn_request/respons_tdef lca in program";
                 [ Component {
                     place = place @ fplace; 
                     value=ComponentStructure { cstruct_in with
@@ -383,7 +436,11 @@ module Make () = struct
                     with Not_found -> Error.error "Can not inline %s in %s ! Use @inline_in annotations." (Atom.to_string schema) (Atom.to_string schema_in)
                 end;
 
-                failwith "TODO"
+                (*
+                    1) send spawnB15(args) request to A
+                    2) wait for activation ID (A with Bid embedded)
+                *)
+                failwith "TODO rewrite spawn inline"
             end
             | Spawn {inline_in = Some {place; value=_, mtt} } -> Error.perror place "inline_in is ill-typed! %s" (show_main_type mtt) 
         in
