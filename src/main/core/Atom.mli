@@ -34,6 +34,12 @@ val hash: atom -> int
 
 (* Sets. *)
 
+module Set2 : sig
+  include Set.S with type elt = atom * atom
+
+  val to_list: t -> elt list
+  val of_list: elt list -> t
+end
 module Set : sig
   include Set.S with type elt = atom
 

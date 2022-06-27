@@ -151,6 +151,21 @@ module Order = struct
   let compare = compare
 end
 
+module Order2 = struct
+    type t = atom * atom
+    let compare a b = 
+        Pervasives.compare 
+            (compare (fst a) (fst b)) 
+            (compare (snd a) (snd a))
+end
+
+module Set2 = struct
+  include Set.Make(Order2)
+
+  let to_list x = List.of_seq (to_seq x)
+  let of_list xs = of_seq (List.to_seq xs)
+end
+
 module Set = struct
 
   include Set.Make(Order)
@@ -224,6 +239,9 @@ module Set = struct
     Buffer.reset scratch
 
 end
+
+
+
 
 
 

@@ -62,11 +62,86 @@ module Make () = struct
             Hashtbl.add renaming x y;
             y
 
-    let cl_name schema schema_in = Atom.builtin (Printf.sprintf "Inline_%s_in_%s" (Atom.to_string schema) (Atom.to_string schema_in))
+    let cl_name = 
+        let state = Hashtbl.create 16 in
+        fun schema schema_in ->
+            match Hashtbl.find_opt state (schema, schema_in) with
+            | None -> 
+                let x = Atom.fresh (Printf.sprintf "Inline_%s_in_%s_" (Atom.to_string schema) (Atom.to_string schema_in)) in
+                Hashtbl.add state (schema, schema_in) x;
+                x
+            | Some x -> x
 
-    let name_spawn_inline schema schema_in = Atom.builtin (Printf.sprintf "spawn_%s_in_%s" (Atom.to_string schema) (Atom.to_string schema_in))
+    let name_spawn_inline = 
+        let state = Hashtbl.create 16 in
+        fun schema schema_in ->
+            match Hashtbl.find_opt state (schema, schema_in) with
+            | None -> 
+                let x = Atom.fresh (Printf.sprintf "spawn_%s_in_%s_" (Atom.to_string schema) (Atom.to_string schema_in)) in
+                Hashtbl.add state (schema, schema_in) x;
+                x
+            | Some x -> x
+        
+        
 
-    let port_name schema schema_in pname= Atom.builtin (Printf.sprintf "p_%s_in_%s__%s" (Atom.to_string schema) (Atom.to_string schema_in) (Atom.to_string pname))
+    let port_name = 
+        let state = Hashtbl.create 16 in
+        fun schema schema_in pname->
+            match Hashtbl.find_opt state (schema, schema_in, pname) with
+            | None -> 
+                let x = Atom.fresh (Printf.sprintf "p_%s_in_%s__%s_" (Atom.to_string schema) (Atom.to_string schema_in) (Atom.to_string pname)) in
+                Hashtbl.add state (schema, schema_in, pname) x;
+                x
+            | Some x -> x
+
+    let spawn_request = 
+        let state = Hashtbl.create 16 in
+        fun schema ->
+            match Hashtbl.find_opt state (schema) with
+            | None -> 
+                let x = Atom.fresh (Printf.sprintf "spawn_request_%s_" (Atom.to_string schema)) in
+                Hashtbl.add state (schema) x;
+                x
+            | Some x -> x
+
+    let spawn_response = 
+        let state = Hashtbl.create 16 in
+        fun schema ->
+            match Hashtbl.find_opt state (schema) with
+            | None -> 
+                let x = Atom.fresh (Printf.sprintf "spawn_response_%s_" (Atom.to_string schema)) in
+                Hashtbl.add state (schema) x;
+                x
+            | Some x -> x
+
+    let spawn_protocol = 
+        let state = Hashtbl.create 16 in
+        fun schema ->
+            match Hashtbl.find_opt state (schema) with
+            | None -> 
+                let x = Atom.fresh (Printf.sprintf "spawn_protocol_%s_" (Atom.to_string schema)) in
+                Hashtbl.add state (schema) x;
+                x
+            | Some x -> x
+
+    let spawn_protocol_st schema = 
+        (* !spawn_request?spawn_response. *)
+        auto_fplace (STSend(
+            mtype_of_var (spawn_request schema), 
+            auto_fplace (STRecv (
+                mtype_of_var (spawn_response schema),
+                auto_fplace STEnd
+            ))))
+
+    let spawn_bridge = 
+        let state = Hashtbl.create 16 in
+        fun schema schema_in ->
+            match Hashtbl.find_opt state (schema, schema_in) with
+            | None -> 
+                let x = Atom.fresh (Printf.sprintf "spawn_bridge_%s_in_%s_" (Atom.to_string schema) (Atom.to_string schema_in)) in
+                Hashtbl.add state (schema, schema_in) x;
+                x
+            | Some x -> x
 
     let extract_cl_callback (cl:class_structure) port_callback= 
         let cl_callback_name = Hashtbl.find renaming (match fst port_callback.value with
@@ -135,7 +210,7 @@ module Make () = struct
                     } in
 
                     (*** add state [instances_B15] in A ***)
-                    let name_inlined_instances = Atom.builtin (Printf.sprintf "instances_%s" (Atom.to_string schema)) in
+                    let name_inlined_instances = Atom.fresh (Printf.sprintf "instances_%s_" (Atom.to_string schema)) in
                     let inlined_instances = {
                         ghost = false;
                         type0 = mtype_of_ct (TDict (
@@ -188,8 +263,10 @@ module Make () = struct
 
                                 let cl_callback_in = extract_cl_callback cl port.callback in
 
-                                let n_args = List.map (rename_param refresh_atom) cl_callback_in.value.args in
                                 let a_objid = Atom.fresh "objid" in
+                                let n_args = 
+                                    (auto_fplace ((mtype_of_ct (TActivationRef (mtype_of_cvar schema))), a_objid))
+                                    :: (List.map (rename_param refresh_atom) cl_callback_in.value.args) in
                                 let a_obj = Atom.fresh "obj" in
                                 let n_callback = {
                                     annotations = [];
@@ -199,14 +276,18 @@ module Make () = struct
                                     args = n_args;
                                     body = [
                                         (*
-                                            1) get obj_id : sid -> obj_id 
-                                            2) obj = instances_B15A[obj_id]
-                                            3) return obj.callback(msg, ret); 
+                                            1) obj = instances_B15A[obj_id]
+                                            2) return obj.callback(msg, ret); 
                                         *)
                                         auto_fplace (LetStmt(
                                             mtype_of_ft TActivationID,
                                             a_objid,
-                                            failwith "get id from session, maybe using hidden_right from interception read docs!"
+                                            e2_e(CallExpr(
+                                                e2var (Atom.builtin "session_to_2_"),
+                                                [
+                                                    e2var a_objid
+                                                ]
+                                            ))
                                         ));
                                         auto_fplace (LetStmt(
                                             mtype_of_ct (TObject (cl_name schema schema_in)),
@@ -348,14 +429,12 @@ module Make () = struct
                     in
 
                     (*** Spwan request/response + inport + callback ***)
-                    let spawn_request schema = Atom.builtin (Printf.sprintf "spawn_request_%s" (Atom.to_string schema)) in
                     let spawn_request_tdef = Typedef (auto_fplace (EventDef( 
                         spawn_request schema,
                         List.map (function {value=(mt, x)} -> mt) spawn_inline_args
                         ,
                         ()
                     ))) in
-                    let spawn_response schema = Atom.builtin (Printf.sprintf "spawn_response_%s" (Atom.to_string schema))in
                     let spawn_response_tdef = Typedef (auto_fplace (EventDef( 
                         spawn_response schema,
                         [
@@ -363,16 +442,6 @@ module Make () = struct
                         ],
                         ()
                     ))) in
-                    let spawn_protocol schema = Atom.builtin (Printf.sprintf "spawn_protocol_%s" (Atom.to_string schema)) in
-                    let spawn_protocol_st schema = 
-                        (* !spawn_request?spawn_response. *)
-                        auto_fplace (STSend(
-                            mtype_of_var (spawn_request schema), 
-                            auto_fplace (STRecv (
-                                mtype_of_var (spawn_response schema),
-                                auto_fplace STEnd
-                            ))))
-                    in
                     let spawn_protocol_tdef = Typedef (auto_fplace (ProtocolDef(
                         spawn_protocol schema,
                         mtype_of_st (spawn_protocol_st schema).value
@@ -386,11 +455,12 @@ module Make () = struct
                     let a_ref = Atom.fresh "ref" in
                     let a_request = Atom.fresh "request" in
                     let a_session = Atom.fresh "s" in
+                    let a_obj_id = Atom.fresh "objid" in
                     let spawn_callback = {
                         annotations = [];
                         ghost = false;
                         ret_type = mtype_of_ft TVoid;
-                        name = Atom.builtin (Printf.sprintf "spawn_callback_%s" (Atom.to_string schema));
+                        name = Atom.fresh (Printf.sprintf "spawn_callback_%s" (Atom.to_string schema));
                         args = [
                             auto_fplace (mtype_of_var (spawn_request schema),a_request);
                             auto_fplace (mtype_of_st (STSend (
@@ -399,6 +469,16 @@ module Make () = struct
                             )), a_session);
                         ];
                         body = [
+                            (* get obj_id: same mechanism as interception
+                                                session_to_2_ *)
+                            auto_fplace (LetStmt(
+                                mtype_of_ft TActivationID,
+                                a_obj_id,
+                                e2_e(CallExpr(
+                                    e2var (Atom.builtin "session_to_2_"),
+                                    [ e2var a_session ]
+                                ))
+                            ));
                             (* Activation_ref<B> ref = this.spawn_B15(...); *)
                             auto_fplace(LetStmt(
                                 mtype_of_ct (TActivationRef (mtype_of_cvar schema)),
@@ -408,12 +488,12 @@ module Make () = struct
                                         e2_e This,
                                         e2var spawn_inline.name
                                     )),
-                                    List.mapi (fun i {value=(mt, x)} -> 
+                                    e2var a_obj_id :: (List.mapi (fun i {value=(mt, x)} -> 
                                         e2_e (AccessExpr(
                                             e2var a_request,
                                             e2var (Atom.builtin (Printf.sprintf "_%d_" i))
                                         ))
-                                    ) spawn_inline_args
+                                    ) spawn_inline_args)
                                 ))
                             ));
                             (* fire(s, response(ref));*)
@@ -451,12 +531,10 @@ module Make () = struct
                         mtype_of_ct (TInport (mtype_of_st (IRMisc.dual (spawn_protocol_st schema)).value))
                     ) in
 
-                    failwith "TODO add bridge for spawn_protocol + bind in A constructor"
-
                     (*** Register a spawn_bridge_B argument to A constructor + bind it with spawn port in constructor ***)
                     spawn_bridges := (   
                         spawn_port_name,
-                        Atom.fresh (Printf.sprintf "spawn_bridge_%s_in_%s_" (Atom.to_string schema) (Atom.to_string schema_in)),
+                        spawn_bridge schema schema_in,
                         mtype_of_ct (TBridge{ 
                             in_type = mtype_of_cmt CompTBottom;
                             out_type = mtype_of_cvar schema_in; 
@@ -517,13 +595,79 @@ module Make () = struct
         (* add sspawn_request/respons_tdef/protocol_def lca in program *)
         |> insert_terms_into_lca [None] (List.map (fun (key,tdef) -> auto_fplace (auto_plgannot tdef)) (List.of_seq (Hashtbl.to_seq tdefs)))
     let eliminate_dynamic_inline_in program = 
+        (*** Hydrate TODO before doing parent rewriting ***)
+        let host_inline_in = Hashtbl.create 16 in
+        collect_expr_program Atom.Set.empty select_spawn_with_inline_in (fun parent_opt _ -> function 
+            | {value=Spawn {c; args; inline_in = Some ({place; value=e, {value=CType{value=TActivationRef{value=CompType {value=CompTUid schema_in}}}}} as inline_in)},_} -> begin 
+                let schema = match fst c.value with
+                    | VarCExpr schema -> schema
+                    | _ -> raise (Error.DeadbranchError "Unsupported [c] in spawn !") 
+                in
 
-        let rewriter mt = function
-            | Spawn {inline_in = Some {place; value=e, {value=CType{value=TActivationRef{value=CompType {value=CompTUid schema_in}}}}}} -> begin 
-                let schema = match mt with
-                    |{value=CType{value=TActivationRef{value=CompType {value=CompTUid schema}}}}
-                    |{value=CType{value=TActivationRef{value=CompType {value=TStruct (schema,_)}}}}  -> schema
-                    | _ -> Error.perror mt.place "spawn is ill-typed! %s" (show_main_type mt)
+                let parent = match parent_opt with
+                    | Some parent -> parent
+                    | _ -> Error.error "spawn inline in outside of parent scope"
+                in
+                
+                begin
+                    match Hashtbl.find_opt host_inline_in parent with
+                    | Some xs   -> Hashtbl.add host_inline_in parent (Atom.Set2.add (schema, schema_in) xs)
+                    | None      -> Hashtbl.add host_inline_in parent (Atom.Set2.singleton (schema, schema_in))
+                end;
+
+                []
+            end
+        );
+
+        (*** Rewrite parent of spawn in in order to add outport ***)
+        let parent_selector (cstruct:component_structure) = 
+            match Hashtbl.find_opt host_inline_in cstruct.name with
+            | Some set -> set <> Atom.Set2.empty 
+            | None -> false
+        in 
+        (* schema_host is used to dedup on host basis *)
+        let spawn_outport = 
+            let state = Hashtbl.create 16 in
+            fun schema schema_in schema_host ->
+                match Hashtbl.find_opt state (schema, schema_in, schema_host) with
+                | None -> 
+                    let x = Atom.fresh (Printf.sprintf "p_outspawn_%s_in_%s_" (Atom.to_string schema) (Atom.to_string schema_in)) in
+                    Hashtbl.add state (schema, schema_in, schema_host) x;
+                    x
+                | Some x -> x
+        in
+        let parent_rewriter place (cstruct:component_structure) = 
+            (* Generate outports *)
+            let outports = 
+                List.map
+                    (function (schema, schema_in) -> 
+                        auto_fplace( auto_plgannot(Outport (auto_fplace ({
+                            name        = spawn_outport schema schema_in cstruct.name;
+                            protocol    = mtype_of_var (spawn_protocol schema);
+                            _children   = [];
+                        }, mtype_of_ct (TOutport (mtype_of_st (spawn_protocol_st schema).value))))))    
+                    )
+                    (Atom.Set2.to_list (Hashtbl.find host_inline_in cstruct.name))
+            in
+
+            (* Bind outports at startup *)
+            let onstartup   = IRMisc.get_onstartup cstruct in
+            let onstartup   = failwith "bind it in in onstartup" in
+            let cstruct     = IRMisc.replace_onstartup cstruct onstartup in
+
+            [{cstruct with body = cstruct.body @ outports }]
+        in
+
+        (*** Eliminate inline in***)
+        let rewriter parent_opt mt = function
+            | Spawn {c; args; inline_in = Some ({place; value=e, {value=CType{value=TActivationRef{value=CompType {value=CompTUid schema_in}}}}} as inline_in)} -> begin 
+                let schema = match fst c.value with
+                    | VarCExpr schema -> schema
+                    | _ -> raise (Error.DeadbranchError "Unsupported [c] in spawn !") 
+                in
+                let parent = match parent_opt with
+                    | Some parent -> parent
+                    | _ -> Error.error "spawn inline in outside of parent scope"
                 in
 
                 logger#debug "spawn inline %s in %s" (Atom.to_string schema) (Atom.to_string schema_in);
@@ -537,22 +681,74 @@ module Make () = struct
                     with Not_found -> Error.error "Can not inline %s in %s ! Use @inline_in annotations." (Atom.to_string schema) (Atom.to_string schema_in)
                 end;
 
-                (*
-                    1) send spawnB15(args) request to A
-                    2) wait for activation ID (A with Bid embedded)
-                *)
-                failwith "TODO rewrite spawn inline"
+                let a_session_0 = Atom.fresh "s" in
+                let a_session_1 = Atom.fresh "s" in
+                [
+                    (* Initiate session *)
+                    auto_fplace (LetStmt(
+                        mtype_of_st (spawn_protocol_st schema).value,
+                        a_session_0,
+                        e2_e(CallExpr(
+                            e2var (Atom.builtin "initiate_session_with"),
+                            [
+                                e2_e(AccessExpr(
+                                    e2_e This,
+                                    e2var (spawn_outport schema schema_in parent)
+                                ));
+                                inline_in 
+                            ]
+                        ))
+                    ));
+                    (* Send spawn_request to a *)
+                    auto_fplace (LetStmt(
+                        mtype_of_st (List.nth (IRMisc.stages_of_st (spawn_protocol_st schema)) 1),
+                        a_session_1,
+                        e2_e(CallExpr(
+                            e2var (Atom.builtin "fire"),
+                            [
+                                e2var a_session_0;
+                                e2_e(CallExpr(
+                                    e2var (spawn_request schema),
+                                    args 
+                                ))
+                            ]
+                        ))
+                    ));
+                ],
+                (* Wait for response and get activation_id *)
+                (* (receive(s2)?)._0._0_ *)
+                (e2_e(AccessExpr(
+                    e2_e(AccessExpr(
+                        e2_e(UnopExpr(
+                            UnpackOrPropagateResult,
+                            e2_e(CallExpr(
+                                e2var (Atom.builtin "receive"),
+                                [
+                                    e2var a_session_1;
+                                ]
+                            ))
+                        )),
+                        e2var (Atom.builtin "_0")
+                    )),
+                    e2var (Atom.builtin "_0_")
+                ))).value
             end
             | Spawn {inline_in = Some {place; value=_, mtt} } -> Error.perror place "inline_in is ill-typed! %s" (show_main_type mtt) 
         in
 
-        rewrite_expr_program select_spawn_with_inline_in rewriter program
+        (*let a_static_bridge = spawn_bridge schema schema_in in*)
+        failwith "TODO STATIC BRIDGE spawn";
+
+
+
+        program
+        |> rewrite_component_program parent_selector parent_rewriter
+        |> rewrite_exprstmts_program (function _ -> false) select_spawn_with_inline_in rewriter
 
     let rewrite_program program =  
         program
         |> eliminate_static_inlinable
         |> eliminate_dynamic_inline_in
-        |> failwith "TODO inline"
         
     (*********************************************************)
     let name = "InlineElim"
