@@ -49,10 +49,10 @@ module Mtype = struct
 
 
         (* Expression *)
-        let e2_e e =  auto_fplace (e, auto_fplace EmptyMainType)
-        let e2var x =  e2_e (VarExpr x)
-        let e2lit lit =  e2_e (LitExpr (lit))
-        let e2_lit lit =  e2lit (auto_fplace lit)
+        let e2_e ?(mt=auto_fplace EmptyMainType) e =  auto_fplace (e, mt)
+        let e2var ?(mt=auto_fplace EmptyMainType) x =  e2_e ~mt:mt (VarExpr x)
+        let e2lit ?(mt=auto_fplace EmptyMainType) lit =  e2_e ~mt:mt (LitExpr (lit))
+        let e2_lit ?(mt=auto_fplace EmptyMainType) lit =  e2lit ~mt:mt (auto_fplace lit)
 
         (* Stmt *)
         let stmt2e e = auto_fplace (ExpressionStmt e)

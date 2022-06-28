@@ -133,15 +133,22 @@ module Make () = struct
                 auto_fplace STEnd
             ))))
 
-    let spawn_bridge = 
+    let spawn_static_bridge = 
         let state = Hashtbl.create 16 in
         fun schema schema_in ->
             match Hashtbl.find_opt state (schema, schema_in) with
             | None -> 
-                let x = Atom.fresh (Printf.sprintf "spawn_bridge_%s_in_%s_" (Atom.to_string schema) (Atom.to_string schema_in)) in
+                let x = Atom.fresh (Printf.sprintf "spawn_static_bridge_%s_in_%s_" (Atom.to_string schema) (Atom.to_string schema_in)) in
                 Hashtbl.add state (schema, schema_in) x;
                 x
             | Some x -> x
+
+    let spawn_static_bridge_mt schema schema_in = 
+        mtype_of_ct (TBridge{ 
+            in_type = mtype_of_cmt CompTBottom;
+            out_type = mtype_of_cvar schema_in; 
+            protocol = mtype_of_st (spawn_protocol_st schema).value;
+        })
 
     let extract_cl_callback (cl:class_structure) port_callback= 
         let cl_callback_name = Hashtbl.find renaming (match fst port_callback.value with
@@ -184,7 +191,7 @@ module Make () = struct
                 let schema_in = cstruct_in.name in
                 let schemas = List.of_seq (Atom.Set.to_seq (Hashtbl.find inv_is_inlineable_in schema_in)) in
                 
-                let spawn_bridges = ref [] in
+                let spawn_static_bridges = ref [] in
 
                 let n_body = List.map (function schema -> 
                     let cstruct = Hashtbl.find inlineable_cstructs schema in 
@@ -203,10 +210,26 @@ module Make () = struct
                         cstruct.body))
                     in
 
+                    let cl_get_activation_ref = Atom.fresh "get_activation_ref" in
                     let cl = {
                         annotations = cstruct.annotations;
                         name = cl_name schema schema_in;
-                        body =  body;
+                        body = 
+                        (* Add an get_activation_ref method: parent_activation_ref -> mocked activation_ref *)
+                        [
+                            let a_parent_activation_ref = Atom.fresh "parent_activation_ref" in
+                            auto_fplace (auto_plgannot(CLMethod (auto_fplace {
+                                annotations = [];
+                                ghost = false;
+                                ret_type = mtype_of_ct (TActivationRef (mtype_of_cvar schema));
+                                name = cl_get_activation_ref;
+                                args = [ auto_fplace (mtype_of_ct (TActivationRef (mtype_of_cvar schema_in)), a_parent_activation_ref)] ;
+                                body = []; (* FIXME TODO write body *)
+                                contract_opt = None;
+                                on_destroy = false;
+                                on_startup = false;
+                            })))
+                        ] @ body;
                     } in
 
                     (*** add state [instances_B15] in A ***)
@@ -230,6 +253,8 @@ module Make () = struct
                         | Some schema_onstartup -> List.map (rename_param refresh_atom) schema_onstartup.value.args
                         | None -> []
                     in
+
+                    let a_instance = Atom.fresh "instance" in
                     let spawn_inline = {
                         annotations = [];
                         ghost = false;
@@ -238,11 +263,44 @@ module Make () = struct
                         args = spawn_inline_args;
                         body = [
                             (*
-                                id = ...
-                                this.instances_B15[...] = new InlinedB15A(...);
-                                return (this with id)  
+                                obj<InlinedB15> instance = new InlinedB15A(...);
+                                this.instances_B15[instance.activation_ref(this)] = instance;
+                                return instance.activation_ref(this);  
                             *)
-                            failwith "HOW TO ID"
+                            auto_fplace (LetStmt(
+                                mtype_of_ct (TObject schema_in),
+                                a_instance,
+                                e2_e (Create {
+                                    c = cl.name;
+                                    args = List.map (function {value=(mt, x)} -> e2var ~mt:mt x) spawn_inline_args;
+                                })
+                            ));
+                            auto_fplace (ExpressionStmt(e2_e(CallExpr (
+                                e2_e(AccessExpr(
+                                    e2_e This,
+                                    e2var name_inlined_instances
+                                )),
+                                [
+                                    e2_e (CallExpr(
+                                        e2_e (AccessExpr(
+                                            e2var a_instance,
+                                            e2var cl_get_activation_ref
+                                        )),
+                                        [ e2_e This ]
+                                    )) ;
+                                    e2var a_instance;
+                                ]
+                            ))));
+                            auto_fplace (ReturnStmt (e2_e (InterceptedActivationRef (
+                                e2_e This, 
+                                (Some (e2_e (CallExpr(
+                                    e2_e (AccessExpr(
+                                        e2var a_instance,
+                                        e2var cl_get_activation_ref
+                                    )),
+                                    [ e2_e This]
+                                ))))
+                            ))));
                         ];
                         contract_opt = None;
                         on_destroy = false;
@@ -531,16 +589,12 @@ module Make () = struct
                         mtype_of_ct (TInport (mtype_of_st (IRMisc.dual (spawn_protocol_st schema)).value))
                     ) in
 
-                    (*** Register a spawn_bridge_B argument to A constructor + bind it with spawn port in constructor ***)
-                    spawn_bridges := (   
+                    (*** Register a spawn_static_bridge_B argument to A constructor + bind it with spawn port in constructor ***)
+                    spawn_static_bridges := (   
                         spawn_port_name,
-                        spawn_bridge schema schema_in,
-                        mtype_of_ct (TBridge{ 
-                            in_type = mtype_of_cmt CompTBottom;
-                            out_type = mtype_of_cvar schema_in; 
-                            protocol = mtype_of_st (spawn_protocol_st schema).value;
-                        })
-                    ) :: !spawn_bridges;
+                        spawn_static_bridge schema schema_in,
+                        spawn_static_bridge_mt schema schema_in
+                    ) :: !spawn_static_bridges;
 
 
                     (*** returns ***)
@@ -555,13 +609,13 @@ module Make () = struct
                     @n_inports@n_outports@n_eports
                 ) schemas in
 
-                (*** Add a spawn_bridge_B argument to A constructor + bind it with spawn port in constructor ***)
-                let cstruct_in = List.fold_left (fun cstruct_in (spawn_port_name, spawn_bridge_name, spawn_bridge_mt) -> 
+                (*** Add a spawn_static_bridge_B argument to A constructor + bind it with spawn port in constructor ***)
+                let cstruct_in = List.fold_left (fun cstruct_in (spawn_port_name, spawn_static_bridge_name, spawn_static_bridge_mt) -> 
                     match IRMisc.get_onstartup cstruct_in with
                     | Some onstartup -> 
                         IRMisc.replace_onstartup cstruct_in { onstartup with
                             value = {onstartup.value with 
-                                args = auto_fplace (spawn_bridge_mt, spawn_bridge_name)::onstartup.value.args;
+                                args = auto_fplace (spawn_static_bridge_mt, spawn_static_bridge_name)::onstartup.value.args;
                                 body = (
                                     auto_fplace(ExpressionStmt(
                                         e2_e(
@@ -569,7 +623,7 @@ module Make () = struct
                                                 e2var (Atom.builtin "bind"),
                                                 [ 
                                                     e2var spawn_port_name;
-                                                    e2var spawn_bridge_name
+                                                    e2var spawn_static_bridge_name
                                                 ]
                                             )
                                         )
@@ -579,7 +633,7 @@ module Make () = struct
                         }
                     | None -> failwith "TODO no onstartup not supported yet, for inline elim" 
                     
-                ) cstruct_in !spawn_bridges in 
+                ) cstruct_in !spawn_static_bridges in 
 
                 [ Component {
                     place = place @ fplace; 
@@ -594,6 +648,7 @@ module Make () = struct
         |> rewrite_term_program select_component_inline_in rewriter_inline_in
         (* add sspawn_request/respons_tdef/protocol_def lca in program *)
         |> insert_terms_into_lca [None] (List.map (fun (key,tdef) -> auto_fplace (auto_plgannot tdef)) (List.of_seq (Hashtbl.to_seq tdefs)))
+
     let eliminate_dynamic_inline_in program = 
         (*** Hydrate TODO before doing parent rewriting ***)
         let host_inline_in = Hashtbl.create 16 in
@@ -638,23 +693,47 @@ module Make () = struct
         in
         let parent_rewriter place (cstruct:component_structure) = 
             (* Generate outports *)
-            let outports = 
+            let static_bridges__outports = 
                 List.map
                     (function (schema, schema_in) -> 
-                        auto_fplace( auto_plgannot(Outport (auto_fplace ({
+                        spawn_static_bridge schema schema_in, 
+                        auto_fplace ({
                             name        = spawn_outport schema schema_in cstruct.name;
                             protocol    = mtype_of_var (spawn_protocol schema);
                             _children   = [];
-                        }, mtype_of_ct (TOutport (mtype_of_st (spawn_protocol_st schema).value))))))    
+                        }, mtype_of_ct (TOutport (mtype_of_st (spawn_protocol_st schema).value)))    
                     )
                     (Atom.Set2.to_list (Hashtbl.find host_inline_in cstruct.name))
             in
 
             (* Bind outports at startup *)
-            let onstartup   = IRMisc.get_onstartup cstruct in
-            let onstartup   = failwith "bind it in in onstartup" in
+            let onstartup   = 
+                match IRMisc.get_onstartup cstruct with
+                | Some onstartup ->
+                    List.fold_left (fun (onstartup:method0) ((static_bridge, outport):Atom.atom * outport) -> 
+                        { onstartup with 
+                            value = {onstartup.value with
+                                body = [
+                                    auto_fplace (ExpressionStmt(e2_e (CallExpr (
+                                        e2var (Atom.builtin "bind"),
+                                        [
+                                            e2_e (AccessExpr(
+                                                e2_e This,
+                                                e2var (fst outport.value).name 
+                                            ));
+                                            e2var static_bridge 
+                                        ]
+                                    ))))
+                                ] @ onstartup.value.body 
+                            }
+                        }
+                        
+                    ) onstartup static_bridges__outports 
+                | None -> failwith "TODO no onstartup not supported yet, for inline elim" 
+            in
             let cstruct     = IRMisc.replace_onstartup cstruct onstartup in
-
+            
+            let outports = List.map (function (_,port) -> auto_fplace( auto_plgannot(Outport port))) static_bridges__outports in
             [{cstruct with body = cstruct.body @ outports }]
         in
 
@@ -736,14 +815,28 @@ module Make () = struct
             | Spawn {inline_in = Some {place; value=_, mtt} } -> Error.perror place "inline_in is ill-typed! %s" (show_main_type mtt) 
         in
 
-        (*let a_static_bridge = spawn_bridge schema schema_in in*)
-        failwith "TODO STATIC BRIDGE spawn";
-
-
+        let let_static_bridges = 
+            List.map 
+                (function (schema, schema_in) ->
+                    let x = spawn_static_bridge schema schema_in in
+                    let mt_bridge = spawn_static_bridge_mt schema schema_in in
+                    auto_fplace (LetStmt(
+                        mt_bridge,
+                        x,
+                        e2_lit ~mt:mt_bridge (StaticBridge{
+                            id = Atom.fresh (Atom.value x);
+                            protocol_name = spawn_protocol schema;
+                        })
+                    ))
+                )
+                (List.flatten (List.map (function (k, set) -> Atom.Set2.to_list set) (List.of_seq(Hashtbl.to_seq host_inline_in))))
+        in
 
         program
-        |> rewrite_component_program parent_selector parent_rewriter
+        |> rewrite_component_program parent_selector parent_rewriter 
         |> rewrite_exprstmts_program (function _ -> false) select_spawn_with_inline_in rewriter
+        (* Insert static bridge definition (lca) in program *)
+        |> insert_terms_into_lca [None] (List.map (function letbridge -> auto_fplace (auto_plgannot (Stmt letbridge))) let_static_bridges)
 
     let rewrite_program program =  
         program

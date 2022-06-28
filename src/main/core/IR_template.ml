@@ -655,6 +655,13 @@ module Make (Params : IRParams) = struct
         and collect_expr_component_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
             map0_place (map0_plgannot(collect_expr_component_item_ parent_opt already_binded selector collector)) citem
 
+        and collect_expr_class_item_ parent_opt (already_binded:Atom.Set.t) selector (collector: 'a sig_expr_collector) place = function 
+            | CLContract c -> collect_expr_contract parent_opt already_binded selector collector c
+            | CLMethod m -> collect_expr_method0 parent_opt already_binded selector collector m
+            | CLState s -> collect_expr_state parent_opt already_binded selector collector s 
+        and collect_expr_class_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
+            map0_place (map0_plgannot(collect_expr_class_item_ parent_opt already_binded selector collector)) citem
+
         and free_vars_component_item already_binded citem = 
             let already_binded, _, fvars = collect_expr_component_item None  already_binded (function e -> false) (fun parent_opt env e -> []) citem in
             already_binded, Utils.deduplicate snd fvars 
@@ -695,6 +702,25 @@ module Make (Params : IRParams) = struct
         and collect_expr_component_dcl parent_opt (already_binded:Atom.Set.t) selector collector  cdcl = 
             map0_place (collect_expr_component_dcl_ parent_opt already_binded selector collector ) cdcl
 
+        and collect_expr_class_dcl parent_opt (already_binded:Atom.Set.t) selector (collector: 'a sig_expr_collector) (cl:class_structure) =
+            let parent_opt = Some cl.name in
+            (* Shallow scan because fields and methods could be recursive *)
+            let already_binded = List.fold_left (
+                fun already_binded citem -> 
+                    match citem.value.v with
+                    | CLContract _ -> already_binded
+                    | CLMethod m -> Atom.Set.add m.value.name already_binded
+                    | CLState s -> Atom.Set.add(s.value.name) already_binded
+            ) already_binded cl.body in
+
+            let _, res = List.fold_left_map (fun already_binded citem -> 
+                let env, a,b = collect_expr_class_item parent_opt already_binded selector collector citem in
+                env, (a,b)    
+            ) already_binded cl.body in
+            let collected_elts = List.flatten (List.map fst res) in
+            let fvars = List.flatten (List.map snd res) in
+            already_binded, collected_elts, fvars
+
         and free_vars_component_dcl already_binded cdcl = 
             let already_binded, _, fvars = collect_expr_component_dcl None  already_binded (function e -> false) (fun parent_opt env e -> []) cdcl in
             already_binded, Utils.deduplicate snd fvars
@@ -729,6 +755,7 @@ module Make (Params : IRParams) = struct
             | EmptyTerm | Comments _ -> already_binded, [], []
             | Stmt stmt -> collect_expr_stmt parent_opt already_binded selector collector stmt
             | Component cdcl -> collect_expr_component_dcl parent_opt already_binded selector collector cdcl
+            | Class cl -> collect_expr_class_dcl parent_opt already_binded selector collector cl
             | Function fdcl -> collect_expr_function_dcl parent_opt already_binded selector collector fdcl
             | Typealias _ -> already_binded, [], [] (* type binder but not an expr binder so already_binded is left unchanged*)
             | Typedef typedef -> collect_expr_typedef parent_opt already_binded selector collector typedef
@@ -1052,6 +1079,13 @@ module Make (Params : IRParams) = struct
         and collect_type_component_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
             map0_place (map0_plgannot(collect_type_component_item_ parent_opt already_binded selector collector)) citem
 
+        and collect_type_class_item_ parent_opt (already_binded:Atom.Set.t) selector collector place = function 
+            | CLContract c -> collect_type_contract parent_opt already_binded selector collector c
+            | CLMethod m -> collect_type_method0 parent_opt already_binded selector collector m
+            | CLState s -> collect_type_state parent_opt already_binded selector collector s 
+        and collect_type_class_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
+            map0_place (map0_plgannot(collect_type_class_item_ parent_opt already_binded selector collector)) citem
+
         and free_tvars_component_item already_binded citem = 
             let already_binded, _, ftvars = collect_type_component_item None  already_binded (function e -> false) (fun parent_opt env e -> []) citem in
             already_binded, Utils.deduplicate Fun.id ftvars 
@@ -1091,6 +1125,27 @@ module Make (Params : IRParams) = struct
             already_binded, collected_elts, fvars
         and collect_type_component_dcl parent_opt (already_binded:Atom.Set.t) selector collector cdcl = 
             map0_place (collect_type_component_dcl_ parent_opt already_binded selector collector ) cdcl
+
+        and collect_type_class_dcl parent_opt (already_binded:Atom.Set.t) selector collector (cl:class_structure) =  
+            let parent_opt = Some cl.name in
+            (* FIXME TODO do i need to propagate field/method name binding ???*)
+
+            (* Shallow scan because because class type def could be recursive *)
+            let already_binded = List.fold_left (
+                fun already_binded citem -> 
+                    match citem.value.v with
+                    | CLContract _ -> already_binded
+                    | CLMethod m -> already_binded
+                    | CLState s -> already_binded
+            ) already_binded cl.body in
+
+            let _, res = List.fold_left_map (fun already_binded citem -> 
+                let env, a,b = collect_type_class_item parent_opt already_binded selector collector citem in
+                env, (a,b)    
+            ) already_binded cl.body in
+            let collected_elts = List.flatten (List.map fst res) in
+            let fvars = List.flatten (List.map snd res) in
+            already_binded, collected_elts, fvars
 
         and free_tvars_component_dcl already_binded cdcl = 
             let already_binded, _, ftvars = collect_type_component_dcl None  already_binded (function e -> false) (fun parent_opt env e -> []) cdcl in
@@ -1145,6 +1200,7 @@ module Make (Params : IRParams) = struct
             | EmptyTerm | Comments _ -> already_binded, [], []
             | Stmt stmt -> collect_type_stmt parent_opt already_binded selector collector stmt
             | Component cdcl -> collect_type_component_dcl parent_opt already_binded selector collector cdcl
+            | Class cl -> collect_type_class_dcl parent_opt already_binded selector collector cl
             | Function fdcl -> collect_type_function_dcl parent_opt already_binded selector collector fdcl
             | Typealias (name, tabody) -> 
                 let _, collected_elts, ftvars = collect_type_typealias_body collect_type_expr collect_type_mtype parent_opt already_binded selector collector tabody in
@@ -1604,6 +1660,11 @@ module Make (Params : IRParams) = struct
                 let stmts1, e1 = rewrite_exprstmts_expr e1 in
                 let stmts2, e2 = rewrite_exprstmts_expr e2 in
                 stmts1@stmts2, (ResultExpr(Some e1, Some e2), mt_e)
+            | Create {c; args=es} ->
+                let stmtses = List.map (function e -> rewrite_exprstmts_expr e) es in
+                let stmts_n = List.flatten (List.map fst stmtses) in
+                let es_n = List.map snd stmtses in
+                stmts_n, (Create {c; args=es_n}, mt_e)
             | BlockExpr (b, es) ->
                 let stmtses = List.map (function e -> rewrite_exprstmts_expr e) es in
                 let stmts_n = List.flatten (List.map fst stmtses) in
@@ -1715,6 +1776,17 @@ module Make (Params : IRParams) = struct
         | Contract _ | Include _ | Inport _ | Eport _ | Outport _ | State _ -> [citem]
         and rewrite_exprstmts_component_item parent_opt exclude_stmt selector rewriter = map_places (map_plgannots(rewrite_exprstmts_component_item_ parent_opt exclude_stmt selector rewriter)) 
 
+        and rewrite_exprstmts_class_item_ parent_opt exclude_stmt selector rewriter place citem = 
+        match citem with
+        | CLMethod m ->[CLMethod { m with
+        value = {
+            m.value with body = rewrite_exprstmts_custom_method0_body rewrite_exprstmts_stmt parent_opt exclude_stmt selector rewriter m.value.body
+        }
+        }]
+        (* citem without statement *)
+        | CLContract _ | CLState _ -> [citem]
+        and rewrite_exprstmts_class_item parent_opt exclude_stmt selector rewriter = map_places (map_plgannots(rewrite_exprstmts_class_item_ parent_opt exclude_stmt selector rewriter)) 
+
 
         and rewrite_exprstmts_component_dcl_ parent_opt  exclude_stmt selector rewriter place = function
         | ComponentStructure cdcl -> 
@@ -1725,9 +1797,17 @@ module Make (Params : IRParams) = struct
         }
         and rewrite_exprstmts_component_dcl parent_opt  exclude_stmt selector rewriter = map_place (rewrite_exprstmts_component_dcl_ parent_opt  exclude_stmt selector rewriter)
 
+        and rewrite_exprstmts_class_dcl parent_opt  exclude_stmt selector rewriter (cl:class_structure) =
+            let parent_opt = Some cl.name in
+            {
+                cl with 
+                    body = List.flatten (List.map (rewrite_exprstmts_class_item parent_opt exclude_stmt selector rewriter) cl.body)
+            }
+
         and rewrite_exprstmts_term_ (parent_opt:component_variable option) exclude_stmt selector rewriter place t =  
         match t with
         | Component cdcl -> [Component (rewrite_exprstmts_component_dcl parent_opt exclude_stmt selector rewriter cdcl)]
+        | Class cl -> [Class (rewrite_exprstmts_class_dcl parent_opt exclude_stmt selector rewriter cl)]
         | Function fdcl -> [Function { fdcl with
             value = {
                 fdcl.value with body = rewrite_exprstmts_custom_method0_body rewrite_exprstmts_stmt parent_opt  exclude_stmt selector rewriter fdcl.value.body

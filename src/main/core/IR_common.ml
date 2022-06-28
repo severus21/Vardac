@@ -160,7 +160,7 @@ and block2 = AstUtils.block2
 (************************************ Expr & Stmt *****************************)
 
 and spawn = {c: component_expr; args: expr list; at: expr option; inline_in: expr option}
-and create = {c: component_expr; args: expr list}
+and create = {c: component_variable; args: expr list}
 and _expr = 
     | EmptyExpr
     | VarExpr of expr_variable 
@@ -351,7 +351,7 @@ let rec collect_expr_expr_ parent_opt (already_binded:Atom.Set.t) selector colle
     | ActivationAccessExpr (_, e, _) | UnopExpr (_, e) | OptionExpr (Some e) | ResultExpr (Some e, None) | ResultExpr (None, Some e)->
         let _, collected_elts, fvars = collect_expr_expr parent_opt already_binded selector collector e in
         already_binded, collected_elts0@collected_elts, fvars
-    | CallExpr ({value=(VarExpr _,_) }, es) | NewExpr ({value=(VarExpr _, _)}, es) -> (* no first class function nor constructor inside stmt - so we get ride of all possible constructors *)
+    | CallExpr ({value=(VarExpr _,_) }, es) | NewExpr ({value=(VarExpr _, _)}, es) | Create {args=es} -> (* no first class function nor constructor inside stmt - so we get ride of all possible constructors *)
         let collected_elts, fvars = List.fold_left (fun (acc0, acc1) e -> 
             let _, collected_elts, fvars = collect_expr_expr parent_opt already_binded selector collector e in
             collected_elts@acc0, fvars@acc1
@@ -582,7 +582,7 @@ function
     already_binded, collected_elts, ftvars
 | TVar x | TPolyVar x when Atom.Set.find_opt x already_binded <> None  -> already_binded, [], [] 
 | TVar x when Atom.is_builtin x -> already_binded, [], [] 
-| TVar x | TPolyVar x  -> 
+| TVar x | TPolyVar x | TObject x -> 
     already_binded, [], [x]
 | TForall (x, mt) -> 
     let inner_already_binded = Atom.Set.add x already_binded in
@@ -664,7 +664,7 @@ and collect_type_aconstraints parent_opt already_binded selector collector (acon
     ) ([], []) aconstraints 
 
 and collect_type_cmtype_ parent_opt already_binded selector collector place= function
-| CompTUid _ | TPolyCVar _ -> already_binded, [], [] (*Not a type variable but a component variable *)
+| CompTUid _ | TPolyCVar _ | CompTBottom -> already_binded, [], [] (*Not a type variable but a component variable *)
 | TStruct (_, sign) -> 
     let collected_elts, ftvars = collect_type_mtypes parent_opt already_binded selector collector (List.map snd (List.of_seq (Atom.VMap.to_seq sign))) in
     already_binded, collected_elts, ftvars
@@ -755,7 +755,7 @@ and collect_type_expr_ parent_opt already_binded selector collector place (e, mt
         let _, collected_elts1, ftvars1 = collect_expropt e1_opt in
         let _, collected_elts2, ftvars2 = collect_expropt e2_opt in
         collected_elts1@collected_elts2, ftvars1@ftvars2
-    | BlockExpr (_, es) -> collect_exprs es
+    | BlockExpr (_, es) | Create {args=es} -> collect_exprs es
     | Block2Expr (_, ees) ->
         let es1, es2 = List.split ees in
         let collected_elts1, ftvars1 = collect_exprs  es1 in
