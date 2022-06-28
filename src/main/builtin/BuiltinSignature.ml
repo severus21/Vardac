@@ -107,6 +107,13 @@ let t_receive () =
         )
     ))
 
+
+let t_session_to_2_ () =
+    mtype_of_ct (TArrow(
+        mtype_of_st STBottom,
+        mtype_of_ct (TActivationRef (mtype_of_ft TWildcard))
+    ))
+
 let t_initiate () =
     let a = Atom.fresh "A" in
     let b = Atom.fresh "B" in

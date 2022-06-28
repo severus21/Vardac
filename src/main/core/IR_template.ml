@@ -131,13 +131,16 @@ module type IRParams = sig
 
     val rename_state_dcl_body : 
     bool ->
+    bool ->
     (Atom.atom -> Atom.atom) ->
     _state_dcl_body -> _state_dcl_body
     val rename_custom_method0_body : 
     bool ->
+    bool ->
     (Atom.atom -> Atom.atom) ->
     _custom_method0_body -> _custom_method0_body
     val rename_typealias_body : 
+    bool ->
     bool ->
     (Atom.atom -> Atom.atom) ->
     _typealias_body -> _typealias_body
@@ -244,9 +247,9 @@ module Make (Params : IRParams) = struct
     let collect_cexpr_custom_method0_body x = Params.collect_cexpr_custom_method0_body x 
     let collect_stmt_custom_method0_body x = Params.collect_stmt_custom_method0_body x 
 
-    let rename_state_dcl_body = Params.rename_state_dcl_body true
-    let rename_custom_method0_body = Params.rename_custom_method0_body true
-    let rename_typealias_body = Params.rename_typealias_body true 
+    let rename_state_dcl_body ?(flag_rename_attribute=false) = Params.rename_state_dcl_body flag_rename_attribute true
+    let rename_custom_method0_body ?(flag_rename_attribute=false) = Params.rename_custom_method0_body flag_rename_attribute true
+    let rename_typealias_body ?(flag_rename_attribute=false) = Params.rename_typealias_body flag_rename_attribute true 
 
     let collect_type_typedef_body rewrite_type_expr = Params.collect_type_typedef_body rewrite_type_expr
     let rewrite_type_typedef_body collect_type_expr = Params.rewrite_type_typedef_body collect_type_expr
@@ -549,11 +552,15 @@ module Make (Params : IRParams) = struct
             (term list -> term list) ->
             term list -> term list
 
-        val rename_component_item : (Atom.atom -> Atom.atom) ->
+        val rename_component_item : 
+            ?flag_rename_attribute:bool ->
+            (Atom.atom -> Atom.atom) ->
             component_item ->
             component_item
 
-        val rename_class_item : (Atom.atom -> Atom.atom) ->
+        val rename_class_item : 
+            ?flag_rename_attribute:bool ->
+            (Atom.atom -> Atom.atom) ->
             class_item ->
             class_item
 
@@ -1908,77 +1915,91 @@ module Make (Params : IRParams) = struct
         | Capturable {allowed_interceptors} -> Capturable {allowed_interceptors = List.map renaming allowed_interceptors}
         | InlinableIn schemas -> InlinableIn (List.map renaming schemas)
 
-        and _rename_contract renaming place c = {
-            method_name = renaming c.method_name;
-            pre_binders = List.map (function (mt, x, e) -> (rename_main_type renaming mt, renaming x, rename_expr true renaming e)) c.pre_binders;
-            ensures = Option.map (rename_expr true renaming) c.ensures; 
-            returns = Option.map (rename_expr true renaming) c.returns;
-        }
-        and rename_contract renaming = map_place (_rename_contract (protect_renaming renaming))
+        and _rename_contract flag_rename_attribute renaming place c = 
+            let re = rename_expr ~flag_rename_attribute:flag_rename_attribute true renaming in
+            
+            {
+                method_name = renaming c.method_name;
+                pre_binders = List.map (function (mt, x, e) -> (rename_main_type renaming mt, renaming x, re e)) c.pre_binders;
+                ensures = Option.map re c.ensures; 
+                returns = Option.map re c.returns;
+            }
+        and rename_contract ?(flag_rename_attribute=false) renaming = map_place (_rename_contract flag_rename_attribute (protect_renaming renaming))
 
 
 
-        let rec _rename_state renaming place s = { 
+        let rec _rename_state flag_rename_attribute renaming place s = { 
             ghost = s.ghost;
             type0 = rename_main_type renaming s.type0;
             name = renaming s.name;
-            body = rename_state_dcl_body renaming s.body;
+            body = rename_state_dcl_body ~flag_rename_attribute:flag_rename_attribute renaming s.body;
         }
-        and rename_state renaming = map_place (_rename_state (protect_renaming renaming))
+        and rename_state ?(flag_rename_attribute=false) renaming = map_place (_rename_state flag_rename_attribute (protect_renaming renaming))
 
-        and _rename_method renaming place (m:_method0) = {
-            annotations = List.map (rename_method_annotation renaming) m.annotations;
-            ghost = m.ghost;
-            ret_type = rename_main_type renaming m.ret_type;
-            name = renaming m.name;
-            args = List.map (rename_param renaming) m.args;
-            body = rename_custom_method0_body renaming m.body;
-            contract_opt  = Option.map (rename_contract renaming) m.contract_opt;
-            on_destroy = m.on_destroy;
-            on_startup = m.on_startup;
-        }
-        and rename_method renaming = map_place (_rename_method (protect_renaming renaming))
+        and _rename_method flag_rename_attribute renaming place (m:_method0) = 
+            logger#debug "rename_method [%b]" flag_rename_attribute;
+            {
+                annotations = List.map (rename_method_annotation renaming) m.annotations;
+                ghost = m.ghost;
+                ret_type = rename_main_type renaming m.ret_type;
+                name = renaming m.name;
+                args = List.map (rename_param renaming) m.args;
+                body = rename_custom_method0_body ~flag_rename_attribute:flag_rename_attribute renaming m.body;
+                contract_opt  = Option.map (rename_contract ~flag_rename_attribute:flag_rename_attribute renaming) m.contract_opt;
+                on_destroy = m.on_destroy;
+                on_startup = m.on_startup;
+            }
+        and rename_method ?(flag_rename_attribute=false) renaming = map_place (_rename_method flag_rename_attribute (protect_renaming renaming))
 
-        and _rename_component_item renaming place = function
-        | Contract c    -> Contract (rename_contract renaming c)
-        | Method m      -> Method (rename_method renaming m)
-        | State s       -> State (rename_state renaming s)
-        | Inport p      -> Inport (rename_port renaming p)
-        | Eport p       -> Eport (rename_eport renaming p)
-        | Outport p     -> Outport (rename_outport renaming p)
-        | Term t        -> Term (rename_term renaming t)
-        | Include ce    -> Include (rename_component_expr renaming ce)
-        and rename_component_item renaming = map_place (map_plgannot(_rename_component_item (protect_renaming renaming)))
+        and _rename_component_item flag_rename_attribute renaming place = 
+            logger#debug "rename_component_item [%b]" flag_rename_attribute;
+        function
+        | Contract c    -> Contract (rename_contract ~flag_rename_attribute:flag_rename_attribute renaming c)
+        | Method m      -> Method (rename_method ~flag_rename_attribute:flag_rename_attribute renaming m)
+        | State s       -> State (rename_state ~flag_rename_attribute:flag_rename_attribute renaming s)
+        | Inport p      -> Inport (rename_port ~flag_rename_attribute:flag_rename_attribute renaming p)
+        | Eport p       -> Eport (rename_eport ~flag_rename_attribute:flag_rename_attribute renaming p)
+        | Outport p     -> Outport (rename_outport ~flag_rename_attribute:flag_rename_attribute renaming p)
+        | Term t        -> Term (rename_term ~flag_rename_attribute:flag_rename_attribute renaming t)
+        | Include ce    -> Include (rename_component_expr ~flag_rename_attribute:flag_rename_attribute renaming ce)
+        and rename_component_item ?(flag_rename_attribute=false) renaming = map_place (map_plgannot(_rename_component_item flag_rename_attribute (protect_renaming renaming)))
 
-        and _rename_class_item renaming place = function
-        | CLContract c    -> CLContract (rename_contract renaming c)
-        | CLMethod m      -> CLMethod (rename_method renaming m)
-        | CLState s       -> CLState (rename_state renaming s)
-        and rename_class_item renaming = map_place (map_plgannot(_rename_class_item (protect_renaming renaming)))
+        and _rename_class_item flag_rename_attribute renaming place = function
+        | CLContract c    -> CLContract (rename_contract ~flag_rename_attribute:flag_rename_attribute renaming c)
+        | CLMethod m      -> CLMethod (rename_method ~flag_rename_attribute:flag_rename_attribute renaming m)
+        | CLState s       -> CLState (rename_state ~flag_rename_attribute:flag_rename_attribute renaming s)
+        and rename_class_item ?(flag_rename_attribute=false) renaming = map_place (map_plgannot(_rename_class_item flag_rename_attribute (protect_renaming renaming)))
 
 
-        and _rename_component_dcl renaming place = function
+        and _rename_component_dcl flag_rename_attribute renaming place = function
         | ComponentAssign {name; value} -> ComponentAssign {
             name = renaming name;
-            value =rename_component_expr renaming value;
+            value = rename_component_expr ~flag_rename_attribute:flag_rename_attribute renaming value;
         }
         | ComponentStructure {target_name; annotations; name; body; headers} -> ComponentStructure {
             target_name = target_name;
             annotations = List.map (rename_component_annotation renaming) annotations;
             name = renaming name;
-            body = List.map (rename_component_item renaming) body;
+            body = List.map (rename_component_item ~flag_rename_attribute:flag_rename_attribute renaming) body;
             headers;
         }
-        and rename_component_dcl renaming = map_place (_rename_component_dcl (protect_renaming renaming))
+        and rename_component_dcl ?(flag_rename_attribute=false) renaming = map_place (_rename_component_dcl flag_rename_attribute (protect_renaming renaming))
 
-        and _rename_function_dcl renaming place (fdcl: _function_dcl) = {
+        and rename_class_dcl ?(flag_rename_attribute=false) renaming (cl:class_structure) = 
+            {
+                annotations = List.map (rename_component_annotation renaming) cl.annotations;
+                name = renaming cl.name;
+                body = List.map (rename_class_item ~flag_rename_attribute:flag_rename_attribute renaming) cl.body;
+            }
+
+        and _rename_function_dcl flag_rename_attribute renaming place (fdcl: _function_dcl) = {
             name = renaming fdcl.name;
             targs = List.map renaming fdcl.targs;
             ret_type = rename_main_type renaming fdcl.ret_type;
             args = List.map (rename_param renaming) fdcl.args;
-            body = rename_custom_method0_body renaming fdcl.body
+            body = rename_custom_method0_body ~flag_rename_attribute:flag_rename_attribute renaming fdcl.body
         }
-        and rename_function_dcl renaming = map_place (_rename_function_dcl (protect_renaming renaming))
+        and rename_function_dcl ?(flag_rename_attribute=false) renaming = map_place (_rename_function_dcl flag_rename_attribute(protect_renaming renaming))
 
         and _rename_typedef renaming place = 
             let rmt = rename_main_type renaming in
@@ -1990,23 +2011,24 @@ module Make (Params : IRParams) = struct
         | VPlaceDef x -> VPlaceDef (renaming x)
         and rename_typedef renaming = map_place (_rename_typedef (protect_renaming renaming))
 
-        and rename_derivation renaming (d:derivation) = {
+        and rename_derivation ?(flag_rename_attribute=false) renaming (d:derivation) = {
             name = renaming d.name;
-            cargs = List.map (rename_component_expr renaming) d.cargs;
+            cargs = List.map (rename_component_expr ~flag_rename_attribute:flag_rename_attribute renaming) d.cargs;
             targs = List.map (rename_main_type renaming) d.targs;
-            eargs = List.map (rename_expr true renaming) d.eargs
+            eargs = List.map (rename_expr ~flag_rename_attribute:flag_rename_attribute true renaming) d.eargs
         }
 
-        and _rename_term renaming place = function
+        and _rename_term flag_rename_attribute renaming place = function
         | EmptyTerm -> EmptyTerm
         | Comments _ as t -> t
-        | Stmt stmt -> Stmt (rename_stmt true renaming stmt)
-        | Component c -> Component (rename_component_dcl renaming c)
-        | Function fdcl -> Function (rename_function_dcl renaming fdcl)
+        | Stmt stmt -> Stmt (rename_stmt ~flag_rename_attribute:flag_rename_attribute true renaming stmt)
+        | Component c -> Component (rename_component_dcl ~flag_rename_attribute:flag_rename_attribute renaming c)
+        | Class c -> Class (rename_class_dcl ~flag_rename_attribute:flag_rename_attribute renaming c)
+        | Function fdcl -> Function (rename_function_dcl ~flag_rename_attribute:flag_rename_attribute renaming fdcl)
         | Typealias (x, mt_opt) -> Typealias (renaming x, rename_typealias_body renaming mt_opt)
         | Typedef tdef -> Typedef (rename_typedef renaming tdef)
-        | Derive d -> Derive (rename_derivation renaming d)
-        and rename_term renaming = map_place (map_plgannot(_rename_term (protect_renaming renaming)))
+        | Derive d -> Derive (rename_derivation ~flag_rename_attribute:flag_rename_attribute renaming d)
+        and rename_term ?(flag_rename_attribute=false) renaming = map_place (map_plgannot(_rename_term flag_rename_attribute (protect_renaming renaming)))
 
         let rename_program renaming = List.map (rename_term renaming)
 

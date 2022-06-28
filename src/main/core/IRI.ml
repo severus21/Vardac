@@ -113,14 +113,14 @@ let rec rewrite_cexpr_bbterm_ selector rewriter place {language; body} =
     body = List.map (rewrite_cexpr_bbbody selector rewriter) body}
 and rewrite_cexpr_bbterm selector collector = map_place (rewrite_cexpr_bbterm_ selector collector)
 
-let rename_bbbody flag_rename_type renaming = function
+let rename_bbbody flag_rename_attribute flag_rename_type renaming = function
     | Text str -> Text str
-    | Varda e -> Varda (rename_expr flag_rename_type renaming e)
+    | Varda e -> Varda (rename_expr ~flag_rename_attribute:flag_rename_attribute flag_rename_type renaming e)
 
-let rec rename_bbterm_ flag_rename_type renaming place {language; body} =
+let rec rename_bbterm_ flag_rename_attribute flag_rename_type renaming place {language; body} =
     {language;
-    body = List.map (rename_bbbody flag_rename_type renaming) body}
-and rename_bbterm flag_rename_type renaming = map_place (rename_bbterm_ flag_rename_type renaming)
+    body = List.map (rename_bbbody flag_rename_attribute flag_rename_type renaming) body}
+and rename_bbterm flag_rename_attribute flag_rename_type renaming = map_place (rename_bbterm_ flag_rename_attribute flag_rename_type renaming)
 
 (*
     Type
@@ -247,17 +247,17 @@ module Params : (
             List.flatten (List.map (collect_stmt_stmt parent_opt  selector collector) body)
         | BBImpl bbterm -> collect_stmt_bbterm parent_opt selector collector bbterm
 
-    let rename_state_dcl_body flag_rename_type renaming = function
-        | InitExpr e -> InitExpr (rename_expr flag_rename_type renaming e)
-        | InitBB bbterm -> InitBB (rename_bbterm flag_rename_type renaming bbterm)
+    let rename_state_dcl_body flag_rename_attribute flag_rename_type renaming = function
+        | InitExpr e -> InitExpr (rename_expr ~flag_rename_attribute:flag_rename_attribute flag_rename_type renaming e)
+        | InitBB bbterm -> InitBB (rename_bbterm flag_rename_attribute flag_rename_type renaming bbterm)
         | (NoInit as x) -> x
-    let rename_custom_method0_body flag_rename_type renaming = function 
-        | AbstractImpl stmts -> AbstractImpl (List.map (rename_stmt flag_rename_type renaming) stmts) 
-        | BBImpl bbterm -> BBImpl (rename_bbterm flag_rename_type renaming bbterm)
+    let rename_custom_method0_body flag_rename_attribute flag_rename_type renaming = function 
+        | AbstractImpl stmts -> AbstractImpl (List.map (rename_stmt ~flag_rename_attribute:flag_rename_attribute flag_rename_type renaming) stmts) 
+        | BBImpl bbterm -> BBImpl (rename_bbterm flag_rename_attribute flag_rename_type renaming bbterm)
 
-    let rename_typealias_body flag_rename_type renaming = function 
+    let rename_typealias_body flag_rename_attribute flag_rename_type renaming = function 
         | AbstractTypealias mt -> AbstractTypealias (rename_main_type renaming mt) 
-        | BBTypealias bbterm -> BBTypealias (rename_bbterm flag_rename_type renaming bbterm)
+        | BBTypealias bbterm -> BBTypealias (rename_bbterm flag_rename_attribute flag_rename_type renaming bbterm)
 
 
 

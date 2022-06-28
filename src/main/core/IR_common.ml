@@ -1567,8 +1567,9 @@ rewrite_type_aconstraint
         }
         and rename_literal flag_rename_type renaming = map_place (_rename_literal flag_rename_type (protect_renaming renaming)) 
 
-        and _rename_expr flag_rename_type renaming place (e, mt_e) = 
-            let re = rename_expr flag_rename_type renaming in
+        and _rename_expr flag_rename_attribute flag_rename_type renaming place (e, mt_e) = 
+            logger#debug "rename_expr [%b]" flag_rename_attribute;
+            let re = rename_expr ~flag_rename_attribute:flag_rename_attribute flag_rename_type renaming in
             let rmt = if flag_rename_type then rename_main_type renaming else Fun.id in
 
             let rename_attribute = false in (* TODO expose argument, renaming attributes is wrong except if type schemas have been changed *)
@@ -1578,9 +1579,14 @@ rewrite_type_aconstraint
             | VarExpr x -> VarExpr (renaming x)
             | ImplicitVarExpr x -> ImplicitVarExpr (renaming x)
             | InterceptedActivationRef (e1, e2_opt) -> InterceptedActivationRef (re e1, Option.map re e2_opt) 
-            | ActivationAccessExpr (x, e, y) -> ActivationAccessExpr (renaming x, re e, if rename_attribute then renaming y else y)
-            | AccessExpr (e1, ({value=VarExpr _,_} as e2)) -> AccessExpr (re e1, if rename_attribute then re e2 else e2)
-            | AccessExpr (e1, e2) -> AccessExpr (re e1, re e2)
+            | ActivationAccessExpr (x, e, y) -> 
+                ActivationAccessExpr (renaming x, re e, if flag_rename_attribute then renaming y else y)
+            | AccessExpr (e1, ({value=VarExpr _,_} as e2)) -> 
+                logger#debug "rename accessExpr [%b] \n%s" (flag_rename_attribute) (show_expr e2);
+                AccessExpr (re e1, if flag_rename_attribute then re e2 else e2)
+            | AccessExpr (e1, e2) -> 
+                logger#debug "rename accessExpr \n%s" (show_expr e2);
+                AccessExpr (re e1, re e2)
             | BinopExpr (e1, op, e2) -> BinopExpr (re e1, op, re e2)
             | LambdaExpr (params, e) -> 
                 LambdaExpr (
@@ -1588,7 +1594,9 @@ rewrite_type_aconstraint
                     re e) 
             | LitExpr l -> LitExpr (rename_literal flag_rename_type renaming l)
             | UnopExpr (op, e) -> UnopExpr (op, re e)
-            | CallExpr (e, es) -> CallExpr (re e, List.map re es)
+            | CallExpr (e, es) -> 
+                logger#debug "rename callExpr %b\n%s" flag_rename_attribute (show_expr e);
+                CallExpr (re e, List.map re es)
             | NewExpr (e, es) -> NewExpr (re e, List.map re es)
             | PolyApp (e, mts) -> PolyApp (re e, List.map rmt mts)
             | BridgeCall{protocol_name} -> BridgeCall{
@@ -1612,12 +1620,13 @@ rewrite_type_aconstraint
             )
             in
             (e, rmt mt_e)
-        and rename_expr flag_rename_type renaming : expr -> expr = map_place (_rename_expr flag_rename_type (protect_renaming renaming))
+        and rename_expr ?(flag_rename_attribute=false) flag_rename_type renaming : expr -> expr = map_place (_rename_expr flag_rename_attribute flag_rename_type (protect_renaming renaming))
 
-        and _rename_stmt flag_rename_type renaming place = 
-            let re = rename_expr flag_rename_type renaming in
+        and _rename_stmt flag_rename_attribute flag_rename_type renaming place = 
+            logger#debug "rename_stmt [%b]" flag_rename_attribute;
+            let re = rename_expr ~flag_rename_attribute:flag_rename_attribute flag_rename_type renaming in
             let rmt = if flag_rename_type then rename_main_type renaming else Fun.id in
-            let rstmt = rename_stmt flag_rename_type renaming in
+            let rstmt = rename_stmt ~flag_rename_attribute:flag_rename_attribute flag_rename_type renaming in
         function
         | EmptyStmt -> EmptyStmt
         | AssignExpr (x, e) -> AssignExpr (renaming x, re e)
@@ -1636,39 +1645,39 @@ rewrite_type_aconstraint
         | BlockStmt stmts -> BlockStmt (List.map rstmt stmts)
         | GhostStmt stmt -> GhostStmt (rstmt stmt)
         | WithContextStmt (flag, x, e, stmts) -> WithContextStmt (flag, renaming x, re e, List.map rstmt stmts)
-        and rename_stmt (flag_rename_type:bool) renaming = map_place (_rename_stmt flag_rename_type (protect_renaming renaming))
+        and rename_stmt ?(flag_rename_attribute=false) (flag_rename_type:bool) renaming = map_place (_rename_stmt flag_rename_attribute flag_rename_type (protect_renaming renaming))
 
         and _rename_param renaming place (mt, x) = (rename_main_type renaming mt, renaming x)
         and rename_param renaming = map_place (_rename_param (protect_renaming renaming))
 
 
-        and _rename_port renaming place ((p, mt_p): _port * main_type)  = ({
+        and _rename_port flag_rename_attribute renaming place ((p, mt_p): _port * main_type)  = ({
             name = renaming p.name;
             expecting_st = rename_main_type renaming p.expecting_st;
             _disable_session = p._disable_session;
-            callback = rename_expr true renaming p.callback;
+            callback = rename_expr ~flag_rename_attribute:flag_rename_attribute true renaming p.callback;
             _children = List.map renaming p._children;
             _is_intermediate = p._is_intermediate;
         }, rename_main_type renaming mt_p)
-        and rename_port renaming = map_place (_rename_port (protect_renaming  renaming))
+        and rename_port ?(flag_rename_attribute=false) renaming = map_place (_rename_port flag_rename_attribute (protect_renaming  renaming))
 
-        and _rename_eport renaming place ((p, mt_p): _eport * main_type)  = ({
+        and _rename_eport flag_rename_attribute renaming place ((p, mt_p): _eport * main_type)  = ({
             name = renaming p.name;
             expecting_mt = rename_main_type renaming p.expecting_mt;
-            callback = rename_expr true renaming p.callback;
+            callback = rename_expr ~flag_rename_attribute:flag_rename_attribute true renaming p.callback;
         }, rename_main_type renaming mt_p)
-        and rename_eport renaming = map_place (_rename_eport (protect_renaming  renaming))
+        and rename_eport ?(flag_rename_attribute=false) renaming = map_place (_rename_eport flag_rename_attribute (protect_renaming  renaming))
 
-        and _rename_outport renaming place ((p, mt_p): _outport * main_type) = ({
+        and _rename_outport flag_rename_attribute renaming place ((p, mt_p): _outport * main_type) = ({
             name = renaming p.name;
             protocol = rename_main_type renaming p.protocol;
             _children = List.map renaming p._children;
         }, rename_main_type renaming mt_p)
-        and rename_outport renaming = map_place (_rename_outport (protect_renaming renaming))
+        and rename_outport ?(flag_rename_attribute=false) renaming = map_place (_rename_outport flag_rename_attribute (protect_renaming renaming))
 
-        and _rename_component_expr renaming place (ce, mt_ce) = 
+        and _rename_component_expr flag_rename_attribute renaming place (ce, mt_ce) = 
             let rce = rename_component_expr renaming in
-            let re = rename_expr true renaming in
+            let re = rename_expr ~flag_rename_attribute:flag_rename_attribute true renaming in
             let ce = match ce with
             | VarCExpr x -> VarCExpr (renaming x)
             | AppCExpr (ce, ces) -> AppCExpr (rce ce, List.map rce ces)
@@ -1676,7 +1685,7 @@ rewrite_type_aconstraint
             | AnyExpr e -> AnyExpr (re e)
             in 
             (ce, rename_main_type renaming mt_ce)
-        and rename_component_expr renaming = map_place (_rename_component_expr (protect_renaming renaming))
+        and rename_component_expr ?(flag_rename_attribute=false) renaming = map_place (_rename_component_expr flag_rename_attribute (protect_renaming renaming))
 (*****************************************************)
 
 (* elim place *)

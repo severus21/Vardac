@@ -98,9 +98,12 @@ module Params : (
     = function body ->  
                 List.flatten (List.map (collect_stmt_stmt parent_opt  selector collector) body)
 
-    let rename_state_dcl_body flag_rename_type renaming = Option.map (rename_expr flag_rename_type renaming)
-    let rename_custom_method0_body flag_rename_type renaming = List.map (rename_stmt flag_rename_type renaming) 
-    let rename_typealias_body flag_rename_type renaming = 
+    let rename_state_dcl_body flag_rename_attribute flag_rename_type renaming = Option.map (rename_expr ~flag_rename_attribute:flag_rename_attribute flag_rename_type renaming)
+    let rename_custom_method0_body flag_rename_attribute flag_rename_type renaming =
+        function b ->
+        logger#debug "rename_custom_method0_body [%b]" flag_rename_attribute;
+        List.map (rename_stmt ~flag_rename_attribute:flag_rename_attribute flag_rename_type renaming) b
+    let rename_typealias_body flag_rename_attribute flag_rename_type renaming = 
     Option.map (rename_main_type renaming) 
 
     let rewrite_type_typealias_body rewrite_type_expr rewrite_type_mtype selector rewriter = function 

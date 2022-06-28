@@ -54,13 +54,25 @@ module Make () = struct
         | _ -> false
 
     let renaming = Hashtbl.create 256
-    let refresh_atom x = 
-        match Hashtbl.find_opt renaming x with
-        | Some y -> y
-        | None -> 
-            let y = Atom.fresh (Atom.value x) in
-            Hashtbl.add renaming x y;
-            y
+    let refresh_atom freevars freetvars x = 
+        logger#debug "try to refresh x=[%s]" (Atom.to_string x);
+        if Atom.is_builtin x then x (* TODO guarantee *) 
+        else
+            match Hashtbl.find_opt renaming x with
+            | Some y -> 
+                logger#debug "refresh x=[%s] -> y=[%s]" (Atom.to_string x) (Atom.to_string y);
+                y
+            | None -> 
+
+                (* x should not be a variable binded outside the included citems *)
+                if Atom.Set.find_opt x freevars = None && Atom.Set.find_opt x freetvars = None then 
+                begin
+                    let y = Atom.fresh (Atom.value x) in
+                    logger#debug "refresh x=[%s] -> y=[%s]" (Atom.to_string x) (Atom.to_string y);
+                    Hashtbl.add renaming x y;
+                    y
+                end
+                else x
 
     let cl_name = 
         let state = Hashtbl.create 16 in
@@ -210,8 +222,16 @@ module Make () = struct
                         ))) 
 
                         (* refresh atom to preserve binding unicity *)
-                        (List.map (rename_component_item refresh_atom)
-                        cstruct.body))
+                        (
+                            let _, freevars = List.split (List.map (free_vars_component_item Atom.Set.empty) cstruct.body) in
+                            let freevars = Atom.Set.of_list (List.map snd (List.flatten freevars)) in
+
+                            let _, freetvars = List.split (List.map (free_tvars_component_item Atom.Set.empty) cstruct.body) in
+                            let freetvars = Atom.Set.of_list (List.flatten freetvars) in
+
+                            (List.map (rename_component_item ~flag_rename_attribute:true (refresh_atom freevars freetvars))
+                            cstruct.body))
+                        )
                     in
 
                     let cl_get_activation_ref = Atom.fresh "get_activation_ref" in
@@ -256,7 +276,7 @@ module Make () = struct
                     ***)
                     let spawn_inline_args = 
                         match  IRMisc.get_onstartup cstruct with
-                        | Some schema_onstartup -> List.map (rename_param refresh_atom) schema_onstartup.value.args
+                        | Some schema_onstartup -> List.map (map_place(fun place (mt, x) -> (mt, refresh_atom Atom.Set.empty Atom.Set.empty x))) schema_onstartup.value.args
                         | None -> []
                     in
 
@@ -274,7 +294,7 @@ module Make () = struct
                                 return instance.activation_ref(this);  
                             *)
                             auto_fplace (LetStmt(
-                                mtype_of_ct (TObject schema_in),
+                                mtype_of_ct (TObject (cl_name schema schema_in)),
                                 a_instance,
                                 e2_e (Create {
                                     c = cl.name;
@@ -284,9 +304,10 @@ module Make () = struct
                             auto_fplace (ExpressionStmt(e2_e(CallExpr (
                                 e2_e(AccessExpr(
                                     e2_e This,
-                                    e2var name_inlined_instances
+                                    e2var (Atom.builtin "add2dict")
                                 )),
                                 [
+                                    e2var name_inlined_instances;
                                     e2_e (CallExpr(
                                         e2_e (AccessExpr(
                                             e2var a_instance,
@@ -328,9 +349,8 @@ module Make () = struct
                                 let cl_callback_in = extract_cl_callback cl port.callback in
 
                                 let a_objid = Atom.fresh "objid" in
-                                let n_args = 
-                                    (auto_fplace ((mtype_of_ct (TActivationRef (mtype_of_cvar schema))), a_objid))
-                                    :: (List.map (rename_param refresh_atom) cl_callback_in.value.args) in
+                                let n_args = (List.map (map_place(fun place (mt, x) -> (mt, refresh_atom Atom.Set.empty Atom.Set.empty x))) cl_callback_in.value.args) in
+                                let a_session = snd (List.nth n_args 1).value in
                                 let a_obj = Atom.fresh "obj" in
                                 let n_callback = {
                                     annotations = [];
@@ -349,7 +369,7 @@ module Make () = struct
                                             e2_e(CallExpr(
                                                 e2var (Atom.builtin "session_to_2_"),
                                                 [
-                                                    e2var a_objid
+                                                    e2var a_session 
                                                 ]
                                             ))
                                         ));
@@ -440,7 +460,7 @@ module Make () = struct
                             | Eport {value=port,mt;place} ->
                                 let cl_callback_in = extract_cl_callback cl port.callback in
 
-                                let n_args = List.map (rename_param refresh_atom) cl_callback_in.value.args in
+                                let n_args = List.map (map_place(fun place (mt, x) -> (mt, refresh_atom Atom.Set.empty Atom.Set.empty x))) cl_callback_in.value.args in
                                 let a_obj = Atom.fresh "obj" in
                                 let n_callback = {
                                     annotations = [];

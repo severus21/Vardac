@@ -340,7 +340,8 @@ module Make () = struct
         tannot_main_type parent_opt mt1,
         tannot_main_type parent_opt mt2
     )
-    | TVar x -> TVar (x)
+    | TVar x -> TVar x
+    | TObject x -> TObject x
     | TFlatType ft -> TFlatType ft
     | TArray mt -> TArray (tannot_main_type parent_opt mt)
     | TDict (mt1, mt2) -> TDict (
@@ -434,16 +435,12 @@ module Make () = struct
     (************************************* Literals ******************************)
     and mt_of_clitem parent_opt place mt_cl mname = 
         let cl_sign = match mt_cl.value with
-            | ClType {value=TStruct (_,sign)} -> sign
-            | ClType {value=CompTUid name} -> begin 
+            | CType{value=TObject name} -> begin 
                 match (typeof_var_clexpr name).value with 
                 |  ClType {value=TStruct (_, sign)} -> sign
                 | _ -> Error.perror place "internal error when fetching structural type of class"
             end
-            | _ -> Error.perror place "[class] This expr has no attributes" 
         in
-
-        logger#debug "%s" (show__component_type (TStruct (mname, cl_sign)));
 
         let ret_type = 
             match Atom.VMap.find_opt mname cl_sign with
@@ -548,7 +545,7 @@ module Make () = struct
                         (* class or component *)
                         match (snd e1.value).value with
                             | CompType _ -> mt_of_citem parent_opt place (snd e1.value) field
-                            | ClType _ -> mt_of_clitem parent_opt place (snd e1.value) field
+                            | CType {value= TObject _}-> mt_of_clitem parent_opt place (snd e1.value) field
                     end
                     | _ -> Error.perror place "Invalid attribute"
 
@@ -621,7 +618,7 @@ module Make () = struct
                 match parent_opt with
                 | None -> Error.perror place "[self] can not be used outside class definition" 
                 | Some self -> 
-                    This, auto_fplace( ClType (auto_fplace (CompTUid (self))))
+                    This, mtype_of_ct (TObject (self))
             end
             | Spawn spawn -> 
                 let c = tannot_component_expr parent_opt spawn.c in
@@ -630,11 +627,17 @@ module Make () = struct
                 assert( (snd c.value).value <> EmptyMainType );
 
                 Spawn {
-                c = c;
-                args = List.map (tannot_expr parent_opt) spawn.args;
-                at = Option.map (tannot_expr parent_opt) spawn.at;
-                inline_in = Option.map (tannot_expr parent_opt) spawn.inline_in;
-            }, ctypeof(TActivationRef(snd c.value))
+                    c = c;
+                    args = List.map (tannot_expr parent_opt) spawn.args;
+                    at = Option.map (tannot_expr parent_opt) spawn.at;
+                    inline_in = Option.map (tannot_expr parent_opt) spawn.inline_in;
+                }, ctypeof(TActivationRef(snd c.value))
+            | Create create -> 
+                (* c is an atom *)
+                Create {
+                    c = create.c;
+                    args = List.map (tannot_expr parent_opt) create.args;
+                }, ctypeof(TObject create.c)
             | TernaryExpr (e1, e2, e3) ->
                 let e1 = tannot_expr parent_opt e1 in
                 let e2 = tannot_expr parent_opt e2 in
