@@ -233,7 +233,9 @@ module Make () = struct
                                 on_destroy = false;
                                 on_startup = false;
                             })))
-                        ] @ body;
+                        ] @ 
+                        (* This -> Self *)
+                        (List.map (rewrite_expr_class_item (function |This -> true | _ -> false) (function mt -> function |This -> Self)) body);
                     } in
 
                     (*** add state [instances_B15] in A ***)

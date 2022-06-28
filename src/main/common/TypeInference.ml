@@ -23,6 +23,8 @@ module Make () = struct
     let tctx : (Atom.atom, main_type) Hashtbl.t = Hashtbl.create 256
     (* Typing context for components *)
     let cctx : (Atom.atom, main_type) Hashtbl.t = Hashtbl.create 256
+    (* Typing context for clasclass *)
+    let clctx : (Atom.atom, main_type) Hashtbl.t = Hashtbl.create 256
 
     let typeof_var_expr place x : main_type =
         if Atom.is_builtin x then
@@ -39,6 +41,12 @@ module Make () = struct
             Hashtbl.find cctx x
         with Not_found -> failwith (Printf.sprintf "notfound type of cexpr %s" (Atom.to_string x))
 
+    let typeof_var_clexpr x : main_type =
+        try
+            Hashtbl.find clctx x
+        with Not_found -> failwith (Printf.sprintf "notfound type of clexpr %s" (Atom.to_string x))
+
+
     let defof_tvar x : main_type = 
         try 
             Hashtbl.find tctx x
@@ -53,6 +61,10 @@ module Make () = struct
     let register_cexpr_type x mt : unit = 
         assert(Hashtbl.find_opt cctx x = None);
         Hashtbl.add cctx x mt
+
+    let register_clexpr_type x mt : unit = 
+        assert(Hashtbl.find_opt clctx x = None);
+        Hashtbl.add clctx x mt
 
     let register_type x mt : unit= 
         assert( Hashtbl.find_opt tctx x = None);
@@ -244,8 +256,29 @@ module Make () = struct
     | ComponentAssign cdcl -> failwith "TypeInference shallow ComponentAssign not yet supported" 
     and scan_component parent_opt = map0_place (_scan_component parent_opt)
 
+    and _scan_class_item parent_opt place = function
+    | CLContract _ -> [] 
+    | CLMethod m -> 
+        logger#debug "scan method %s" (match parent_opt with | None -> "None" | Some p -> Atom.to_string p);
+        register_expr_type m.value.name (typeof_method m);
+        [m.value.name, typeof_method m]
+    | CLState s -> 
+        logger#debug "state registration";
+        register_expr_type s.value.name (typeof_state s);
+        [s.value.name, typeof_state s]
+    and scan_class_item parent_opt = map0_place (map0_plgannot(_scan_class_item parent_opt))
+    and scan_class parent_opt (cl:class_structure) =
+        logger#warning "collect %s" (Atom.to_string cl.name);
+        let clstruct = List.map (scan_class_item (Some cl.name)) cl.body in 
+        let clstruct = Atom.VMap.of_seq (List.to_seq (List.flatten clstruct)) in
+
+        let signature = auto_fplace(ClType(auto_fplace(TStruct (cl.name, clstruct)))) in
+        register_clexpr_type cl.name signature;
+        [cl.name, signature]
+
     and _scan_term parent_opt place = function 
     | Component c -> scan_component parent_opt c 
+    | Class cl ->  scan_class parent_opt cl 
     | _ -> [] 
     and scan_term parent_opt = map0_place (map0_plgannot(_scan_term parent_opt))
     let scan_program = 
@@ -399,7 +432,26 @@ module Make () = struct
     }
 
     (************************************* Literals ******************************)
+    and mt_of_clitem parent_opt place mt_cl mname = 
+        let cl_sign = match mt_cl.value with
+            | ClType {value=TStruct (_,sign)} -> sign
+            | ClType {value=CompTUid name} -> begin 
+                match (typeof_var_clexpr name).value with 
+                |  ClType {value=TStruct (_, sign)} -> sign
+                | _ -> Error.perror place "internal error when fetching structural type of class"
+            end
+            | _ -> Error.perror place "[class] This expr has no attributes" 
+        in
 
+        logger#debug "%s" (show__component_type (TStruct (mname, cl_sign)));
+
+        let ret_type = 
+            match Atom.VMap.find_opt mname cl_sign with
+            | None when Atom.is_builtin mname -> Builtin.type_of place (Atom.hint mname)
+            | None -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered class have no field/method named %s" (Atom.to_string mname))))
+            | Some mt -> mt
+        in
+        ret_type
 
     and mt_of_citem parent_opt place mt_component mname = 
         let c_sign = match mt_component.value with
@@ -409,7 +461,7 @@ module Make () = struct
                 |  CompType {value=TStruct (_, sign)} -> sign
                 | _ -> Error.perror place "internal error when fetching structural type of component"
             end
-            | _ -> Error.perror place "This expr has no attributes" 
+            | _ -> Error.perror place "[Component] This expr has no attributes %s" (show_main_type mt_component) 
         in
 
         let ret_type = 
@@ -492,9 +544,12 @@ module Make () = struct
                         | _ -> 
                             Error.perror e1.place "This not a tuple"
                     end
-                    | VarExpr field -> 
-                        (* TODO Clean this *)
-                        mt_of_citem parent_opt place (snd e1.value) field
+                    | VarExpr field -> begin 
+                        (* class or component *)
+                        match (snd e1.value).value with
+                            | CompType _ -> mt_of_citem parent_opt place (snd e1.value) field
+                            | ClType _ -> mt_of_clitem parent_opt place (snd e1.value) field
+                    end
                     | _ -> Error.perror place "Invalid attribute"
 
                 in
@@ -559,7 +614,14 @@ module Make () = struct
             | This -> begin 
                 match parent_opt with
                 | None -> Error.perror place "[this] can not be used outside component definition" 
-                | Some self -> This, auto_fplace( CompType (auto_fplace (CompTUid (self))))
+                | Some self -> 
+                    This, auto_fplace( CompType (auto_fplace (CompTUid (self))))
+            end
+            | Self -> begin 
+                match parent_opt with
+                | None -> Error.perror place "[self] can not be used outside class definition" 
+                | Some self -> 
+                    This, auto_fplace( ClType (auto_fplace (CompTUid (self))))
             end
             | Spawn spawn -> 
                 let c = tannot_component_expr parent_opt spawn.c in
@@ -652,6 +714,16 @@ module Make () = struct
         *)
         
         AssignThisExpr (x, e)
+    | AssignSelfExpr (x, e) -> 
+        let mt_x = typeof_var_expr place x in
+        let e = tannot_expr parent_opt e in
+
+        (* TODO move this checks into TypeChecking*)
+        (*if Bool.not (is_subtype (snd e.value) mt_x) then
+            Error.perror place "Type error: types do not match";
+        *)
+        
+        AssignSelfExpr (x, e)
     | LetStmt (mt, x, e) -> 
         logger#debug "let %s" (Atom.to_string x);
         register_expr_type x mt;
@@ -929,7 +1001,8 @@ module Make () = struct
     (********************** Manipulating component structure *********************)
     and _tannot_component_expr parent_opt place (ce, _)=
         match ce with 
-        | VarCExpr x -> (VarCExpr x, typeof_var_cexpr x)
+        | VarCExpr x -> 
+            (VarCExpr x, typeof_var_cexpr x)
         | _ -> failwith "tannot_component_cexpr semantics not defined" 
     and tannot_component_expr parent_opt ce = {
         place = ce.place; 

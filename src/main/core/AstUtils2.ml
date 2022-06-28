@@ -29,6 +29,9 @@ module Mtype = struct
             auto_fplace(SType(auto_fplace (STPolyVar x)))
         let mtype_of_cvar x = 
             auto_fplace(CompType(auto_fplace (CompTUid x)))
+
+        let mtype_of_clvar x = 
+            auto_fplace(CType(auto_fplace (TObject x)))
         let mtype_poly_of_cvar x = 
             auto_fplace(CompType(auto_fplace (TPolyCVar x)))
         let mtype_of_ct ct = 

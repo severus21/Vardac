@@ -80,6 +80,7 @@ and _session_type =
     | STDual of session_type 
 and session_type = _session_type placed
 
+(* NB component or class type *)
 and _component_type =
     | CompTUid of component_variable 
     | TStruct of component_variable * main_type Atom.VMap.t (** types of states, methods, ports, ... and subcomponents *)
@@ -94,6 +95,7 @@ and _main_type =
     | SType of session_type
     (* First value component type*)
     | CompType of component_type
+    | ClType of component_type
     (* Dynamic (or not) contraints*)
     | ConstrainedType of main_type * applied_constraint 
     (*gadt contraints: type -> bool *)
@@ -193,6 +195,7 @@ and _expr =
 
     (* Reflexifity *)
     | This (* current activation *)
+    | Self (* current obj *)
 
     (* Activation lifetime expr *)
     | Create of create
@@ -216,6 +219,7 @@ and _stmt =
     (** Binders *)
     | AssignExpr of expr_variable * expr
     | AssignThisExpr of component_variable * expr
+    | AssignSelfExpr of component_variable * expr
     | LetStmt of main_type * expr_variable * expr
 
     (** Comments *)
@@ -339,7 +343,7 @@ let rec collect_expr_expr_ parent_opt (already_binded:Atom.Set.t) selector colle
     | (VarExpr x) | (ImplicitVarExpr x) when Atom.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, [] 
     | (VarExpr x) | (ImplicitVarExpr x) when Atom.is_builtin x -> already_binded, collected_elts0, [] 
     | (VarExpr x) | (ImplicitVarExpr x)-> already_binded, collected_elts0, [mt, x]
-    | BridgeCall _ | BoxCExpr _ | EmptyExpr | LitExpr _ | OptionExpr None | ResultExpr (None, None) | RawExpr _ | This -> already_binded, collected_elts0, []
+    | BridgeCall _ | BoxCExpr _ | EmptyExpr | LitExpr _ | OptionExpr None | ResultExpr (None, None) | RawExpr _ | This | Self -> already_binded, collected_elts0, []
     | AccessExpr (e1, {value=VarExpr _, _}) -> (* TODO AccessExpr : expr * Atom.t *)
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e1 in
         already_binded, collected_elts0@collected_elts1, fvars1
@@ -424,7 +428,7 @@ function
 | EmptyStmt -> already_binded, [], []
 | AssignExpr (x, e) ->
     collect_expr_expr parent_opt already_binded selector collector e
-| AssignThisExpr (x, e) ->
+| AssignThisExpr (x, e) | AssignSelfExpr (x, e)->
     collect_expr_expr parent_opt already_binded selector collector e
 
 | BranchStmt {s; label; branches} ->
@@ -543,7 +547,7 @@ function
 | stmt when selector stmt -> collector parent_opt place stmt
 
 (* Propagation *)
-| EmptyStmt | AssignExpr _ | AssignThisExpr  _ | BreakStmt | CommentsStmt _ | ContinueStmt | ExpressionStmt _ | ExitStmt _ | LetStmt _ | ReturnStmt _-> []
+| EmptyStmt | AssignExpr _ | AssignThisExpr  _ | AssignSelfExpr _ | BreakStmt | CommentsStmt _ | ContinueStmt | ExpressionStmt _ | ExitStmt _ | LetStmt _ | ReturnStmt _-> []
 | BlockStmt stmts | WithContextStmt (_, _, _, stmts) ->
     List.flatten (List.map collect_stmt stmts) 
 | ForeachStmt (_, _, _, stmt) | GhostStmt stmt  ->
@@ -720,7 +724,7 @@ and collect_type_expr_ parent_opt already_binded selector collector place (e, mt
 
     let _, collected_elts1, ftvars1 = collect_mtype mt in
     let collected_elts2, ftvars2 = match e with
-    | BridgeCall _ | EmptyExpr | VarExpr _ | ImplicitVarExpr _ | LitExpr _ | This -> [], []
+    | BridgeCall _ | EmptyExpr | VarExpr _ | ImplicitVarExpr _ | LitExpr _ | This | Self -> [], []
     | ActivationAccessExpr (_, e, _) | UnopExpr (_, e) -> 
         let _, collected_elts, ftvars = collect_expr e in
         collected_elts, ftvars
@@ -800,7 +804,7 @@ and collect_type_stmt_  parent_opt already_binded selector collector place stmt 
 
     match stmt with
     | BreakStmt | CommentsStmt _ | ContinueStmt | ExitStmt _ | EmptyStmt -> already_binded, [], []
-    | AssignExpr (_, e) | AssignThisExpr (_, e) | ExpressionStmt e |  ReturnStmt e -> collect_expr e
+    | AssignExpr (_, e) | AssignThisExpr (_, e) | AssignSelfExpr (_, e) | ExpressionStmt e |  ReturnStmt e -> collect_expr e
     | BranchStmt {s; label; branches} -> 
         let _, collected_elts1, ftvars1 = collect_expr s in
         let _, collected_elts2, ftvars2 = collect_expr label in
@@ -1004,7 +1008,7 @@ let rec rewrite_expr_place rewrite_expr_value { AstUtils.place ; AstUtils.value}
 let rec _rewrite_expr_expr selector rewriter place (e, mt) = 
     let e = match e with
     | e when selector e -> rewriter mt e
-    | (BridgeCall _ as e) | (EmptyExpr as e) | (LitExpr _ as e) | (This as e) | (VarExpr _ as e) | (ImplicitVarExpr _ as e) -> e
+    | (BridgeCall _ as e) | (EmptyExpr as e) | (LitExpr _ as e) | (This as e) | (Self as e) | (VarExpr _ as e) | (ImplicitVarExpr _ as e) -> e
     | ActivationAccessExpr (cname, e, mname) ->
         ActivationAccessExpr(
             cname,
@@ -1072,6 +1076,7 @@ and _rewrite_expr_stmt selector rewriter place = function
     | EmptyStmt -> EmptyStmt
     | AssignExpr (x, e) -> AssignExpr (x, rewrite_expr_expr selector rewriter e) 
     | AssignThisExpr (x, e) -> AssignThisExpr (x, rewrite_expr_expr selector rewriter e)
+    | AssignSelfExpr (x, e) -> AssignSelfExpr (x, rewrite_expr_expr selector rewriter e)
     | LetStmt (mt, x, e) -> (* TODO FIXME expr in type are not yet concerned *)
         LetStmt (mt, x, rewrite_expr_expr selector rewriter e)
     | CommentsStmt c -> CommentsStmt c
@@ -1213,7 +1218,7 @@ and _rewrite_type_expr selector rewriter place (e, mt) =
     let rewrite_expr = rewrite_type_expr selector rewriter in    
 
     let e = match e with
-        | (VarExpr _ as e) | (ImplicitVarExpr _ as e) | (LitExpr _ as e) | (This as e) | (BridgeCall _ as e) -> e
+        | (VarExpr _ as e) | (ImplicitVarExpr _ as e) | (LitExpr _ as e) | (This as e) | (Self as e) | (BridgeCall _ as e) -> e
         | ActivationAccessExpr (x, e, y) -> ActivationAccessExpr (x, e, y)
         | AccessExpr (e1, e2) -> AccessExpr (rewrite_expr e1, rewrite_expr e2)
         | BinopExpr (e1, op, e2) -> BinopExpr (rewrite_expr e1, op, rewrite_expr e2)
@@ -1254,6 +1259,7 @@ function
 | (BreakStmt as stmt) | (CommentsStmt _ as stmt) | (ContinueStmt as stmt) | (EmptyStmt as stmt) | (ExitStmt _ as stmt) -> stmt
 | AssignExpr (x, e) -> AssignExpr (x, rewrite_expr e)
 | AssignThisExpr (x, e) -> AssignThisExpr (x, rewrite_expr e)
+| AssignSelfExpr (x, e) -> AssignSelfExpr (x, rewrite_expr e)
 | LetStmt (mt, x, e) -> LetStmt (rewrite_mtype mt, x , rewrite_expr e)
 | ForeachStmt (mt, x, e, stmt) -> ForeachStmt (
     rewrite_mtype mt,
@@ -1335,6 +1341,7 @@ let rec _rewrite_stmt_stmt recurse selector rewriter place =
     | EmptyStmt -> [EmptyStmt]
     | AssignExpr (x, e) -> [AssignExpr (x, e)]
     | AssignThisExpr (x, e) -> [AssignThisExpr (x, e)]
+    | AssignSelfExpr (x, e) -> [AssignSelfExpr (x, e)]
     | LetStmt (mt, x, e) -> [LetStmt (mt, x,  e)]
     | CommentsStmt c -> [CommentsStmt c]
     | BreakStmt -> [BreakStmt]
@@ -1589,6 +1596,7 @@ rewrite_type_aconstraint
             }
             | TernaryExpr (e1, e2, e3) -> TernaryExpr (re e1, re e2, re e3)
             | This -> This
+            | Self -> Self
             | Spawn spawn -> Spawn {
                 c = rename_component_expr renaming spawn.c;
                 args = List.map re spawn.args;
@@ -1614,6 +1622,7 @@ rewrite_type_aconstraint
         | EmptyStmt -> EmptyStmt
         | AssignExpr (x, e) -> AssignExpr (renaming x, re e)
         | AssignThisExpr (x, e) -> AssignThisExpr (renaming x, re e)
+        | AssignSelfExpr (x, e) -> AssignSelfExpr (renaming x, re e)
         | LetStmt (mt, x, e) -> LetStmt (rmt mt, renaming x, re e)
         | CommentsStmt _ as stmt -> stmt
         | BreakStmt -> BreakStmt
@@ -1812,6 +1821,7 @@ and _equal_expr = function
     equal_expr e1 e2 &&
     List.equal equal_expr es1 es2 
 | This, This -> true
+| Self, Self -> true
 | Spawn sp1, Spawn sp2 ->
     equal_cexpr sp1.c sp2.c &&
     List.equal equal_expr sp1.args sp2.args &&

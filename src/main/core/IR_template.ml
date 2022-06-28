@@ -475,6 +475,10 @@ module Make (Params : IRParams) = struct
             term list ->
             Atom.Set.t * 'a list *
             (main_type * expr_variable) list
+        val rewrite_expr_class_item :
+            (_expr -> bool) ->
+            (main_type -> _expr -> _expr) ->
+            class_item -> class_item
         val rewrite_expr_component_item : (_expr -> bool) ->
             (main_type -> _expr -> _expr) ->
             component_item ->
@@ -496,6 +500,10 @@ module Make (Params : IRParams) = struct
             (Atom.atom option ->
             Error.place -> _stmt -> 'a list) ->
             term list -> 'a list
+        val rewrite_stmt_class_item : bool ->
+            (_stmt -> bool) ->
+            (Error.place -> _stmt -> _stmt list) ->
+            class_item -> class_item list
         val rewrite_stmt_program : bool ->
             (_stmt -> bool) ->
             (Error.place -> _stmt -> _stmt list) ->
@@ -1442,11 +1450,21 @@ module Make (Params : IRParams) = struct
             ComponentStructure { cdcl with body = List.map (rewrite_expr_component_item selector rewriter) cdcl.body}
         and rewrite_expr_component_dcl selector rewriter = map_place (rewrite_expr_component_dcl_ selector rewriter) 
 
+        and rewrite_expr_class_item_  selector rewriter place = function 
+            | CLContract c    -> CLContract (rewrite_expr_contract selector rewriter c)
+            | CLMethod m      -> CLMethod (rewrite_expr_method0 selector rewriter m)
+            | CLState s       -> CLState (rewrite_expr_state selector rewriter s )
+        and rewrite_expr_class_item selector rewriter = map_place (map_plgannot(rewrite_expr_class_item_ selector rewriter))
+
+        and rewrite_expr_class_dcl  selector rewriter (cl:class_structure) =
+            { cl with body = List.map (rewrite_expr_class_item selector rewriter) cl.body}
+
         and rewrite_expr_term_ selector rewriter place = function 
         | EmptyTerm -> EmptyTerm 
         | Comments c -> Comments c
         | Stmt stmt -> Stmt (rewrite_expr_stmt selector rewriter stmt)
         | Component cdcl -> Component (rewrite_expr_component_dcl selector rewriter cdcl)
+        | Class cl -> Class (rewrite_expr_class_dcl selector rewriter cl)
         | Function fdcl -> Function (rewrite_expr_function_dcl selector rewriter fdcl)
         | (Typealias _ as t) |(Typedef _ as t) -> t
         | Derive derive -> Derive { derive with eargs = List.map (rewrite_expr_expr selector rewriter) derive.eargs}
@@ -1613,7 +1631,7 @@ module Make (Params : IRParams) = struct
                     | CallExpr _ -> CallExpr (e1, es_n)
                     | NewExpr _ -> NewExpr (e1, es_n)
                 ), mt_e)
-            | (BridgeCall _ as e ) | (LambdaExpr _ as e) | (LitExpr _ as e) | (This as e) -> (* Interaction primtives are forbidden in LambdaExpr 
+            | (BridgeCall _ as e ) | (LambdaExpr _ as e) | (LitExpr _ as e) | (This as e) | (Self as e) -> (* Interaction primtives are forbidden in LambdaExpr 
             TODO check as a precondition
             *)
                 [], (e, mt_e)
@@ -1839,12 +1857,28 @@ module Make (Params : IRParams) = struct
         and rewrite_stmt_component_item recurse selector rewriter = map_places (map_plgannots(rewrite_stmt_component_item_ recurse selector rewriter))
 
 
+        and rewrite_stmt_class_item_ recurse selector rewriter place citem = 
+        match citem with
+        | CLMethod m ->[CLMethod { m with
+        value = {
+            m.value with body = rewrite_stmt_custom_method0_body rewrite_stmt_stmt recurse selector rewriter m.value.body
+        }
+        }]
+        (* citem without statement *)
+        | CLContract _ | CLState _ -> [citem]
+        and rewrite_stmt_class_item recurse selector rewriter = map_places (map_plgannots(rewrite_stmt_class_item_ recurse selector rewriter))
+
         and rewrite_stmt_component_dcl_ recurse selector rewriter place = function
         | ComponentStructure cdcl -> ComponentStructure {
             cdcl with 
                 body = List.flatten (List.map (rewrite_stmt_component_item recurse selector rewriter) cdcl.body)
         }
         and rewrite_stmt_component_dcl recurse selector rewriter = map_place (rewrite_stmt_component_dcl_ recurse selector rewriter) 
+
+        and rewrite_stmt_class_dcl_ recurse selector rewriter (cl:class_structure) =
+            { cl with 
+                body = List.flatten (List.map (rewrite_stmt_class_item recurse selector rewriter) cl.body)
+            }
 
         and rewrite_stmt_term_ recurse selector rewriter place t =  
         match t with

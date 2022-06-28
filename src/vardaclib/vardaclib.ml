@@ -23,6 +23,7 @@ module TypeInference1 = IRCompilationPass.Make(Common.TypeInference.Make())
 module TypeInference2 = IRCompilationPass.Make(Common.TypeInference.Make())
 module TypeInference3 = IRCompilationPass.Make(Common.TypeInference.Make())
 module TypeInference4 = IRCompilationPass.Make(Common.TypeInference.Make())
+module TypeInference5 = IRCompilationPass.Make(Common.TypeInference.Make())
 module EventAutoBoxing = IRCompilationPass.Make(Common.EventAutoBoxing.Make())
 module ClassicalAutoBoxing = IRCompilationPass.Make(Common.ClassicalAutoBoxing.Make())
 module InlineElim = IRCompilationPass.Make(Common.InlineElim.Make())
@@ -86,11 +87,15 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
         (* Clean derived code *)
         |> PartialEval.apply
         |> ImplicitElimination.apply
+
+        (* TODO FIXME put before CommSimpl to avoid issue with intermediate_state added twice *)
+        |> InlineElim.apply (* FIXME can not intercept A if B is inlined inside*)
+        |> TypeInference4.apply (*Needed since we introduce new constructions *)
+
         |> CommSimpl.apply (* Transform receive to async + ports *) 
 
         (* Every pass that change ports and components should be performed before runngin the Intercept transformation *)
         |> Intercept.apply
-        |> InlineElim.apply (* FIXME can not intercept A if B is inlined inside*) 
         |> TypeInference3.apply (*Needed since we introduce new constructions *)
         (*|> TypeChecking.apply*)
         |> PartialEval.apply
@@ -99,7 +104,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
 
         |> EventAutoBoxing.apply
-        |> TypeInference4.apply (*Needed since we introduce new constructions *)
+        |> TypeInference5.apply (*Needed since we introduce new constructions *)
         |> CommSimpl.apply (* Transform receive to async + ports *) 
 
 
