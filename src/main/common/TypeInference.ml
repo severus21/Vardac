@@ -338,6 +338,7 @@ module Make () = struct
 
     and _tannot_component_type parent_opt place = function
     | CompTUid x -> CompTUid x
+    | CompTBottom -> CompTBottom
     and tannot_component_type parent_opt = map_place (_tannot_component_type parent_opt)
 
     and _tannot_main_type parent_opt place = function
@@ -876,6 +877,17 @@ module Make () = struct
     and tannot_component_item parent_opt = 
         map_place (map_plgannot(_tannot_component_item parent_opt))
 
+    and _tannot_class_item parent_opt place = function 
+    | CLContract s -> failwith  "contract must have been bounded to method before calling type inference"
+    | CLMethod m -> 
+        let m = tannot_method parent_opt m in
+        CLMethod m 
+    | CLState s -> 
+        let s = tannot_state parent_opt s in
+        CLState s
+    and tannot_class_item parent_opt = 
+        map_place (map_plgannot(_tannot_class_item parent_opt))
+
     and _tannot_component_dcl parent_opt place = 
         let fplace = (Error.forge_place "TypeInference._tannot_component_dcl" 0 0) in
         let auto_fplace smth = {place = fplace; value=smth} in
@@ -901,6 +913,17 @@ module Make () = struct
             value = _cdcl 
         }
 
+    and tannot_class_dcl parent_opt (cl:class_structure) = 
+        let fplace = (Error.forge_place "TypeInference.tannot_class_dcl" 0 0) in
+        let auto_fplace smth = {place = fplace; value=smth} in
+    
+        let body = List.map (tannot_class_item  (Some cl.name)) cl.body in 
+
+        {
+            annotations = cl.annotations;
+            name = cl.name;
+            body =  body; (* TODO first pass allow mutual recursive function ?? - only from header *)
+        }
 
 
     (********************** Manipulating component structure *********************)
@@ -991,6 +1014,9 @@ module Make () = struct
     | Component c -> 
         let c = tannot_component_dcl parent_opt c in
         Component c 
+    | Class c -> 
+        let c = tannot_class_dcl parent_opt c in
+        Class c 
     | Function f -> 
         let f = tannot_function_dcl parent_opt f in
         Function f 

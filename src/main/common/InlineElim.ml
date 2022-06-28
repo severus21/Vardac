@@ -183,7 +183,11 @@ module Make () = struct
                 end;
 
                 Hashtbl.add inlineable_cstructs cstruct.name cstruct;
-                [ c ]
+                [ Component {place; value=ComponentStructure {
+                    cstruct with
+                        (* remove inline_in annotations *)
+                        annotations = List.filter (function | InlinableIn _-> false | _ -> true) cstruct.annotations
+                    }} ]
         in
 
         let rewriter_inline_in place = function
@@ -640,7 +644,6 @@ module Make () = struct
                     value=ComponentStructure { cstruct_in with
                         body = cstruct_in.body @ (List.flatten n_body);
                     }} ]
-
         in
 
         program
@@ -869,7 +872,7 @@ module Make () = struct
         (* Check: no more spawn with inline_in  *)
         ignore (collect_expr_program Atom.Set.empty select_spawn_with_inline_in (error_expr_collector "Spawn with inline_in remains in IR after InlineElim") program);
         (* Check: no more inlinable_in *)
-        ignore (collect_term_program true select_component_with_inlinable (error_term_collector "Spawn with inlinable_in remains in IR after InlineElim") program);
+        ignore (collect_term_program true select_component_with_inlinable (error_term_collector "Inlinable_in remains in IR after InlineElim") program);
         program 
 
     let apply_program = rewrite_program
