@@ -15,23 +15,7 @@ let auto_fplace smth = {place = fplace; value=smth}
 | mt1::mts -> TArrow (mt1, typeof_constructor mts)*)
 
 
-(* TODO dedup this fct exists somewhere else*)
-let fct_sign argmts ret_type = 
-    let fplace = (Error.forge_place "TypeUtils.fct_sign" 0 0) in
-    let auto_fplace smth = {place = fplace; value=smth} in
 
-    List.fold_right (fun t1 t2 -> auto_fplace (CType (auto_fplace(TArrow (t1, t2))))) argmts ret_type 
-
-
-let inv_fct_sign sign =
-    let rec aux args = map0_place (function place -> function
-        | CType {value=TArrow (mt1, mt2)} -> begin
-            match mt2.value with 
-            | CType {value=TArrow _} -> aux (mt1::args) mt2
-            | _ -> List.rev (mt1::args), mt2
-        end)
-    in
-    aux [] sign
 
 
 

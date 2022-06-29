@@ -280,6 +280,8 @@ module Make () = struct
                         | None -> []
                     in
 
+                    logger#debug "spawn_inline_args %d" (List.length spawn_inline_args);
+
                     let a_instance = Atom.fresh "instance" in
                     let spawn_inline = {
                         annotations = [];

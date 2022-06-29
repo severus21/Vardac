@@ -78,7 +78,7 @@ module Make () = struct
     function
     | ClassicalDef (x, mts, ()) | EventDef (x, mts, ()) ->
         register_type x (ctypeof(TTuple mts)); (*FIXME support other things than tuple*)
-        register_expr_type x (fct_sign mts (ctypeof (TVar x))) (* register constructor *)
+        register_expr_type x (mtype_of_fun2 mts (ctypeof (TVar x))) (* register constructor *)
     | ProtocolDef (x, mt) -> 
             register_type x mt; (*FIXME*)
             register_expr_type x mt (* register protocol object *)
