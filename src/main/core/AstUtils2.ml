@@ -4,7 +4,7 @@
 *)
 
 open AstUtils
-open IR
+open IR_common
 
 module Mtype = struct
     module type Params = sig

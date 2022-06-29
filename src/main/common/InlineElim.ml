@@ -930,7 +930,7 @@ module Make () = struct
             let parent = match parents with 
                 | [] -> "Toplevel" 
                 | xs ->
-                    Format.fprintf Format.str_formatter "%a" (Error.pp_list "::" (fun out x -> Format.fprintf out "%s" (Atom.to_string x)));
+                    Format.fprintf Format.str_formatter "%a" (Error.pp_list "::" (fun out x -> Format.fprintf out "%s" (Atom.to_string x))) xs;
                     Format.flush_str_formatter ()
             in
             Error.error "%s. Parent = %s" msg parent

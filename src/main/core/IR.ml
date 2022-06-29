@@ -1,5 +1,6 @@
 open AstUtils
 open IR_common
+open CommonUtils
 
 module IRCParams : (AstUtils.IRParams with type Variable.t = Atom.t)= struct
     module Variable = Atom
@@ -59,7 +60,7 @@ module Params : (
     let collect_cexpr_state_dcl_body 
         parent_opt already_binded selector collector   
     = function
-        | Some e -> already_binded, IR_common.collect_cexpr_expr parent_opt already_binded selector collector e, []
+        | Some e -> already_binded, collect_cexpr_expr parent_opt already_binded selector collector e, []
         | None _ -> already_binded, [], []
 
     let collect_cexpr_custom_method0_body 

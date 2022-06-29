@@ -1,5 +1,6 @@
 open AstUtils
 open IR_common
+open CommonUtils
 
 (* IR extended with blackbox implementation for type, methods and states *)
 type iri_target_name = string
@@ -182,7 +183,7 @@ module Params : (
     let collect_cexpr_state_dcl_body 
         parent_opt already_binded selector collector   
     = function
-        | InitExpr e -> already_binded, IR_common.collect_cexpr_expr parent_opt already_binded selector collector e, []
+        | InitExpr e -> already_binded, collect_cexpr_expr parent_opt already_binded selector collector e, []
         | InitBB bbterm -> already_binded, collect_cexpr_bbterm parent_opt already_binded selector collector bbterm, []
         | NoInit -> already_binded, [], []
 

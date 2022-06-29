@@ -239,6 +239,7 @@ module Make (Params : IRParams) = struct
     (************************************ Component *****************************)
     include AstUtils
     include IR_common
+    include CommonUtils
 
     type _state = {
             ghost: bool; 
