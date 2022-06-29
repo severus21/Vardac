@@ -263,7 +263,6 @@ module Make () = struct
     and scan_component parent_opt = map0_place (_scan_component parent_opt)
 
     and _scan_class_item parent_opt place = function
-    | CLContract _ -> [] 
     | CLMethod m -> 
         logger#debug "scan method %s" (match parent_opt with | None -> "None" | Some p -> Atom.to_string p);
         register_expr_type m.value.name (typeof_method m);
@@ -971,7 +970,6 @@ module Make () = struct
         map_place (map_plgannot(_tannot_component_item parent_opt))
 
     and _tannot_class_item parent_opt place = function 
-    | CLContract s -> failwith  "contract must have been bounded to method before calling type inference"
     | CLMethod m -> 
         let m = tannot_method parent_opt m in
         CLMethod m 

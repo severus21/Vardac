@@ -214,10 +214,10 @@ module Make () = struct
 
                     (*** derive a "class" [InlineB15A] ***)
                     let body = List.flatten (List.map (map_places(map_plgannots(function place -> function 
-                            | Contract item -> [CLContract item]
                             | Method item -> [CLMethod item] 
                             | State item -> [CLState item]
                             | Term _ -> Error.perror place "component with inner term can not be inlined yet!"
+                            | Contract _ -> raise (Error.PlacedDeadbranchError (place, "contract should be paired with method before eliminating inlinin"))
                             | _ -> [] 
                         ))) 
 
@@ -237,7 +237,6 @@ module Make () = struct
                         function place -> function 
                         | CLMethod m -> m.value.name
                         | CLState s -> s.value.name
-                       (* FIXME maybe remove Contract from CL assuming that it is already added to method *)
                     ))) body)) in
 
                     let cl_get_activation_ref = Atom.fresh "get_activation_ref" in

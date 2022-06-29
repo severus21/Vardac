@@ -315,7 +315,6 @@ module Make (Params : IRParams) = struct
     }
 
     and _class_item =
-        | CLContract of contract 
         | CLMethod of method0 
         | CLState of state 
     and class_item = (_class_item plg_annotated) placed
@@ -675,7 +674,6 @@ module Make (Params : IRParams) = struct
             map0_place (map0_plgannot(collect_expr_component_item_ parent_opt already_binded selector collector)) citem
 
         and collect_expr_class_item_ parent_opt (already_binded:Atom.Set.t) selector (collector: 'a sig_expr_collector) place = function 
-            | CLContract c -> collect_expr_contract parent_opt already_binded selector collector c
             | CLMethod m -> collect_expr_method0 parent_opt already_binded selector collector m
             | CLState s -> collect_expr_state parent_opt already_binded selector collector s 
         and collect_expr_class_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
@@ -727,7 +725,6 @@ module Make (Params : IRParams) = struct
             let already_binded = List.fold_left (
                 fun already_binded citem -> 
                     match citem.value.v with
-                    | CLContract _ -> already_binded
                     | CLMethod m -> Atom.Set.add m.value.name already_binded
                     | CLState s -> Atom.Set.add(s.value.name) already_binded
             ) already_binded cl.body in
@@ -877,7 +874,6 @@ module Make (Params : IRParams) = struct
             map0_place (map0_plgannot(collect_cexpr_component_item_ parent_opt already_binded selector collector)) citem
 
         and collect_cexpr_class_item_ parent_opt already_binded selector collector place = function 
-            | CLContract c -> collect_cexpr_contract parent_opt  already_binded selector collector c
             | CLMethod m -> collect_cexpr_method0 parent_opt  already_binded selector collector m
             | CLState s -> collect_cexpr_state parent_opt  already_binded selector collector s 
         and collect_cexpr_class_item parent_opt already_binded selector collector citem =              
@@ -978,7 +974,6 @@ module Make (Params : IRParams) = struct
             map0_place (map0_plgannot(collect_stmt_component_item_ parent_opt  selector collector)) citem
 
         and collect_stmt_class_item_ parent_opt selector collector place = function 
-            | CLContract c    -> collect_stmt_contract parent_opt selector collector c
             | CLMethod m      -> collect_stmt_method0 parent_opt  selector collector m
             | CLState s       -> collect_stmt_state parent_opt selector collector s 
         and collect_stmt_class_item parent_opt selector collector citem =              
@@ -1127,7 +1122,6 @@ module Make (Params : IRParams) = struct
             map0_place (map0_plgannot(collect_type_component_item_ parent_opt already_binded selector collector)) citem
 
         and collect_type_class_item_ parent_opt (already_binded:Atom.Set.t) selector collector place = function 
-            | CLContract c -> collect_type_contract parent_opt already_binded selector collector c
             | CLMethod m -> collect_type_method0 parent_opt already_binded selector collector m
             | CLState s -> collect_type_state parent_opt already_binded selector collector s 
         and collect_type_class_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
@@ -1181,7 +1175,6 @@ module Make (Params : IRParams) = struct
             let already_binded = List.fold_left (
                 fun already_binded citem -> 
                     match citem.value.v with
-                    | CLContract _ -> already_binded
                     | CLMethod m -> already_binded
                     | CLState s -> already_binded
             ) already_binded cl.body in
@@ -1380,7 +1373,6 @@ module Make (Params : IRParams) = struct
 
 
         and rewrite_type_class_item_  selector rewriter place = function 
-            | CLContract c    -> CLContract (rewrite_type_contract selector rewriter c)
             | CLMethod m      -> CLMethod (rewrite_type_method0 selector rewriter m)
             | CLState s       -> CLState (rewrite_type_state selector rewriter s )
         and rewrite_type_class_item selector rewriter = map_place (map_plgannot(rewrite_type_class_item_ selector rewriter))
@@ -1500,7 +1492,6 @@ module Make (Params : IRParams) = struct
         and rewrite_expr_component_dcl selector rewriter = map_place (rewrite_expr_component_dcl_ selector rewriter) 
 
         and rewrite_expr_class_item_  selector rewriter place = function 
-            | CLContract c    -> CLContract (rewrite_expr_contract selector rewriter c)
             | CLMethod m      -> CLMethod (rewrite_expr_method0 selector rewriter m)
             | CLState s       -> CLState (rewrite_expr_state selector rewriter s )
         and rewrite_expr_class_item selector rewriter = map_place (map_plgannot(rewrite_expr_class_item_ selector rewriter))
@@ -1851,7 +1842,7 @@ module Make (Params : IRParams) = struct
         }
         }]
         (* citem without statement *)
-        | CLContract _ | CLState _ -> [citem]
+        | CLState _ -> [citem]
         and rewrite_exprstmts_class_item parent_opt exclude_stmt selector rewriter = map_places (map_plgannots(rewrite_exprstmts_class_item_ parent_opt exclude_stmt selector rewriter)) 
 
 
@@ -1914,7 +1905,7 @@ module Make (Params : IRParams) = struct
         }
         }]
         (* citem without statement *)
-        | CLContract _ | CLState _ -> [citem]
+        | CLState _ -> [citem]
         and rewrite_stmt_class_item recurse selector rewriter = map_places (map_plgannots(rewrite_stmt_class_item_ recurse selector rewriter))
 
         and rewrite_stmt_component_dcl_ recurse selector rewriter place = function
@@ -2008,7 +1999,6 @@ module Make (Params : IRParams) = struct
         and rename_component_item ?(flag_rename_attribute=false) renaming = map_place (map_plgannot(_rename_component_item flag_rename_attribute (protect_renaming renaming)))
 
         and _rename_class_item flag_rename_attribute renaming place = function
-        | CLContract c    -> CLContract (rename_contract ~flag_rename_attribute:flag_rename_attribute renaming c)
         | CLMethod m      -> CLMethod (rename_method ~flag_rename_attribute:flag_rename_attribute renaming m)
         | CLState s       -> CLState (rename_state ~flag_rename_attribute:flag_rename_attribute renaming s)
         and rename_class_item ?(flag_rename_attribute=false) renaming = map_place (map_plgannot(_rename_class_item flag_rename_attribute (protect_renaming renaming)))
