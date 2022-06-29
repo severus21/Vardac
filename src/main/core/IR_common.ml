@@ -566,12 +566,12 @@ and collect_stmt_stmt parent_opt selector collector stmt =
 
 
 (*retrun free  type variable *)
-let rec collect_type_ctype_ parent_opt already_binded selector collector place = 
-    let collect_mtype = collect_type_mtype parent_opt already_binded selector collector in    
+let rec collect_type_ctype_ flag_tcvar parent_opt already_binded selector collector place = 
+    let collect_mtype = collect_type_mtype ~flag_tcvar:flag_tcvar parent_opt already_binded selector collector in    
     
 function
 | TFlatType _ -> already_binded, [], []
-| TActivationRef mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt | TInport mt | TEport mt | TOutport mt -> collect_mtype mt
+| TActivationRef mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt | TInport mt | TEport mt | TOutport mt -> collect_mtype  mt
 | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) -> 
     let _, collected_elts1, ftvars1 = collect_mtype mt1 in
     let _, collected_elts2, ftvars2 = collect_mtype mt2 in
@@ -582,7 +582,7 @@ function
     let _,  collected_elts3, ftvars3 = collect_mtype b.protocol in
     already_binded,  collected_elts1@collected_elts2@collected_elts3, ftvars1@ftvars2@ftvars3
 | TTuple mts | TInductive mts -> 
-    let collected_elts, ftvars = collect_type_mtypes parent_opt already_binded selector collector mts in
+    let collected_elts, ftvars = collect_type_mtypes flag_tcvar parent_opt already_binded selector collector mts in
     already_binded, collected_elts, ftvars
 | TVar x | TPolyVar x when Atom.Set.find_opt x already_binded <> None  -> already_binded, [], [] 
 | TVar x when Atom.is_builtin x -> already_binded, [], [] 
@@ -590,127 +590,132 @@ function
     already_binded, [], [x]
 | TForall (x, mt) -> 
     let inner_already_binded = Atom.Set.add x already_binded in
-    let _,  collected_elts, ftvars = collect_type_mtype parent_opt inner_already_binded selector collector mt in
+    let _,  collected_elts, ftvars = collect_type_mtype ~flag_tcvar:flag_tcvar parent_opt inner_already_binded selector collector mt in
     assert ( false = List.mem x ftvars);
     already_binded, collected_elts, ftvars
-and collect_type_ctype parent_opt already_binded selector collector ct =       
-    map0_place (collect_type_ctype_ parent_opt already_binded selector collector) ct 
-and free_tvars_ctype already_binded ct = 
-    let already_binded, _, ftvars = collect_type_ctype None  already_binded (function e -> false) (fun parent_opt env e -> []) ct in
+and collect_type_ctype flag_tcvar parent_opt already_binded selector collector ct =       
+    map0_place (collect_type_ctype_ flag_tcvar parent_opt already_binded selector collector) ct 
+and free_tvars_ctype flag_tcvar already_binded ct = 
+    let already_binded, _, ftvars = collect_type_ctype flag_tcvar None  already_binded (function e -> false) (fun parent_opt env e -> []) ct in
     already_binded, Utils.deduplicate Fun.id ftvars
 
-and collect_type_stype_ parent_opt already_binded selector collector place = function
+and collect_type_stype_ flag_tcvar parent_opt already_binded selector collector place = function
 | STEnd | STWildcard | STBottom -> already_binded, [], []
 | STVar x | STPolyVar x when Atom.Set.find_opt x already_binded <> None  -> already_binded, [], []
 | STVar x | STPolyVar x -> already_binded, [], [x]
 | STRecv (mt, st) | STSend (mt, st) -> 
-    let _, collected_elts1, ftvars1 = collect_type_mtype parent_opt already_binded selector collector mt in
-    let _, collected_elts2, ftvars2 = collect_type_stype parent_opt already_binded selector collector st in
+    let _, collected_elts1, ftvars1 = collect_type_mtype ~flag_tcvar:flag_tcvar parent_opt already_binded selector collector mt in
+    let _, collected_elts2, ftvars2 = collect_type_stype flag_tcvar parent_opt already_binded selector collector st in
     already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
 | STBranch branches | STSelect branches -> 
     let sts =  List.map (function (_,st,_) -> st) branches in
     let acs =  List.map Option.get (List.filter (function x -> x <> None) (List.map (function (_,_,ac) -> ac) branches)) in
-    let collected_elts1, ftvars1 = collect_type_stypes parent_opt already_binded selector collector sts in
-    let collected_elts2, ftvars2 = collect_type_aconstraints parent_opt already_binded selector collector acs in
+    let collected_elts1, ftvars1 = collect_type_stypes flag_tcvar parent_opt already_binded selector collector sts in
+    let collected_elts2, ftvars2 = collect_type_aconstraints flag_tcvar parent_opt already_binded selector collector acs in
     already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2 
 | STRec (x, st) -> 
     let inner_already_binded = (Atom.Set.add x already_binded) in
-    let _, collected_elts, ftvars = collect_type_stype parent_opt inner_already_binded selector collector st in
+    let _, collected_elts, ftvars = collect_type_stype flag_tcvar parent_opt inner_already_binded selector collector st in
     already_binded, collected_elts, ftvars
-| STDual st -> collect_type_stype parent_opt already_binded selector collector st
+| STDual st -> collect_type_stype flag_tcvar parent_opt already_binded selector collector st
 | STInline x -> raise (Error.DeadbranchError (Printf.sprintf "STInline should have been resolved before running collect_type_stype_ %s" (Atom.to_string x)))
-and collect_type_stype parent_opt already_binded selector collector st =       
-    map0_place (collect_type_stype_ parent_opt already_binded selector collector) st 
-and collect_type_stypes parent_opt already_binded selector collector =
+and collect_type_stype flag_tcvar parent_opt already_binded selector collector st =       
+    map0_place (collect_type_stype_ flag_tcvar parent_opt already_binded selector collector) st 
+and collect_type_stypes flag_tcvar parent_opt already_binded selector collector =
     List.fold_left (fun (acc0, acc1) st -> 
-        let _, collected_elts, fvars = collect_type_stype parent_opt already_binded selector collector st in
+        let _, collected_elts, fvars = collect_type_stype flag_tcvar parent_opt already_binded selector collector st in
         collected_elts@acc0, fvars@acc1
     ) ([], []) 
 
-and free_tvars_stype (already_binded:Atom.Set.t) st = 
-    let already_binded, _, ftvars = collect_type_stype None  already_binded (function e -> false) (fun parent_opt env e -> []) st in
+and free_tvars_stype flag_tcvar (already_binded:Atom.Set.t) st = 
+    let already_binded, _, ftvars = collect_type_stype flag_tcvar None  already_binded (function e -> false) (fun parent_opt env e -> []) st in
     already_binded, Utils.deduplicate Fun.id ftvars
 
-and collect_type_header_ parent_opt already_binded selector collector place = 
+and collect_type_header_ flag_tcvar parent_opt already_binded selector collector place = 
 (* TODO FIXME *)
 failwith "collect_type_header : needs that variable and type variable to be the same or convertion function (bijective)"
 (*function 
     | UseMetadata (mt,x) ->
-        let _, collected_elts, ftvars = collect_type_mtype parent_opt already_binded selector collector mt in
+        let _, collected_elts, ftvars = collect_type_mtype ~flag_tcvar:flag_tcvar parent_opt already_binded selector collector mt in
         Atom.Set.add x already_binded, collected_elts, ftvars
     | SetTimer (x) | SetFireTimer (x,_) -> Atom.Set.add x already_binded, [], []
 *)
-and collect_type_header parent_opt already_binded selector collector st =       
-    map0_place (collect_type_header_ parent_opt already_binded selector collector) st 
+and collect_type_header flag_tcvar parent_opt already_binded selector collector st =       
+    map0_place (collect_type_header_ flag_tcvar parent_opt already_binded selector collector) st 
 
-and collect_type_headers parent_opt already_binded selector collector  headers = 
+and collect_type_headers flag_tcvar parent_opt already_binded selector collector  headers = 
     List.fold_left (fun (already_binded, acc0, acc1) header -> 
-        let already_binded, collected_elts, ftvars = collect_type_header  parent_opt already_binded selector collector header in
+        let already_binded, collected_elts, ftvars = collect_type_header flag_tcvar parent_opt already_binded selector collector header in
         already_binded, collected_elts@acc0, ftvars@acc1
     ) (already_binded, [], []) headers 
 
-and collect_type_aconstraint parent_opt already_binded selector collector (headers, e_opt)= 
+and collect_type_aconstraint flag_tcvar parent_opt already_binded selector collector (headers, e_opt)= 
     let collect_expropt = function
     | None -> already_binded, [], [] 
-    | Some e -> collect_type_expr parent_opt already_binded selector collector  e
+    | Some e -> collect_type_expr flag_tcvar parent_opt already_binded selector collector  e
     in
 
     (* TODO FIXME (bug) session type should proagate the inner already_binded to its continuation *)
-    let inner_already_binded, collected_elts1, ftvars1 = collect_type_headers parent_opt already_binded selector collector headers in
+    let inner_already_binded, collected_elts1, ftvars1 = collect_type_headers flag_tcvar parent_opt already_binded selector collector headers in
     let _, collected_elts2, ftvars2 = collect_expropt e_opt in
     already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
 
 
-and collect_type_aconstraints parent_opt already_binded selector collector (aconstraints: applied_constraint list) = 
+and collect_type_aconstraints flag_tcvar parent_opt already_binded selector collector (aconstraints: applied_constraint list) = 
     List.fold_left (fun (acc0, acc1) aconstraint -> 
-        let _, collected_elts, ftvars = collect_type_aconstraint  parent_opt already_binded selector collector aconstraint in
+        let _, collected_elts, ftvars = collect_type_aconstraint flag_tcvar parent_opt already_binded selector collector aconstraint in
         collected_elts@acc0, ftvars@acc1
     ) ([], []) aconstraints 
 
-and collect_type_cmtype_ parent_opt already_binded selector collector place= function
-| CompTUid _ | TPolyCVar _ | CompTBottom -> already_binded, [], [] (*Not a type variable but a component variable *)
+and collect_type_cmtype_ flag_tcvar parent_opt already_binded selector collector place= function
+| CompTUid x when flag_tcvar -> already_binded, [], [x]
+| CompTUid _ -> 
+    (*Not a type variable but a component variable *)
+    already_binded, [], []
+| TPolyCVar _ | CompTBottom -> already_binded, [], [] 
 | TStruct (_, sign) -> 
-    let collected_elts, ftvars = collect_type_mtypes parent_opt already_binded selector collector (List.map snd (List.of_seq (Atom.VMap.to_seq sign))) in
+    let collected_elts, ftvars = collect_type_mtypes flag_tcvar parent_opt already_binded selector collector (List.map snd (List.of_seq (Atom.VMap.to_seq sign))) in
     already_binded, collected_elts, ftvars
-and collect_type_cmtype parent_opt already_binded selector collector cmt =       
-    map0_place (collect_type_cmtype_ parent_opt already_binded selector collector) cmt 
-and free_tvars_cmtype (already_binded:Atom.Set.t) cmt = 
-    let already_binded, _, ftvars = collect_type_cmtype None  already_binded (function e -> false) (fun parent_opt env e -> []) cmt in
+and collect_type_cmtype flag_tcvar parent_opt already_binded selector collector cmt =       
+    map0_place (collect_type_cmtype_ flag_tcvar  parent_opt already_binded selector collector) cmt 
+and free_tvars_cmtype flag_tcvar  (already_binded:Atom.Set.t) cmt = 
+    let already_binded, _, ftvars = collect_type_cmtype flag_tcvar None  already_binded (function e -> false) (fun parent_opt env e -> []) cmt in
     already_binded, Utils.deduplicate Fun.id ftvars
 
-and collect_type_mtype_ parent_opt already_binded selector collector place mt = 
+and collect_type_mtype_ flag_tcvar parent_opt already_binded selector collector place mt = 
     (* Collection *)
     let collected_elts0 = if selector mt then collector parent_opt already_binded {place; value=mt} else [] in 
 
     let _, collected_elts1, ftvars1 = match mt with
         | EmptyMainType -> already_binded, collected_elts0, []
         | CType ct -> 
-            collect_type_ctype parent_opt already_binded selector collector ct
-        | SType st -> collect_type_stype parent_opt already_binded selector collector st
-        | CompType cmt -> collect_type_cmtype parent_opt already_binded selector collector cmt
+            collect_type_ctype flag_tcvar parent_opt already_binded selector collector ct
+        | SType st -> collect_type_stype flag_tcvar parent_opt already_binded selector collector st
+        | CompType cmt -> collect_type_cmtype flag_tcvar parent_opt already_binded selector collector cmt
+        | ClType cmt -> collect_type_cmtype flag_tcvar parent_opt already_binded selector collector cmt
         | ConstrainedType (mt,ac) -> 
-            let _, collected_elts1, ftvars1 = collect_type_mtype parent_opt already_binded selector collector mt in
-            let _, collected_elts2, ftvars2 = collect_type_aconstraint parent_opt already_binded selector collector ac in
+            let _, collected_elts1, ftvars1 = collect_type_mtype ~flag_tcvar:flag_tcvar parent_opt already_binded selector collector mt in
+            let _, collected_elts2, ftvars2 = collect_type_aconstraint flag_tcvar parent_opt already_binded selector collector ac in
             already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
     in
     already_binded, collected_elts0@collected_elts1, ftvars1
 
-and collect_type_mtype parent_opt already_binded selector collector mt =       
-    map0_place (collect_type_mtype_ parent_opt already_binded selector collector) mt 
+and collect_type_mtype ?(flag_tcvar=false) (parent_opt:Atom.atom option) already_binded selector collector mt =       
+    map0_place (collect_type_mtype_ flag_tcvar  parent_opt already_binded selector collector) mt 
 
-and collect_type_mtypes parent_opt already_binded selector collector =
+and collect_type_mtypes (flag_tcvar:bool) parent_opt already_binded selector collector =
     List.fold_left (fun (acc0, acc1) mt -> 
-        let _, collected_elts, fvars = collect_type_mtype parent_opt already_binded selector collector mt in
+        let _, collected_elts, fvars = collect_type_mtype ~flag_tcvar:flag_tcvar parent_opt already_binded selector collector mt in
         collected_elts@acc0, fvars@acc1
     ) ([], []) 
 
-and free_tvars_mtype already_binded mt : Atom.Set.t * type_variable list =
-    let already_binded, _, ftvars = collect_type_mtype None  already_binded (function e -> false) (fun parent_opt env e -> []) mt in
+and free_tvars_mtype ?(flag_tcvar=false) already_binded mt : Atom.Set.t * type_variable list =
+    let already_binded, _, ftvars = collect_type_mtype ~flag_tcvar:flag_tcvar None  already_binded (function e -> false) (fun parent_opt env e -> []) mt in
     already_binded, Utils.deduplicate Fun.id ftvars 
 
-and collect_type_expr_ parent_opt already_binded selector collector place (e, mt) = 
-    let collect_mtype = collect_type_mtype parent_opt already_binded selector collector in
-    let collect_expr = collect_type_expr parent_opt already_binded selector collector in
+and collect_type_expr_ flag_tcvar parent_opt already_binded selector collector place (e, mt) = 
+    let collect_mtype = collect_type_mtype ~flag_tcvar:flag_tcvar parent_opt already_binded selector collector in
+    let collect_expr = collect_type_expr flag_tcvar parent_opt already_binded selector collector in
     let collect_exprs (es:expr list) = 
         List.fold_left (fun (acc0, acc1) e -> 
             let _, collected_elts, ftvars = collect_expr e in
@@ -746,7 +751,7 @@ and collect_type_expr_ parent_opt already_binded selector collector place (e, mt
         collect_exprs (e::es)
     | PolyApp _ -> failwith "Not yet supported in free_tvars_expr"
     | Spawn spawn -> 
-        let _, collected_elts1, ftvars1 = collect_type_cexpr  parent_opt already_binded selector collector spawn.c in
+        let _, collected_elts1, ftvars1 = collect_type_cexpr flag_tcvar parent_opt already_binded selector collector spawn.c in
         let collected_elts2, ftvars2 = collect_exprs spawn.args in
         let _, collected_elts3, ftvars3 = collect_expropt spawn.at in
         let _, collected_elts4, ftvars4 = collect_expropt spawn.inline_in in
@@ -773,18 +778,18 @@ and collect_type_expr_ parent_opt already_binded selector collector place (e, mt
     in
     already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2 
 
-and collect_type_expr parent_opt already_binded selector collector e =       
-    map0_place (collect_type_expr_ parent_opt already_binded selector collector) e 
+and collect_type_expr flag_tcvar parent_opt already_binded selector collector e =       
+    map0_place (collect_type_expr_ flag_tcvar parent_opt already_binded selector collector) e 
 
-and free_tvars_expr (already_binded:Atom.Set.t) (e:expr) = 
-    let already_binded, _, ftvars = collect_type_expr None  already_binded (function e -> false) (fun parent_opt env e -> []) e in
+and free_tvars_expr flag_tcvar (already_binded:Atom.Set.t) (e:expr) = 
+    let already_binded, _, ftvars = collect_type_expr flag_tcvar None  already_binded (function e -> false) (fun parent_opt env e -> []) e in
     already_binded, Utils.deduplicate Fun.id ftvars 
 
-and collect_type_stmt_  parent_opt already_binded selector collector place stmt = 
+and collect_type_stmt_ flag_tcvar parent_opt already_binded selector collector place stmt = 
     (* N.B. stmt can not introduce new type variables *)
-    let collect_expr = collect_type_expr parent_opt already_binded selector collector in
-    let collect_stmt = collect_type_stmt parent_opt already_binded selector collector in
-    let collect_mtype = collect_type_mtype parent_opt already_binded selector collector in
+    let collect_expr = collect_type_expr flag_tcvar parent_opt already_binded selector collector in
+    let collect_stmt = collect_type_stmt flag_tcvar parent_opt already_binded selector collector in
+    let collect_mtype = collect_type_mtype ~flag_tcvar:flag_tcvar parent_opt already_binded selector collector in
     let collect_exprs exprs = 
         List.fold_left (fun (acc0, acc1) expr -> 
             let _, collected_elts, ftvars = collect_expr expr in
@@ -810,7 +815,7 @@ and collect_type_stmt_  parent_opt already_binded selector collector place stmt 
         let _, collected_elts2, ftvars2 = collect_expr label in
         let collected_elts3, ftvars3 = List.split (List.map (function {branch_s; body} -> 
             (* branch_s is not a type binder *)
-            let _, collect_elts, fvars = collect_type_stmt parent_opt already_binded selector collector body in
+            let _, collect_elts, fvars = collect_type_stmt flag_tcvar parent_opt already_binded selector collector body in
 
             collect_elts, fvars
         ) branches)
@@ -846,14 +851,14 @@ and collect_type_stmt_  parent_opt already_binded selector collector place stmt 
         let collected_elts2, ftvars2 = collect_stmts stmts in
         already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
 
-and collect_type_stmt (parent_opt:Atom.atom option) already_binded selector collector stmt =       
-    map0_place (collect_type_stmt_ parent_opt already_binded selector collector) stmt 
+and collect_type_stmt flag_tcvar (parent_opt:Atom.atom option) already_binded selector collector stmt =       
+    map0_place (collect_type_stmt_ flag_tcvar parent_opt already_binded selector collector) stmt 
 
-and free_tvars_stmt (already_binded:Atom.Set.t) stmt = 
-    let already_binded, _, ftvars = collect_type_stmt None  already_binded (function e -> false) (fun parent_opt env e -> []) stmt in
+and free_tvars_stmt ?(flag_tcvar=false) (already_binded:Atom.Set.t) stmt = 
+    let already_binded, _, ftvars = collect_type_stmt flag_tcvar None  already_binded (function e -> false) (fun parent_opt env e -> []) stmt in
     already_binded, Utils.deduplicate Fun.id ftvars 
 
-and collect_type_cexpr parent_opt already_binded selector collector cexpr = already_binded, [], [] (* TODO FIXME *)
+and collect_type_cexpr flag_tcvar parent_opt already_binded selector collector cexpr = already_binded, [], [] (* TODO FIXME *)
 
 let rec timers_of_headers = function
     | [] -> []
@@ -1219,6 +1224,7 @@ and rewrite_type_mtype selector rewriter = map_place (_rewrite_type_mtype select
 and _rewrite_type_expr selector rewriter place (e, mt) = 
     let rewrite_mtype = rewrite_type_mtype selector rewriter in    
     let rewrite_expr = rewrite_type_expr selector rewriter in    
+    logger#debug "rewrite_type expr (%s)" (show_main_type mt);
 
     let e = match e with
         | (VarExpr _ as e) | (ImplicitVarExpr _ as e) | (LitExpr _ as e) | (This as e) | (Self as e) | (BridgeCall _ as e) -> e
@@ -1258,6 +1264,7 @@ and _rewrite_type_stmt selector rewriter place =
     let rewrite_mtype = rewrite_type_mtype selector rewriter in    
     let rewrite_expr = rewrite_type_expr selector rewriter in    
     let rewrite_stmt = rewrite_type_stmt selector rewriter in    
+    logger#debug "rewrite_type stmt";
 function
 | (BreakStmt as stmt) | (CommentsStmt _ as stmt) | (ContinueStmt as stmt) | (EmptyStmt as stmt) | (ExitStmt _ as stmt) -> stmt
 | AssignExpr (x, e) -> AssignExpr (x, rewrite_expr e)
@@ -1375,44 +1382,42 @@ and rewrite_stmt_stmt recurse selector (rewriter:Error.place -> _stmt -> _stmt l
 
 (*****************************************************)
 let rec collect_stype_stype_ parent_opt already_binded selector collector place (st:_session_type) =
-let collect_stypes stypes = 
-    List.fold_left (fun (acc0, acc1) stype -> 
-        let _, collected_elts, ftvars = collect_stype_stype parent_opt already_binded selector collector stype in
-        collected_elts@acc0, ftvars@acc1
-    ) ([], []) stypes 
-in
+    let collect_stypes stypes = 
+        List.fold_left (fun (acc0, acc1) stype -> 
+            let _, collected_elts, ftvars = collect_stype_stype parent_opt already_binded selector collector stype in
+            collected_elts@acc0, ftvars@acc1
+        ) ([], []) stypes 
+    in
 
+    (* Collection *)
+    let collected_elts0 = if selector st then collector parent_opt already_binded {place; value=st} else [] in 
 
-
-(* Collection *)
-let collected_elts0 = if selector st then collector parent_opt already_binded {place; value=st} else [] in 
-
-match st with
-| STEnd -> already_binded, collected_elts0, []
-| STVar x | STPolyVar x when Atom.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, []
-| STVar x | STPolyVar x -> already_binded, collected_elts0, [x]
-| STRecv (mt, st) | STSend (mt, st) -> 
-let _, collected_elts1, ftvars1 = collect_stype_mtype parent_opt already_binded selector collector mt in
-let _, collected_elts2, ftvars2 = collect_stype_stype parent_opt already_binded selector collector st in
-already_binded, collected_elts0@collected_elts1@collected_elts2, ftvars1@ftvars2
-| STBranch branches | STSelect branches -> 
-let sts =  List.map (function (_,st,_) -> st) branches in
-let acs =  List.map Option.get (List.filter (function x -> x <> None) (List.map (function (_,_,ac) -> ac) branches)) in
-let collected_elts1, ftvars1 = collect_stypes sts in
-let collected_elts2, ftvars2 = collect_stype_aconstraints parent_opt already_binded selector collector acs in
-already_binded, collected_elts0@collected_elts1@collected_elts2, ftvars1@ftvars2 
-| STRec (x, st) -> 
-let inner_already_binded = (Atom.Set.add x already_binded) in
-let _, collected_elts, ftvars = collect_stype_stype parent_opt inner_already_binded selector collector st in
-already_binded, collected_elts0@collected_elts, ftvars
-| STDual st -> 
-let _, collected_elts, ftvars = collect_stype_stype parent_opt already_binded selector collector st in
-already_binded, collected_elts0@collected_elts, ftvars
-| STInline x -> raise (Error.DeadbranchError (Printf.sprintf "STInline should have been resolved before running collect_stype_stype_ %s" (Atom.to_string x)))
+    match st with
+    | STEnd -> already_binded, collected_elts0, []
+    | STVar x | STPolyVar x when Atom.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, []
+    | STVar x | STPolyVar x -> already_binded, collected_elts0, [x]
+    | STRecv (mt, st) | STSend (mt, st) -> 
+    let _, collected_elts1, ftvars1 = collect_stype_mtype parent_opt already_binded selector collector mt in
+    let _, collected_elts2, ftvars2 = collect_stype_stype parent_opt already_binded selector collector st in
+    already_binded, collected_elts0@collected_elts1@collected_elts2, ftvars1@ftvars2
+    | STBranch branches | STSelect branches -> 
+    let sts =  List.map (function (_,st,_) -> st) branches in
+    let acs =  List.map Option.get (List.filter (function x -> x <> None) (List.map (function (_,_,ac) -> ac) branches)) in
+    let collected_elts1, ftvars1 = collect_stypes sts in
+    let collected_elts2, ftvars2 = collect_stype_aconstraints parent_opt already_binded selector collector acs in
+    already_binded, collected_elts0@collected_elts1@collected_elts2, ftvars1@ftvars2 
+    | STRec (x, st) -> 
+    let inner_already_binded = (Atom.Set.add x already_binded) in
+    let _, collected_elts, ftvars = collect_stype_stype parent_opt inner_already_binded selector collector st in
+    already_binded, collected_elts0@collected_elts, ftvars
+    | STDual st -> 
+    let _, collected_elts, ftvars = collect_stype_stype parent_opt already_binded selector collector st in
+    already_binded, collected_elts0@collected_elts, ftvars
+    | STInline x -> raise (Error.DeadbranchError (Printf.sprintf "STInline should have been resolved before running collect_stype_stype_ %s" (Atom.to_string x)))
 and collect_stype_stype parent_opt already_binded selector collector st =       
 map0_place (collect_stype_stype_ parent_opt already_binded selector collector) st 
 and collect_stype_mtype parent_opt already_binded selector collector =
-    collect_type_mtype parent_opt already_binded 
+    collect_type_mtype ~flag_tcvar:false parent_opt already_binded 
         (function | SType _ -> true | _-> false) 
         (fun parent_opt already_binded -> 
             function | {value=SType st} -> 
@@ -1420,7 +1425,7 @@ and collect_stype_mtype parent_opt already_binded selector collector =
                 elts
         )
 and collect_stype_aconstraint parent_opt already_binded selector rewriter =
-collect_type_aconstraint parent_opt already_binded
+collect_type_aconstraint false parent_opt already_binded
     (function | SType _ -> true | _-> false) 
     (fun parent_opt already_binded -> 
         function | {value=SType st} -> 
@@ -1429,7 +1434,7 @@ collect_type_aconstraint parent_opt already_binded
     )
 and collect_stype_aconstraints parent_opt already_binded selector collector (aconstraints: applied_constraint list) = 
     List.fold_left (fun (acc0, acc1) aconstraint -> 
-        let _, collected_elts, ftvars = collect_stype_aconstraint  parent_opt already_binded selector collector aconstraint in
+        let _, collected_elts, ftvars = collect_stype_aconstraint parent_opt already_binded selector collector aconstraint in
         collected_elts@acc0, ftvars@acc1
     ) ([], []) aconstraints 
 
@@ -1539,6 +1544,7 @@ rewrite_type_aconstraint
         | EmptyMainType -> EmptyMainType
         | CType ct -> CType (rename_composed_type renaming ct)
         | SType st -> SType (rename_session_type renaming st)
+        | ClType st -> ClType (rename_component_type renaming st)
         | CompType cmt -> CompType (rename_component_type renaming cmt)
         | ConstrainedType (mt, ac) -> ConstrainedType (rmt mt, rename_applied_constraint renaming ac)
         and rename_main_type renaming = map_place (_rename_main_type (protect_renaming renaming))

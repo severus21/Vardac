@@ -37,9 +37,9 @@ module Params : (
     [@@deriving show { with_path = false }]
 
     let collect_type_state_dcl_body 
-        parent_opt already_binded selector collector 
+        flaf_tcvar parent_opt already_binded selector collector 
     = function
-        | Some e -> collect_type_expr parent_opt already_binded selector collector e
+        | Some e -> collect_type_expr flaf_tcvar parent_opt already_binded selector collector e
         | None _ -> already_binded, [], []
     let rewrite_type_state_dcl_body 
         selector rewriter
@@ -67,15 +67,17 @@ module Params : (
     = function body ->  already_binded, List.flatten (List.map (collect_cexpr_stmt parent_opt already_binded selector collector) body), []
 
     let collect_type_custom_method0_body 
-        parent_opt already_binded selector collector 
+        flaf_tcvar parent_opt already_binded selector collector 
     = 
         List.fold_left_map (fun set stmt ->         
-            let env, a,b  = collect_type_stmt parent_opt set selector collector stmt in
+            let env, a,b  = collect_type_stmt flaf_tcvar parent_opt set selector collector stmt in
             env, (a,b)
         ) already_binded
     let rewrite_type_custom_method0_body 
         selector rewriter
-    = List.map (rewrite_type_stmt selector rewriter)
+    = 
+        logger#debug "rewrite_type_custom_method_body";
+        List.map (rewrite_type_stmt selector rewriter)
     let rewrite_expr_custom_method0_body 
         selector rewriter
     = List.map (rewrite_expr_stmt selector rewriter)
@@ -110,10 +112,10 @@ module Params : (
     | None -> None
     | Some mt -> Some (rewrite_type_mtype selector rewriter mt)
     let rewrite_type_typedef_body rewrite_type_expr selector rewriter () = () 
-    let collect_type_typealias_body collect_type_expr collect_type_mtype parent_opt already_binded selector collector = function
+    let collect_type_typealias_body flag_tcvar parent_opt already_binded selector collector = function
     | None -> already_binded, [], [] 
-    | Some mt -> collect_type_mtype parent_opt already_binded selector collector mt
-    let collect_type_typedef_body collect_type_expr parent_opt already_binded selector collector () = already_binded, [], []
+    | Some mt -> collect_type_mtype ~flag_tcvar:flag_tcvar parent_opt already_binded selector collector mt
+    let collect_type_typedef_body flaf_tcvar parent_opt already_binded selector collector () = already_binded, [], []
 
 end
 

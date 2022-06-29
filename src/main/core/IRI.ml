@@ -34,15 +34,15 @@ and iri_component_headers = string list
 
 
 
-let collect_type_bbbody collect_type_expr parent_opt already_binded selector collector = function
+let collect_type_bbbody flag_tcvar parent_opt already_binded selector collector = function
     | Text str -> already_binded, [], [] 
-    | Varda e -> collect_type_expr parent_opt already_binded selector collector e
-let rec collect_type_bbterm_ collect_type_expr parent_opt already_binded selector collector place {language; body} =
+    | Varda e -> collect_type_expr flag_tcvar parent_opt already_binded selector collector e
+let rec collect_type_bbterm_ flag_tcvar parent_opt already_binded selector collector place {language; body} =
     List.fold_left (fun (already_binded, collected_elts, tvars) bbbody -> 
-        let _, collected_elts1, tvars1 = collect_type_bbbody collect_type_expr parent_opt already_binded selector collector bbbody in
+        let _, collected_elts1, tvars1 = collect_type_bbbody flag_tcvar parent_opt already_binded selector collector bbbody in
         already_binded, collected_elts@collected_elts1, tvars@tvars1
     ) (already_binded, [], []) body
-and collect_type_bbterm collect_type_expr parent_opt already_binded selector collector = map0_place (collect_type_bbterm_ collect_type_expr parent_opt already_binded selector collector)
+and collect_type_bbterm flag_tcvar parent_opt already_binded selector collector = map0_place (collect_type_bbterm_ flag_tcvar parent_opt already_binded selector collector)
 
 let rewrite_type_bbbody rewrite_type_expr selector rewriter = function
     | Text str -> Text str
@@ -153,10 +153,10 @@ module Params : (
     [@@deriving show { with_path = false }]
 
     let collect_type_state_dcl_body 
-        parent_opt already_binded selector collector 
+        flag_tcvar parent_opt already_binded selector collector 
     = function
-        | InitExpr e -> collect_type_expr parent_opt already_binded selector collector e
-        | InitBB bbterm -> collect_type_bbterm collect_type_expr parent_opt already_binded selector collector bbterm
+        | InitExpr e -> collect_type_expr flag_tcvar parent_opt already_binded selector collector e
+        | InitBB bbterm -> collect_type_bbterm flag_tcvar parent_opt already_binded selector collector bbterm
         | NoInit -> already_binded, [], []
     let rewrite_type_state_dcl_body 
         selector rewriter
@@ -193,15 +193,15 @@ module Params : (
         | BBImpl bbterm -> already_binded, collect_cexpr_bbterm parent_opt already_binded selector collector bbterm, []
 
     let collect_type_custom_method0_body 
-        parent_opt already_binded selector collector 
+        flag_tcvar parent_opt already_binded selector collector 
     = function 
         | AbstractImpl body ->
             List.fold_left_map (fun set stmt ->         
-                let env, a,b  = collect_type_stmt parent_opt set selector collector stmt in
+                let env, a,b  = collect_type_stmt flag_tcvar parent_opt set selector collector stmt in
                 env, (a,b)
             ) already_binded body
         | BBImpl bbterm -> 
-            let env, a, b = collect_type_bbterm collect_type_expr parent_opt already_binded selector collector bbterm in
+            let env, a, b = collect_type_bbterm flag_tcvar parent_opt already_binded selector collector bbterm in
             env, [ (a,b) ]
     let rewrite_type_custom_method0_body 
         selector rewriter
@@ -266,12 +266,12 @@ module Params : (
     | AbstractTypealias mt -> AbstractTypealias (rewrite_type_mtype selector rewriter mt)
 
     let rewrite_type_typedef_body rewrite_type_expr selector rewriter = Option.map (rewrite_type_bbterm rewrite_type_expr selector rewriter)
-    let collect_type_typealias_body collect_type_expr collect_type_mtype parent_opt already_binded selector collector = function
-    | BBTypealias bbterm -> collect_type_bbterm collect_type_expr parent_opt already_binded selector collector bbterm
-    | AbstractTypealias mt -> collect_type_mtype parent_opt already_binded selector collector mt
-    let collect_type_typedef_body collect_type_expr parent_opt already_binded selector collector = function
+    let collect_type_typealias_body flag_tcvar parent_opt already_binded selector collector = function
+    | BBTypealias bbterm -> collect_type_bbterm flag_tcvar parent_opt already_binded selector collector bbterm
+    | AbstractTypealias mt -> collect_type_mtype ~flag_tcvar:flag_tcvar parent_opt already_binded selector collector mt
+    let collect_type_typedef_body flag_tcvar parent_opt already_binded selector collector = function
     | None -> already_binded, [], []
-    | Some bbterm -> collect_type_bbterm collect_type_expr parent_opt already_binded selector collector bbterm
+    | Some bbterm -> collect_type_bbterm flag_tcvar parent_opt already_binded selector collector bbterm
 end
 
 (*include IR_common*)

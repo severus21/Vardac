@@ -547,7 +547,7 @@ module Make () = struct
                             Error.perror e1.place "This not a tuple"
                     end
                     | VarExpr field -> begin 
-                        logger#debug "access begin \n%s" (show__expr (fst e2.value));
+                        logger#debug "access begin \n";
                         (* class or component *)
                         let tmp = match (snd e1.value).value with
                             | CompType _ -> mt_of_citem parent_opt place (snd e1.value) field

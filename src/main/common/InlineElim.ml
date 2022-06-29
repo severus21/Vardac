@@ -226,7 +226,7 @@ module Make () = struct
                             let _, freevars = List.split (List.map (free_vars_component_item Atom.Set.empty) cstruct.body) in
                             let freevars = Atom.Set.of_list (List.map snd (List.flatten freevars)) in
 
-                            let _, freetvars = List.split (List.map (free_tvars_component_item Atom.Set.empty) cstruct.body) in
+                            let _, freetvars = List.split (List.map (free_tvars_component_item ~flag_tcvar:true Atom.Set.empty) cstruct.body) in
                             let freetvars = Atom.Set.of_list (List.flatten freetvars) in
 
                             (List.map (rename_component_item ~flag_rename_attribute:true (refresh_atom freevars freetvars))
@@ -235,7 +235,8 @@ module Make () = struct
                     in
                     let body_elmts_set = Atom.Set.of_seq (List.to_seq(List.map (map0_place(map0_plgannot(
                         function place -> function 
-                        | CLMethod m -> m.value.name
+                        | CLMethod m -> 
+                            m.value.name
                         | CLState s -> s.value.name
                     ))) body)) in
 
@@ -270,8 +271,10 @@ module Make () = struct
                                     | _ -> false)
                                 (function 
                                     | CompType{value = CompTUid name; place} when name = schema -> 
+                                        logger#debug "updating CompType in CL (UID)";
                                         ClType {place = place@fplace; value = CompTUid (cl_name schema schema_in)} 
                                     | CompType{value = TStruct (name,tstruct)} when name = schema ->
+                                        logger#debug "updating CompType in CL (STRUCT)";
                                         (* Clean subterms/ports from tstuct*)
                                         let n_tstruct = 
                                             Atom.VMap.filter 
