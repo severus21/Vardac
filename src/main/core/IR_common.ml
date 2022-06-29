@@ -81,21 +81,21 @@ and _session_type =
 and session_type = _session_type placed
 
 (* NB component or class type *)
-and _component_type =
+and _struct_type =
     | CompTUid of component_variable 
     | TStruct of component_variable * main_type Atom.VMap.t (** types of states, methods, ports, ... and subcomponents *)
     (* Polymorphsim*)
     | TPolyCVar of component_variable
     | CompTBottom
-and component_type = _component_type placed
+and struct_type = _struct_type placed
 
 and _main_type = 
     | EmptyMainType
     | CType of composed_type 
     | SType of session_type
     (* First value component type*)
-    | CompType of component_type
-    | ClType of component_type
+    | CompType of struct_type
+    | ClType of struct_type
     (* Dynamic (or not) contraints*)
     | ConstrainedType of main_type * applied_constraint 
     (*gadt contraints: type -> bool *)
@@ -667,7 +667,7 @@ and collect_type_aconstraints flag_tcvar parent_opt already_binded selector coll
         collected_elts@acc0, ftvars@acc1
     ) ([], []) aconstraints 
 
-and collect_type_cmtype_ flag_tcvar parent_opt already_binded selector collector place= function
+and collect_type_structtype_ flag_tcvar parent_opt already_binded selector collector place= function
 | CompTUid x when flag_tcvar -> already_binded, [], [x]
 | CompTUid _ -> 
     (*Not a type variable but a component variable *)
@@ -676,10 +676,10 @@ and collect_type_cmtype_ flag_tcvar parent_opt already_binded selector collector
 | TStruct (_, sign) -> 
     let collected_elts, ftvars = collect_type_mtypes flag_tcvar parent_opt already_binded selector collector (List.map snd (List.of_seq (Atom.VMap.to_seq sign))) in
     already_binded, collected_elts, ftvars
-and collect_type_cmtype flag_tcvar parent_opt already_binded selector collector cmt =       
-    map0_place (collect_type_cmtype_ flag_tcvar  parent_opt already_binded selector collector) cmt 
-and free_tvars_cmtype flag_tcvar  (already_binded:Atom.Set.t) cmt = 
-    let already_binded, _, ftvars = collect_type_cmtype flag_tcvar None  already_binded (function e -> false) (fun parent_opt env e -> []) cmt in
+and collect_type_structtype flag_tcvar parent_opt already_binded selector collector cmt =       
+    map0_place (collect_type_structtype_ flag_tcvar  parent_opt already_binded selector collector) cmt 
+and free_tvars_structtype flag_tcvar  (already_binded:Atom.Set.t) cmt = 
+    let already_binded, _, ftvars = collect_type_structtype flag_tcvar None  already_binded (function e -> false) (fun parent_opt env e -> []) cmt in
     already_binded, Utils.deduplicate Fun.id ftvars
 
 and collect_type_mtype_ flag_tcvar parent_opt already_binded selector collector place mt = 
@@ -691,8 +691,8 @@ and collect_type_mtype_ flag_tcvar parent_opt already_binded selector collector 
         | CType ct -> 
             collect_type_ctype flag_tcvar parent_opt already_binded selector collector ct
         | SType st -> collect_type_stype flag_tcvar parent_opt already_binded selector collector st
-        | CompType cmt -> collect_type_cmtype flag_tcvar parent_opt already_binded selector collector cmt
-        | ClType cmt -> collect_type_cmtype flag_tcvar parent_opt already_binded selector collector cmt
+        | CompType cmt -> collect_type_structtype flag_tcvar parent_opt already_binded selector collector cmt
+        | ClType cmt -> collect_type_structtype flag_tcvar parent_opt already_binded selector collector cmt
         | ConstrainedType (mt,ac) -> 
             let _, collected_elts1, ftvars1 = collect_type_mtype ~flag_tcvar:flag_tcvar parent_opt already_binded selector collector mt in
             let _, collected_elts2, ftvars2 = collect_type_aconstraint flag_tcvar parent_opt already_binded selector collector ac in
@@ -1202,19 +1202,19 @@ function
     | STDual st -> STDual (rewrite_stype st)
 and rewrite_type_stype selector rewriter = map_place (_rewrite_type_stype selector rewriter)
 
-and _rewrite_type_cmtype selector rewriter place = function
+and _rewrite_type_structtype selector rewriter place = function
 | CompTUid x -> CompTUid x
 | TStruct (x, sign) -> TStruct
 (x, Atom.VMap.map (rewrite_type_mtype selector rewriter) sign)
 | TPolyCVar x -> TPolyCVar x
-and rewrite_type_cmtype selector rewriter = map_place (_rewrite_type_cmtype selector rewriter)
+and rewrite_type_structtype selector rewriter = map_place (_rewrite_type_structtype selector rewriter)
 
 and _rewrite_type_mtype (selector : _main_type -> bool) rewriter place = function
 | mt when selector mt -> rewriter mt
 | EmptyMainType -> EmptyMainType
 | CType ct -> CType (rewrite_type_ctype selector rewriter ct)
 | SType st -> SType (rewrite_type_stype selector rewriter st)
-| CompType cmt -> CompType (rewrite_type_cmtype selector rewriter cmt)
+| CompType cmt -> CompType (rewrite_type_structtype selector rewriter cmt)
 | ConstrainedType (mt, ac) -> ConstrainedType (
     rewrite_type_mtype selector rewriter mt,
     rewrite_type_aconstraint selector rewriter ac
@@ -1529,14 +1529,14 @@ rewrite_type_aconstraint
         | STBottom  -> STBottom
         and rename_session_type renaming : session_type -> session_type = map_place (_rename_session_type (protect_renaming renaming))
 
-        and _rename_component_type renaming place = 
+        and _rename_struct_type renaming place = 
             let rmt = rename_main_type renaming in   
         function  
         | CompTUid x -> CompTUid (renaming x)
         | TStruct (x, sign) -> TStruct 
             (renaming x, Atom.VMap.fold (fun x mt acc -> Atom.VMap.add (renaming x) (rmt mt) acc) sign Atom.VMap.empty)
         | TPolyCVar x -> TPolyCVar (renaming x)
-        and rename_component_type renaming = map_place (_rename_component_type renaming)
+        and rename_struct_type renaming = map_place (_rename_struct_type renaming)
 
         and _rename_main_type renaming place = 
             let rmt = rename_main_type renaming in   
@@ -1544,8 +1544,8 @@ rewrite_type_aconstraint
         | EmptyMainType -> EmptyMainType
         | CType ct -> CType (rename_composed_type renaming ct)
         | SType st -> SType (rename_session_type renaming st)
-        | ClType st -> ClType (rename_component_type renaming st)
-        | CompType cmt -> CompType (rename_component_type renaming cmt)
+        | ClType st -> ClType (rename_struct_type renaming st)
+        | CompType cmt -> CompType (rename_struct_type renaming cmt)
         | ConstrainedType (mt, ac) -> ConstrainedType (rmt mt, rename_applied_constraint renaming ac)
         and rename_main_type renaming = map_place (_rename_main_type (protect_renaming renaming))
 
@@ -1745,22 +1745,22 @@ and equal_stype st1 st2 =
 equal_place _equal_stype st1 st2
 
 
-and _equal_cmtype = function
+and _equal_structtype = function
 | CompTUid x1, CompTUid x2 -> x1 = x2
 | TStruct (_, struct1), TStruct (_, struct2) -> 
     (* N.B names of schema does not account for equality nor subtyping *)
     failwith "FIXME TODO equality for TStruct i.e. replace list by hashtbl"
 | TPolyCVar x1, TPolyCVar x2 -> x1 = x2
 | _ -> false
-and equal_cmtype cmt1 cmt2 =
+and equal_structtype cmt1 cmt2 =
 (=) cmt1 cmt2 ||
-equal_place _equal_cmtype cmt1 cmt2
+equal_place _equal_structtype cmt1 cmt2
 
 and _equal_mtype = function
 | EmptyMainType, EmptyMainType -> true 
 | CType ct1, CType ct2 -> equal_ctype ct1 ct2
 | SType st1, SType st2 -> equal_stype st1 st2
-| CompType cmt1, CompType cmt2 -> equal_cmtype cmt1 cmt2
+| CompType cmt1, CompType cmt2 -> equal_structtype cmt1 cmt2
 | ConstrainedType (mt1, ac1), ConstrainedType (mt2, ac2) ->
     equal_mtype mt1 mt2 &&
     failwith "TODO equal guard not yet defined"

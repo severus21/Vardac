@@ -400,13 +400,13 @@ module Make (Arg: sig val target:Target.target end) = struct
             (* raise (Error.PlacedDeadbranchError (place, "STWildcard should have been concretized during type inference.")) *)
     and fvstype st : T.expr = map_place finishv_stype st
 
-    and finish_component_type place : S._component_type -> T._ctype = function
+    and finish_struct_type place : S._struct_type -> T._ctype = function
     | S.CompTUid x -> T.TVar x 
     | S.TStruct (x, _) -> 
         (* Structural types can not be encoded easily in Java *)
         T.TVar x
     | S.TPolyCVar x -> Error.perror place "TPolyCVar should have been reduce before reaching Akka ???"
-    and fcctype ct : T.ctype = map_place finish_component_type ct
+    and fcctype ct : T.ctype = map_place finish_struct_type ct
 
     and finish_mtype place : S._main_type -> T.ctype = 
     let fplace = place@(Error.forge_place "Plg=Akka/finish_mtype" 0 0) in

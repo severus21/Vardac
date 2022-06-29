@@ -538,10 +538,10 @@ module Make(Arg:ArgSig) = struct
         env, T.STDual {place=p2; value=T.STInline y}
     and cstype env st: env * T.session_type = map2_place (cook_session_type env) st
 
-    and cook_component_type env place: S._component_type -> env * T._component_type = function
+    and cook_component_type env place: S._component_type -> env * T._struct_type = function
     | S.CompTUid x -> 
         env, T.CompTUid (cook_var_type env place x)
-    and ccomptype env cmt : T.component_type = snd(map2_place (cook_component_type env) cmt)
+    and ccomptype env cmt : T.struct_type = snd(map2_place (cook_component_type env) cmt)
     and cook_expression = function (e:S.expr) -> snd (cexpr (fresh_env !iota_entry_toplevel) e)
     and cook_expression_env env e = snd (cexpr env e)
 

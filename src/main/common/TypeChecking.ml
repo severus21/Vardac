@@ -54,16 +54,16 @@ and _tcheck_session_type place = function
 | STInline _ -> () 
 and tcheck_session_type st = map0_place _tcheck_session_type st
 
-and _tcheck_component_type place = function
+and _tcheck_struct_type place = function
 | CompTUid _ -> () 
 | TStruct (_, sign) -> Atom.VMap.iter (function _ -> tcheck_main_type) sign 
 | TPolyCVar _ -> () 
-and tcheck_component_type ct = map0_place _tcheck_component_type ct 
+and tcheck_struct_type ct = map0_place _tcheck_struct_type ct 
 
 and _tcheck_main_type place = function
 | CType ct -> tcheck_composed_type ct
 | SType st -> tcheck_session_type st
-| CompType ct -> tcheck_component_type ct
+| CompType ct -> tcheck_struct_type ct
 | ConstrainedType (mt, guard) -> 
     tcheck_main_type mt;
     tcheck_applied_constraint guard

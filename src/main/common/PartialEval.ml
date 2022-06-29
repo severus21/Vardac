@@ -183,12 +183,12 @@ and peval_stype env place : _session_type -> env * _session_type =
     | STPolyVar x -> env, STPolyVar x
 and pe_stype env: session_type -> env * session_type = map2_place (peval_stype env)
 
-and peval_cmtype env place = function 
+and peval_structtype env place = function 
 | CompTUid x -> env, CompTUid x (* can not inlined since rec type are allowed for component *) 
 | TStruct (name, sign) -> 
     env, TStruct (name, (Atom.VMap.map (snd <-> pe_mtype env) sign))
 | TPolyCVar x -> env, TPolyCVar x
-and pe_cmtype env = map2_place (peval_cmtype env)
+and pe_structtype env = map2_place (peval_structtype env)
 
 and is_type_of_component x = Str.string_match (Str.regexp "[A-Z].*") (Atom.hint x) 0
 
@@ -220,7 +220,7 @@ and peval_mtype env place : _main_type -> env * _main_type = function
 | ConstrainedType (mt, cst) -> env, ConstrainedType (
     snd(pe_mtype env mt), 
     snd (peval_applied_constraint env cst)) 
-| CompType cmt -> env, CompType (snd (pe_cmtype env cmt))
+| CompType cmt -> env, CompType (snd (pe_structtype env cmt))
 | EmptyMainType -> env, EmptyMainType
 and pe_mtype env: main_type -> env * main_type = map2_place (peval_mtype env)
 
