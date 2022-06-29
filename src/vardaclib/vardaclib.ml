@@ -90,13 +90,13 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
 
         (* TODO FIXME put before CommSimpl to avoid issue with intermediate_state added twice *)
         |> InlineElim.apply (* FIXME can not intercept A if B is inlined inside*)
-        |> TypeInference4.apply (*Needed since we introduce new constructions *)
+        |> TypeInference3.apply (*Needed since we introduce new constructions *)
 
         |> CommSimpl.apply (* Transform receive to async + ports *) 
 
         (* Every pass that change ports and components should be performed before runngin the Intercept transformation *)
         |> Intercept.apply
-        |> TypeInference3.apply (*Needed since we introduce new constructions *)
+        |> TypeInference4.apply (*Needed since we introduce new constructions *)
         (*|> TypeChecking.apply*)
         |> PartialEval.apply
         |> CommSimpl.apply (* Intercept introduce recv for onboarding *) 

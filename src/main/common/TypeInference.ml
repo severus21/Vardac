@@ -547,7 +547,7 @@ module Make () = struct
                             Error.perror e1.place "This not a tuple"
                     end
                     | VarExpr field -> begin 
-                        logger#debug "access begin \n";
+                        logger#debug "access begin \n %s" (show_expr e1);
                         (* class or component *)
                         let tmp = match (snd e1.value).value with
                             | CompType _ -> mt_of_citem parent_opt place (snd e1.value) field
@@ -630,7 +630,7 @@ module Make () = struct
                 match parent_opt with
                 | None -> Error.perror place "[self] can not be used outside class definition" 
                 | Some self -> 
-                    This, mtype_of_ct (TObject (self))
+                    Self, mtype_of_ct (TObject (self))
             end
             | Spawn spawn -> 
                 let c = tannot_component_expr parent_opt spawn.c in

@@ -1659,7 +1659,7 @@ module Make (Params : IRParams) = struct
                     | CallExpr _ -> CallExpr (e1, es_n)
                     | NewExpr _ -> NewExpr (e1, es_n)
                 ), mt_e)
-            | (BridgeCall _ as e ) | (LambdaExpr _ as e) | (LitExpr _ as e) | (This as e) | (Self as e) -> (* Interaction primtives are forbidden in LambdaExpr 
+            | (BridgeCall _ as e ) | (LambdaExpr _ as e) | (LitExpr _ as e) | (This as e) | (Self as e) -> (* Interaction primitives are forbidden in LambdaExpr 
             TODO check as a precondition
             *)
                 [], (e, mt_e)
@@ -2062,6 +2062,20 @@ module Make (Params : IRParams) = struct
         let insert_in_terms new_terms terms = 
             let fvars0 = Atom.Set.of_seq (List.to_seq (List.map snd (snd (free_vars_program Atom.Set.empty terms)))) in
             let ftvars0 = Atom.Set.of_seq (List.to_seq (snd (free_tvars_program Atom.Set.empty terms))) in
+            
+            List.iter (function x ->
+                logger#debug "new_terms [%s]" (show_term x);
+            ) new_terms;
+
+            logger#debug "instert_in_terms {%s} {%s}" 
+                (
+                    Format.fprintf Format.str_formatter "%a" (Error.pp_list ", " (fun out x -> Format.fprintf out "%s" (Atom.to_string x))) (Atom.Set.to_list fvars0);
+                    Format.flush_str_formatter ()
+                )
+                (
+                    Format.fprintf Format.str_formatter "%a" (Error.pp_list ", " (fun out x -> Format.fprintf out "%s" (Atom.to_string x))) (Atom.Set.to_list ftvars0);
+                    Format.flush_str_formatter ()
+                ); 
 
             (*Since rec def*)
             let shallow_scan already_binded = function

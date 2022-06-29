@@ -563,9 +563,7 @@ module Make () = struct
                         mtype_of_st (spawn_protocol_st schema).value
                     ))) in
                     (* register for inclusion *)
-                    Hashtbl.add tdefs (spawn_response schema) spawn_response_tdef;
-                    Hashtbl.add tdefs (spawn_request schema) spawn_request_tdef;
-                    Hashtbl.add tdefs (spawn_protocol schema) spawn_protocol_tdef;
+                    Hashtbl.add tdefs (spawn_response schema) [spawn_response_tdef; spawn_request_tdef; spawn_protocol_tdef];
 
                     
                     let a_ref = Atom.fresh "ref" in
@@ -706,7 +704,7 @@ module Make () = struct
         |> rewrite_term_program select_component_with_inlinable rewriter_inlinable
         |> rewrite_term_program select_component_inline_in rewriter_inline_in
         (* add sspawn_request/respons_tdef/protocol_def lca in program *)
-        |> insert_terms_into_lca [None] (List.map (fun (key,tdef) -> auto_fplace (auto_plgannot tdef)) (List.of_seq (Hashtbl.to_seq tdefs)))
+        |> insert_terms_into_lca [None] (List.map (fun tdef -> auto_fplace (auto_plgannot tdef)) (List.flatten (List.of_seq (Hashtbl.to_seq_values tdefs))))
 
     let eliminate_dynamic_inline_in program = 
         (*** Hydrate TODO before doing parent rewriting ***)

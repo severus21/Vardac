@@ -188,6 +188,7 @@ and peval_structtype env place = function
 | TStruct (name, sign) -> 
     env, TStruct (name, (Atom.VMap.map (snd <-> pe_mtype env) sign))
 | TPolyCVar x -> env, TPolyCVar x
+| CompTBottom ->env,  CompTBottom
 and pe_structtype env = map2_place (peval_structtype env)
 
 and is_type_of_component x = Str.string_match (Str.regexp "[A-Z].*") (Atom.hint x) 0
