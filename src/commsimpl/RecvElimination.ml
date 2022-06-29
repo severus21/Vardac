@@ -682,7 +682,10 @@ module Make () : Sig = struct
             @
             (* When session is initiated by an outport *)
             List.flatten (List.map (function (port:outport) ->
-                if Common.TypingUtils.is_suffix_st (auto_fplace (STRecv(t_msg, st_continuation))) (match (fst port.value).protocol.value with SType st -> st) then 
+                if Common.TypingUtils.is_suffix_st (auto_fplace (STRecv(t_msg, st_continuation))) (match (fst port.value).protocol.value with 
+                    | SType st -> st 
+                    | mt -> raise (Error.PlacedDeadbranchError (port.place, Printf.sprintf "Wrong outport type %s" (show__main_type mt)))
+                ) then 
                     (* p or one of its stages is concerned by the receive*)
                     generate_intermediate_port_for_port (fst port.value).name
                 else []
@@ -775,6 +778,7 @@ module Make () : Sig = struct
     | Comments c -> Comments c
     | Stmt stmt -> Stmt stmt
     | Component cdcl -> Component (rcdcl cdcl)
+    | Class cl -> Class cl
     | Function fcdcl -> 
         (* Precondition ensures there is no receive in function_declaration*)
         Function fcdcl

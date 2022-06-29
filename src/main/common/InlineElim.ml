@@ -233,6 +233,12 @@ module Make () = struct
                             cstruct.body))
                         )
                     in
+                    let body_elmts_set = Atom.Set.of_seq (List.to_seq(List.map (map0_place(map0_plgannot(
+                        function place -> function 
+                        | CLMethod m -> m.value.name
+                        | CLState s -> s.value.name
+                       (* FIXME maybe remove Contract from CL assuming that it is already added to method *)
+                    ))) body)) in
 
                     let cl_get_activation_ref = Atom.fresh "get_activation_ref" in
                     let cl = {
@@ -254,8 +260,30 @@ module Make () = struct
                                 on_startup = false;
                             })))
                         ] @ 
-                        (* This -> Self *)
-                        (List.map (rewrite_expr_class_item (function |This -> true | _ -> false) (function mt -> function |This -> Self)) body);
+                        (* 
+                           * This -> Self 
+                           * TUID B15 -> InlineB15 *)
+                        (List.map 
+                            (rewrite_type_class_item 
+                                (function 
+                                    | CompType{value = CompTUid name} -> name = schema
+                                    | CompType{value = TStruct (name,_)} -> name = schema
+                                    | _ -> false)
+                                (function 
+                                    | CompType{value = CompTUid name; place} when name = schema -> 
+                                        ClType {place = place@fplace; value = CompTUid (cl_name schema schema_in)} 
+                                    | CompType{value = TStruct (name,tstruct)} when name = schema ->
+                                        (* Clean subterms/ports from tstuct*)
+                                        let n_tstruct = 
+                                            Atom.VMap.filter 
+                                                (fun key _ -> 
+                                                    Atom.Set.find_opt key body_elmts_set <> None
+                                                ) 
+                                                tstruct in 
+                                        ClType {place = place@fplace; value = TStruct (cl_name schema schema_in, n_tstruct)}
+                                )
+                            ) 
+                            (List.map (rewrite_expr_class_item (function |This -> true | _ -> false) (function mt -> function | This -> Self)) body));
                     } in
 
                     (*** add state [instances_B15] in A ***)
@@ -641,9 +669,11 @@ module Make () = struct
                 let cstruct_in = List.fold_left (fun cstruct_in (spawn_port_name, spawn_static_bridge_name, spawn_static_bridge_mt) -> 
                     match IRMisc.get_onstartup cstruct_in with
                     | Some onstartup -> 
+                        (* Refresh atom for binder *)
+                        let a_bridge = Atom.fresh (Atom.hint spawn_static_bridge_name) in
                         IRMisc.replace_onstartup cstruct_in { onstartup with
                             value = {onstartup.value with 
-                                args = auto_fplace (spawn_static_bridge_mt, spawn_static_bridge_name)::onstartup.value.args;
+                                args = auto_fplace (spawn_static_bridge_mt, a_bridge)::onstartup.value.args;
                                 body = (
                                     auto_fplace(ExpressionStmt(
                                         e2_e(
@@ -651,7 +681,7 @@ module Make () = struct
                                                 e2var (Atom.builtin "bind"),
                                                 [ 
                                                     e2var spawn_port_name;
-                                                    e2var spawn_static_bridge_name
+                                                    e2var a_bridge
                                                 ]
                                             )
                                         )
@@ -690,6 +720,7 @@ module Make () = struct
                     | Some parent -> parent
                     | _ -> Error.error "spawn inline in outside of parent scope"
                 in
+                logger#debug "hydrating host_inline_in of %s" (Atom.to_string parent);
                 
                 begin
                     match Hashtbl.find_opt host_inline_in parent with
@@ -699,10 +730,15 @@ module Make () = struct
 
                 []
             end
-        );
+        ) program;
 
         (*** Rewrite parent of spawn in in order to add outport ***)
         let parent_selector (cstruct:component_structure) = 
+            logger#debug "parent_selector [host_inline_in %d]" (Hashtbl.length host_inline_in);
+            Hashtbl.iter (fun key set ->
+                logger#debug "host_inline_in of %s" (Atom.to_string key);
+                Atom.Set2.iter (function (a,b) -> logger#debug "- %s -> %s\n" (Atom.to_string a) (Atom.to_string b)) set;
+            ) host_inline_in;
             match Hashtbl.find_opt host_inline_in cstruct.name with
             | Some set -> set <> Atom.Set2.empty 
             | None -> false
@@ -726,12 +762,14 @@ module Make () = struct
                         spawn_static_bridge schema schema_in, 
                         auto_fplace ({
                             name        = spawn_outport schema schema_in cstruct.name;
-                            protocol    = mtype_of_var (spawn_protocol schema);
+                            protocol    = mtype_of_st (spawn_protocol_st schema).value;
                             _children   = [];
                         }, mtype_of_ct (TOutport (mtype_of_st (spawn_protocol_st schema).value)))    
                     )
                     (Atom.Set2.to_list (Hashtbl.find host_inline_in cstruct.name))
             in
+
+            logger#debug "static_bridges__outports %d" (List.length static_bridges__outports);
 
             (* Bind outports at startup *)
             let onstartup   = 
@@ -789,6 +827,7 @@ module Make () = struct
 
                 let a_session_0 = Atom.fresh "s" in
                 let a_session_1 = Atom.fresh "s" in
+                let a_res       = Atom.fresh "res" in
                 [
                     (* Initiate session *)
                     auto_fplace (LetStmt(
@@ -820,22 +859,25 @@ module Make () = struct
                             ]
                         ))
                     ));
-                ],
-                (* Wait for response and get activation_id *)
-                (* (receive(s2)?)._0._0_ *)
-                (e2_e(AccessExpr(
-                    e2_e(AccessExpr(
-                        e2_e(UnopExpr(
-                            UnpackOrPropagateResult,
+                    (* let res  = (receive(s2)?)._0;*)
+                    auto_fplace(LetStmt(
+                        mtype_of_var (spawn_response schema),
+                        a_res,
+                        e2_e(AccessExpr(
                             e2_e(CallExpr(
                                 e2var (Atom.builtin "receive"),
                                 [
                                     e2var a_session_1;
                                 ]
-                            ))
-                        )),
-                        e2var (Atom.builtin "_0")
-                    )),
+                            )),
+                            e2var (Atom.builtin "_0")
+                        ))
+                    ))
+                ],
+                (* Wait for response and get activation_id *)
+                (* (receive(s2)?)._0._0_ *)
+                (e2_e(AccessExpr(
+                    e2var a_res,
                     e2var (Atom.builtin "_0_")
                 ))).value
             end

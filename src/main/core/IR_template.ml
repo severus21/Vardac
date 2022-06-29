@@ -442,6 +442,10 @@ module Make (Params : IRParams) = struct
             (_session_type -> _session_type) ->
             program -> program
 
+        val rewrite_type_class_item : (_main_type -> bool) ->
+            (_main_type -> _main_type) ->
+            class_item ->
+            class_item
         val rewrite_type_component_item : (_main_type -> bool) ->
             (_main_type -> _main_type) ->
             component_item ->
@@ -872,6 +876,13 @@ module Make (Params : IRParams) = struct
         and collect_cexpr_component_item parent_opt already_binded selector collector citem =              
             map0_place (map0_plgannot(collect_cexpr_component_item_ parent_opt already_binded selector collector)) citem
 
+        and collect_cexpr_class_item_ parent_opt already_binded selector collector place = function 
+            | CLContract c -> collect_cexpr_contract parent_opt  already_binded selector collector c
+            | CLMethod m -> collect_cexpr_method0 parent_opt  already_binded selector collector m
+            | CLState s -> collect_cexpr_state parent_opt  already_binded selector collector s 
+        and collect_cexpr_class_item parent_opt already_binded selector collector citem =              
+            map0_place (map0_plgannot(collect_cexpr_class_item_ parent_opt already_binded selector collector)) citem
+
         and collect_cexpr_component_dcl_ parent_opt already_binded selector collector place = function 
         | ComponentStructure cdcl ->
             let parent_opt = Some cdcl.name in
@@ -879,6 +890,11 @@ module Make (Params : IRParams) = struct
             List.flatten (List.map (collect_cexpr_component_item parent_opt  already_binded selector collector) cdcl.body)
         and collect_cexpr_component_dcl parent_opt already_binded selector collector cdcl = 
             map0_place (collect_cexpr_component_dcl_ parent_opt  already_binded selector collector ) cdcl
+
+        and collect_cexpr_class_dcl parent_opt already_binded selector collector (cl:class_structure) =
+            let parent_opt = Some cl.name in
+            List.flatten (List.map (collect_cexpr_class_item parent_opt  already_binded selector collector) cl.body)
+
         and collect_cexpr_typedef_ parent_opt already_binded selector collector place = function 
         (* already binded left unchanged since it is type binder *)
         | ClassicalDef  (x, targs, body) -> []
@@ -897,6 +913,7 @@ module Make (Params : IRParams) = struct
             | EmptyTerm | Comments _ -> []
             | Stmt stmt -> collect_cexpr_stmt parent_opt  already_binded selector collector stmt
             | Component cdcl -> collect_cexpr_component_dcl parent_opt  already_binded selector collector cdcl
+            | Class cl -> collect_cexpr_class_dcl parent_opt  already_binded selector collector cl
             | Function fdcl -> collect_cexpr_function_dcl parent_opt  already_binded selector collector fdcl
             | Typealias _ -> [] (* type binder but not an cexpr binder so  is left unchanged*)
             | Typedef typedef -> collect_cexpr_typedef parent_opt  already_binded selector collector typedef
@@ -960,6 +977,13 @@ module Make (Params : IRParams) = struct
         and collect_stmt_component_item parent_opt selector collector citem =              
             map0_place (map0_plgannot(collect_stmt_component_item_ parent_opt  selector collector)) citem
 
+        and collect_stmt_class_item_ parent_opt selector collector place = function 
+            | CLContract c    -> collect_stmt_contract parent_opt selector collector c
+            | CLMethod m      -> collect_stmt_method0 parent_opt  selector collector m
+            | CLState s       -> collect_stmt_state parent_opt selector collector s 
+        and collect_stmt_class_item parent_opt selector collector citem =              
+            map0_place (map0_plgannot(collect_stmt_class_item_ parent_opt  selector collector)) citem
+
         and collect_stmt_component_dcl_ parent_opt selector collector place = function 
         | ComponentStructure cdcl ->
             let parent_opt = Some cdcl.name in
@@ -968,6 +992,13 @@ module Make (Params : IRParams) = struct
         | ComponentAssign _ -> []
         and collect_stmt_component_dcl parent_opt selector collector cdcl = 
             map0_place (collect_stmt_component_dcl_ parent_opt  selector collector ) cdcl
+
+        and collect_stmt_class_dcl parent_opt selector collector (cl:class_structure) = 
+            let parent_opt = Some cl.name in
+
+            List.flatten (List.map (collect_stmt_class_item parent_opt  selector collector) cl.body)
+
+
         and collect_stmt_typedef_ parent_opt selector collector place = function 
         (* already binded left unchanged since it is type binder *)
         | ClassicalDef  (x, targs, body) -> []
@@ -983,6 +1014,7 @@ module Make (Params : IRParams) = struct
             | EmptyTerm | Comments _ -> []
             | Stmt stmt -> collect_stmt_stmt parent_opt  selector collector stmt
             | Component cdcl -> collect_stmt_component_dcl parent_opt  selector collector cdcl
+            | Class cl -> collect_stmt_class_dcl parent_opt  selector collector cl
             | Function fdcl -> collect_stmt_function_dcl parent_opt  selector collector fdcl
             | Typealias _ -> [] (* type binder but not an stmt binder so  is left unchanged*)
             | Typedef typedef -> collect_stmt_typedef parent_opt  selector collector typedef
@@ -1345,6 +1377,16 @@ module Make (Params : IRParams) = struct
         | ComponentStructure cdcl -> 
             ComponentStructure { cdcl with body = List.map (rewrite_type_component_item selector rewriter) cdcl.body}
         and rewrite_type_component_dcl selector rewriter = map_place (rewrite_type_component_dcl_ selector rewriter) 
+
+
+        and rewrite_type_class_item_  selector rewriter place = function 
+            | CLContract c    -> CLContract (rewrite_type_contract selector rewriter c)
+            | CLMethod m      -> CLMethod (rewrite_type_method0 selector rewriter m)
+            | CLState s       -> CLState (rewrite_type_state selector rewriter s )
+        and rewrite_type_class_item selector rewriter = map_place (map_plgannot(rewrite_type_class_item_ selector rewriter))
+
+        and rewrite_type_class_dcl selector rewriter (cl:class_structure) = 
+            { cl with body = List.map (rewrite_type_class_item selector rewriter) cl.body}
 
         and rewrite_type_typedef_  selector rewriter place = function 
         | ClassicalDef (name, targs, tbody) -> 
@@ -1882,7 +1924,7 @@ module Make (Params : IRParams) = struct
         }
         and rewrite_stmt_component_dcl recurse selector rewriter = map_place (rewrite_stmt_component_dcl_ recurse selector rewriter) 
 
-        and rewrite_stmt_class_dcl_ recurse selector rewriter (cl:class_structure) =
+        and rewrite_stmt_class_dcl recurse selector rewriter (cl:class_structure) =
             { cl with 
                 body = List.flatten (List.map (rewrite_stmt_class_item recurse selector rewriter) cl.body)
             }
@@ -1890,6 +1932,7 @@ module Make (Params : IRParams) = struct
         and rewrite_stmt_term_ recurse selector rewriter place t =  
         match t with
         | Component cdcl -> [Component (rewrite_stmt_component_dcl recurse selector rewriter cdcl)]
+        | Class cl -> [Class (rewrite_stmt_class_dcl recurse selector rewriter cl)]
         | Function fdcl -> [Function { fdcl with
             value = {
                 fdcl.value with body = rewrite_stmt_custom_method0_body rewrite_stmt_stmt recurse selector rewriter fdcl.value.body

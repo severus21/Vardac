@@ -82,7 +82,8 @@ type flat_type =
     | TStr
     | TLabel
     | TBLabel (** label for non deterministic choices (STBranch/STSelect) only *)
-    | TVoid
+    | TVoid (* literal of type void exists *)
+    | TUnit (* not literal exists *)
     | TPlace
     | TSessionID (** can not be created by programmer -> no constructor *)
     | TTimer

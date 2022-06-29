@@ -77,12 +77,15 @@ module Make () = struct
         
     function
     | ClassicalDef (x, mts, ()) | EventDef (x, mts, ()) ->
+        logger#debug "classicaldef registration";
         register_type x (ctypeof(TTuple mts)); (*FIXME support other things than tuple*)
         register_expr_type x (mtype_of_fun2 mts (ctypeof (TVar x))) (* register constructor *)
     | ProtocolDef (x, mt) -> 
-            register_type x mt; (*FIXME*)
-            register_expr_type x mt (* register protocol object *)
+        logger#debug "protocol registration";
+        register_type x mt; (*FIXME*)
+        register_expr_type x mt (* register protocol object *)
     | VPlaceDef x -> (* No constructor, a value with name x has been created by cook *)
+        logger#debug "VPlaceDef registration";
         register_type x  (ctypeof(TTuple [])) (*FIXME TODO correct mt *)
 
 
@@ -229,12 +232,15 @@ module Make () = struct
         register_expr_type m.value.name (typeof_method m);
         [m.value.name, typeof_method m]
     | Inport p -> 
+        logger#debug "nport registration";
         register_expr_type (fst p.value).name (typeof_port p);
         [(fst p.value).name, typeof_port p]
     | Eport p -> 
+        logger#debug "eport registration";
         register_expr_type (fst p.value).name (typeof_eport p);
         [(fst p.value).name, typeof_eport p]
     | Outport p -> 
+        logger#debug "outport registration";
         register_expr_type (fst p.value).name (typeof_outport p);
         [(fst p.value).name, typeof_outport p]
     | State s -> 
@@ -516,7 +522,7 @@ module Make () = struct
                             aux targs i  
                         end
                         | _ -> 
-                            Error.perror e1.place "This not an inductive type (2)"
+                            Error.perror e1.place "This not an inductive type (2)%s " (show__main_type mt1)
                     end
                     | VarExpr x when Builtin.is_tuple_attr (Atom.value x) -> begin
                         let i = Builtin.pos_of_tuple_attr (Atom.value x) in
@@ -542,10 +548,14 @@ module Make () = struct
                             Error.perror e1.place "This not a tuple"
                     end
                     | VarExpr field -> begin 
+                        logger#debug "access begin \n%s" (show__expr (fst e2.value));
                         (* class or component *)
-                        match (snd e1.value).value with
+                        let tmp = match (snd e1.value).value with
                             | CompType _ -> mt_of_citem parent_opt place (snd e1.value) field
                             | CType {value= TObject _}-> mt_of_clitem parent_opt place (snd e1.value) field
+                        in
+                        logger#debug "endaccess";
+                        tmp
                     end
                     | _ -> Error.perror place "Invalid attribute"
 
@@ -562,6 +572,7 @@ module Make () = struct
                 let e2_opt = Option.map (tannot_expr parent_opt) e2_opt in
                 InterceptedActivationRef(e1, e2_opt), snd e1.value 
             | LambdaExpr (params, e) -> 
+                logger#debug "lambda registration";
                 List.iter (map0_place (fun place (mt, x) -> register_expr_type x mt)) params;
 
                 let e = tannot_expr parent_opt e in
@@ -577,6 +588,8 @@ module Make () = struct
                 let es = List.map (tannot_expr parent_opt) es in
                 let rec ret_typeof depth mt = match mt.value with (*TODO check types here ??*)
                     | CType{value=TArrow ({value=CType{value=TFlatType TVoid}}, mt2)} when List.length es = 0 -> 
+                        raise (Error.PlacedDeadbranchError (place, "type void should be type unit"))
+                    | CType{value=TArrow ({value=CType{value=TFlatType TUnit}}, mt2)} when List.length es = 0 -> 
                         (* 
                             f: unit -> ret_type
                             [|f()|] Call(f, [])
@@ -731,12 +744,14 @@ module Make () = struct
         logger#debug "let %s" (Atom.to_string x);
         register_expr_type x mt;
         let e = tannot_expr parent_opt e in 
+        logger#debug "endlet";
         LetStmt (mt, x, e)
     | CommentsStmt c -> CommentsStmt c
     | BreakStmt -> BreakStmt
     | ContinueStmt -> ContinueStmt
     | ExitStmt i -> ExitStmt i
     | ForeachStmt (mt, x, e, stmt) -> 
+        logger#debug "for registration";
         register_expr_type x mt; 
         ForeachStmt (
             tannot_main_type parent_opt mt,
@@ -896,6 +911,8 @@ module Make () = struct
     and _tannot_method parent_opt place (m:_method0) =
         let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
         let auto_fplace smth = {place = fplace; value=smth} in
+
+        logger#debug "method registration %s" (Atom.to_string m.name);
         List.iter (fun {value=(mt, x)} -> register_expr_type x mt) m.args; 
         
         {
@@ -908,6 +925,7 @@ module Make () = struct
 
     and tannot_method parent_opt m = 
         let _m = _tannot_method parent_opt m.place m.value in
+        logger#debug "endmethod";
         {
             place = m.place;
             value = _m
@@ -1032,6 +1050,7 @@ module Make () = struct
             mtype_of_ct (TForall (tvar, sign))     
         ) fct_sign fdcl.targs in
 
+        logger#debug "function registration";
         register_expr_type fdcl.name fct_sign;
         List.iter (fun {value=(mt, x)} -> register_expr_type x mt) fdcl.args; 
         

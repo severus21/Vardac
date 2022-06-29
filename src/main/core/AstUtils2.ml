@@ -46,9 +46,14 @@ module Mtype = struct
 
         (* TODO dedup this fct exists somewhere else*)
         (* FIXME 
-            args = [] => method : ret_type
+            args = [] => method : unit -> ret_type
         *)
         let mtype_of_fun2 targs ret_type = 
+            let targs = match targs with 
+                | [] -> [mtype_of_ft TUnit]
+                | _ -> targs
+            in
+
             List.fold_right (fun mt1 mt2 -> mtype_of_ct (TArrow (mt1, mt2))) targs ret_type
         let mtype_of_fun args ret_type = 
             mtype_of_fun2 (List.map (function param -> fst param.value) args) ret_type 

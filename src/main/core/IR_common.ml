@@ -1037,6 +1037,9 @@ let rec _rewrite_expr_expr selector rewriter place (e, mt) =
         rewrite_expr_expr selector rewriter e,
         List.map (rewrite_expr_expr selector rewriter) es
     )
+    | Create c -> Create { c with 
+        args = List.map (rewrite_expr_expr selector rewriter) c.args;
+    }
     | Spawn sp -> Spawn { sp with 
         args = List.map (rewrite_expr_expr selector rewriter) sp.args;
         at = Option.map (rewrite_expr_expr selector rewriter) sp.at;
