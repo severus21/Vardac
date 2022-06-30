@@ -181,7 +181,7 @@ and state = _state placed
 
 and _actor = {
     is_guardian: bool;
-    extended_types: ctype list;
+    extends: ctype option;
     implemented_types: ctype list;
     name: variable;
     methods: method0 list;
@@ -218,7 +218,7 @@ and _term =
 | ClassOrInterfaceDeclaration of {
     isInterface:bool; 
     name: variable;
-    extended_types: ctype list;
+    extends: ctype option;
     implemented_types: ctype list;
     body: term list;
     headers: string list (*specific headers*)

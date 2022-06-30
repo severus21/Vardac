@@ -270,7 +270,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         headers = [];
                         isInterface = false;
                         name = Atom.builtin (String.capitalize_ascii name);
-                        extended_types = [];
+                        extends = None;
                         implemented_types = [];
                         body = [
                             auto_place ({
@@ -331,7 +331,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                         headers = [];
                                         isInterface = false;
                                         name = stage.name;
-                                        extended_types = [];
+                                        extends = None;
                                         implemented_types = [];
                                         body = others; 
                                     }
@@ -427,7 +427,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     S.annotations = [S.Visibility S.Public];
                     decorators = []; 
                     v = S.Actor ( auto_place({
-                        S.extended_types = [Rt.Misc.t_lg4dc_abstract_system fplace];
+                        S.extends = Some (Rt.Misc.t_lg4dc_abstract_system fplace);
                         implemented_types = [];
                         is_guardian = true;
                         name = name;
@@ -682,7 +682,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                     guardian with 
                                         value = {guardian.value with 
                                             is_guardian = true;
-                                            extended_types = [Rt.Misc.t_lg4dc_abstract_system fplace];
+                                            extends = Some(Rt.Misc.t_lg4dc_abstract_system fplace);
                                             methods = change_constructor guardian.value.methods;
                                         }
                                     }
@@ -1321,7 +1321,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         isInterface         = false;
                         name                = name;
                         parameters          = []; 
-                        extended_types      = [fctype (Rt.Misc.t_lg4dc_event fplace None)];
+                        extends             = Some (fctype (Rt.Misc.t_lg4dc_event fplace None));
                         implemented_types   = implemented_types; 
                         body                = constructor::(fields@getters)
                     }
@@ -1487,7 +1487,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             ) bbterm.body
         and fbbterm models : S.blackbox_term -> T.blackbox_term = map_place (finish_bbterm (models@TemplatesHelper.default_jingoo_models))
 
-        and finish_actor place ({is_guardian; extended_types; implemented_types; name; methods; states; events; nested_items; static_items; receiver; headers}: S._actor): T._str_items =
+        and finish_actor place ({is_guardian; extends; implemented_types; name; methods; states; events; nested_items; static_items; receiver; headers}: S._actor): T._str_items =
             let fplace = place@(Error.forge_place "Plg=Akka/finish_actor" 0 0) in
             let auto_place smth = {place = fplace; value=smth} in
 
@@ -1507,14 +1507,16 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
 
             (** FIXME public/protected/private should parametrized*)
-
-            let extended_types = 
-                (auto_place (T.ClassOrInterfaceType (
-                    fctype (Rt.Misc.t_lg4dc_abstract_component fplace),
-                    [ 
-                        fctype (Rt.Misc.t_command_of_actor place name)     
-                    ]) 
-                ))::(List.map fctype extended_types)
+            let extends = 
+                Option.fold 
+                    ~none:(Some (auto_place (T.ClassOrInterfaceType (
+                        fctype (Rt.Misc.t_lg4dc_abstract_component fplace),
+                        [ 
+                            fctype (Rt.Misc.t_command_of_actor place name)     
+                        ]) 
+                    ))) 
+                    ~some: (function x -> Some (fctype x))
+                    extends
             in
 
             let command_cl = auto_place ( T.Body (
@@ -1525,7 +1527,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         isInterface = true;
                         name = Rt.Misc.a_command; 
                         parameters = [];
-                        extended_types = [fctype (Rt.Misc.t_cborserializable fplace)];
+                        extends =Some (fctype (Rt.Misc.t_cborserializable fplace));
                         implemented_types = [];
                         body = [];
                     }
@@ -1782,7 +1784,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         isInterface= false;
                         name=name;
                         parameters = [];
-                        extended_types = extended_types;
+                        extends = extends;
                         implemented_types = List.map fctype implemented_types;
                         body = !body 
                     }
@@ -1824,7 +1826,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                             isInterface = false;
                             name = x;
                             parameters = []; 
-                            extended_types = [];
+                            extends = None;
                             implemented_types = [];
                             body = [] 
                         }
@@ -1843,7 +1845,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                             isInterface = cdcl.isInterface;
                             name = cdcl.name;
                             parameters = []; 
-                            extended_types = List.map fctype cdcl.extended_types;
+                            extends = Option.map fctype cdcl.extends;
                             implemented_types = 
                             List.map fctype cdcl.implemented_types @ 
                             (* External events should implements command type *)
@@ -1883,7 +1885,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         isInterface = false;
                         name = x;
                         parameters = []; 
-                        extended_types = [];
+                        extends = None;
                         implemented_types = [];
                         body = [{ place=bb_term.place; value=T.BBItem (fbbterm [] bb_term)}] 
                     }

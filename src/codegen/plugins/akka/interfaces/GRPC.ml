@@ -528,7 +528,7 @@ end) = struct
                     ];
                     isInterface = false;
                     name = service.impl_name; 
-                    extended_types = [];
+                    extends = None;
                     implemented_types = [ auto_fplace (T.TVar service.service_name) ];
                     body = 
                         [
@@ -768,7 +768,7 @@ end) = struct
                 ) services;
                 isInterface = false;
                 name = main_server_name; 
-                extended_types = [Misc.t_lg4dc_abstract_system fplace];
+                extends = Some (Misc.t_lg4dc_abstract_system fplace);
                 implemented_types = [];
                 body = [
                     auto_fplace {
@@ -1139,7 +1139,7 @@ end) = struct
                 ) services;
                 isInterface = false;
                 name = main_client_name; 
-                extended_types = [];
+                extends = None;
                 implemented_types = [];
                 body = states @ (main :: main2 :: api_methods) @ [
                     auto_fplace {

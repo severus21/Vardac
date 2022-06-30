@@ -226,7 +226,7 @@ and apply_rename_state rename_binders renaming s = apply_rename_place (_apply_re
 and _apply_rename_actor rename_binders (renaming : Atom.atom -> Atom.atom) place (a:_actor) =
 {
     is_guardian = a.is_guardian;
-    extended_types = List.map (apply_rename_ctype renaming) a.extended_types;
+    extends = Option.map (apply_rename_ctype renaming) a.extends;
     implemented_types = List.map (apply_rename_ctype renaming) a.implemented_types;
     name = if rename_binders then renaming a.name else a.name;
     methods = List.map (apply_rename_method0 rename_binders renaming) a.methods;
@@ -251,7 +251,7 @@ and _apply_rename_term rename_binders (renaming : Atom.atom -> Atom.atom ) place
                 headers = cdcl.headers;
                 isInterface = cdcl.isInterface; 
                 name = if rename_binders then renaming cdcl.name else cdcl.name;
-                extended_types = List.map (apply_rename_ctype renaming) cdcl.extended_types;
+                extends = Option.map (apply_rename_ctype renaming) cdcl.extends;
                 implemented_types = List.map (apply_rename_ctype renaming) cdcl.implemented_types;
                 body = List.map (apply_rename_term rename_binders renaming) cdcl.body; 
             }

@@ -1010,12 +1010,16 @@ module Make (Arg: sig val target:Target.target end) = struct
     and finish_plgannot_component  a plg_annotations =
         let a, res = List.fold_left_map (fun (a:T.actor) -> map0_place (function place -> function
             | T.AOverride -> Error.perror place "Component can not be overrided !"
-            | AExtends x ->
+            | AExtends x -> begin
+                match a.value.extends with 
+                | None -> 
                 {a with 
-                value = {a.value with T.extended_types = (auto_fplace (T.Atomic x))::a.value.extended_types}},  ([], [])
+                value = {a.value with T.extends = Some (auto_fplace (T.Atomic x))}},  ([], [])
+                | Some mt -> Error.perror (mt.place@place)"Multiple heritage is forbidden in Java!"
+            end
             | AImplements x ->
                 {a with 
-                value = {a.value with extended_types = (auto_fplace (T.Atomic x))::a.value.implemented_types}}, ([],[])
+                value = {a.value with implemented_types = (auto_fplace (T.Atomic x))::a.value.implemented_types}}, ([],[])
         )) a plg_annotations in
         let (annotations, decorators) = List.split res in
         let annotations = List.flatten annotations in
@@ -1032,7 +1036,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         auto_fplace ({T.annotations = []; decorators = []; v =T.ClassOrInterfaceDeclaration {
             isInterface = false;
             name = cl.name;
-            extended_types = [];
+            extends = None;
             implemented_types = [];
             body = List.flatten(List.map (fclass_item cl.name) cl.body);
             headers = [];
@@ -1752,7 +1756,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         [{
             place;
             value = {   
-                T.extended_types = [];
+                T.extends = None;
                 implemented_types = [];
                 is_guardian = false;
                 headers = headers;
@@ -1982,7 +1986,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 v = T.ClassOrInterfaceDeclaration {
                     headers = [];
                     isInterface = false;
-                    extended_types = [t_lg4dc_protocol place];
+                    extends = Some(t_lg4dc_protocol place);
                     implemented_types = [];
                     name = name;
                     body = stmts @ sub_classes @ methods (*@ events*)
@@ -2084,7 +2088,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 v = T.ClassOrInterfaceDeclaration {
                     headers = [];
                     isInterface = false;
-                    extended_types = [];
+                    extends = None;
                     implemented_types = [];
                     name;
                     body = fields @ (constructor::getters) 
@@ -2103,7 +2107,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 v = T.ClassOrInterfaceDeclaration {
                     headers = [];
                     isInterface = false;
-                    extended_types = [auto_place (T.TBB (fbbterm body))];
+                    extends = Some (auto_place (T.TBB (fbbterm body)));
                     implemented_types = [];
                     name = v;
                     body = [] 
@@ -2128,7 +2132,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                        headers = [];
                        isInterface = false;
                        name = x;
-                       extended_types = [];
+                       extends = None;
                        implemented_types = []; (* TODO inherit ??*)
                        body = [] (* TODO add x as identity ?? *)
                    } 

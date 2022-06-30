@@ -282,7 +282,13 @@ end) = struct
         in
         (* Type parameters are binders for generics *)
         let ctx, parameters = List.fold_left_map (hr_jt ~is_binder:true) ctx cl.parameters in
-        let ctx, extended_types = List.fold_left_map hr_jt ctx cl.extended_types in 
+        let ctx, extends = 
+            match cl.extends with 
+            |None -> ctx, None
+            | Some extends -> 
+                let ctx, extends = hr_jt ctx extends in 
+                ctx, Some extends
+        in
         let ctx, implemented_types = List.fold_left_map hr_jt ctx cl.implemented_types in 
 
         (* Shallow scan of methods and fields to binded them before doing the depth first renaming *)
@@ -317,7 +323,7 @@ end) = struct
             isInterface = cl.isInterface;
             name;
             parameters;
-            extended_types;
+            extends;
             implemented_types;
             body;
         }

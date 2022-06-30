@@ -200,8 +200,8 @@ and output_body_v out : _body -> unit = function
         | false -> fprintf out "class"
         in
         let output_cl_extended out = function
-            | [] -> ()
-            | params -> fprintf out " extends %a" output_type_params params
+            | None -> ()
+            | Some jt -> fprintf out " extends %a" ojtype jt 
         in
         let output_cl_implements out = function
             | [] -> ()
@@ -212,7 +212,7 @@ and output_body_v out : _body -> unit = function
             output_kind cl.isInterface
             output_var cl.name 
             output_cl_params cl.parameters
-            output_cl_extended cl.extended_types
+            output_cl_extended cl.extends
             output_cl_implements cl.implemented_types
             output_items cl.body
     | FieldDeclaration f -> 

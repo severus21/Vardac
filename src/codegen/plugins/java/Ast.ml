@@ -43,9 +43,9 @@ and _body =
         isInterface:bool; 
         name: variable;
         parameters: type_parameter list;
-        extended_types:jtype list;
+        extends:jtype option;
         implemented_types: jtype list;
-        body: str_items list} (*parameters extends .... implements interfaces*)(* TODO GADT should guarantee that jtype is ClassOrInterfaceDeclaration*)
+        body: str_items list}
     | MethodDeclaration of { 
         ret_type: jtype option; (* None for constructor, Some _ otherwise *)
         name: variable;
