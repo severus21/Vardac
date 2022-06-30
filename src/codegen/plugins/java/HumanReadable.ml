@@ -42,6 +42,7 @@ end) = struct
     b) rename x:atom not in binder to builtin if x in ctx*)
 
     let hr_atom_no_binder ctx x = 
+        logger#debug "hr_atom_no_binder: %s" (Atom.to_string x);
         if Atom.is_builtin x then ctx, x
         else 
             let tokens = String.split_on_char '.' (Atom.to_string x) in
@@ -90,7 +91,12 @@ end) = struct
                 if cl_filename = Atom.to_string x then ctx, x
                 else
                     match Hashtbl.find_opt renaming (Atom.identity x) with
-                    | None -> ctx, x
+                    | None -> 
+                        logger#debug "disable renaming for %s" (Atom.to_string x);
+                        let ctx = {
+                            local = StrSet.add (Atom.hint x) ctx.local;
+                        } in
+                        ctx, x
                         (* debug - can not be used in prod since GRPC code is defined outisde the reach of Java plugin 
                         raise (Error.PlacedDeadbranchError (fplace, Printf.sprintf "[%s] [%s] not found in renaming" cl_filename (Atom.to_string x))) *)
                     | Some y -> 
@@ -193,13 +199,13 @@ end) = struct
             let ctx, bbterm = hr_bbterm ctx bbterm in
             ctx, BBExpr bbterm
         | LambdaExpr (args, stmt) -> 
-            let inner_ctx, args = List.fold_left_map (
+            let ctx, args = List.fold_left_map (
                 fun ctx (jt, x) ->
                     let ctx, jt = hr_jt ctx jt in
                     let ctx, x = hr_atom_binder ctx x in
                     ctx, (jt, x)
             ) ctx args in
-            let inner_ctx, stmt = hr_stmt inner_ctx stmt in
+            let ctx, stmt = hr_stmt ctx stmt in
             ctx, LambdaExpr (args, stmt)
         | UnaryExpr (op, e) -> 
             let ctx, e = hr_expr ctx e in
@@ -335,14 +341,14 @@ end) = struct
             | Some jt -> let ctx, jt = hr_jt ctx jt in ctx, Some jt
         in
         logger#debug "<<<HR method [%s]" (Atom.to_string name);
-        let inner_ctx, parameters = List.fold_left_map (fun ctx -> 
+        let ctx, parameters = List.fold_left_map (fun ctx -> 
             function (decorators, jt, x) -> 
                 let ctx, jt = hr_jt ctx jt in 
                 let ctx, x  = hr_atom_binder ctx x in 
                 ctx, (decorators, jt, x)
         ) ctx m.parameters in 
         logger#debug ">>>";
-        let inner_ctx, body = List.fold_left_map hr_stmt inner_ctx m.body in
+        let ctx, body = List.fold_left_map hr_stmt ctx m.body in
         let ctx, throws = List.fold_left_map hr_atom_no_binder ctx m.throws in
         ctx,  MethodDeclaration {
             ret_type;
