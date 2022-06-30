@@ -658,13 +658,13 @@ module Make (Params : IRParams) = struct
             | Outport p  -> collect_expr_outport parent_opt already_binded selector collector p
             | Term t -> collect_expr_term  parent_opt already_binded selector collector t    
         and collect_expr_component_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
-            map0_place (map0_plgannot(collect_expr_component_item_ parent_opt already_binded selector collector)) citem
+            map0_place (transparent0_plgannot(collect_expr_component_item_ parent_opt already_binded selector collector)) citem
 
         and collect_expr_class_item_ parent_opt (already_binded:Atom.Set.t) selector (collector: 'a sig_expr_collector) place = function 
             | CLMethod m -> collect_expr_method0 parent_opt already_binded selector collector m
             | CLState s -> collect_expr_state parent_opt already_binded selector collector s 
         and collect_expr_class_item parent_opt (already_binded:Atom.Set.t) selector collector citem =              
-            map0_place (map0_plgannot(collect_expr_class_item_ parent_opt already_binded selector collector)) citem
+            map0_place (transparent0_plgannot(collect_expr_class_item_ parent_opt already_binded selector collector)) citem
 
         and free_vars_component_item already_binded citem = 
             let already_binded, _, fvars = collect_expr_component_item None  already_binded (function e -> false) (fun parent_opt env e -> []) citem in
@@ -732,7 +732,8 @@ module Make (Params : IRParams) = struct
         (* already binded left unchanged since it is type binder *)
         | ClassicalDef  (x, targs, body) -> already_binded, [], []
         | EventDef (x, targs, body) -> already_binded, [], []
-        | ProtocolDef (x, mt) -> collect_expr_mtype parent_opt already_binded selector collector mt
+        | ProtocolDef (x, mt) -> 
+            collect_expr_mtype parent_opt already_binded selector collector mt
         | VPlaceDef x -> already_binded, [], []
         and collect_expr_typedef parent_opt (already_binded:Atom.Set.t) selector collector tdef= 
             map0_place (collect_expr_typedef_ parent_opt already_binded selector collector) tdef
@@ -764,7 +765,7 @@ module Make (Params : IRParams) = struct
             | Typedef typedef -> collect_expr_typedef parent_opt already_binded selector collector typedef
             | Derive derive ->  collect_expr_derivation parent_opt already_binded selector collector place derive 
         and collect_expr_term parent_opt (already_binded:Atom.Set.t) selector (collector:'a sig_expr_collector) t = 
-            map0_place (map0_plgannot(collect_expr_term_ parent_opt already_binded selector collector)) t
+            map0_place (transparent0_plgannot(collect_expr_term_ parent_opt already_binded selector collector)) t
 
         let rec collect_expr_program already_binded selector collector program = 
             let _, res = List.fold_left_map (fun already_binded term -> 
@@ -858,13 +859,13 @@ module Make (Params : IRParams) = struct
             | Outport p  -> collect_cexpr_outport parent_opt  already_binded selector collector p
             | Term t -> collect_cexpr_term  parent_opt  already_binded selector collector t    
         and collect_cexpr_component_item parent_opt already_binded selector collector citem =              
-            map0_place (map0_plgannot(collect_cexpr_component_item_ parent_opt already_binded selector collector)) citem
+            map0_place (transparent0_plgannot(collect_cexpr_component_item_ parent_opt already_binded selector collector)) citem
 
         and collect_cexpr_class_item_ parent_opt already_binded selector collector place = function 
             | CLMethod m -> collect_cexpr_method0 parent_opt  already_binded selector collector m
             | CLState s -> collect_cexpr_state parent_opt  already_binded selector collector s 
         and collect_cexpr_class_item parent_opt already_binded selector collector citem =              
-            map0_place (map0_plgannot(collect_cexpr_class_item_ parent_opt already_binded selector collector)) citem
+            map0_place (transparent0_plgannot(collect_cexpr_class_item_ parent_opt already_binded selector collector)) citem
 
         and collect_cexpr_component_dcl_ parent_opt already_binded selector collector place = function 
         | ComponentStructure cdcl ->
@@ -902,7 +903,7 @@ module Make (Params : IRParams) = struct
             | Typedef typedef -> collect_cexpr_typedef parent_opt  already_binded selector collector typedef
             | Derive derive ->  collect_cexpr_derivation parent_opt  already_binded selector collector place derive 
         and collect_cexpr_term parent_opt already_binded selector collector t = 
-            map0_place (map0_plgannot(collect_cexpr_term_ parent_opt  already_binded selector collector)) t
+            map0_place (transparent0_plgannot(collect_cexpr_term_ parent_opt  already_binded selector collector)) t
 
         and collect_cexpr_program  already_binded selector collector program = 
             List.flatten (List.map (collect_cexpr_term None  already_binded selector collector) program)
@@ -958,13 +959,13 @@ module Make (Params : IRParams) = struct
             | Outport p     -> collect_stmt_outport parent_opt selector collector p
             | Term t        -> collect_stmt_term parent_opt  selector collector t    
         and collect_stmt_component_item parent_opt selector collector citem =              
-            map0_place (map0_plgannot(collect_stmt_component_item_ parent_opt  selector collector)) citem
+            map0_place (transparent0_plgannot(collect_stmt_component_item_ parent_opt  selector collector)) citem
 
         and collect_stmt_class_item_ parent_opt selector collector place = function 
             | CLMethod m      -> collect_stmt_method0 parent_opt  selector collector m
             | CLState s       -> collect_stmt_state parent_opt selector collector s 
         and collect_stmt_class_item parent_opt selector collector citem =              
-            map0_place (map0_plgannot(collect_stmt_class_item_ parent_opt  selector collector)) citem
+            map0_place (transparent0_plgannot(collect_stmt_class_item_ parent_opt  selector collector)) citem
 
         and collect_stmt_component_dcl_ parent_opt selector collector place = function 
         | ComponentStructure cdcl ->
@@ -1002,7 +1003,7 @@ module Make (Params : IRParams) = struct
             | Typedef typedef -> collect_stmt_typedef parent_opt  selector collector typedef
             | Derive derive ->  collect_stmt_derivation parent_opt  selector collector place derive 
         and collect_stmt_term parent_opt selector collector t = 
-            map0_place (map0_plgannot(collect_stmt_term_ parent_opt  selector collector)) t
+            map0_place (transparent0_plgannot(collect_stmt_term_ parent_opt  selector collector)) t
 
         and collect_stmt_program  selector collector program = 
             List.flatten (List.map (collect_stmt_term None  selector collector) program)
@@ -1106,13 +1107,13 @@ module Make (Params : IRParams) = struct
             | Outport p  -> collect_type_outport flag_tcvar parent_opt already_binded selector collector p
             | Term t -> collect_type_term flag_tcvar parent_opt already_binded selector collector t    
         and collect_type_component_item flag_tcvar parent_opt (already_binded:Atom.Set.t) selector collector citem =              
-            map0_place (map0_plgannot(collect_type_component_item_ flag_tcvar parent_opt already_binded selector collector)) citem
+            map0_place (transparent0_plgannot(collect_type_component_item_ flag_tcvar parent_opt already_binded selector collector)) citem
 
         and collect_type_class_item_ flag_tcvar parent_opt (already_binded:Atom.Set.t) selector collector place = function 
             | CLMethod m -> collect_type_method0 flag_tcvar parent_opt already_binded selector collector m
             | CLState s -> collect_type_state flag_tcvar parent_opt already_binded selector collector s 
         and collect_type_class_item flag_tcvar parent_opt (already_binded:Atom.Set.t) selector collector citem =              
-            map0_place (map0_plgannot(collect_type_class_item_ flag_tcvar parent_opt already_binded selector collector)) citem
+            map0_place (transparent0_plgannot(collect_type_class_item_ flag_tcvar parent_opt already_binded selector collector)) citem
 
         and free_tvars_component_item ?(flag_tcvar=false) already_binded citem = 
             let already_binded, _, ftvars = collect_type_component_item flag_tcvar None  already_binded (function e -> false) (fun parent_opt env e -> []) citem in
@@ -1235,7 +1236,7 @@ module Make (Params : IRParams) = struct
             | Typedef typedef -> collect_type_typedef flag_tcvar parent_opt already_binded selector collector typedef
             | Derive derive ->  collect_type_derivation flag_tcvar parent_opt already_binded selector collector place derive 
         and collect_type_term flag_tcvar parent_opt (already_binded:Atom.Set.t) selector collector t = 
-            map0_place (map0_plgannot(collect_type_term_ flag_tcvar parent_opt already_binded selector collector)) t
+            map0_place (transparent0_plgannot(collect_type_term_ flag_tcvar parent_opt already_binded selector collector)) t
 
         and collect_type_program ?(flag_tcvar=false) already_binded selector collector program = 
             (* Shallow scan because because component type def could be recursive *)
@@ -1351,7 +1352,7 @@ module Make (Params : IRParams) = struct
             | Eport p       -> Eport (rewrite_type_eport selector rewriter p)
             | Outport p     -> Outport (rewrite_type_outport selector rewriter p)
             | Term t        -> Term (rewrite_type_term selector rewriter t)
-        and rewrite_type_component_item selector rewriter = map_place (map_plgannot(rewrite_type_component_item_ selector rewriter))
+        and rewrite_type_component_item selector rewriter = map_place (transparent_plgannot(rewrite_type_component_item_ selector rewriter))
 
         and rewrite_type_component_dcl_  selector rewriter place = function 
         | ComponentStructure cdcl -> 
@@ -1364,7 +1365,7 @@ module Make (Params : IRParams) = struct
                 logger#debug "rewrite_type_clmethod %s" (Atom.to_string m.value.name);
                 CLMethod (rewrite_type_method0 selector rewriter m)
             | CLState s       -> CLState (rewrite_type_state selector rewriter s )
-        and rewrite_type_class_item selector rewriter = map_place (map_plgannot(rewrite_type_class_item_ selector rewriter))
+        and rewrite_type_class_item selector rewriter = map_place (transparent_plgannot(rewrite_type_class_item_ selector rewriter))
 
         and rewrite_type_class_dcl selector rewriter (cl:class_structure) = 
             { cl with body = List.map (rewrite_type_class_item selector rewriter) cl.body}
@@ -1395,6 +1396,7 @@ module Make (Params : IRParams) = struct
         | Comments c -> Comments c
         | Stmt stmt -> Stmt (rewrite_type_stmt selector rewriter stmt)
         | Component cdcl -> Component (rewrite_type_component_dcl selector rewriter cdcl)
+        | Class cl -> Class (rewrite_type_class_dcl selector rewriter cl)
         | Function fdcl -> Function (rewrite_type_function_dcl selector rewriter fdcl)
         | Typedef tdef -> Typedef (rewrite_type_typedef selector rewriter tdef)
         | Typealias (name, tabody) ->
@@ -1404,7 +1406,7 @@ module Make (Params : IRParams) = struct
             ) 
 
         | Derive derive -> Derive { derive with eargs = List.map (rewrite_type_expr selector rewriter) derive.eargs}
-        and rewrite_type_term selector rewriter = map_place (map_plgannot(rewrite_type_term_ selector rewriter)) 
+        and rewrite_type_term selector rewriter = map_place (transparent_plgannot(rewrite_type_term_ selector rewriter)) 
         and rewrite_type_program selector rewriter (program : program) : program = List.map (rewrite_type_term selector rewriter) program
 
 
@@ -1473,7 +1475,7 @@ module Make (Params : IRParams) = struct
             | Eport p       -> Eport (rewrite_expr_eport selector rewriter p)
             | Outport p     -> Outport (rewrite_expr_outport selector rewriter p)
             | Term t        -> Term (rewrite_expr_term selector rewriter t)
-        and rewrite_expr_component_item selector rewriter = map_place (map_plgannot(rewrite_expr_component_item_ selector rewriter))
+        and rewrite_expr_component_item selector rewriter = map_place (transparent_plgannot(rewrite_expr_component_item_ selector rewriter))
 
         and rewrite_expr_component_dcl_  selector rewriter place = function 
         | ComponentStructure cdcl -> 
@@ -1483,7 +1485,7 @@ module Make (Params : IRParams) = struct
         and rewrite_expr_class_item_  selector rewriter place = function 
             | CLMethod m      -> CLMethod (rewrite_expr_method0 selector rewriter m)
             | CLState s       -> CLState (rewrite_expr_state selector rewriter s )
-        and rewrite_expr_class_item selector rewriter = map_place (map_plgannot(rewrite_expr_class_item_ selector rewriter))
+        and rewrite_expr_class_item selector rewriter = map_place (transparent_plgannot(rewrite_expr_class_item_ selector rewriter))
 
         and rewrite_expr_class_dcl  selector rewriter (cl:class_structure) =
             { cl with body = List.map (rewrite_expr_class_item selector rewriter) cl.body}
@@ -1497,7 +1499,7 @@ module Make (Params : IRParams) = struct
         | Function fdcl -> Function (rewrite_expr_function_dcl selector rewriter fdcl)
         | (Typealias _ as t) |(Typedef _ as t) -> t
         | Derive derive -> Derive { derive with eargs = List.map (rewrite_expr_expr selector rewriter) derive.eargs}
-        and rewrite_expr_term selector rewriter = map_place (map_plgannot(rewrite_expr_term_ selector rewriter))
+        and rewrite_expr_term selector rewriter = map_place (transparent_plgannot(rewrite_expr_term_ selector rewriter))
         and rewrite_expr_program selector rewriter (program : program) : program = List.map (rewrite_expr_term selector rewriter) program
 
         let make x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) = 
@@ -1513,7 +1515,7 @@ module Make (Params : IRParams) = struct
         let rec collect_term_component_item_ recursive parents selector collector place = function 
         | Term t -> collect_term_term recursive (List.rev parents) selector collector t
         | citem -> []
-        and collect_term_component_item recursive parents selector collector = map0_place (map0_plgannot(collect_term_component_item_ recursive parents selector collector)) 
+        and collect_term_component_item recursive parents selector collector = map0_place (transparent0_plgannot(collect_term_component_item_ recursive parents selector collector)) 
 
         and collect_term_component_dcl_  recursive parents selector collector place = function 
         | ComponentStructure cdcl -> List.flatten (List.map (collect_term_component_item recursive (cdcl.name::parents) selector collector) cdcl.body)
@@ -1533,7 +1535,7 @@ module Make (Params : IRParams) = struct
             )
         | Component cdcl -> collect_term_component_dcl recursive parents selector collector cdcl
         | t -> [] 
-        and collect_term_term recursive parents selector collector = map0_place (map0_plgannot(collect_term_term_ recursive parents selector collector)) 
+        and collect_term_term recursive parents selector collector = map0_place (transparent0_plgannot(collect_term_term_ recursive parents selector collector)) 
 
         (*
             recursive = true means that even if a term is selected, its sub-terms could be selector also. 
@@ -1544,7 +1546,7 @@ module Make (Params : IRParams) = struct
         let rec rewrite_term_component_item_  selector rewriter place = function 
         | Term t -> List.map (function x -> Term x) (rewrite_term_term selector rewriter t)
         | citem -> [citem]
-        and rewrite_term_component_item selector rewriter = map_places (map_plgannots(rewrite_term_component_item_ selector rewriter))
+        and rewrite_term_component_item selector rewriter = map_places (transparent_plgannots(rewrite_term_component_item_ selector rewriter))
 
         and rewrite_term_component_dcl_  selector rewriter place = function 
         | ComponentStructure cdcl -> ComponentStructure { cdcl with body = List.flatten (List.map (rewrite_term_component_item selector rewriter) cdcl.body)}
@@ -1564,7 +1566,7 @@ module Make (Params : IRParams) = struct
         end
         | Component cdcl -> [Component (rewrite_term_component_dcl selector rewriter cdcl)]
         | t -> [ t ]
-        and rewrite_term_term ?(nested_rewrite=true) selector rewriter = map_places (map_plgannots(rewrite_term_term_ ~nested_rewrite:nested_rewrite selector rewriter))
+        and rewrite_term_term ?(nested_rewrite=true) selector rewriter = map_places (transparent_plgannots(rewrite_term_term_ ~nested_rewrite:nested_rewrite selector rewriter))
 
         and rewrite_term_program ?(nested_rewrite=true) (selector : _term -> bool) (rewriter : Error.place -> _term -> _term list) program = List.flatten (List.map (rewrite_term_term ~nested_rewrite:nested_rewrite selector rewriter) program )
 
@@ -1573,7 +1575,7 @@ module Make (Params : IRParams) = struct
         | t when selector t -> rewriter place t
         | Term t -> List.map (function x -> Term x) (rewrite_citem_term selector rewriter t)
         | citem -> [citem]
-        and rewrite_citem_component_item selector rewriter = map_places (map_plgannots(rewrite_citem_component_item_ selector rewriter))
+        and rewrite_citem_component_item selector rewriter = map_places (transparent_plgannots(rewrite_citem_component_item_ selector rewriter))
 
         and rewrite_citem_component_dcl_  selector rewriter place = function 
         | ComponentStructure cdcl -> ComponentStructure { cdcl with body = List.flatten (List.map (rewrite_citem_component_item selector rewriter) cdcl.body)}
@@ -1583,7 +1585,7 @@ module Make (Params : IRParams) = struct
         and rewrite_citem_term_ selector rewriter place = function 
         | Component cdcl -> [Component (rewrite_citem_component_dcl selector rewriter cdcl)]
         | t -> [ t ]
-        and rewrite_citem_term selector rewriter = map_places (map_plgannots(rewrite_citem_term_ selector rewriter))
+        and rewrite_citem_term selector rewriter = map_places (transparent_plgannots(rewrite_citem_term_ selector rewriter))
 
         and rewrite_citem_program (selector : _component_item -> bool) (rewriter : Error.place -> _component_item -> _component_item list) program = List.flatten (List.map (rewrite_citem_term selector rewriter) program )
 
@@ -1601,7 +1603,7 @@ module Make (Params : IRParams) = struct
         let rec rewrite_scopeterm_component_item_  selector rewriter place = function 
         | Term t -> List.map (function x -> Term x) (rewrite_scopeterm_term selector rewriter t)
         | citem -> [citem]
-        and rewrite_scopeterm_component_item selector rewriter = map_places (map_plgannots(rewrite_scopeterm_component_item_ selector rewriter))
+        and rewrite_scopeterm_component_item selector rewriter = map_places (transparent_plgannots(rewrite_scopeterm_component_item_ selector rewriter))
 
         and rewrite_scopeterm_component_dcl_  selector rewriter place = function 
         | ComponentStructure cdcl -> 
@@ -1619,7 +1621,7 @@ module Make (Params : IRParams) = struct
         and rewrite_scopeterm_term_ selector rewriter place = function 
         | Component cdcl -> [Component (rewrite_scopeterm_component_dcl selector rewriter cdcl)]
         | t -> [ t ]
-        and rewrite_scopeterm_term selector rewriter = map_places (map_plgannots(rewrite_scopeterm_term_ selector rewriter))
+        and rewrite_scopeterm_term selector rewriter = map_places (transparent_plgannots(rewrite_scopeterm_term_ selector rewriter))
 
         and rewrite_scopeterm_program (selector : term -> bool) (rewriter : term list -> term list) program = 
             if List.exists selector program then( (* Scope of the searched term is [Top-level]*)
@@ -1747,6 +1749,9 @@ module Make (Params : IRParams) = struct
             | AssignThisExpr (x, e) ->
                 let estmts, e = rewrite_exprstmts_expr e in
                 estmts @ [ auto_place (AssignThisExpr (x,e)) ]
+            | AssignSelfExpr (x, e) ->
+                let estmts, e = rewrite_exprstmts_expr e in
+                estmts @ [ auto_place (AssignSelfExpr (x,e)) ]
             | BreakStmt -> [auto_place BreakStmt]
             | ContinueStmt -> [auto_place ContinueStmt]
             | CommentsStmt c -> [auto_place (CommentsStmt c)]
@@ -1821,7 +1826,7 @@ module Make (Params : IRParams) = struct
         | Term t -> List.map (function t -> Term t) (rewrite_exprstmts_term parent_opt exclude_stmt selector rewriter t)
         (* citem without statement *)
         | Contract _ | Include _ | Inport _ | Eport _ | Outport _ | State _ -> [citem]
-        and rewrite_exprstmts_component_item parent_opt exclude_stmt selector rewriter = map_places (map_plgannots(rewrite_exprstmts_component_item_ parent_opt exclude_stmt selector rewriter)) 
+        and rewrite_exprstmts_component_item parent_opt exclude_stmt selector rewriter = map_places (transparent_plgannots(rewrite_exprstmts_component_item_ parent_opt exclude_stmt selector rewriter)) 
 
         and rewrite_exprstmts_class_item_ parent_opt exclude_stmt selector rewriter place citem = 
         match citem with
@@ -1832,7 +1837,7 @@ module Make (Params : IRParams) = struct
         }]
         (* citem without statement *)
         | CLState _ -> [citem]
-        and rewrite_exprstmts_class_item parent_opt exclude_stmt selector rewriter = map_places (map_plgannots(rewrite_exprstmts_class_item_ parent_opt exclude_stmt selector rewriter)) 
+        and rewrite_exprstmts_class_item parent_opt exclude_stmt selector rewriter = map_places (transparent_plgannots(rewrite_exprstmts_class_item_ parent_opt exclude_stmt selector rewriter)) 
 
 
         and rewrite_exprstmts_component_dcl_ parent_opt  exclude_stmt selector rewriter place = function
@@ -1864,7 +1869,7 @@ module Make (Params : IRParams) = struct
 
         (* Term without statement*)
         | EmptyTerm | Comments _ | Typealias _ | Typedef _ | Derive _ -> [t]
-        and rewrite_exprstmts_term parent_opt exclude_stmt selector rewriter = map_places (map_plgannots(rewrite_exprstmts_term_  parent_opt exclude_stmt selector rewriter))
+        and rewrite_exprstmts_term parent_opt exclude_stmt selector rewriter = map_places (transparent_plgannots(rewrite_exprstmts_term_  parent_opt exclude_stmt selector rewriter))
 
         and rewrite_exprstmts_program exclude_stmt selector rewriter program =
             List.flatten (List.map (rewrite_exprstmts_term None exclude_stmt selector rewriter) program)
@@ -1883,7 +1888,7 @@ module Make (Params : IRParams) = struct
         | Term t -> List.map (function t -> Term t) (rewrite_stmt_term recurse selector rewriter t)
         (* citem without statement *)
         | Contract _ | Include _ | Inport _ | Eport _ | Outport _ | State _ -> [citem]
-        and rewrite_stmt_component_item recurse selector rewriter = map_places (map_plgannots(rewrite_stmt_component_item_ recurse selector rewriter))
+        and rewrite_stmt_component_item recurse selector rewriter = map_places (transparent_plgannots(rewrite_stmt_component_item_ recurse selector rewriter))
 
 
         and rewrite_stmt_class_item_ recurse selector rewriter place citem = 
@@ -1895,7 +1900,7 @@ module Make (Params : IRParams) = struct
         }]
         (* citem without statement *)
         | CLState _ -> [citem]
-        and rewrite_stmt_class_item recurse selector rewriter = map_places (map_plgannots(rewrite_stmt_class_item_ recurse selector rewriter))
+        and rewrite_stmt_class_item recurse selector rewriter = map_places (transparent_plgannots(rewrite_stmt_class_item_ recurse selector rewriter))
 
         and rewrite_stmt_component_dcl_ recurse selector rewriter place = function
         | ComponentStructure cdcl -> ComponentStructure {
@@ -1922,7 +1927,7 @@ module Make (Params : IRParams) = struct
 
         (* Term without statement*)
         | EmptyTerm | Comments _ | Typealias _ | Typedef _ | Derive _ -> [t]
-        and rewrite_stmt_term recurse selector rewriter = map_places (map_plgannots(rewrite_stmt_term_ recurse selector rewriter))
+        and rewrite_stmt_term recurse selector rewriter = map_places (transparent_plgannots(rewrite_stmt_term_ recurse selector rewriter))
 
         and rewrite_stmt_program recurse selector rewriter program =
             List.flatten (List.map (rewrite_stmt_term recurse selector rewriter) program)
@@ -1985,12 +1990,12 @@ module Make (Params : IRParams) = struct
         | Outport p     -> Outport (rename_outport ~flag_rename_attribute:flag_rename_attribute renaming p)
         | Term t        -> Term (rename_term ~flag_rename_attribute:flag_rename_attribute renaming t)
         | Include ce    -> Include (rename_component_expr ~flag_rename_attribute:flag_rename_attribute renaming ce)
-        and rename_component_item ?(flag_rename_attribute=false) renaming = map_place (map_plgannot(_rename_component_item flag_rename_attribute (protect_renaming renaming)))
+        and rename_component_item ?(flag_rename_attribute=false) renaming = map_place (transparent_plgannot(_rename_component_item flag_rename_attribute (protect_renaming renaming)))
 
         and _rename_class_item flag_rename_attribute renaming place = function
         | CLMethod m      -> CLMethod (rename_method ~flag_rename_attribute:flag_rename_attribute renaming m)
         | CLState s       -> CLState (rename_state ~flag_rename_attribute:flag_rename_attribute renaming s)
-        and rename_class_item ?(flag_rename_attribute=false) renaming = map_place (map_plgannot(_rename_class_item flag_rename_attribute (protect_renaming renaming)))
+        and rename_class_item ?(flag_rename_attribute=false) renaming = map_place (transparent_plgannot(_rename_class_item flag_rename_attribute (protect_renaming renaming)))
 
 
         and _rename_component_dcl flag_rename_attribute renaming place = function
@@ -2050,7 +2055,7 @@ module Make (Params : IRParams) = struct
         | Typealias (x, mt_opt) -> Typealias (renaming x, rename_typealias_body renaming mt_opt)
         | Typedef tdef -> Typedef (rename_typedef renaming tdef)
         | Derive d -> Derive (rename_derivation ~flag_rename_attribute:flag_rename_attribute renaming d)
-        and rename_term ?(flag_rename_attribute=false) renaming = map_place (map_plgannot(_rename_term flag_rename_attribute (protect_renaming renaming)))
+        and rename_term ?(flag_rename_attribute=false) renaming = map_place (transparent_plgannot(_rename_term flag_rename_attribute (protect_renaming renaming)))
 
         let rename_program renaming = List.map (rename_term renaming)
 
@@ -2064,20 +2069,6 @@ module Make (Params : IRParams) = struct
             let fvars0 = Atom.Set.of_seq (List.to_seq (List.map snd (snd (free_vars_program Atom.Set.empty terms)))) in
             let ftvars0 = Atom.Set.of_seq (List.to_seq (snd (free_tvars_program Atom.Set.empty terms))) in
             
-            List.iter (function x ->
-                logger#debug "new_terms [%s]" (show_term x);
-            ) new_terms;
-
-            logger#debug "instert_in_terms {%s} {%s}" 
-                (
-                    Format.fprintf Format.str_formatter "%a" (Error.pp_list ", " (fun out x -> Format.fprintf out "%s" (Atom.to_string x))) (Atom.Set.to_list fvars0);
-                    Format.flush_str_formatter ()
-                )
-                (
-                    Format.fprintf Format.str_formatter "%a" (Error.pp_list ", " (fun out x -> Format.fprintf out "%s" (Atom.to_string x))) (Atom.Set.to_list ftvars0);
-                    Format.flush_str_formatter ()
-                ); 
-
             (*Since rec def*)
             let shallow_scan already_binded = function
             | {value = {v=Component {value=ComponentStructure {name}}}} -> Atom.Set.add name already_binded 
@@ -2129,8 +2120,8 @@ module Make (Params : IRParams) = struct
         and find_lca_cdcl_ names place : _component_dcl ->  bool * Atom.atom option = function
         | ComponentStructure cdcl when Atom.Set.mem cdcl.name names -> true, None
         | ComponentStructure cdcl -> 
-            let subcomponents = List.filter (map0_place(map0_plgannot(function place -> function | Term{value={v=Component _}} -> true | _ -> false))) cdcl.body in
-            let subcomponents = List.map (map0_place(map0_plgannot(function place -> function | Term{value={v=Component cdcl}} -> cdcl))) subcomponents in
+            let subcomponents = List.filter (map0_place(transparent0_plgannot(function place -> function | Term{value={v=Component _}} -> true | _ -> false))) cdcl.body in
+            let subcomponents = List.map (map0_place(transparent0_plgannot(function place -> function | Term{value={v=Component cdcl}} -> cdcl))) subcomponents in
 
             aux_find_lca names (Some cdcl.name) subcomponents
         and find_lca_cdcl names : component_dcl ->  bool * Atom.atom option = map0_place (find_lca_cdcl_ names)

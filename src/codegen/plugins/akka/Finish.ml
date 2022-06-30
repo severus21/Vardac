@@ -131,6 +131,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         eventdefs:  S.typedef list;
         states:     S.state list; 
         nested:     (S.component_dcl plg_annotated) list; 
+        classes:    S.class_structure list;
         ports:      S.port list;
         eports:     S.eport list;
         outports:   S.outport list;
@@ -142,6 +143,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         eventdefs   = [];
         states      = [];
         nested      = [];
+        classes     = [];
         ports       = [];
         outports    = [];
         eports      = [];
@@ -155,6 +157,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             | S.Include _   -> Core.Error.perror citem.place "Include is not yet supported in Akka plg"
             | S.Method  m   -> {grp with methods={v=m; plg_annotations=citem.value.plg_annotations}::grp.methods}
             | S.State f     -> {grp with states=f::grp.states}
+            | S.Term{place; value={plg_annotations; v=S.Class cl}}    -> {grp with classes=cl::grp.classes}
             | S.Inport p    -> {grp with ports=p::grp.ports}
             | S.Eport p     -> {grp with eports=p::grp.eports}
             | S.Outport p   -> {grp with outports=p::grp.outports}
@@ -170,6 +173,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 eventdefs   = (List.rev grp.eventdefs);
                 states      = (List.rev grp.states) ; 
                 nested      = (List.rev grp.nested) ; 
+                classes     = (List.rev grp.classes) ; 
                 ports       = (List.rev grp.ports) ; 
                 eports      = (List.rev grp.eports) ; 
                 outports    = (List.rev grp.outports) ; 
@@ -181,6 +185,8 @@ module Make (Arg: sig val target:Target.target end) = struct
     (************************************ Types **********************************)
     let rec finish_ctype place : S._composed_type ->  T._ctype = function
         | S.TActivationRef mt -> T.TActivationRef (fmtype mt) 
+        | S.TObject x when Atom.is_builtin x -> Encode.encode_builtin_type place (Atom.value x)
+        | S.TObject x -> T.TVar x 
         | S.TArrow (m1, m2) -> T.TFunction (
             fmtype m1,
             fmtype m2
@@ -211,6 +217,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             | AstUtils.TBottom -> T.Atomic "Object"
             | AstUtils.TPlace -> (t_lg4dc_place place).value
             | AstUtils.TBLabel -> T.Atomic "LabelEvent"
+            | AstUtils.TUnit -> T.Atomic "void"
         end
         | S.TArray mt -> T.TArray (fmtype mt)
         | S.TDict (m1, m2) -> T.TMap (fmtype m1, fmtype m2)
@@ -513,7 +520,9 @@ module Make (Arg: sig val target:Target.target end) = struct
             | _ -> T.NewExpr (fexpr e1, List.map fexpr es)
         end
         | S.RawExpr x -> T.RawExpr x
-        | S.This -> T.This
+        | S.This | S.Self -> T.This
+        | S.Create c -> 
+            T.NewExpr (auto_fplace(T.VarExpr c.c, auto_fplace (T.TVar c.c)), List.map fexpr c.args)
         | S.Spawn {c; args; at=None} ->
             T.ActivationRef{
                 schema = e2_lit (T.StringLit (Atom.to_string (IRMisc.schema_of c)));
@@ -667,7 +676,7 @@ module Make (Arg: sig val target:Target.target end) = struct
 
         (*S.* Binders *)
         | S.AssignExpr (x, e) -> T.AssignExpr (auto_place (T.VarExpr x, auto_place T.TUnknown), fexpr e)
-        | S.AssignThisExpr (x, e) -> 
+        | S.AssignThisExpr (x, e) | S.AssignSelfExpr (x, e) -> 
             T.AssignExpr ( 
                 e2_e (T.AccessExpr (
                     e2_e T.This,
@@ -1013,6 +1022,22 @@ module Make (Arg: sig val target:Target.target end) = struct
         let decorators = List.flatten decorators in
         a, annotations, decorators
 
+       
+    and finish_class_item cl_name place plg_annotations = function
+    | S.CLMethod m -> List.map (function m -> {T.annotations = []; decorators = []; v = T.MethodDeclaration m}) (fmethod cl_name {plg_annotations=plg_annotations; v=m})
+    | S.CLState s -> [ {T.annotations = []; decorators = []; v=T.Stmt (fstate s)}]
+    and fclass_item cl_name = map_places (map0_plgannot(finish_class_item cl_name))
+
+    and fclass (cl:S.class_structure) = 
+        auto_fplace ({T.annotations = []; decorators = []; v =T.ClassOrInterfaceDeclaration {
+            isInterface = false;
+            name = cl.name;
+            extended_types = [];
+            implemented_types = [];
+            body = List.flatten(List.map (fclass_item cl.name) cl.body);
+            headers = [];
+        }})
+
 
     and finish_component_dcl place : S._component_dcl -> T.actor list = function
     | S.ComponentStructure {name; body; headers} -> begin 
@@ -1040,7 +1065,6 @@ module Make (Arg: sig val target:Target.target end) = struct
             | _ -> raise (Error.PlacedDeadbranchError (x.place, "Non static term in others"));
         ) grp_items.others;
 
-        
         (*** Building events ***)
         (* Events that should be defined inside the Actor *)
         let is_stype = function
@@ -1750,7 +1774,9 @@ module Make (Arg: sig val target:Target.target end) = struct
                     })
                     (List.flatten (List.map (function {v; plg_annotations} -> List.map (function y -> {v=y; plg_annotations}) (fcdcl v)) grp_items.nested)
                 ); 
-                static_items = List.flatten (List.map fterm grp_items.others); 
+                static_items = 
+                (List.flatten (List.map fterm grp_items.others))
+                @ (List.map fclass grp_items.classes); 
                 receiver = receiver
             }
         }]

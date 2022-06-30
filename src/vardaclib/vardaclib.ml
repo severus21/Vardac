@@ -26,7 +26,8 @@ module TypeInference4 = IRCompilationPass.Make(Common.TypeInference.Make())
 module TypeInference5 = IRCompilationPass.Make(Common.TypeInference.Make())
 module EventAutoBoxing = IRCompilationPass.Make(Common.EventAutoBoxing.Make())
 module ClassicalAutoBoxing = IRCompilationPass.Make(Common.ClassicalAutoBoxing.Make())
-module InlineElim = IRCompilationPass.Make(Common.InlineElim.Make())
+module InlineElimOrigin = Common.InlineElim.Make()
+module InlineElim = IRCompilationPass.Make(InlineElimOrigin)
 
 let process_check build_dir places_file filename = 
     Utils.refresh_or_create_dir build_dir;
@@ -115,7 +116,7 @@ let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename 
     in
 
     ir3
-    |> Frontend.to_impl gamma gamma_types sealed_envs targets impl_filename  
+    |> Frontend.to_impl gamma gamma_types sealed_envs InlineElimOrigin.clitems2citems targets impl_filename  
     |> Codegen.codegen project_dir build_dir places targets;
 
     (* Before rewriting *)

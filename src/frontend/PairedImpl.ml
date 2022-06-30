@@ -54,10 +54,10 @@ let target2dependencies : (string, IRI.blackbox_term list) Hashtbl.t = Hashtbl.c
 let plgannotations = Hashtbl.create 256
 
 
-let show_htblimpls htbl = 
+let show_htblimpls htbl pp_value = 
     Printf.fprintf stdout "Htbl has %d entries\n" (Hashtbl.length htbl);
-    Hashtbl.iter (fun key _ ->
-        Printf.fprintf stdout "- entry %s\n" (key_to_string key)
+    Hashtbl.iter (fun key value ->
+        Printf.fprintf stdout "- entry %s -> %a\n" (key_to_string key) pp_value value
     ) htbl 
 
 
@@ -65,10 +65,12 @@ module type ArgSig = sig
     val sealed_envs : (Atom.t, Cook.env) Hashtbl.t 
     val gamma : Cook.gamma_t
     val gamma_types : Cook.gamma_t
+    val eliminline_env: (Atom.atom, ((Atom.atom, Atom.atom * Atom.atom) Hashtbl.t)) Hashtbl.t
 end
 
 module Make (Arg: ArgSig) = struct
     let sealed_envs = Arg.sealed_envs
+    let eliminline_env = Arg.eliminline_env
 
     module Cook = Cook.Make(struct 
         let _places = [] 
@@ -172,10 +174,17 @@ module Make (Arg: ArgSig) = struct
             mark_state key;
             let s_impl = 
                 try Hashtbl.find state_impls key 
-                with Not_found -> raise (Error.PlacedDeadbranchError(place, Printf.sprintf "impl for state [%s] not found in state_impls" (List.fold_left (fun x y -> x ^"::"^y) "" key)))
+                with Not_found -> 
+                    raise (Error.PlacedDeadbranchError(
+                        place, 
+                        Printf.sprintf "impl for state [%s] not found in state_impls" (List.fold_left (fun x y -> x ^"::"^y) "" key)))
             in
             let bb_impl = cook_bb_term name s_impl.value.body in
-            let plg_annots = Hashtbl.find plgannotations key in
+            let plg_annots = 
+                match Hashtbl.find_opt plgannotations key with
+                | None -> [] 
+                | Some xs -> xs
+            in
 
             plg_annots, { ghost; type0; name; body= T.InitBB bb_impl}
         with Not_found -> 
@@ -239,39 +248,110 @@ module Make (Arg: ArgSig) = struct
     | S2.Term t     -> auto_plgannot(T.Term (uterm parents t))
     and ucitem parents: S2.component_item -> T.component_item  = map_place (paired_component_item parents)
 
+    and paired_class_item parents place {v}: T._class_item plg_annotated= 
+    match v with
+    | S2.CLMethod m   -> 
+        let plg_annotations, m = umethod0 parents m in 
+        {plg_annotations; v=T.CLMethod m}
+    | S2.CLState s    -> 
+        let plg_annotations, s = ustate parents s in 
+        {plg_annotations; v= T.CLState s} 
+    and uclitem parents: S2.class_item -> T.class_item  = map_place (paired_class_item parents)
+
     and paired_component_dcl parents place : S2._component_dcl ->  plg_annotation list * T._component_dcl = function
     | S2.ComponentStructure {target_name; name; annotations; body; headers} -> begin 
         let key = match target_name with 
-            | UserDefined -> Hashtbl.find name2key name 
-            | SameAs as_name -> 
-                try
-                    Hashtbl.find name2key as_name
-                with Not_found -> failwith (Printf.sprintf "[%s].target = SameAs [%s].target, [%s].target can not be a SameAs indirection" (Atom.to_string name) (Atom.to_string as_name) (Atom.to_string as_name))
+            | UserDefined -> begin
+                match Hashtbl.find_opt name2key name with
+                | None -> failwith (Printf.sprintf "[%s] not found in name2key" (Atom.to_string name))
+                | Some key -> key
+            end
+            | SameAs as_name -> begin
+                match Hashtbl.find_opt name2key as_name with
+                | None -> failwith (Printf.sprintf "[%s].target = SameAs [%s].target, [%s].target can not be a SameAs indirection" (Atom.to_string name) (Atom.to_string as_name) (Atom.to_string as_name))
+                | Some key -> key
+            end
         in
-        let plg_annots = Hashtbl.find plgannotations key in
+        let plg_annots = 
+            match Hashtbl.find_opt plgannotations key with
+            | None -> []
+            | Some xs -> xs
+        in
 
-        try 
-            let target_name = Hashtbl.find component2target key in
-            let body = List.map (ucitem ((Atom.hint name)::parents)) body in
-            plg_annots, T.ComponentStructure {
-                target_name; 
-                annotations; 
-                name; 
-                body; 
-                headers =  
-                    match Hashtbl.find_opt componentheaders_impls (List.rev ((Atom.hint name)::parents)) with
-                    | None -> []
-                    | Some {place; value={body=headers}} -> 
-                        List.map (function
-                            | S1.Text t -> t 
-                            | S1.Varda _ -> Error.perror place "headers can not contain Varda templating code") 
-                        headers
-            }
-        with | Not_found -> raise (Error.PlacedDeadbranchError (place, Printf.sprintf "A target should have been assign to component [%s]." (List.fold_left (fun x y -> if x <> "" then x^"::"^y else y) "" key)))
+        let target_name = 
+            match Hashtbl.find_opt component2target key with
+            | None ->
+                raise (Error.PlacedDeadbranchError (place, Printf.sprintf "A target should have been assign to component [%s]." (List.fold_left (fun x y -> if x <> "" then x^"::"^y else y) "" key)))
+            | Some target -> target
+        in
+        let body = List.map (ucitem ((Atom.hint name)::parents)) body in
+        plg_annots, T.ComponentStructure {
+            target_name; 
+            annotations; 
+            name; 
+            body; 
+            headers =  
+                match Hashtbl.find_opt componentheaders_impls (List.rev ((Atom.hint name)::parents)) with
+                | None -> []
+                | Some {place; value={body=headers}} -> 
+                    List.map (function
+                        | S1.Text t -> t 
+                        | S1.Varda _ -> Error.perror place "headers can not contain Varda templating code") 
+                    headers
+        }
     end
     | S2.ComponentAssign {name; value} -> 
         [], (T.ComponentAssign {name; value})
     and ccdcl parents: S2.component_dcl ->  plg_annotation list * T.component_dcl = map2_place (paired_component_dcl parents)
+
+    and ccl (parents:string list) (cl:S2.class_structure) : T.class_structure =
+        (* If class comes from InlineElim, origins <> empty *)
+        let origins = Common.InlineElim.cl2c_get_origins eliminline_env cl.name in
+
+        if origins <> Atom.Set.empty then
+        begin
+            let parent = 
+                try List.nth parents ((List.length parents)-1) 
+                with Not_found -> raise (Error.DeadbranchError "An inlined class generated during InlineElim, MUST always be defined inside a component!")
+            in
+            let parent_key = List.rev parents in
+            let parent_target_name = 
+                match Hashtbl.find_opt component2target parent_key with 
+                | None -> 
+                    Error.error "No target found for parent_key=[%s]" (key_to_string parent_key)
+                | Some x -> x
+            in
+
+            Atom.Set.iter (function origin -> 
+                let origin_key = 
+                    match Hashtbl.find_opt name2key origin with
+                    | None ->
+                        Error.error "No key found for origin=[%s]" (Atom.to_string origin)
+                    | Some key -> key
+                in
+                let origin_target_name = 
+                    match Hashtbl.find_opt component2target origin_key with 
+                    | None -> 
+                        Error.error "No target found for origin_key=[%s]" (key_to_string origin_key)
+                    | Some x -> x
+                in
+                (* Assert Origin.target = Parent.target *)
+                if origin_target_name <> parent_target_name then
+                    Error.error 
+                        "Targets mismatched for inlined class [%s]<%s> in component [%s]<%s>" 
+                        (Atom.to_string cl.name)
+                        origin_target_name 
+                        parent
+                        parent_target_name
+            ) origins;
+        end;
+
+        (* All cases *)
+        {
+            T.annotations = cl.annotations;
+            name = cl.name;
+            body = List.map (uclitem parents) cl.body; 
+        }
 
     and paired_function_dcl parents place : S2._function_dcl ->  plg_annotation list * T._function_dcl = function
     | {ret_type; targs; name; args; body=[] } -> begin
@@ -302,6 +382,8 @@ module Make (Arg: ArgSig) = struct
     | S2.Component c -> 
         let plg_annotations, c = ccdcl parents c in
         {plg_annotations; v = T.Component c }
+    | S2.Class cl -> 
+        auto_plgannot (T.Class (ccl parents cl))
     | S2.Stmt stmt -> auto_plgannot (T.Stmt stmt)
     | S2.Function f  -> 
         let plg_annotations, f = ufunction_dcl parents f in

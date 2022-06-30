@@ -4,6 +4,7 @@ let _debug =
   ref false
 
 let debug = function () ->
+  Printexc.record_backtrace true;
   !_debug
 
 (* 

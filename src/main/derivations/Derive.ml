@@ -10,7 +10,7 @@ open IR
 let rec _collect_derive_component_item place = function
 | Term t -> collect_derive_term t
 | citem -> []
-and collect_derive_component_item (citem:component_item) = map0_place (map0_plgannot _collect_derive_component_item) citem
+and collect_derive_component_item (citem:component_item) = map0_place (transparent0_plgannot _collect_derive_component_item) citem
 
 and _collect_derive_component_dcl place = function
 | ComponentAssign _ ->[] 
@@ -21,7 +21,7 @@ and _collect_derive_term place = function
 | Component c -> collect_derive_component_dcl c
 | Derive derive -> [ {place; value=derive}]
 | t -> [] 
-and collect_derive_term t = map0_place (map0_plgannot _collect_derive_term) t
+and collect_derive_term t = map0_place (transparent0_plgannot _collect_derive_term) t
 
 let collect_derive_program program = List.flatten (List.map collect_derive_term program)
 

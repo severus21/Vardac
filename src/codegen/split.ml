@@ -20,7 +20,7 @@ let make_component2target () =
     let rec _explore_citem target place = function 
     | Term t -> explore_term target t
     | _ -> ()
-    and explore_citem target = map0_place (map0_plgannot(_explore_citem target))
+    and explore_citem target = map0_place (transparent0_plgannot(_explore_citem target))
 
     and _explore_term target place = function 
     | Component {value = ComponentStructure cdcl} -> 
@@ -29,7 +29,7 @@ let make_component2target () =
     | Component {value=ComponentAssign cdcl} -> 
         Hashtbl.add component2target cdcl.name target 
     | _ -> ()
-    and explore_term target = map0_place (map0_plgannot (_explore_term target))
+    and explore_term target = map0_place (transparent0_plgannot (_explore_term target))
     in
 
     Hashtbl.iter (fun target -> List.iter (explore_term target)) targets2ast;

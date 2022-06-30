@@ -77,6 +77,7 @@ let usage =
     Printf.sprintf "Usage: <action> %s <options> <filename>" Sys.argv.(0)
 
 let () =
+    Printexc.record_backtrace false;
     Arg.parse_dynamic options record usage
 
 

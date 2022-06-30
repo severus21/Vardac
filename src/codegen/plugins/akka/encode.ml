@@ -88,6 +88,9 @@ let encode_builtin_fct_0 place name =
          fst (e_lg4dc_current_place place).value
     | "time" ->
         T.RawExpr "System.currentTimeMillis()"
+    | "forge_activation_ref" ->
+        (* TODO FIXME add an id to actoref *)
+        T.RawExpr {|ActivationRef("mocked", new ActorRef(), Optional.empty())|}
     | _ -> Error.perror place "%s takes zero argument" name
 
 let encode_builtin_fct_1 place name a =
@@ -276,6 +279,11 @@ let encode_builtin_fct_1 place name a =
             e2_e (T.RawExpr "Long.valueOf"),
             [ a ]
         )
+    | "session_to_2_" ->
+        T.AccessExpr(
+            a,
+            e2_e (T.RawExpr "hidden_right")
+        )
     | "list2array" -> begin
         match (snd a.value).value with
         | T.TList mt -> 
@@ -435,6 +443,11 @@ let encode_builtin_fct_2 place name a b =
                 b;
                 Misc.e_none place ; (* FIXME interception should change this*)
             ]
+        )
+    | "one_hop_activation_ref" ->
+        T.NewExpr(
+            e2_e (T.RawExpr "ActivationRef"),
+            [a; b]
         )
     | _ -> Error.perror place "%s takes two arguments" name
 

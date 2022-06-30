@@ -102,3 +102,7 @@ let pp_place formatter _place =
 let pp_list sep ppx out l = 
     let pp_sep out () = Format.fprintf out "%s@ " sep in
     Format.pp_print_list ~pp_sep ppx out l
+
+let show_list sep ppx l = 
+  Format.fprintf Format.str_formatter "%a" (pp_list "," ppx) l;
+  Format.flush_str_formatter ()

@@ -152,17 +152,31 @@ and 'a plg_annotated = {
 }
 [@@deriving show { with_path = false }, hash]
 
-let map0_plgannot f place {plg_annotations; v} =
+
+let transparent0_plgannot f place {plg_annotations; v} =
     f place v
-let map_plgannot f place {plg_annotations; v} =
+let transparent_plgannot f place {plg_annotations; v} =
     {plg_annotations; v = f place v}
-let map_plgannots f place {plg_annotations; v} =
+let transparent_plgannots f place {plg_annotations; v} =
     List.map (function v -> {plg_annotations; v}) (f place v)
-let map2_plgannot f place {plg_annotations; v} =
+let transparent2_plgannot f place {plg_annotations; v} =
     let env, tmp = f place v in
     env, {plg_annotations; v = tmp}
-let map2_plgannots ?(f_annot=Fun.id) f place {plg_annotations; v} =
+let transparent2_plgannots ?(f_annot=Fun.id) f place {plg_annotations; v} =
     let env, tmp = f place v in
+    env, List.map (function v -> {plg_annotations = f_annot plg_annotations; v}) tmp
+
+let map0_plgannot f place {plg_annotations; v} =
+    f place plg_annotations v
+let map_plgannot f place {plg_annotations; v} =
+    {plg_annotations; v = f place plg_annotations  v}
+let map_plgannots f place {plg_annotations; v} =
+    List.map (function v -> {plg_annotations; v}) (f place plg_annotations v)
+let map2_plgannot f place {plg_annotations; v} =
+    let env, tmp = f place plg_annotations  v in
+    env, {plg_annotations; v = tmp}
+let map2_plgannots ?(f_annot=Fun.id) f place {plg_annotations; v} =
+    let env, tmp = f place plg_annotations v in
     env, List.map (function v -> {plg_annotations = f_annot plg_annotations; v}) tmp
 
 let auto_plgannot v = {plg_annotations=[]; v}

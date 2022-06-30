@@ -289,33 +289,29 @@ let ftvars_suite () = [
         let fvars = to_hints (fvars_of tterms) in
 
         let ft_str = 
-          Format.fprintf Format.str_formatter "%a" (Error.pp_list "," (fun out x ->Format.fprintf out "%s" x)) ftvars;
-          Format.flush_str_formatter ()
+          Error.show_list "," (fun out x ->Format.fprintf out "%s" x)  ftvars
         in
 
         let f_str = 
-          Format.fprintf Format.str_formatter "%a" (Error.pp_list "," (fun out x ->Format.fprintf out "%s" x)) fvars;
-          Format.flush_str_formatter ()
+          Error.show_list "," (fun out x ->Format.fprintf out "%s" x) fvars
         in
 
         logf ctx `Info "ftvars [%d]{%s}" (List.length ftvars) ft_str;
         logf ctx `Info "fvars [%d]{%s}" (List.length fvars) f_str;
-        assert_equal ftvars [];
         (* check protocol in StaticBridge protocol_name*)
-        assert_equal fvars ["spawn_protocol_B15_"]
+        assert_equal ftvars ["spawn_protocol_B15_"];
+        assert_equal fvars []
     );
     "ftvars_tmp" >:: (function ctx ->
-        let ftvars = to_hints (ftvars_of (tterms_1@tterms_3)) in
-        let fvars = to_hints (fvars_of (tterms_1@tterms_3)) in
+        let ftvars = to_hints (ftvars_of (tterms_1@tterms_3@tterms_2)) in
+        let fvars = to_hints (fvars_of (tterms_1@tterms_3@tterms_2)) in
 
         let ft_str = 
-          Format.fprintf Format.str_formatter "%a" (Error.pp_list "," (fun out x ->Format.fprintf out "%s" x)) ftvars;
-          Format.flush_str_formatter ()
+          Error.show_list "," (fun out x ->Format.fprintf out "%s" x) ftvars
         in
 
         let f_str = 
-          Format.fprintf Format.str_formatter "%a" (Error.pp_list "," (fun out x ->Format.fprintf out "%s" x)) fvars;
-          Format.flush_str_formatter ()
+          Error.show_list "," (fun out x ->Format.fprintf out "%s" x) fvars
         in
 
         logf ctx `Info "ftvars [%d]{%s}" (List.length ftvars) ft_str;
@@ -325,7 +321,7 @@ let ftvars_suite () = [
     );
     "insert_into_terms" >:: (function ctx ->
         let tmp = insert_in_terms tterms_2 (tterms_1@tterms_3) in
-        assert_equal tterms tmp
+        assert_equal (tterms_1@tterms_3@tterms_2) tmp
     )
 
 ]

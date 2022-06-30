@@ -108,5 +108,7 @@ val p_to_string : (atom -> string) -> atom -> string
 
 val deduplicate : atom list -> atom list
 
+val show_list : string -> atom list -> string
+val pp_list : string -> (Format.formatter -> 'a -> unit) -> Format.formatter -> atom list -> unit 
 
 module AtomVariable : (AstUtils.TVariable with type t = atom and module Set = Set)

@@ -16,3 +16,6 @@ val st_branch_of : main_type -> literal -> session_type
 
 val get_onstartup : component_structure -> method0 option
 val replace_onstartup : component_structure -> method0 -> component_structure 
+
+val get_clconstructor : class_structure -> method0 option
+val replace_clconstructor : class_structure -> method0 -> class_structure 

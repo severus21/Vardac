@@ -509,7 +509,7 @@ and gtransform_citem_ place = function
 | Eport p       -> Eport p
 | Outport p     -> Outport p
 | Include _     -> raise (Error.DeadbranchError "gtransform_citem: Include not supported, include should have been resolved")
-and gtransform_citem citem = map_place (map_plgannot gtransform_citem_) citem 
+and gtransform_citem citem = map_place (transparent_plgannot gtransform_citem_) citem 
 
 and gtransform_cdcl_ place = function
 | ComponentStructure cdcl -> ComponentStructure {
@@ -525,13 +525,14 @@ and gtransform_term_ place = function
 | Comments c -> Comments c
 | Stmt stmt -> Stmt stmt
 | Component cdcl -> Component (gtransform_cdcl cdcl)
+| Class cl -> Class cl (* No protocol def inside class *)
 | Function fcdcl -> Function fcdcl
 | Typealias _ -> failwith "Typealias is not supported by guardTransform semantics to be defined" 
 | Typedef {place=p_p; value=ProtocolDef (x, mt)} ->
     Typedef {place=p_p; value=ProtocolDef (x, gtransform_mt mt)} 
 | Typedef _ as t -> t
 | Derive _ -> raise (Error.PlacedDeadbranchError (place, "Derivation should have been removed before starting the code generation"))
-and gtransform_term term = map_place (map_plgannot gtransform_term_) term
+and gtransform_term term = map_place (transparent_plgannot gtransform_term_) term
 
 and gtransform_program terms = 
     List.map gtransform_term terms

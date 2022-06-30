@@ -30,9 +30,6 @@ let rec collect_expr_expr_ parent_opt (already_binded:Atom.Set.t) selector colle
     | (VarExpr x) | (ImplicitVarExpr x) when Atom.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, [] 
     | (VarExpr x) | (ImplicitVarExpr x) when Atom.is_builtin x -> already_binded, collected_elts0, [] 
     | (VarExpr x) | (ImplicitVarExpr x)-> already_binded, collected_elts0, [mt, x]
-    | LitExpr {value = StaticBridge {protocol_name}} ->
-        if None <> Atom.Set.find_opt protocol_name already_binded or Atom.is_builtin protocol_name then already_binded, [], []
-        else already_binded, [], [mtype_of_var protocol_name, protocol_name]
     | BridgeCall _ | BoxCExpr _ | EmptyExpr | LitExpr _ | OptionExpr None | ResultExpr (None, None) | RawExpr _ | This | Self -> already_binded, collected_elts0, []
     | AccessExpr (e1, {value=VarExpr _, _}) -> (* TODO AccessExpr : expr * Atom.t *)
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector e1 in
@@ -419,6 +416,9 @@ and collect_type_expr_ flag_tcvar parent_opt already_binded selector collector p
 
     let _, collected_elts1, ftvars1 = collect_mtype mt in
     let collected_elts2, ftvars2 = match e with
+    | LitExpr {value = StaticBridge {protocol_name}} ->
+        if None <> Atom.Set.find_opt protocol_name already_binded || Atom.is_builtin protocol_name then [], []
+        else [], [protocol_name]
     | BridgeCall _ | EmptyExpr | VarExpr _ | ImplicitVarExpr _ | LitExpr _ | This | Self -> [], []
     | ActivationAccessExpr (_, e, _) | UnopExpr (_, e) -> 
         let _, collected_elts, ftvars = collect_expr e in
@@ -845,6 +845,7 @@ function
     | TActivationRef mt -> TActivationRef (rewrite_mtype mt)
     | TArrow (mt1, mt2) -> TArrow (rewrite_mtype mt1, mt2) 
     | TVar x -> TVar x 
+    | TObject x -> TObject x
     | TFlatType ft -> TFlatType ft 
     | TArray mt -> TArray (rewrite_mtype mt) 
     | TDict (mt1, mt2) -> TDict (rewrite_mtype mt1, rewrite_mtype mt2) 
@@ -897,6 +898,7 @@ and _rewrite_type_structtype selector rewriter place = function
 | TStruct (x, sign) -> TStruct
 (x, Atom.VMap.map (rewrite_type_mtype selector rewriter) sign)
 | TPolyCVar x -> TPolyCVar x
+| CompTBottom -> CompTBottom
 and rewrite_type_structtype selector rewriter = map_place (_rewrite_type_structtype selector rewriter)
 
 and _rewrite_type_mtype (selector : _main_type -> bool) rewriter place = function
@@ -905,6 +907,7 @@ and _rewrite_type_mtype (selector : _main_type -> bool) rewriter place = functio
 | CType ct -> CType (rewrite_type_ctype selector rewriter ct)
 | SType st -> SType (rewrite_type_stype selector rewriter st)
 | CompType cmt -> CompType (rewrite_type_structtype selector rewriter cmt)
+| ClType cmt -> ClType (rewrite_type_structtype selector rewriter cmt)
 | ConstrainedType (mt, ac) -> ConstrainedType (
     rewrite_type_mtype selector rewriter mt,
     rewrite_type_aconstraint selector rewriter ac
@@ -930,6 +933,10 @@ and _rewrite_type_expr selector rewriter place (e, mt) =
         | CallExpr (e, es) -> CallExpr (rewrite_expr e, List.map rewrite_expr es)
         | NewExpr (e, es) -> NewExpr (rewrite_expr e, List.map rewrite_expr es)
         | PolyApp (e, mts) -> PolyApp (rewrite_expr e, List.map rewrite_mtype mts)
+        | Create create -> Create {
+            c = create.c;
+            args = create.args; 
+        }
         | Spawn spawn -> Spawn {
             c = rewrite_type_cexpr selector rewriter spawn.c;
             args = spawn.args;
@@ -1281,7 +1288,7 @@ rewrite_type_aconstraint
             | ActivationAccessExpr (x, e, y) -> 
                 ActivationAccessExpr (renaming x, re e, if flag_rename_attribute then renaming y else y)
             | AccessExpr (e1, ({value=VarExpr _,_} as e2)) -> 
-                logger#debug "rename accessExpr [%b] \n%s" (flag_rename_attribute) (show_expr e2);
+                logger#debug "rename accessExpr [%b] \n" (flag_rename_attribute);
                 AccessExpr (re e1, if flag_rename_attribute then re e2 else e2)
             | AccessExpr (e1, e2) -> 
                 logger#debug "rename accessExpr \n%s" (show_expr e2);

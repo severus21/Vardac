@@ -601,7 +601,7 @@ module Make () : Sig = struct
         ([], []), [auto_place (auto_plgannot(Term (rterm t)))]
     | Include _ as citem -> 
         ([], []), [auto_place (auto_plgannot citem)]
-    and rcitem a_registered_sessions = map0_place (map0_plgannot(rewrite_component_item a_registered_sessions))
+    and rcitem a_registered_sessions = map0_place (transparent0_plgannot(rewrite_component_item a_registered_sessions))
 
     and rewrite_component_dcl place : _component_dcl -> _component_dcl = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
@@ -785,7 +785,7 @@ module Make () : Sig = struct
     | Typealias _ as t -> t
     | Typedef _ as t -> t
     | Derive _ as t -> t
-    and rterm term = map_place (map_plgannot rewrite_term) term
+    and rterm term = map_place (transparent_plgannot rewrite_term) term
 
     and rewrite_program program = 
         List.map rterm program

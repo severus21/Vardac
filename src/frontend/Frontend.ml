@@ -49,11 +49,12 @@ let process_place (filename:string) =
     |> function x-> logger#sinfo "PlaceAST has been coocked";x
     |> dump_selected "Place" "Place" IR.show_vplaces  
 
-let to_impl gamma gamma_types sealed_envs targets filename program = 
+let to_impl gamma gamma_types sealed_envs eliminline_env targets filename program = 
     let module PairedImpl = PairedImpl.Make(struct 
         let sealed_envs = sealed_envs 
         let gamma = gamma
         let gamma_types = gamma_types
+        let eliminline_env = eliminline_env
     end) in 
 
     filename

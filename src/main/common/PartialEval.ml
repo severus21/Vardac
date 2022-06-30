@@ -77,6 +77,7 @@ let print_env env =
 
 let rec peval_composed_type env place : _composed_type -> env * _composed_type = function
 | TActivationRef mt -> env, TActivationRef ((snd <-> pe_mtype env) mt)
+| TObject x -> env, TObject x 
 | (TArrow (mt1, mt2) as ct) | (TUnion (mt1, mt2) as ct)-> 
     let _, mt1 = pe_mtype env mt1 in
     let _, mt2 = pe_mtype env mt2 in
@@ -84,7 +85,6 @@ let rec peval_composed_type env place : _composed_type -> env * _composed_type =
         | TArrow _ -> TArrow (mt1, mt2)
         | TUnion _ -> TUnion (mt1, mt2)) 
 | TVar x ->  env, TVar x (*TVar is process by the pe_main_type because it should be able to be evaluated to any type*)
-
 | TFlatType ft -> env, TFlatType ft 
 | TDict (mt1, mt2) -> 
     let _, mt1 = pe_mtype env mt1 in
@@ -222,6 +222,7 @@ and peval_mtype env place : _main_type -> env * _main_type = function
     snd(pe_mtype env mt), 
     snd (peval_applied_constraint env cst)) 
 | CompType cmt -> env, CompType (snd (pe_structtype env cmt))
+| ClType cmt -> env, ClType (snd (pe_structtype env cmt))
 | EmptyMainType -> env, EmptyMainType
 and pe_mtype env: main_type -> env * main_type = map2_place (peval_mtype env)
 
@@ -437,7 +438,8 @@ function
         new_env, EmptyStmt 
     else
         env, AssignExpr (x, e)
-| AssignThisExpr (x, e) -> env, AssignExpr (x,  snd(pe_expr env e ))
+| AssignThisExpr (x, e) -> env, AssignThisExpr (x,  snd(pe_expr env e ))
+| AssignSelfExpr (x, e) -> env, AssignSelfExpr (x,  snd(pe_expr env e ))
 | BranchStmt {s; label; branches} -> 
     let s = snd(pe_expr env s) in
     let label = snd(pe_expr env label) in
@@ -609,7 +611,7 @@ and peval_component_item env place : _component_item -> env * _component_item = 
     env, State (snd(pe_state env s))
 | Term t        -> env, Term (snd(pe_term env t))
 
-and pe_component_item env: component_item -> env * component_item = map2_place (map2_plgannot(peval_component_item env))
+and pe_component_item env: component_item -> env * component_item = map2_place (transparent2_plgannot(peval_component_item env))
 
 and peval_component_dcl env place : _component_dcl -> env * _component_dcl = function  
 | ComponentAssign {name; value} -> env, ComponentAssign {
@@ -621,6 +623,19 @@ and peval_component_dcl env place : _component_dcl -> env * _component_dcl = fun
     new_env, ComponentStructure {cdcl with body = citems }
 
 and pe_component_dcl env: component_dcl -> env * component_dcl = map2_place (peval_component_dcl env)
+
+and peval_class_item env place : _class_item -> env * _class_item = function 
+| CLMethod m      -> env, CLMethod (snd(pe_method env m))
+| CLState s       -> 
+    let s = snd(pe_state env s)in
+    env, CLState (snd(pe_state env s))
+
+and pe_class_item env: class_item -> env * class_item = map2_place (transparent2_plgannot(peval_class_item env))
+
+and pe_class_dcl env (cl:class_structure) =
+    let new_env, citems = List.fold_left_map pe_class_item env cl.body in 
+    new_env, {cl with body = citems }
+
 
 (********************** Manipulating component structure *********************)
 and peval_component_expr env place (ce, mt_ce) = (* TODO peval for this*)
@@ -639,6 +654,7 @@ and peval_term env place : _term -> env * _term = function
 | Comments c -> env, Comments c
 | Stmt stmt -> map_snd (fun x -> Stmt x) (pe_stmt env stmt) 
 | Component comp -> map_snd (fun x -> Component x) (pe_component_dcl env comp)
+| Class comp -> map_snd (fun x -> Class x) (pe_class_dcl env comp)
 | Function f -> env, Function {
     place = f.place;
     value = { f.value with
@@ -692,7 +708,7 @@ end
     let _, targs = List.split (List.map (pe_mtype env) targs) in
     let _, eargs = List.split (List.map (pe_expr env) eargs) in
     env, Derive {name; cargs; targs; eargs}
-and pe_term env: term -> env * term = map2_place (map2_plgannot(peval_term env))
+and pe_term env: term -> env * term = map2_place (transparent2_plgannot(peval_term env))
 
 and pe_terms env terms : env * IR.term list =
     let env, program = List.fold_left_map pe_term env terms in

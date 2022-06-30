@@ -61,7 +61,7 @@ module Make (Args : Params ) : Sig = struct
     | Outport _ as citem    -> citem
     | Term t                -> Term (rterm t)
     | Include _ as citem    -> citem
-    and rcitem citem : component_item = map_place (map_plgannot rewrite_component_item) citem
+    and rcitem citem : component_item = map_place (transparent_plgannot rewrite_component_item) citem
 
     and rewrite_component_dcl place : _component_dcl -> _component_dcl = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
@@ -135,7 +135,7 @@ module Make (Args : Params ) : Sig = struct
     | Typealias _ as t -> t
     | Typedef _ as t -> t
     | Derive derive -> Derive derive
-    and rterm term = map_place (map_plgannot rewrite_term) term
+    and rterm term = map_place (transparent_plgannot rewrite_term) term
 
 
     (** Hidden implicit vars = implicit vars coming from implicit vars of inner spawn *)
@@ -215,7 +215,7 @@ module Make (Args : Params ) : Sig = struct
     and rewrite_component_item2 place : _component_item -> _component_item = function
     | Term t -> Term (rterm2 t)
     | _ as item -> item
-    and rcitem2 citem : component_item = map_place (map_plgannot rewrite_component_item2) citem
+    and rcitem2 citem : component_item = map_place (transparent_plgannot rewrite_component_item2) citem
 
     and rewrite_component_dcl2 place : _component_dcl -> _component_dcl = 
         let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
@@ -321,7 +321,7 @@ module Make (Args : Params ) : Sig = struct
     | Typealias _ as t -> t
     | Typedef _ as t -> t
     | Derive _ as t -> t 
-    and rterm2 term : term = map_place (map_plgannot rewrite_term2) term
+    and rterm2 term : term = map_place (transparent_plgannot rewrite_term2) term
 
     (*Two passes of rewriting since some computation needs to gather information in all scope first
         - implict 2 explict needs to find all spawn in all scope

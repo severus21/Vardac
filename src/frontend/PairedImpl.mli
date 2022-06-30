@@ -16,6 +16,7 @@ module type ArgSig = sig
     val sealed_envs : (Atom.t, Cook.env) Hashtbl.t 
     val gamma : Cook.gamma_t
     val gamma_types : Cook.gamma_t
+    val eliminline_env: (Atom.atom, ((Atom.atom, Atom.atom * Atom.atom) Hashtbl.t)) Hashtbl.t
 end
 
 module Make : functor (Arg: ArgSig) -> sig 

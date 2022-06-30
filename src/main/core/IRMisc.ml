@@ -121,6 +121,12 @@ let get_onstartup (schema : component_structure) : method0 option=
         (List.find_opt 
             (function | {value={v=Method m}} -> m.value.on_startup | _ -> false) schema.body
         )
+let get_clconstructor (schema : class_structure) : method0 option= 
+    Option.map 
+        (function {value={v=CLMethod m}} -> m) 
+        (List.find_opt 
+            (function | {value={v=CLMethod m}} -> m.value.on_startup | _ -> false) schema.body
+        )
 
 let replace_onstartup (schema : component_structure) onstartup =
     let flag = ref false in
@@ -131,6 +137,25 @@ let replace_onstartup (schema : component_structure) onstartup =
         List.map 
         (function 
             | {value={v=Method m}} when m.value.on_startup -> 
+                flag := true;
+                item 
+            | citem -> citem 
+        )
+        schema.body
+    in
+
+    if !flag then {schema with body} 
+    else {schema with body = item :: body}
+
+let replace_clconstructor (schema : class_structure) onstartup =
+    let flag = ref false in
+
+    let item = {place=onstartup.place; value= {plg_annotations = []; v=CLMethod onstartup}} in
+
+    let body = 
+        List.map 
+        (function 
+            | {value={v=CLMethod m}} when m.value.on_startup -> 
                 flag := true;
                 item 
             | citem -> citem 

@@ -248,7 +248,7 @@ module Make () = struct
         register_expr_type s.value.name (typeof_state s);
         [s.value.name, typeof_state s]
     | Term t -> scan_term parent_opt t 
-    and scan_component_item parent_opt = map0_place (map0_plgannot(_scan_component_item parent_opt))
+    and scan_component_item parent_opt = map0_place (transparent0_plgannot(_scan_component_item parent_opt))
     and _scan_component parent_opt place = function
     | ComponentStructure cdcl -> begin
         logger#warning "collect %s" (Atom.to_string cdcl.name);
@@ -271,7 +271,7 @@ module Make () = struct
         logger#debug "state registration";
         register_expr_type s.value.name (typeof_state s);
         [s.value.name, typeof_state s]
-    and scan_class_item parent_opt = map0_place (map0_plgannot(_scan_class_item parent_opt))
+    and scan_class_item parent_opt = map0_place (transparent0_plgannot(_scan_class_item parent_opt))
     and scan_class parent_opt (cl:class_structure) =
         logger#warning "collect %s" (Atom.to_string cl.name);
         let clstruct = List.map (scan_class_item (Some cl.name)) cl.body in 
@@ -285,7 +285,7 @@ module Make () = struct
     | Component c -> scan_component parent_opt c 
     | Class cl ->  scan_class parent_opt cl 
     | _ -> [] 
-    and scan_term parent_opt = map0_place (map0_plgannot(_scan_term parent_opt))
+    and scan_term parent_opt = map0_place (transparent0_plgannot(_scan_term parent_opt))
     let scan_program = 
         List.iter (function t -> ignore (scan_term None t))
 
@@ -967,7 +967,7 @@ module Make () = struct
         let t = tannot_term parent_opt t in
         Term t 
     and tannot_component_item parent_opt = 
-        map_place (map_plgannot(_tannot_component_item parent_opt))
+        map_place (transparent_plgannot(_tannot_component_item parent_opt))
 
     and _tannot_class_item parent_opt place = function 
     | CLMethod m -> 
@@ -977,7 +977,7 @@ module Make () = struct
         let s = tannot_state parent_opt s in
         CLState s
     and tannot_class_item parent_opt = 
-        map_place (map_plgannot(_tannot_class_item parent_opt))
+        map_place (transparent_plgannot(_tannot_class_item parent_opt))
 
     and _tannot_component_dcl parent_opt place = 
         let fplace = (Error.forge_place "TypeInference._tannot_component_dcl" 0 0) in
@@ -1129,7 +1129,7 @@ module Make () = struct
         let eargs = List.map (tannot_expr parent_opt) derive.eargs in
         Derive {name = derive.name; cargs; targs; eargs} 
     and tannot_term parent_opt = 
-        map_place (map_plgannot(_tannot_term parent_opt))
+        map_place (transparent_plgannot(_tannot_term parent_opt))
 
     and tannot_program program = 
         (* Scan header for recursive definition of function, method and state *)

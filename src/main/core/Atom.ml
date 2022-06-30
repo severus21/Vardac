@@ -326,3 +326,7 @@ module AtomVariable = struct
   let p_to_string = p_to_string
   let is_builtin = is_builtin
 end
+
+
+let show_list sep xs = Error.show_list sep (fun out x -> Format.fprintf out "%s" (to_string x)) xs
+let pp_list sep out xs = Error.pp_list sep (fun out x -> Format.fprintf out "%s" (to_string x)) xs

@@ -30,7 +30,7 @@ let rec cook_item_impl env place = function
     body = mstate.body;
 }
 | S.ComponentHeadersImpl body -> env, T.ComponentHeadersImpl body
-and citem_impl env :  S.component_item_impl -> env * T.component_item_impl = map2_place (map2_plgannot (cook_item_impl env))
+and citem_impl env :  S.component_item_impl -> env * T.component_item_impl = map2_place (transparent2_plgannot (cook_item_impl env))
 
 and cook_component_impl place env (cimpl:S.component_impl) :  env * T.component_impl = 
     let _, items = List.fold_left_map citem_impl env cimpl.body in
@@ -75,7 +75,7 @@ end
         ]
     | None -> Error.perror place "no default target defined and no target assigned to headers" 
 end
-and cook_term env :  S.term -> env * T.term list = map2_places (map2_plgannots (_cook_term env))
+and cook_term env :  S.term -> env * T.term list = map2_places (transparent2_plgannots (_cook_term env))
 
 let cook_program impl_terms =    
     let terms = List.flatten (snd(List.fold_left_map cook_term (fresh_env ()) impl_terms)) in

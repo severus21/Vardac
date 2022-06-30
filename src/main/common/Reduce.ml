@@ -12,7 +12,7 @@ let rec reduce_component_item place : _component_item -> _component_item = funct
 | Term t -> Term ((r_term t))
 | citem -> citem
 
-and r_component_item citem : component_item = map_place (map_plgannot(reduce_component_item)) citem
+and r_component_item citem : component_item = map_place (transparent_plgannot(reduce_component_item)) citem
 
 and reduce_component_dcl place : _component_dcl -> _component_dcl = function  
 | ComponentAssign _ as citem -> citem 
@@ -53,7 +53,7 @@ and reduce_term place : _term -> _term = function
 | Component comp -> Component (r_component_dcl comp)
 | t -> t
 
-and r_term t : term = map_place (map_plgannot(reduce_term)) t
+and r_term t : term = map_place (transparent_plgannot(reduce_term)) t
 
 and reduce_program (terms: IR.program) : IR.program = 
     List.map r_term terms

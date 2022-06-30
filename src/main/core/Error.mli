@@ -53,3 +53,7 @@ val pp_place: Format.formatter -> place -> unit
 val pp_list: string ->
    (Format.formatter -> 'a -> unit) ->
    Format.formatter -> 'a list -> unit 
+
+val show_list: string ->
+   (Format.formatter -> 'a -> unit) ->
+   'a list -> string 
