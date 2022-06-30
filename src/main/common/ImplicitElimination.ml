@@ -4,7 +4,7 @@ open Easy_logging
 open Utils
 open AstUtils
 
-let logger = Logging.make_logger "_1_ vardac.ImplicitElimination" Debug [];;
+let logger = make_log_of "ImplicitElimination"
 module type Params = sig
     val gamma : (IR.expr_variable, IR.main_type) Hashtbl.t
     val targets : Target.targets 

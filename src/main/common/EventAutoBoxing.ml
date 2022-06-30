@@ -4,9 +4,9 @@ open Easy_logging
 open Utils
 open AstUtils
 open IRMisc
- 
 
-let logger = Logging.make_logger "_1_ vardac.EventAutoBoxing" Debug [];;
+
+let logger = make_log_of "EventAutoBoxing"
 let fplace = (Error.forge_place "EventAutoBoxing" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
@@ -70,7 +70,9 @@ module Make () = struct
             event
         
     let needs_autoboxing = function
-        | {value=CType {value = TVar x }} -> Hashtbl.find_opt events x = None
+        | {value=CType {value = TVar x }} -> 
+            logger#debug "need auto-boxing for %s<%b>" (Atom.to_string x) (Hashtbl.find_opt events x = None);
+            Hashtbl.find_opt events x = None
         (* BLabel is a "builtin" event *)
         | {value=CType {value = TFlatType TBLabel}} -> false
         | _ -> true
@@ -244,7 +246,9 @@ module Make () = struct
             | _ -> false
         in
         let rewritor = function 
-            | SType st -> SType (autobox_st st) 
+            | SType st -> 
+                logger#debug "scan st for auto-boxing\n%s" (show_session_type st);
+                SType (autobox_st st) 
         in
 
         let program = rewrite_type_program selector rewritor program in

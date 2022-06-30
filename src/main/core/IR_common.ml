@@ -10,7 +10,7 @@ type test = int Atom.VMap.t
 [@@deriving show { with_path = false }]
 
 
-let logger = Logging.make_logger "_1_ vardac" Debug [];;
+let logger = Utils.make_log_of "IR_common" 
 
 
 (* TODO clean AST *)

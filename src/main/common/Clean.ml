@@ -16,7 +16,7 @@ open IR
 open Easy_logging
  
 
-let logger = Logging.make_logger ("_1_ vardac") Debug [];;
+let logger = Core.Utils.make_log_of "Clean" 
 
 
 

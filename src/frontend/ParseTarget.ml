@@ -3,7 +3,7 @@ open RawTarget
 
 open Easy_logging
 
-let logger = Logging.make_logger "_1_ vardac.codegen" Debug [];;
+let logger = Core.Utils.make_log_of "ParseTarget" 
 
 let read_targets (filename_target:string) =
     if Sys.file_exists filename_target then 

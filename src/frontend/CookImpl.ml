@@ -4,7 +4,7 @@ open Builtin
 open Fieldslib
 open Easy_logging
 open AstUtils
-let logger = Logging.make_logger "_1_ vardac.frontend" Debug [];;
+let logger = Core.Utils.make_log_of "CookImpl" 
 
 (* The source calculus. *)
 module S = Ast_impl

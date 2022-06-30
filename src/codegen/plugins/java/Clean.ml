@@ -3,7 +3,7 @@ open Core
 open Core.AstUtils
 open Easy_logging
 
-let logger = Logging.make_logger ("_1_ vardac.plg.Java") Debug [];;
+let logger = Core.Utils.make_log_of "Java.Clean"
 
 module AnnotationOrder = struct
   type t = annotation

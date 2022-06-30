@@ -4,7 +4,7 @@ open Plg
 
 open Easy_logging
 
-let logger = Logging.make_logger "_1_ vardac.codegen" Debug [];;
+let logger = Core.Utils.make_log_of "Codegen" 
 
 let display_available_plugins = Factory.display_available_plugins 
 

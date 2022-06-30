@@ -156,3 +156,17 @@ let run_and_collect_stdout cmd : string list =
         End_of_file -> close_in ic;
 
     !all_input
+
+let log_lvl_of pass_name : Easy_logging.Logging_internals.Logging_types.level =
+    if Config.debug () then 
+        match Config.debug_selector() with
+        | None -> Debug 
+        | Some selected_passes ->
+            if List.mem pass_name selected_passes then
+                Debug 
+            else
+                Info 
+    else Info 
+
+let make_log_of pass_name = 
+    Easy_logging.Logging.make_logger ("_1_ vardac."^pass_name) (log_lvl_of pass_name) []

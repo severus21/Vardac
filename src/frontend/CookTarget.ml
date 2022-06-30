@@ -3,7 +3,7 @@ open Core.Error
 open Core.AstUtils
 open Easy_logging
 
-let logger = Logging.make_logger ("_1_ vardac.frontend") Debug [];;
+let logger = Core.Utils.make_log_of "CookTarget" 
 (* variable : string => Atom.atom + check env *)
 (* The source calculus. *)
 module S = RawTarget 

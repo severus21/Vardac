@@ -7,7 +7,7 @@ open InterceptUtils
 open Common
  
 
-let logger = Logging.make_logger ("_1_ vardac.Intercept") Debug [];;
+let logger = Core.Utils.make_log_of "InterceptionElimination" 
 
 let fplace = (Error.forge_place "Intercept" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}

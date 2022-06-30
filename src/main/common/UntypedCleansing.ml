@@ -8,7 +8,7 @@ open IRMisc
 open IR
  
 
-let logger = Logging.make_logger "_1_ vardac.core" Debug [];;
+let logger = make_log_of "UntypedCleansing" 
 let fplace = (Error.forge_place "UntypedCleansing" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)

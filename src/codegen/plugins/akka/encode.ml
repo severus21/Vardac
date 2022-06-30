@@ -6,7 +6,7 @@ open Fieldslib
 open Misc
 
 let plg_name = "Akka"
-let logger = Logging.make_logger ("_1_ vardac.plg."^plg_name) Debug [];;
+let logger = make_log_of "Akka" 
 let fplace = (Error.forge_place ("plg."^plg_name^".Encode") 0 0) 
 include Ast.AstUtil2.Make(struct let fplace = fplace end)
 
@@ -88,6 +88,8 @@ let encode_builtin_fct_0 place name =
          fst (e_lg4dc_current_place place).value
     | "time" ->
         T.RawExpr "System.currentTimeMillis()"
+    | "current_activation" ->
+        fst (Misc.e_get_self_activation place (Misc.e_get_context place)).value
     | "forge_activation_ref" ->
         (* TODO FIXME add an id to actoref *)
         T.RawExpr {|ActivationRef("mocked", new ActorRef(), Optional.empty())|}

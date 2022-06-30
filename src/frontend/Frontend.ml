@@ -3,7 +3,7 @@ open Utils
 open AstUtils
 
 open Easy_logging
-let logger = Logging.make_logger "_1_ vardac.frontend" Debug [];;
+let logger = Core.Utils.make_log_of "Frontend" 
 
 (* Export AST *)
 module Ast = Ast 

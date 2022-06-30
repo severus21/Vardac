@@ -6,9 +6,9 @@ open Fieldslib
 open Misc
 
 (* Function composition, TODO put it in some Core file*)
-let plg_name = "Akka"
+let plg_name = "Akka.Finish"
 let plg_version = "0.0.1"
-let logger = Logging.make_logger ("_1_ vardac.plg."^plg_name) Debug [];;
+let logger = make_log_of plg_name
 
 let fplace = (Error.forge_place ("plg."^plg_name^".Finish") 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
@@ -203,7 +203,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         end
         | S.TFlatType ft -> begin match ft with  
             (* When using Tuyple, Map, ... we need object so for ease we box atomic type in objects everywhere *)
-            | AstUtils.TActivationID -> T.Atomic "UUID"
+            | AstUtils.TActivationID -> T.Atomic "String"
             | AstUtils.TBool -> T.Atomic "Boolean"
             | AstUtils.TInt -> T.Atomic "Integer" (* 32bits *)
             | AstUtils.TLong -> T.Atomic "Long" (* 64bits *)

@@ -6,7 +6,7 @@ open AstUtils
 open IRMisc
  
 
-let logger = Logging.make_logger "_1_ vardac.PartialEval" Debug [];;
+let logger = make_log_of "PartialEval"
 
 (*
  TODO add 

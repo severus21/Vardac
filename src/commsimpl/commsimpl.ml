@@ -4,7 +4,7 @@ open IR
 open Easy_logging
  
 
-let logger = Logging.make_logger ("_1_ vardac.CommSimpl") Debug [];;
+let logger = Core.Utils.make_log_of "CommSimpl"
 
 module BranchElimination = Core.IRCompilationPass.Make(BranchElimination.Make())
 module RecvElimination = Core.IRCompilationPass.Make(RecvElimination.Make())

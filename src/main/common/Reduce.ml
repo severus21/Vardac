@@ -4,7 +4,7 @@ open Easy_logging
 open Utils
 open AstUtils
 
-let logger = Logging.make_logger "_1_ vardac" Debug [];;
+let logger = make_log_of "Reduce" 
 
 
 let rec reduce_component_item place : _component_item -> _component_item = function 

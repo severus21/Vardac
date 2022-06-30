@@ -20,7 +20,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
     let name = name 
     let version = version
-    let logger = Logging.make_logger ("_1_ vardac.plg."^name) Debug [];;
+    let logger = Core.Utils.make_log_of name 
 
     module Rt = Rt 
     module Lg = Lg

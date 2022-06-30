@@ -2,7 +2,7 @@ open Easy_logging
 open IR_common
 open AstUtils
 
-let logger = Logging.make_logger "_1_ vardac.CommonUtils" Debug [];;
+let logger = Utils.make_log_of "CommonUtils"
 let fplace = (Error.forge_place "CommonUtils" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)

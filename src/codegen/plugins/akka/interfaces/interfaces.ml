@@ -1,4 +1,5 @@
 open Core 
+open Core.Utils
 open Plg.Interface_plugin
 
 open Easy_logging
@@ -7,7 +8,7 @@ module TMP = Plg.Interface_plugin.Make(Ast)
 open TMP
 
 include TMP.InterfaceFactory.Make(struct
-    let logger = Logging.make_logger "_1_ vardac.codegen.Akka.Interfaces" Debug [];;
+    let logger = make_log_of "Akka.Interfaces"
 
     let plugins : (string, (module Interface_plg0)) Hashtbl.t = (Hashtbl.create 10)
 

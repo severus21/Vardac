@@ -6,7 +6,7 @@ open Easy_logging
 open AstUtils
 open IR.IRUtils
  
-let logger = Logging.make_logger "_1_ vardac.frontend" Debug [];;
+let logger = Core.Utils.make_log_of "PairedImpl" 
 
 (* The source calculus. *)
 module S1 = Impl

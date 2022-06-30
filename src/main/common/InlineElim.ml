@@ -7,7 +7,7 @@ open IR
  
 open Easy_logging
 
-let logger = Logging.make_logger ("_1_ vardac.InlineElim") Debug [];;
+let logger = Core.Utils.make_log_of "InlineElim"
 
 let fplace = (Error.forge_place "InlineElim" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
@@ -330,7 +330,7 @@ module Make () = struct
                                     auto_fplace(ReturnStmt(e2_e(CallExpr(
                                         e2var (Atom.builtin "one_hop_activation_ref"),
                                         [
-                                            e2_e This;
+                                            e2_e (CallExpr(e2var (Atom.builtin "current_activation"), []));
                                             e2_e (AccessExpr(
                                                 e2_e Self,
                                                 e2var a_cl_activation_ref
@@ -392,7 +392,7 @@ module Make () = struct
                     let spawn_inline = {
                         annotations = [];
                         ghost = false;
-                        ret_type = mtype_of_ct (TActivationRef (mtype_of_cvar schema_in));
+                        ret_type = mtype_of_ct (TActivationRef (mtype_of_cvar schema));
                         name = name_spawn_inline schema schema_in;
                         args = spawn_inline_args;
                         body = [
@@ -414,23 +414,30 @@ module Make () = struct
                                 [
                                     e2var name_inlined_instances;
                                     e2_e (CallExpr(
-                                        e2_e (AccessExpr(
-                                            e2var a_instance,
-                                            e2var cl_get_activation_ref
-                                        )),
-                                        [ e2_e This ]
-                                    )) ;
+                                        e2var (Atom.builtin "activationid"),
+                                        [
+                                            e2_e (CallExpr(
+                                                e2_e (AccessExpr(
+                                                    e2var a_instance,
+                                                    e2var cl_get_activation_ref
+                                                )),
+                                                [ 
+                                                    e2_e (CallExpr(e2var (Atom.builtin "current_activation"), []));
+                                                ]
+                                            ))
+                                        ]
+                                    ));
                                     e2var a_instance;
                                 ]
                             ))));
                             auto_fplace (ReturnStmt (e2_e (InterceptedActivationRef (
-                                e2_e This, 
+                                e2_e (CallExpr(e2var (Atom.builtin "current_activation"), [])), 
                                 (Some (e2_e (CallExpr(
                                     e2_e (AccessExpr(
                                         e2var a_instance,
                                         e2var cl_get_activation_ref
                                     )),
-                                    [ e2_e This]
+                                    [ e2_e (CallExpr(e2var (Atom.builtin "current_activation"), [])) ]
                                 ))))
                             ))));
                         ];
@@ -472,9 +479,19 @@ module Make () = struct
                                             mtype_of_ft TActivationID,
                                             a_objid,
                                             e2_e(CallExpr(
-                                                e2var (Atom.builtin "session_to_2_"),
+                                                e2var (Atom.builtin "activationid"),
                                                 [
-                                                    e2var a_session 
+                                                    e2_e(CallExpr(
+                                                        e2var (Atom.builtin "option_get"),
+                                                        [
+                                                            e2_e(CallExpr(
+                                                                e2var (Atom.builtin "session_to_2_"),
+                                                                [
+                                                                    e2var a_session 
+                                                                ]
+                                                            ))
+                                                        ]
+                                                    ))
                                                 ]
                                             ))
                                         ));
@@ -657,7 +674,6 @@ module Make () = struct
                     let a_ref = Atom.fresh "ref" in
                     let a_request = Atom.fresh "request" in
                     let a_session = Atom.fresh "s" in
-                    let a_obj_id = Atom.fresh "objid" in
                     let spawn_callback = {
                         annotations = [];
                         ghost = false;
@@ -671,16 +687,6 @@ module Make () = struct
                             )), a_session);
                         ];
                         body = [
-                            (* get obj_id: same mechanism as interception
-                                                session_to_2_ *)
-                            auto_fplace (LetStmt(
-                                mtype_of_ft TActivationID,
-                                a_obj_id,
-                                e2_e(CallExpr(
-                                    e2var (Atom.builtin "session_to_2_"),
-                                    [ e2var a_session ]
-                                ))
-                            ));
                             (* Activation_ref<B> ref = this.spawn_B15(...); *)
                             auto_fplace(LetStmt(
                                 mtype_of_ct (TActivationRef (mtype_of_cvar schema)),
@@ -690,7 +696,7 @@ module Make () = struct
                                         e2_e This,
                                         e2var spawn_inline.name
                                     )),
-                                    e2var a_obj_id :: (List.mapi (fun i {value=(mt, x)} -> 
+                                    (List.mapi (fun i {value=(mt, x)} -> 
                                         e2_e (AccessExpr(
                                             e2var a_request,
                                             e2var (Atom.builtin (Printf.sprintf "_%d_" i))
@@ -704,7 +710,7 @@ module Make () = struct
                                     e2var (Atom.builtin "fire"),
                                     [
                                         e2var a_session;
-                                        e2_e (CallExpr(
+                                        e2_e (NewExpr(
                                             e2var (spawn_response schema),
                                             [
                                                 e2var a_ref
@@ -943,7 +949,7 @@ module Make () = struct
                             e2var (Atom.builtin "fire"),
                             [
                                 e2var a_session_0;
-                                e2_e(CallExpr(
+                                e2_e(NewExpr(
                                     e2var (spawn_request schema),
                                     args 
                                 ))

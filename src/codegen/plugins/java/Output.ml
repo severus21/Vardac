@@ -4,8 +4,8 @@ open Format
 open Easy_logging
 open Jingoo
 
-let name = "Java"
-let logger = Logging.make_logger ("_1_ vardac.plg."^name) Debug [];;
+let name = "Java.Output"
+let logger = Core.Utils.make_log_of "Java.Output" 
 
 
 let failwith s = failwith "[Plg=Java] %s" s

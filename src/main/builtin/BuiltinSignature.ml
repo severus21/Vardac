@@ -5,7 +5,7 @@ open Easy_logging
 
 open BuiltinTypes
 
-let logger = Logging.make_logger "_1_ vardac.Builtin.BuiltinSignature" Debug [];;
+let logger = Core.Utils.make_log_of "BuiltinSignature"
 let fplace = (Error.forge_place "BuiltinSignature.*" 0 0)
 let auto_fplace smth = {place = fplace; value=smth}
 
@@ -508,6 +508,23 @@ let t_forge_activation_ref () =
     mtype_of_ct (TArrow (
         mtype_of_ft TUnit,
         mtype_of_ct (TActivationRef (mtype_of_ft TWildcard))
+    ))
+let t_current_activation () =
+    mtype_of_ct (TArrow (
+        mtype_of_ft TUnit,
+        mtype_of_ct (TActivationRef (mtype_of_ft TWildcard))
+    ))
+
+let t_activationid () =
+    mtype_of_ct (TArrow (
+        mtype_of_ct (TActivationRef (mtype_of_ft TWildcard)),
+        mtype_of_ft TActivationID
+    ))
+
+let t_option_get () =
+    mtype_of_ct (TArrow (
+        mtype_of_ct (TOption (mtype_of_ft TWildcard)),
+        mtype_of_ft TWildcard
     ))
 
 let t_one_hop_activation_ref () =

@@ -4,7 +4,7 @@ open Plg
 
 open Easy_logging
 
-let logger = Logging.make_logger "_1_ vardac.codegen" Debug [];;
+let logger = Core.Utils.make_log_of "Codegen"
 
 let cg_plugins : (string, (module Plugin.CCg_plg)) Hashtbl.t = (Hashtbl.create 10)
 

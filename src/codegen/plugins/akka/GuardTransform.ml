@@ -6,8 +6,8 @@ open Fieldslib
 open Misc
 
 (* FIXME maybe some global transformation*)
-let plg_name = "Akka"
-let logger = Logging.make_logger ("_1_ vardac.plg."^plg_name) Debug [];;
+let plg_name = "Akka.GuardTransform"
+let logger = make_log_of plg_name
 
 (* The source calculus. *)
 module S = IRI 
