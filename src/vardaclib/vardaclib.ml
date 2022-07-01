@@ -125,7 +125,13 @@ module Make() = struct
         |> Codegen.codegen project_dir build_dir places targets;
 
         (* Before rewriting *)
-        let module TopologyPrinter = ((Common.Topology.Make((struct let component2target = (Codegen.make_component2target ()) end))):Common.Topology.Sig) in (* Warning make_component2target can not be called before spliting until split.ml was improved*)
+        let module TopologyPrinter = ((Common.Topology.Make((struct let component2target = (
+            let tmp  = Hashtbl.create 32 in 
+            Hashtbl.iter 
+                (fun k v -> Hashtbl.add tmp k (Atom.builtin v)) 
+                (Codegen.make_component2target ());
+            tmp 
+            ) end))):Common.Topology.Sig) in (* Warning make_component2target can not be called before spliting until split.ml was improved*)
         TopologyPrinter.generate_static_logical_topology build_dir "ir1" ir1;
         TopologyPrinter.generate_static_logical_topology build_dir "ir2" ir2;
         TopologyPrinter.generate_static_logical_topology build_dir "ir3" ir3;

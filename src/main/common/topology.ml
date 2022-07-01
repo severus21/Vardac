@@ -56,7 +56,7 @@ and pp_mtype { AstUtils.place ; AstUtils.value}= match value with
 
 
 module type Params = sig
-    val component2target : (Atom.atom, string) Hashtbl.t
+    val component2target : (Atom.atom, Atom.atom) Hashtbl.t
 end
 
 module type Sig = sig
@@ -66,8 +66,8 @@ end
 
 module Make (Args:Params) : Sig = struct
     include Args
-    let port2component : (Atom.atom, string) Hashtbl.t = Hashtbl.create 128
-    let clinline2component : (Atom.atom, string) Hashtbl.t = Hashtbl.create 128
+    let port2component : (Atom.atom, Atom.atom) Hashtbl.t = Hashtbl.create 128
+    let clinline2component : (Atom.atom, Atom.atom) Hashtbl.t = Hashtbl.create 128
 
     module G = Imperative.Digraph.ConcreteBidirectionalLabeled(Node)(Edge)
     module GPrinter = struct
@@ -87,7 +87,7 @@ module Make (Args:Params) : Sig = struct
         *)
         let get_subgraph v :  Graphviz.DotAttributes.subgraph option = 
             let sources = [component2target;clinline2component; port2component] in
-            let target = Lazy.force (List.fold_left 
+            let parent = Lazy.force (List.fold_left 
                 (fun continuation source -> 
                     (Option.fold 
                         ~none: continuation 
@@ -98,17 +98,17 @@ module Make (Args:Params) : Sig = struct
                 sources 
                 )
             in
-
+            
             Some {
-                sg_name = target;
+                sg_name = (Atom.to_string parent);
                 sg_attributes = [
-                    `HtmlLabel target;
+                    `HtmlLabel (Atom.hint parent);
                     `Style `Bold
                 ];
-                sg_parent = None; (* Since we are only spliting in a per target basis *)    
+                sg_parent = Option.map Atom.to_string (Hashtbl.find_opt component2target parent); (* FIXME does not yet support nested components *)    
             } 
-        let vertex_attributes _ = [`Shape `Box]
-        let vertex_name v = Atom.hint v 
+        let vertex_attributes v = [`Shape `Box; `Label (Atom.hint v)]
+        let vertex_name v = Atom.to_string v 
         let default_vertex_attributes _ = []
         let graph_attributes _ = []
     end
@@ -129,7 +129,8 @@ module Make (Args:Params) : Sig = struct
         
         List.iter (function left ->
             (List.iter 
-                (function right -> G.add_edge_e g (G.E.create left (Some {in_type; out_type; protocol}) right) )
+                (function right -> 
+                    G.add_edge_e g (G.E.create left (Some {in_type; out_type; protocol}) right) )
                 rights
             )
         ) lefts
@@ -165,7 +166,7 @@ module Make (Args:Params) : Sig = struct
                     let re_is_inlined = Str.regexp {|Inline_[A-Z][a-zA-Z0-9_]*[0-9]+_in_[A-Z][a-zA-Z0-9_]*[0-9]+_$|} in
                     if Str.string_match re_is_inlined (Atom.hint cl.name) 0 then (
                         G.add_vertex g (G.V.create cl.name);
-                        Hashtbl.add clinline2component cl.name (Atom.hint cstruct.name);
+                        Hashtbl.add clinline2component cl.name cstruct.name;
                         Some cl 
                     )else None
                 | _ -> None))) cstruct.body
@@ -174,7 +175,7 @@ module Make (Args:Params) : Sig = struct
         (* Add ports *)
         let inports = List.map (function (cstruct:component_structure) -> 
             List.filter_map (map0_place (transparent0_plgannot(fun _ -> function | Inport p -> 
-                Hashtbl.add port2component (fst p.value).name (Atom.hint cstruct.name);
+                Hashtbl.add port2component (fst p.value).name cstruct.name;
                 Some (fst p.value) | _ -> None))) cstruct.body
         ) components in
         List.iter (function ps -> 
@@ -185,7 +186,7 @@ module Make (Args:Params) : Sig = struct
 
         let outports = List.map (function (cstruct:component_structure) -> 
             List.filter_map (map0_place (transparent0_plgannot(fun _ -> function | Outport p -> 
-                Hashtbl.add port2component (fst p.value).name (Atom.hint cstruct.name);
+                Hashtbl.add port2component (fst p.value).name cstruct.name;
                 Some (fst p.value) | _ -> None))) cstruct.body
         ) components in
         List.iter (function ps -> 
@@ -196,7 +197,7 @@ module Make (Args:Params) : Sig = struct
 
         let eports = List.map (function (cstruct:component_structure) -> 
             List.filter_map (map0_place (transparent0_plgannot(fun _ -> function | Eport p -> 
-                Hashtbl.add port2component (fst p.value).name (Atom.hint cstruct.name);
+                Hashtbl.add port2component (fst p.value).name cstruct.name;
                 Some (fst p.value) | _ -> None))) cstruct.body
         ) components in
         List.iter (function ps -> 
