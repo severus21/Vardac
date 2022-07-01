@@ -2,7 +2,7 @@ open Core
 open Core.AstUtils
 open Easy_logging
 
-let logger = Logging.make_logger "_1_ vardac" Debug [];;
+let logger = Logging.make_logger "vardac" Debug [];;
 (************************************* Base types ****************************)
 open Label
 type variable = string

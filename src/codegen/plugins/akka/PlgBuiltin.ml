@@ -1,6 +1,6 @@
 open Easy_logging
 
-let logger = Logging.make_logger "_1_ vardac.Akka.Builtin" Debug [];;
+let logger = Logging.make_logger "vardac.Akka.Builtin" Debug [];;
 
 
 (* No need for type since type checking already done *)

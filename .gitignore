@@ -1,4 +1,5 @@
 _coverage
+logging_tree.json
 
 # Both are generated from dune.j2
 tests/dune

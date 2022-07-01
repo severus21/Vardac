@@ -8,7 +8,7 @@ module Make() = struct
     open Easy_logging
     open Common
 
-    let logger = Logging.make_logger "_1_ vardac" Debug [];;
+    let logger = Logging.make_logger "vardac" Debug [];;
 
     module Frontend = Frontend.Make()
 

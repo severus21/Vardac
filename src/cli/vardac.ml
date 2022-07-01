@@ -1,5 +1,4 @@
 (* -------------------------------------------------------------------------- *)
-
 (* Parse the command line. *)
 
 let filenames = ref []
@@ -80,35 +79,48 @@ let filenames =
 
 (* The main program. *)
 let () =
+    (* Setup logging 
+        * define a Cli handler for all logging event
+    *)
+    let _ = Easy_logging.Logging.make_logger "vardac" Debug [Cli Debug] in
+
     let module Vardaclib = Vardaclib.Make() in
-    match !action with
-    | "check" -> begin
-        try
-            List.iter (Vardaclib.process_check !build_dir !places_file) filenames
-        with
-        | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
-    end
-    | "compile" -> begin
-        try
-            List.iter (Vardaclib.process_compile !build_dir !places_file !targets_file !impl_filename) filenames
-        with
-        | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
-    end
-    | "stats" -> begin
-        try
-            List.iter (Vardaclib.process_stats !places_file !targets_file !impl_filename) filenames
-        with
-        | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
-    end
-    | "info" -> begin 
-        Printf.fprintf stdout "Version: %s\n" Core.Config.version;
 
-        if !display_build_info then 
-            Printf.fprintf stdout "Commit: %s Built on: %s\n" Build.git_revision Build.build_time;
+    begin
+        match !action with
+        | "check" -> begin
+            try
+                List.iter (Vardaclib.process_check !build_dir !places_file) filenames
+            with
+            | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
+        end
+        | "compile" -> begin
+            try
+                List.iter (Vardaclib.process_compile !build_dir !places_file !targets_file !impl_filename) filenames
+            with
+            | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
+        end
+        | "stats" -> begin
+            try
+                List.iter (Vardaclib.process_stats !places_file !targets_file !impl_filename) filenames
+            with
+            | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
+        end
+        | "info" -> begin 
+            Printf.fprintf stdout "Version: %s\n" Core.Config.version;
 
-        if !list_codegen_plg then Codegen.display_available_plugins ();
-        if !list_check_plg then Check.display_available_plugins ();
+            if !display_build_info then 
+                Printf.fprintf stdout "Commit: %s Built on: %s\n" Build.git_revision Build.build_time;
+
+            if !list_codegen_plg then Codegen.display_available_plugins ();
+            if !list_check_plg then Check.display_available_plugins ();
+            ()
+        end
+        | _ -> Printf.fprintf stderr "Unknown action [%s]" !action
+    end;
+
+    if Config.debug () then
+        Yojson.Safe.to_file "logging_tree.json" (Easy_logging.Logging.tree_to_yojson ());
+    else
         ()
-    end
-    | _ -> Printf.fprintf stderr "Unknown action [%s]" !action
 

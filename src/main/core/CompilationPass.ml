@@ -37,7 +37,7 @@ module Make(S:Arg)(T:Arg) = struct
             if Config.already_applied_pass name && global_at_most_once_apply then
                 raise (Error.DeadbranchError (Printf.sprintf "Pass [%s] has been applied twice, this pass requires global_at_most_once_apply" name))
             else begin
-                let logger = Logging.make_logger ("_1_ vardac") Debug [] in
+                let logger = Logging.make_logger ("vardac") Debug [] in
 
                 let program = 
                     program
@@ -74,7 +74,7 @@ module Make2(S:Arg)(T:Arg)(Acc:sig type acc end) = struct
         include Pass
 
         let apply program = 
-            let logger = Logging.make_logger ("_1_ vardac") Debug [] in
+            let logger = Logging.make_logger ("vardac") Debug [] in
 
             program
             |> precondition

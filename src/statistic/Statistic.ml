@@ -6,7 +6,7 @@ open Frontend.Ast
 open Core.AstUtils
 open Easy_logging
 
-let logger = Logging.make_logger "_1_ vardac" Debug [];;
+let logger = Logging.make_logger "vardac" Debug [];;
 
 type stats = {
     ssc: int ref (** Source statement count *)
