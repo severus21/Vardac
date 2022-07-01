@@ -5,9 +5,6 @@ open Utils
 open AstUtils
 open IRMisc
  
-
-
-
 let receive_selector = function 
     | (CallExpr ({value=(VarExpr x, _)}, [s])as e) when Atom.is_builtin x && Atom.hint x = "receive" -> true
     | _ -> false
