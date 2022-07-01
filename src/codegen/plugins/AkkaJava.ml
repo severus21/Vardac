@@ -15,6 +15,8 @@ let auto_fplace smth = {place = fplace; value=smth}
 module S_A2 = Ast.AstUtil2.Make(struct let fplace = fplace end)
 
 module Make (Arg: Plugin.CgArgSig) = struct
+    module Output = Lg.Output.Make()
+
     let headers = Arg.headers
     let dependencies = Arg.dependencies
 
@@ -1452,14 +1454,14 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 let jingoo_args = Hashtbl.create (List.length args) in
                 let aux_arg (decorators, ct,x)= 
                     let buffer = Buffer.create 64 in
-                    Lg.Output.output_arg (Format.formatter_of_buffer buffer)(decorators, ct, x);
+                    Output.output_arg (Format.formatter_of_buffer buffer)(decorators, ct, x);
                     Hashtbl.add jingoo_args (Atom.hint x) (Jg_types.Tstr (Buffer.contents buffer)) 
                 in
                 List.iter aux_arg (List.map finish_arg args);
 
                 let jingoo_ret_type = 
                     let buffer = Buffer.create 64 in
-                    Lg.Output.ojtype (Format.formatter_of_buffer buffer) (fctype ret_type);
+                    Output.ojtype (Format.formatter_of_buffer buffer) (fctype ret_type);
                     Buffer.contents buffer 
                 in
                 let models = [
@@ -1921,7 +1923,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
     end
 
     (*****************************************************)
-    module RtPrepare = Core.IRICompilationPass.Make(Rt.Prepare)
+    module RtPrepare = Core.IRICompilationPass.Make(Rt.Prepare.Make())
 
 
     type plgstate = Rt.Finish.collected_state
@@ -1992,7 +1994,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
         (* Add general headers *)
         |> List.map (function (package_name, file, program) -> 
             (package_name, file, headers :: program))
-        |> List.iter (function (package_name, file, program) -> Lg.Output.output_program package_name (Fpath.append build_dir file) program)
+        |> List.iter (function (package_name, file, program) -> Output.output_program package_name (Fpath.append build_dir file) program)
 
     let auto_jingoo_env (cstate:Rt.Finish.collected_state) (istate:Plg.Interface_plugin.istate) places = 
         let target:Core.Target.target = 

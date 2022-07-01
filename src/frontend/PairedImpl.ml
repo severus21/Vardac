@@ -6,7 +6,6 @@ open Easy_logging
 open AstUtils
 open IR.IRUtils
  
-let logger = Core.Utils.make_log_of "PairedImpl" 
 
 (* The source calculus. *)
 module S1 = Impl
@@ -69,6 +68,9 @@ module type ArgSig = sig
 end
 
 module Make (Arg: ArgSig) = struct
+    let logger = Core.Utils.make_log_of "PairedImpl" 
+
+
     let sealed_envs = Arg.sealed_envs
     let eliminline_env = Arg.eliminline_env
 

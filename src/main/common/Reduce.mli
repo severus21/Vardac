@@ -4,5 +4,7 @@
 *)
 open Core
 
-val reduce_program: IR.program -> IR.program
-include IRCompilationPass.Pass
+module Make : functor () -> sig 
+    val reduce_program: IR.program -> IR.program
+    include IRCompilationPass.Pass
+end

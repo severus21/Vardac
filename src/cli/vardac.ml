@@ -1,12 +1,4 @@
 (* -------------------------------------------------------------------------- *)
-open Core
-open Utils
-open Codegen
-open Easy_logging
-open Vardaclib
-
-let logger = Logging.make_logger "_1_ vardac" Debug [Cli Debug];;
-
 
 (* Parse the command line. *)
 
@@ -22,22 +14,22 @@ let action = ref ""
 
 let options = ref []
 
-let build_dir = ref Config.default_build_dir
+let build_dir = ref Core.Config.default_build_dir
 
 let set_provenance x = 
-    match Config.provenance_lvl_of_enum x with
+    match Core.Config.provenance_lvl_of_enum x with
     | None -> raise (Arg.Bad "Incorrect provenance")
-    | Some lvl -> Config._provenance_lvl:=lvl
+    | Some lvl -> Core.Config._provenance_lvl:=lvl
 
 let common_options = 
 [
-    "--debug", Arg.Set Config._debug, " Enable debugging output";
-    "--debug-selector", Arg.Set_string Config._debug_selector, "Print debug for selected pass e.g. pass name1:pass name2";
+    "--debug", Arg.Set Core.Config._debug, " Enable debugging output";
+    "--debug-selector", Arg.Set_string Core.Config._debug_selector, "Print debug for selected pass e.g. pass name1:pass name2";
     "--places", Arg.Set_string places_file, "Load a YAML file describing the places"; 
     "--targets", Arg.Set_string targets_file, "Load a YAML file describing the targets";
     "--filename", Arg.String (function x-> filenames := x::!filenames), "Spec file to compile";
     "--provenance", Arg.Int set_provenance, "Select how provenance information should be propagated; 0: None; 1: Medium; 2:Full";
-    "-o", Arg.String (function dir -> build_dir := Fpath.v dir), Printf.sprintf "Specify the build directory, by default %s" (Fpath.to_string Config.default_build_dir)
+    "-o", Arg.String (function dir -> build_dir := Fpath.v dir), Printf.sprintf "Specify the build directory, by default %s" (Fpath.to_string Core.Config.default_build_dir)
 ]
 
 let options_compile = 
@@ -88,27 +80,28 @@ let filenames =
 
 (* The main program. *)
 let () =
+    let module Vardaclib = Vardaclib.Make() in
     match !action with
     | "check" -> begin
         try
-            List.iter (process_check !build_dir !places_file) filenames
+            List.iter (Vardaclib.process_check !build_dir !places_file) filenames
         with
         | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
     end
     | "compile" -> begin
         try
-            List.iter (process_compile !build_dir !places_file !targets_file !impl_filename) filenames
+            List.iter (Vardaclib.process_compile !build_dir !places_file !targets_file !impl_filename) filenames
         with
         | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
     end
     | "stats" -> begin
         try
-            List.iter (process_stats !places_file !targets_file !impl_filename) filenames
+            List.iter (Vardaclib.process_stats !places_file !targets_file !impl_filename) filenames
         with
         | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
     end
     | "info" -> begin 
-        Printf.fprintf stdout "Version: %s\n" Config.version;
+        Printf.fprintf stdout "Version: %s\n" Core.Config.version;
 
         if !display_build_info then 
             Printf.fprintf stdout "Commit: %s Built on: %s\n" Build.git_revision Build.build_time;

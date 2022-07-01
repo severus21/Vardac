@@ -15,7 +15,9 @@ module type Rt_plg = sig
 
     module Ast : S_Ast
     
-    module Prepare: IRICompilationPass.Pass
+    module Prepare: sig
+        module Make : functor () -> IRICompilationPass.Pass
+    end
 
     module Interfaces: Interface_plugin.Make(Ast).InterfaceFactory.SigInterfaces
 
@@ -37,7 +39,9 @@ module type Lg_plg = sig
     module Ast : S_Ast
 
     module Output: sig
-        val output_program : string -> Fpath.t -> Ast.program -> unit 
+        module Make : functor () -> sig
+            val output_program : string -> Fpath.t -> Ast.program -> unit 
+        end
     end
 end
 

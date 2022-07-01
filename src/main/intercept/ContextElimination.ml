@@ -7,12 +7,12 @@ open IRMisc
 open IRUtils
  
 
-let logger = Core.Utils.make_log_of "ContextElimination" 
-
-let fplace = (Error.forge_place "Intercept.ContextElimination" 0 0) 
-let auto_fplace smth = {place = fplace; value=smth}
 
 module Make () = struct
+    let logger = Core.Utils.make_log_of "ContextElimination" 
+
+    let fplace = (Error.forge_place "Intercept.ContextElimination" 0 0) 
+    let auto_fplace smth = {place = fplace; value=smth}
     include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
     (******************* Shared state of the pass **************************)

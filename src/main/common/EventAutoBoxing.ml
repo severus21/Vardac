@@ -5,8 +5,6 @@ open Utils
 open AstUtils
 open IRMisc
 
-
-let logger = make_log_of "EventAutoBoxing"
 let fplace = (Error.forge_place "EventAutoBoxing" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
@@ -58,6 +56,8 @@ module MTHashtbl = Hashtbl.Make(
             
 
 module Make () = struct 
+    let logger = make_log_of "EventAutoBoxing"
+
     let hashtbl_mt2event = MTHashtbl.create 16 
     let events = Hashtbl.create 16
 

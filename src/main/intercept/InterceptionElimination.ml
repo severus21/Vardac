@@ -7,13 +7,6 @@ open InterceptUtils
 open Common
  
 
-let logger = Core.Utils.make_log_of "InterceptionElimination" 
-
-let fplace = (Error.forge_place "Intercept" 0 0) 
-let auto_fplace smth = {place = fplace; value=smth}
-
-
-include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
 module type TArgs = sig
     (* name -> interceptor_info *)
@@ -21,6 +14,11 @@ module type TArgs = sig
 end
 
 module Make (Args: TArgs) = struct
+    let logger = Core.Utils.make_log_of "InterceptionElimination" 
+
+    let fplace = (Error.forge_place "Intercept" 0 0) 
+    let auto_fplace smth = {place = fplace; value=smth}
+    include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
     (******************* Shared state of the pass **************************)
     include Args

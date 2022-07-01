@@ -11,12 +11,13 @@ module S = IR
 module T = IR
 open IR
 
-let logger = Core.Utils.make_log_of "TypeInference"
-
-let fplace = (Error.forge_place "TypeInference" 0 0)
-include AstUtils2.Mtype.Make(struct let fplace = fplace end)
-
 module Make () = struct
+    let logger = Core.Utils.make_log_of "TypeInference"
+
+    let fplace = (Error.forge_place "TypeInference" 0 0)
+    include AstUtils2.Mtype.Make(struct let fplace = fplace end)
+
+
     (* Typing context for expressions *)
     let ectx : (Atom.atom, main_type) Hashtbl.t = Hashtbl.create 256
     (* Contexts of types*)
@@ -251,7 +252,7 @@ module Make () = struct
     and scan_component_item parent_opt = map0_place (transparent0_plgannot(_scan_component_item parent_opt))
     and _scan_component parent_opt place = function
     | ComponentStructure cdcl -> begin
-        logger#warning "collect %s" (Atom.to_string cdcl.name);
+        logger#debug "collect %s" (Atom.to_string cdcl.name);
         let cstruct = List.map (scan_component_item (Some cdcl.name)) cdcl.body in 
         let cstruct = Atom.VMap.of_seq (List.to_seq (List.flatten cstruct)) in
 
@@ -273,7 +274,7 @@ module Make () = struct
         [s.value.name, typeof_state s]
     and scan_class_item parent_opt = map0_place (transparent0_plgannot(_scan_class_item parent_opt))
     and scan_class parent_opt (cl:class_structure) =
-        logger#warning "collect %s" (Atom.to_string cl.name);
+        logger#debug "collect %s" (Atom.to_string cl.name);
         let clstruct = List.map (scan_class_item (Some cl.name)) cl.body in 
         let clstruct = Atom.VMap.of_seq (List.to_seq (List.flatten clstruct)) in
 

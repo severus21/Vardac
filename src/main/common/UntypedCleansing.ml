@@ -8,12 +8,14 @@ open IRMisc
 open IR
  
 
-let logger = make_log_of "UntypedCleansing" 
-let fplace = (Error.forge_place "UntypedCleansing" 0 0) 
-let auto_fplace smth = {place = fplace; value=smth}
-include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
 module Make () = struct
+    let logger = make_log_of "UntypedCleansing" 
+    let fplace = (Error.forge_place "UntypedCleansing" 0 0) 
+    let auto_fplace smth = {place = fplace; value=smth}
+    include AstUtils2.Mtype.Make(struct let fplace = fplace end)
+
+
     let typedefs = Hashtbl.create 16
 
     let hydrate_typedefs program = 

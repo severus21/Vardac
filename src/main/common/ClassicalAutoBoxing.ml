@@ -17,12 +17,14 @@ open IRMisc
 *)
  
 
-let logger = Core.Utils.make_log_of "ClassicalAutoBoxing"
-let fplace = (Error.forge_place "EventAutoBoxing" 0 0) 
-let auto_fplace smth = {place = fplace; value=smth}
-include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
 module Make () = struct 
+    let logger = Core.Utils.make_log_of "ClassicalAutoBoxing"
+    let fplace = (Error.forge_place "EventAutoBoxing" 0 0) 
+    let auto_fplace smth = {place = fplace; value=smth}
+    include AstUtils2.Mtype.Make(struct let fplace = fplace end)
+
+
     let autobox_program program : IR.program = 
         let citem_selector = function
         | State {value={

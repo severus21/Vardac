@@ -3,7 +3,6 @@ open Core
 open Core.AstUtils
 open Easy_logging
 
-let logger = Core.Utils.make_log_of "Java.HumanReadable"
 let fplace = (Error.forge_place "Plg=Java.HumanReadable" 0 0)
 
 (* Atom.value -> already binded in the scope *)
@@ -33,6 +32,10 @@ module Make(Arg: sig
     val filename:string 
     val component_names: Atom.Set.t
 end) = struct
+    let logger = Core.Utils.make_log_of "Java.HumanReadable"
+
+    (*****************************************************)
+
     let cl_filename = (Filename.basename Arg.filename)
 
 
@@ -100,7 +103,7 @@ end) = struct
                         (* debug - can not be used in prod since GRPC code is defined outisde the reach of Java plugin 
                         raise (Error.PlacedDeadbranchError (fplace, Printf.sprintf "[%s] [%s] not found in renaming" cl_filename (Atom.to_string x))) *)
                     | Some y -> 
-                        logger#error "set %s -> %s" (Atom.to_string x) (Atom.to_string y);
+                        logger#debug "set %s -> %s" (Atom.to_string x) (Atom.to_string y);
                         ctx, y 
     let hr_atom_binder ctx x = 
         if Atom.is_builtin x then ctx, x
@@ -115,7 +118,7 @@ end) = struct
                 match StrSet.find_opt (Atom.hint x) ctx.local with
                 | None -> 
                     let y = Atom.builtin (Atom.hint x) in 
-                    logger#error "[%s] let %s %s" cl_filename (Atom.to_string x) (Atom.to_string y);
+                    logger#debug "[%s] let %s %s" cl_filename (Atom.to_string x) (Atom.to_string y);
                     Hashtbl.add renaming (Atom.identity x) y;
                     let ctx = {
                         local = StrSet.add (Atom.hint x) ctx.local;

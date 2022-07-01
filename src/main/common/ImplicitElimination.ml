@@ -4,7 +4,6 @@ open Easy_logging
 open Utils
 open AstUtils
 
-let logger = make_log_of "ImplicitElimination"
 module type Params = sig
     val gamma : (IR.expr_variable, IR.main_type) Hashtbl.t
     val targets : Target.targets 
@@ -15,6 +14,8 @@ module type Sig = sig
 end
 
 module Make (Args : Params ) : Sig = struct
+    let logger = make_log_of "ImplicitElimination"
+
     (*
         - make explict the implicit constructor arguments and stored then as component attributes
             after rewrite all ImplicitVarExpr should have been rewritten to classical VarExpr and this...

@@ -12,5 +12,7 @@
 
 open Core
 
-val peval_program: IR.program -> IR.program
-include IRCompilationPass.Pass
+module Make : functor () -> sig
+    val peval_program: IR.program -> IR.program
+    include IRCompilationPass.Pass
+end

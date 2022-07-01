@@ -6,7 +6,6 @@ open AstUtils
 open IRMisc
  
 
-let logger = make_log_of "BanchElimination"
 let fplace = (Error.forge_place "BranchElimination" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
@@ -26,6 +25,9 @@ module type Sig = sig
 end
 
 module Make () : Sig = struct
+    let logger = make_log_of "BanchElimination"
+    (***************************************************)
+
     let elim_branch mt_st e_local_label e_local_s {branch_label; branch_s; body} = 
         let st_branch = st_branch_of mt_st branch_label in
 

@@ -8,10 +8,6 @@ open IRMisc
 open Common
  
 
-let logger = Core.Utils.make_log_of "Derive" 
-
-let fplace = (Error.forge_place "Plg=AkkaJava/derive_rpc" 0 0) 
-let auto_fplace smth = {place = fplace; value=smth}
 
 
 (* load mtype_of_... *)
@@ -40,6 +36,11 @@ module type Sig = sig
 end
 
 module Make(Args:Args) : Sig = struct
+    let logger = Core.Utils.make_log_of "Derive" 
+
+    let fplace = (Error.forge_place "Plg=AkkaJava/derive_rpc" 0 0) 
+    let auto_fplace smth = {place = fplace; value=smth}
+
     include Args 
 
     (* cname -> rpc outputport name *)

@@ -6,7 +6,6 @@ open Easy_logging
 open Fieldslib
 open AstUtils
 
-let logger = make_log_of "Cook"
 
 let fplace = (Error.forge_place "Frontend.Cook" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
@@ -194,6 +193,8 @@ module type ArgSig = sig
 end
 
 module Make(Arg:ArgSig) = struct
+    let logger = make_log_of "Cook"
+
     let gamma = Arg.gamma
     let gamma_types = Arg.gamma_types
 
@@ -837,7 +838,6 @@ module Make(Arg:ArgSig) = struct
         let env1, s = cexpr env s in 
         let env2, label = cexpr env label in
         let envs, branches = List.split (List.map (function {S.branch_label; branch_s; body} -> 
-        print_env env;
             let branch_label = cook_var_expr env place branch_label in
             let branch_label = {place; value = T.BLabelLit branch_label} in
             let env_inner, branch_s = bind_expr env place branch_s in

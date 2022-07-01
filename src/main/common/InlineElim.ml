@@ -7,14 +7,8 @@ open IR
  
 open Easy_logging
 
-let logger = Core.Utils.make_log_of "InlineElim"
-
-let fplace = (Error.forge_place "InlineElim" 0 0) 
-let auto_fplace smth = {place = fplace; value=smth}
-include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
 let register_cl2c_entry clitems2citems (cl_name, c_name) (item_name, oitem_name) = 
-    logger#debug "register_cl2c_entry (%s, %s) -> (%s, %s)" (Atom.to_string cl_name) (Atom.to_string item_name) (Atom.to_string c_name) (Atom.to_string oitem_name);
     match Hashtbl.find_opt clitems2citems cl_name with
     | None ->
         let entries = Hashtbl.create 16 in
@@ -32,6 +26,12 @@ let cl2c_get_origins clitems2citems cl_name =
         failwith (Printf.sprintf "cl_name [%s] not in clitems2citems {%s}" (Atom.to_string cl_name) (Atom.show_list ";" (List.of_seq (Hashtbl.to_seq_keys clitems2citems))))
 
 module Make () = struct
+    let logger = Core.Utils.make_log_of "InlineElim"
+
+    let fplace = (Error.forge_place "InlineElim" 0 0) 
+    let auto_fplace smth = {place = fplace; value=smth}
+    include AstUtils2.Mtype.Make(struct let fplace = fplace end)
+
     (* External state 
         clitems2citems[cl.name]:
             item_name -> (origin_component_name, origin_item_name)

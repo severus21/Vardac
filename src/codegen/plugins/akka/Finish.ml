@@ -8,7 +8,6 @@ open Misc
 (* Function composition, TODO put it in some Core file*)
 let plg_name = "Akka.Finish"
 let plg_version = "0.0.1"
-let logger = make_log_of plg_name
 
 let fplace = (Error.forge_place ("plg."^plg_name^".Finish") 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
@@ -51,6 +50,9 @@ let empty_cstate () : collected_state = {
 }
 
 module Make (Arg: sig val target:Target.target end) = struct
+    let logger = make_log_of plg_name
+
+    module GuardTransform = GuardTransform.Make()
 
     (* Use to remove type alias introduced by *.impl. Varda type aliasing have been compiled away during UntypedCleansing pass *)
     let typealias = Hashtbl.create 32

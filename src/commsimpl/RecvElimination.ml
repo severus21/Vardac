@@ -6,12 +6,7 @@ open AstUtils
 open IRMisc
  
 
-let logger = make_log_of "RecvElimination"
-let fplace = (Error.forge_place "RecvElimination" 0 0) 
-let auto_fplace smth = {place = fplace; value=smth}
-include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
-let pass_name = "Commsimpl.RecvElimination"
 
 let receive_selector = function 
     | (CallExpr ({value=(VarExpr x, _)}, [s])as e) when Atom.is_builtin x && Atom.hint x = "receive" -> true
@@ -41,6 +36,12 @@ module type Sig = sig
 end
 
 module Make () : Sig = struct
+    let logger = make_log_of "RecvElimination"
+    let pass_name = "Commsimpl.RecvElimination"
+    let fplace = (Error.forge_place "RecvElimination" 0 0) 
+    let auto_fplace smth = {place = fplace; value=smth}
+    include AstUtils2.Mtype.Make(struct let fplace = fplace end)
+    (***************************************************)
     (*
         Architecture remains unchanged - rewriting architecture is done in an other module (to be written)
         - get ride of session.receive only use ports
@@ -817,8 +818,6 @@ module Make () : Sig = struct
         program
     let postcondition program = 
         (* Check: no more receive *)
-        let _,tmp,_ = collect_expr_program Atom.Set.empty receive_selector (fun _  _  _-> [1]) program in
-        logger#error "sss %d" (List.length tmp);
         ignore (collect_expr_program Atom.Set.empty receive_selector (receive_collector "receive() remains in IR after Rewriting") program);
         
         program
