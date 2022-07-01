@@ -119,8 +119,8 @@ let () =
         | _ -> Printf.fprintf stderr "Unknown action [%s]" !action
     end;
 
-    if Config.debug () then
-        Yojson.Safe.to_file "logging_tree.json" (Easy_logging.Logging.tree_to_yojson ());
+    if Core.Config.debug () then
+        Yojson.Safe.to_file "logging_tree.json" (Easy_logging.Logging.tree_to_yojson ())
     else
         ()
 

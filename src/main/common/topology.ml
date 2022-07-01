@@ -66,7 +66,8 @@ end
 
 module Make (Args:Params) : Sig = struct
     include Args
-    let port2component : (Atom.atom, Atom.atom) Hashtbl.t = Hashtbl.create 128
+    let port2component : (Atom.atom, string) Hashtbl.t = Hashtbl.create 128
+    let clinline2component : (Atom.atom, string) Hashtbl.t = Hashtbl.create 128
 
     module G = Imperative.Digraph.ConcreteBidirectionalLabeled(Node)(Edge)
     module GPrinter = struct
@@ -85,15 +86,17 @@ module Make (Args:Params) : Sig = struct
             tODO Maybe one  subgraph per isolation context
         *)
         let get_subgraph v :  Graphviz.DotAttributes.subgraph option = 
-            let target = 
-                try
-                begin
-                    match Hashtbl.find_opt component2target v with
-                    | None -> Atom.hint (Hashtbl.find port2component v)
-                    | Some t -> t
-                end
-                with Not_found -> 
-                    raise (Error.DeadbranchError (Printf.sprintf "component/port [%s] not found in component2target/port2component" (Atom.to_string v)))
+            let sources = [component2target;clinline2component; port2component] in
+            let target = Lazy.force (List.fold_left 
+                (fun continuation source -> 
+                    (Option.fold 
+                        ~none: continuation 
+                        ~some: (fun x -> (Lazy.from_val x)) 
+                        (Hashtbl.find_opt source v))
+                ) 
+                (lazy(raise (Error.DeadbranchError (Printf.sprintf "component/clinline/port [%s] not found in component2target/port2component/clinline2component" (Atom.to_string v)))))
+                sources 
+                )
             in
 
             Some {
@@ -155,11 +158,23 @@ module Make (Args:Params) : Sig = struct
         (* Create possible edges from tbridge *)
         List.iter generate_possible_edges_from_tbridge tbridges;
 
-
+        (* Add subclass when represents inline component *)
+        let cls = List.map (function (cstruct:component_structure) -> 
+            List.filter_map (map0_place (transparent0_plgannot(fun _ -> function 
+                | Term {value={v=Class cl}} -> 
+                    let re_is_inlined = Str.regexp {|Inline_[A-Z][a-zA-Z0-9_]*[0-9]+_in_[A-Z][a-zA-Z0-9_]*[0-9]+_$|} in
+                    if Str.string_match re_is_inlined (Atom.hint cl.name) 0 then (
+                        G.add_vertex g (G.V.create cl.name);
+                        Hashtbl.add clinline2component cl.name (Atom.hint cstruct.name);
+                        Some cl 
+                    )else None
+                | _ -> None))) cstruct.body
+        ) components in
+        
         (* Add ports *)
         let inports = List.map (function (cstruct:component_structure) -> 
             List.filter_map (map0_place (transparent0_plgannot(fun _ -> function | Inport p -> 
-                Hashtbl.add port2component (fst p.value).name cstruct.name;
+                Hashtbl.add port2component (fst p.value).name (Atom.hint cstruct.name);
                 Some (fst p.value) | _ -> None))) cstruct.body
         ) components in
         List.iter (function ps -> 
@@ -170,7 +185,7 @@ module Make (Args:Params) : Sig = struct
 
         let outports = List.map (function (cstruct:component_structure) -> 
             List.filter_map (map0_place (transparent0_plgannot(fun _ -> function | Outport p -> 
-                Hashtbl.add port2component (fst p.value).name cstruct.name;
+                Hashtbl.add port2component (fst p.value).name (Atom.hint cstruct.name);
                 Some (fst p.value) | _ -> None))) cstruct.body
         ) components in
         List.iter (function ps -> 
@@ -181,7 +196,7 @@ module Make (Args:Params) : Sig = struct
 
         let eports = List.map (function (cstruct:component_structure) -> 
             List.filter_map (map0_place (transparent0_plgannot(fun _ -> function | Eport p -> 
-                Hashtbl.add port2component (fst p.value).name cstruct.name;
+                Hashtbl.add port2component (fst p.value).name (Atom.hint cstruct.name);
                 Some (fst p.value) | _ -> None))) cstruct.body
         ) components in
         List.iter (function ps -> 
