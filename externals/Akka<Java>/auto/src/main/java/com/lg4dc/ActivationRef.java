@@ -51,6 +51,9 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
 
     public String activationId(){
         // TODO discuss with Benoit
+        if(this.interceptedActivationRef_opt.isPresent())
+            assert(false); //TODO how to for mocked version ?? static_id?
+
         return this.actorRef.path().toSerializationFormat();
     }
 
