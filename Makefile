@@ -83,6 +83,10 @@ endif
 run: generatedune bin 
 	@dune exec --profile release -- vardac $(RUN_ARGS)
 
+debugbox: generatedune bin
+	@dune exec --profile release -- vardad
+
+
 #### Cleaning targets ########################################################
 
 .PHONY: clean

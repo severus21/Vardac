@@ -1,0 +1,7 @@
+(executable
+    (name debugbox)
+    (public_name vardad)
+    (modes byte native)
+    (modules :standard)
+    (libraries ounit2 yaml "yaml.unix" "rresult" "fileutils" vardaclib core)
+)
