@@ -176,7 +176,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 let a_nargs = Atom.fresh "nargs" in
                 let a_tmpargs = Atom.fresh "tmpargs" in
                
-                let margs_lets, margs_params = 
+                let margs_lets, margs_params, get_config_args = 
                     match _main.value.v.ret_type.value with 
                     | S.Atomic "Void" | S.Atomic "void" -> 
                         [
@@ -188,7 +188,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                     ]
                                 ))
                             ))
-                        ], [] 
+                        ], [], [S_A2.e2var (Atom.builtin "args")] 
                     | S.TTuple [mt_args; mt_margs] -> begin
                         [
                             auto_place (S.LetStmt(
@@ -216,15 +216,19 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                 ), auto_place S.TUnknown))
                             ))
                         ], 
-                        match mt_margs.value with
-                        | S.TTuple mts ->
-                            List.mapi (fun i mt -> 
-                                auto_place (S.AccessExpr(
-                                    S_A2.e2var a_margs,
-                                    S_A2.e2_e (S.RawExpr ("_"^string_of_int (i+1)))
-                                ), mt)
-                            ) mts
-                        | _ -> [ S_A2.e2var a_margs ]
+                        (
+                            match mt_margs.value with
+                            | S.TTuple mts ->
+                                List.mapi (fun i mt -> 
+                                    auto_place (S.AccessExpr(
+                                        S_A2.e2var a_margs,
+                                        S_A2.e2_e (S.RawExpr ("_"^string_of_int (i+1)))
+                                    ), mt)
+                                ) mts
+                            | _ -> [ S_A2.e2var a_margs ]
+                        ),[
+                            S_A2.e2var a_nargs
+                        ]
                     end
                     | _ -> Error.perror _main.place "main should have type tuple<string[], ...> not" 
                 in
@@ -257,9 +261,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                     auto_place (S.VarExpr (Atom.builtin "AbstractMain"), auto_place S.TUnknown),
                                     auto_place (S.VarExpr (Atom.builtin "get_config"), auto_place S.TUnknown)
                                 ), auto_place S.TUnknown),
-                                [
-                                    S_A2.e2var a_nargs
-                                ]
+                                get_config_args
                             ), auto_place S.TUnknown)
                         ]
                     ), auto_place S.TUnknown))

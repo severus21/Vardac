@@ -49,6 +49,8 @@ module Make () = struct
 
     let tdefs = Hashtbl.create 256 
 
+    let parent2spawn_static_bridges = Hashtbl.create 256
+
     let rec extract_ainline = function
         | [] -> []
         | InlinableIn schemas::xs -> schemas@(extract_ainline xs)
@@ -796,6 +798,9 @@ module Make () = struct
                     
                 ) cstruct_in !spawn_static_bridges in 
 
+                (* Used to rewrite new A15() -> new A15(bridges) *)
+                Hashtbl.add parent2spawn_static_bridges schema_in !spawn_static_bridges;
+
                 [ Component {
                     place = place @ fplace; 
                     value=ComponentStructure { cstruct_in with
@@ -908,6 +913,22 @@ module Make () = struct
             [{cstruct with body = cstruct.body @ outports }]
         in
 
+        let select_host_spawn = function
+            | Spawn {c = {value=VarCExpr name, _ }} ->
+               Hashtbl.find_opt parent2spawn_static_bridges name <> None
+            | Spawn _ -> 
+                failwith "spawn with complex component_expr is not yet support by InlineElim" 
+            | _ -> false
+        in
+
+        let rewrite_host_spawn _ = function
+            | Spawn ({c = {value=VarCExpr name, _ }} as spawn)-> 
+                logger#debug "rewrite_host_spawn of [%s]" (Atom.to_string name);
+                let static_bridges = Hashtbl.find parent2spawn_static_bridges name in
+                Spawn { spawn with
+                    args  = List.map (function (_, b_name, b_mt) -> e2var b_name) static_bridges @ spawn.args}
+        in
+
         (*** Eliminate inline in***)
         let rewriter parent_opt mt = function
             | Spawn {c; args; inline_in = Some ({place; value=e, {value=CType{value=TActivationRef{value=CompType {value=CompTUid schema_in}}}}} as inline_in)} -> begin 
@@ -952,7 +973,11 @@ module Make () = struct
                     ));
                     (* Send spawn_request to a *)
                     auto_fplace (LetStmt(
-                        mtype_of_st (List.nth (IRMisc.stages_of_st (spawn_protocol_st schema)) 1),
+                        mtype_of_ct(
+                            TResult (
+                                mtype_of_st (List.nth (IRMisc.stages_of_st (spawn_protocol_st schema)) 1),
+                                mtype_of_var (Atom.builtin "error")
+                            )),
                         a_session_1,
                         e2_e(CallExpr(
                             e2var (Atom.builtin "fire"),
@@ -965,20 +990,30 @@ module Make () = struct
                             ]
                         ))
                     ));
-                    (* let res  = (receive(s2)?)._0;*)
-                    auto_fplace(LetStmt(
-                        mtype_of_var (spawn_response schema),
-                        a_res,
-                        e2_e(AccessExpr(
-                            e2_e(CallExpr(
-                                e2var (Atom.builtin "receive"),
-                                [
-                                    e2var a_session_1;
-                                ]
-                            )),
-                            e2var (Atom.builtin "_0")
-                        ))
-                    ))
+                    auto_fplace(IfStmt(
+                        e2_e (CallExpr(
+                            e2var (Atom.builtin "is_ok"),
+                            [ e2var a_session_1 ]
+                        )),
+                        (* let res  = (receive(s2)?)._0;*)
+                        auto_fplace(LetStmt(
+                            mtype_of_var (spawn_response schema),
+                            a_res,
+                            e2_e(AccessExpr(
+                                e2_e(CallExpr(
+                                    e2var (Atom.builtin "receive"),
+                                    [
+                                        e2_e(CallExpr(
+                                            e2var (Atom.builtin "get_ok"),
+                                            [e2var a_session_1]
+                                        ));
+                                    ]
+                                )),
+                                e2var (Atom.builtin "_0")
+                            ))
+                        )),
+                        None
+                    ));
                 ],
                 (* Wait for response and get activation_id *)
                 (* (receive(s2)?)._0._0_ *)
@@ -993,6 +1028,7 @@ module Make () = struct
         program
         |> rewrite_component_program parent_selector parent_rewriter 
         |> rewrite_exprstmts_program (function _ -> false) select_spawn_with_inline_in rewriter
+        |> rewrite_expr_program select_host_spawn rewrite_host_spawn 
 
     let rewrite_program program =  
         program
