@@ -1,6 +1,7 @@
 #!/bin/bash
 
 sudo apt update 
+./requirements.sh
 
 # Setup Ocaml tool chain
 sudo add-apt-repository -yes ppa:avsm/ppa
@@ -8,15 +9,15 @@ sudo apt update
 sudo apt install opam --yes pkg-config
 
 
-su vagrant && opam init --auto-setup -vv --compiler=4.12.0
-su vagrant && opam config env
 #echo "eval `opam config env`" >> ~/.bashrc
-su vagrant && echo "test -r /home/$(whoami)/.opam/opam-init/init.sh && . /home/i$(whoami)/.opam/opam-init/init.sh > /dev/null 2> /dev/null || true" >> ~/.profile
-su vagrant && echo "source /home/$(whoami)/.profile" >> ~/.bashrc
+su vagrant && cd /vagrant && \
+    opam init --auto-setup -vv --compiler=4.12.0 && \
+    opam config env && \
+    echo "test -r /home/$(whoami)/.opam/opam-init/init.sh && . /home/$(whoami)/.opam/opam-init/init.sh > /dev/null 2> /dev/null || true" >> /home/$(whoami)/.profile \
+    echo "source /home/$(whoami)/.profile" >> /home/$(whoami)/.bashrc
 
 # Install packages requirements for vardac
-su vagrant && cd /vagrant
-su vagrant && ./requirements.sh
+su vagrant && cd /vagrant && opam install --yes . --deps-only
 
 # Complete
 echo ""

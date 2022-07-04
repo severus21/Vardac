@@ -186,11 +186,11 @@ make && dune exec --profile release -- tests/main.exe -only-test 0:Parser
 
 1. Setup
     ```bash
+    sudo apt install afl++
     opam switch create 4.12.0+afl --package=ocaml-variants.4.12.0+options,ocaml-option-afl
     opam switch 4.12.0+afl
     eval $(opam env)
-    bash requirements.sh
-    apt install afl++
+    opam install --yes . --deps-only
     opam install crowbar bun
     ```
 2. Run tests
@@ -294,3 +294,20 @@ check_interval = 0
     volumes = ["/cache"]
     shm_size = 0
 ```
+
+Debugging locally
+
+1. Install gitlab-runner (could be done in vagrant)
+```bash
+curl -LJO "https://gitlab-runner-downloads.s3.amazonaws.com/latest/deb/gitlab-runner_amd64.deb"
+dpkg -i gitlab-runner_amd64.deb
+```
+1. Run locally the ci $build$ job
+```bash
+    cd git repo
+    gitlab-Runner exec shell/docker build
+```
+
+Tips to debug add sleep to have the time to debug the container using a docker exec -it CONTAINER bash
+
+
