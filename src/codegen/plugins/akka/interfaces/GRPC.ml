@@ -425,7 +425,7 @@ end) = struct
             (function 
                 | S.Component {value = ComponentStructure {name} } when name = service.component_name -> true 
                 |_ -> false) 
-            (fun _ -> function
+            (fun _ _ -> function
                 | S.Component {place; value = ComponentStructure cstruct } when cstruct.name = service.component_name -> 
                     let inports = List.map (function ((m, (e1, proto_msg1), (e2, proto_msg2)):S.method0 * (T._event Core.IR.placed * msg) * (T._event Core.IR.placed * msg)) ->
                         (**

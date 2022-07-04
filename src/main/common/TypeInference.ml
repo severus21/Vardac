@@ -615,6 +615,14 @@ module Make () = struct
                 let es = List.map (tannot_expr parent_opt) es in
                 let rec ret_typeof depth mt = match mt.value with (*TODO check types here ??*)
                 (* TODO dedup with call expr*)
+                    | CType{value=TArrow ({value=CType{value=TFlatType TVoid}}, mt2)} when List.length es = 0 -> 
+                        raise (Error.PlacedDeadbranchError (place, "type void should be type unit"))
+                    | CType{value=TArrow ({value=CType{value=TFlatType TUnit}}, mt2)} when List.length es = 0 -> 
+                        (* 
+                            f: unit -> ret_type
+                            [|f()|] Call(f, [])
+                        *)
+                        mt2
                     | _ when depth = 0 -> mt
                     | CType{value=TArrow (_, mt2)} -> ret_typeof (depth-1) mt2 
                     | CType{value=TForall(_, mt)} -> ret_typeof depth mt

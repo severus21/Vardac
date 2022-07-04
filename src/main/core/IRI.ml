@@ -278,3 +278,4 @@ end
 (*include IR_common*)
 module IRI = IR_template.Make(Params) 
 include IRI
+include IRI.IRUtils

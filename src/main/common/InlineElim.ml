@@ -190,7 +190,7 @@ module Make () = struct
         cl_callback_in
 
     let eliminate_static_inlinable program = 
-        let rewriter_inlinable place = function
+        let rewriter_inlinable parent_opt place = function
             | Component {place; value=ComponentStructure cstruct} as c -> 
                 logger#info "static inline %s in " (Atom.to_string cstruct.name);
                 let schemas = extract_ainline cstruct.annotations in
@@ -220,7 +220,7 @@ module Make () = struct
                     }} ]
         in
 
-        let rewriter_inline_in place = function
+        let rewriter_inline_in parent_opt place = function
             | Component {place; value=ComponentStructure cstruct_in} -> 
                 let schema_in = cstruct_in.name in
                 let schemas = List.of_seq (Atom.Set.to_seq (Hashtbl.find inv_is_inlineable_in schema_in)) in
@@ -304,13 +304,20 @@ module Make () = struct
 
                     let cl_get_activation_ref = Atom.fresh "get_activation_ref" in
                     let a_cl_activation_ref = Atom.fresh "mocked_inlined_activation_ref" in
-                        let a_parent_activation_ref = Atom.fresh "parent_activation_ref" in
+                    let a_parent_activation_ref = Atom.fresh "parent_activation_ref" in
                     let cl = {
                         annotations = cstruct.annotations;
                         name = cl_name schema schema_in;
                         body = 
-                        (* Add an get_activation_ref method: parent_activation_ref -> mocked activation_ref *)
                         [
+                            (* Add schema to cl since component has this field *)
+                            auto_fplace(auto_plgannot(CLState (auto_fplace{
+                                ghost = false;
+                                type0 = mtype_of_ft TStr;
+                                name = Atom.builtin "schema";
+                                body = Some(e2_lit (StringLit (Atom.to_string schema)));
+                            })));
+                            (* Add an get_activation_ref method: parent_activation_ref -> mocked activation_ref *)
                             auto_fplace(auto_plgannot(CLState (auto_fplace {
                                 ghost = false;
                                 type0 = mtype_of_ct (TActivationRef (mtype_of_cvar schema));
@@ -331,10 +338,12 @@ module Make () = struct
                                         e2var (Atom.builtin "one_hop_activation_ref"),
                                         [
                                             e2_e (CallExpr(e2var (Atom.builtin "current_activation"), []));
-                                            e2_e (AccessExpr(
-                                                e2_e Self,
-                                                e2var a_cl_activation_ref
-                                            ))
+                                            e2_e (OptionExpr (Some (
+                                                e2_e (AccessExpr(
+                                                    e2_e Self,
+                                                    e2var a_cl_activation_ref
+                                                ))
+                                            )))
                                         ]
                                     ))))
                                 ];
@@ -346,7 +355,7 @@ module Make () = struct
                     } in
                     
                     (* Update cl constructor to refresh activation_ref identity for each object *)
-                    let cl_constructor = match IRMisc.get_clconstructor cl with
+                    let cl_constructor = match get_clconstructor cl with
                         | None -> failwith "TODO add a default constructor for inlined cl"
                         | Some constructor -> 
                             { constructor with
@@ -362,7 +371,7 @@ module Make () = struct
                                 )::constructor.value.body 
                                 }}
                     in
-                    let cl = IRMisc.replace_clconstructor cl cl_constructor in
+                    let cl = replace_clconstructor cl cl_constructor in
 
                     (*** add state [instances_B15] in A ***)
                     let name_inlined_instances = Atom.fresh (Printf.sprintf "instances_%s_" (Atom.to_string schema)) in
@@ -381,7 +390,7 @@ module Make () = struct
                         return this;
                     ***)
                     let spawn_inline_args = 
-                        match  IRMisc.get_onstartup cstruct with
+                        match  get_onstartup cstruct with
                         | Some schema_onstartup -> List.map (map_place(fun place (mt, x) -> (mt, refresh_atom Atom.Set.empty Atom.Set.empty x))) schema_onstartup.value.args
                         | None -> []
                     in
@@ -761,11 +770,11 @@ module Make () = struct
 
                 (*** Add a spawn_static_bridge_B argument to A constructor + bind it with spawn port in constructor ***)
                 let cstruct_in = List.fold_left (fun cstruct_in (spawn_port_name, spawn_static_bridge_name, spawn_static_bridge_mt) -> 
-                    match IRMisc.get_onstartup cstruct_in with
+                    match get_onstartup cstruct_in with
                     | Some onstartup -> 
                         (* Refresh atom for binder *)
                         let a_bridge = Atom.fresh (Atom.hint spawn_static_bridge_name) in
-                        IRMisc.replace_onstartup cstruct_in { onstartup with
+                        replace_onstartup cstruct_in { onstartup with
                             value = {onstartup.value with 
                                 args = auto_fplace (spawn_static_bridge_mt, a_bridge)::onstartup.value.args;
                                 body = (
@@ -851,7 +860,7 @@ module Make () = struct
                     x
                 | Some x -> x
         in
-        let parent_rewriter place (cstruct:component_structure) = 
+        let parent_rewriter parent_opt place (cstruct:component_structure) = 
             (* Generate outports *)
             let static_bridges__outports = 
                 List.map
@@ -870,7 +879,7 @@ module Make () = struct
 
             (* Bind outports at startup *)
             let onstartup   = 
-                match IRMisc.get_onstartup cstruct with
+                match get_onstartup cstruct with
                 | Some onstartup ->
                     List.fold_left (fun (onstartup:method0) ((static_bridge, outport):Atom.atom * outport) -> 
                         { onstartup with 
@@ -893,7 +902,7 @@ module Make () = struct
                     ) onstartup static_bridges__outports 
                 | None -> failwith "TODO no onstartup not supported yet, for inline elim" 
             in
-            let cstruct     = IRMisc.replace_onstartup cstruct onstartup in
+            let cstruct     = replace_onstartup cstruct onstartup in
             
             let outports = List.map (function (_,port) -> auto_fplace( auto_plgannot(Outport port))) static_bridges__outports in
             [{cstruct with body = cstruct.body @ outports }]

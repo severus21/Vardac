@@ -524,7 +524,7 @@ module Make (Params : IRParams) = struct
             term list -> term list
 
         val rewrite_component_program : (component_structure -> bool) ->
-            (Error.place ->
+            (Atom.atom option -> Error.place ->
             component_structure -> component_structure list) ->
             term list -> term list
 
@@ -535,7 +535,7 @@ module Make (Params : IRParams) = struct
             term list -> 
             'a list
         val rewrite_term_program : ?nested_rewrite:bool -> (_term -> bool) ->
-            (Error.place -> _term -> _term list) ->
+            (Atom.atom option -> Error.place -> _term -> _term list) ->
             term list -> term list
 
         val rewrite_scopeterm_program : (term -> bool) ->
@@ -557,6 +557,12 @@ module Make (Params : IRParams) = struct
         val find_lca_program : Atom.Set.t -> program -> Atom.atom option
         val insert_in_terms : term list -> term list -> term list
         val insert_terms_into_lca : (Atom.atom option) list -> term list -> program -> program
+
+        val get_onstartup : component_structure -> method0 option
+        val replace_onstartup : component_structure -> method0 -> component_structure 
+
+        val get_clconstructor : class_structure -> method0 option
+        val replace_clconstructor : class_structure -> method0 -> class_structure 
     end
 
 
@@ -1543,32 +1549,33 @@ module Make (Params : IRParams) = struct
         *)
         and collect_term_program recursive (selector : _term -> bool) (collector : Atom.atom list -> Error.place -> _term -> 'a list) program = List.flatten (List.map (collect_term_term recursive [] selector collector) program )
         (******************************************)
-        let rec rewrite_term_component_item_  selector rewriter place = function 
-        | Term t -> List.map (function x -> Term x) (rewrite_term_term selector rewriter t)
+        let rec rewrite_term_component_item_  parent_opt selector rewriter place = function 
+        | Term t -> List.map (function x -> Term x) (rewrite_term_term parent_opt selector rewriter t)
         | citem -> [citem]
-        and rewrite_term_component_item selector rewriter = map_places (transparent_plgannots(rewrite_term_component_item_ selector rewriter))
+        and rewrite_term_component_item parent_opt selector rewriter = map_places (transparent_plgannots(rewrite_term_component_item_ parent_opt selector rewriter))
 
-        and rewrite_term_component_dcl_  selector rewriter place = function 
-        | ComponentStructure cdcl -> ComponentStructure { cdcl with body = List.flatten (List.map (rewrite_term_component_item selector rewriter) cdcl.body)}
+        and rewrite_term_component_dcl_ parent_opt selector rewriter place = function 
+        | ComponentStructure cdcl -> ComponentStructure { cdcl with body = List.flatten (List.map (rewrite_term_component_item (Some cdcl.name) selector rewriter) cdcl.body)}
         | x -> x
-        and rewrite_term_component_dcl selector rewriter = map_place (rewrite_term_component_dcl_ selector rewriter) 
+        and rewrite_term_component_dcl parent_opt selector rewriter = map_place (rewrite_term_component_dcl_ parent_opt selector rewriter) 
 
-        and rewrite_term_term_ ?(nested_rewrite=true) selector rewriter place = function 
+        and rewrite_term_term_ ?(nested_rewrite=true) parent_opt selector rewriter place = function 
         | t when selector t -> 
         begin
             match t with
             | Component cdcl -> 
                 (* rewrite nested term *)
                 let t = if nested_rewrite then 
-                    Component (rewrite_term_component_dcl selector rewriter cdcl)
+                    Component (rewrite_term_component_dcl parent_opt selector rewriter cdcl)
                 else t in 
-            rewriter place t
+                rewriter parent_opt place t
+            | t -> rewriter parent_opt place t
         end
-        | Component cdcl -> [Component (rewrite_term_component_dcl selector rewriter cdcl)]
+        | Component cdcl -> [Component (rewrite_term_component_dcl parent_opt selector rewriter cdcl)]
         | t -> [ t ]
-        and rewrite_term_term ?(nested_rewrite=true) selector rewriter = map_places (transparent_plgannots(rewrite_term_term_ ~nested_rewrite:nested_rewrite selector rewriter))
+        and rewrite_term_term ?(nested_rewrite=true) parent_opt selector rewriter = map_places (transparent_plgannots(rewrite_term_term_ ~nested_rewrite:nested_rewrite parent_opt selector rewriter))
 
-        and rewrite_term_program ?(nested_rewrite=true) (selector : _term -> bool) (rewriter : Error.place -> _term -> _term list) program = List.flatten (List.map (rewrite_term_term ~nested_rewrite:nested_rewrite selector rewriter) program )
+        and rewrite_term_program ?(nested_rewrite=true) (selector : _term -> bool) (rewriter : Atom.atom option -> Error.place -> _term -> _term list) program = List.flatten (List.map (rewrite_term_term ~nested_rewrite:nested_rewrite None selector rewriter) program )
 
         (******************************************)
         let rec rewrite_citem_component_item_  selector rewriter place = function 
@@ -1589,13 +1596,13 @@ module Make (Params : IRParams) = struct
 
         and rewrite_citem_program (selector : _component_item -> bool) (rewriter : Error.place -> _component_item -> _component_item list) program = List.flatten (List.map (rewrite_citem_term selector rewriter) program )
 
-        let rewrite_component_program (selector : component_structure -> bool) (rewriter : Error.place -> component_structure -> component_structure list) program : term list = 
+        let rewrite_component_program (selector : component_structure -> bool) (rewriter : Atom.atom option -> Error.place -> component_structure -> component_structure list) program : term list = 
             let selector_t = function
             | Component {value=ComponentStructure cdcl} when selector cdcl -> true
             | _ -> false
             in
-            let rewriter_t place = function
-            | Component {value=ComponentStructure cdcl} -> List.map (function x -> Component {place; value=ComponentStructure x}) (rewriter place cdcl)
+            let rewriter_t parent_opt place = function
+            | Component {value=ComponentStructure cdcl} -> List.map (function x -> Component {place; value=ComponentStructure x}) (rewriter parent_opt place cdcl)
             in
             rewrite_term_program selector_t rewriter_t program
 
@@ -2101,6 +2108,57 @@ module Make (Params : IRParams) = struct
             insert_new_terms [] terms
 
         (*********************************************************************)
+        let get_onstartup (schema : component_structure) : method0 option= 
+            Option.map 
+                (function {value={v=Method m}} -> m) 
+                (List.find_opt 
+                    (function | {value={v=Method m}} -> m.value.on_startup | _ -> false) schema.body
+                )
+        let get_clconstructor (schema : class_structure) : method0 option= 
+            Option.map 
+                (function {value={v=CLMethod m}} -> m) 
+                (List.find_opt 
+                    (function | {value={v=CLMethod m}} -> m.value.on_startup | _ -> false) schema.body
+                )
+
+        let replace_onstartup (schema : component_structure) onstartup =
+            let flag = ref false in
+
+            let item = {place=onstartup.place; value= {plg_annotations = []; v=Method onstartup}} in
+
+            let body = 
+                List.map 
+                (function 
+                    | {value={v=Method m}} when m.value.on_startup -> 
+                        flag := true;
+                        item 
+                    | citem -> citem 
+                )
+                schema.body
+            in
+
+            if !flag then {schema with body} 
+            else {schema with body = item :: body}
+
+        let replace_clconstructor (schema : class_structure) onstartup =
+            let flag = ref false in
+
+            let item = {place=onstartup.place; value= {plg_annotations = []; v=CLMethod onstartup}} in
+
+            let body = 
+                List.map 
+                (function 
+                    | {value={v=CLMethod m}} when m.value.on_startup -> 
+                        flag := true;
+                        item 
+                    | citem -> citem 
+                )
+                schema.body
+            in
+
+            if !flag then {schema with body} 
+            else {schema with body = item :: body}
+        (*********************************************************************)
 
         (* lowest common ancestor *)
         let rec aux_find_lca names current_name (subcomponents : component_dcl list) : bool * Atom.atom option  = 
@@ -2162,7 +2220,7 @@ module Make (Params : IRParams) = struct
                         | Component {value=ComponentStructure cdcl} -> cdcl.name = lca_name 
                         | _ -> false
                     in
-                    let ancestor_rewriter place = function
+                    let ancestor_rewriter parent_opt place = function
                         | Component {place; value=ComponentStructure cdcl} ->
                             let terms_body = List.map (function | {value={v=Term t}} -> t) (List.filter (function |{value={v=Term _}} -> true | _ -> false) cdcl.body) in
                             let remaining_body = List.filter (function |{value={v=Term _}} -> false | _ -> true) cdcl.body in

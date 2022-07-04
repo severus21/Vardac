@@ -27,7 +27,7 @@ module Make () = struct
             | _ -> false
         in
 
-        let rewriter place = function
+        let rewriter parent_opt place = function
             | Component {place; value=ComponentStructure cstruct} -> 
                 let inports = List.filter_map (function | {value={v=Inport p}} -> Some p |_ -> None) cstruct.body in
                 let e_inports = List.map (function (p:port)-> 

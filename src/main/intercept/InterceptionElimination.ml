@@ -1246,7 +1246,7 @@ module Make (Args: TArgs) = struct
     let makeinterceptor_selector = function 
     | Component {value=ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} when Atom.hint functorname = "MakeInterceptor" && Atom.is_builtin functorname -> true 
     | _ -> false
-    let makeinterceptor_rewriter program place = function
+    let makeinterceptor_rewriter program parent_opt place = function
     | Component {value=ComponentAssign {name=interceptor_name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} -> begin
 
         (* Ad-hoc functor since we do not have meta programming capabilities *)

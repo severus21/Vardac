@@ -17,41 +17,8 @@ module MTHashtbl = Hashtbl.Make(
     struct  
         type t = main_type
         let equal x y = equal_mtype x y 
-        let hash mt = (* TODO try to replace it with ppx_hash *) 
-            let base_ft = 2. in
-            let base_ct = 3. in
-            let base_st = 5. in
-            let base_cmt = 7. in
-            let base_mt = 11. in
-
-            let rec hash_ft ft = base_ft ** float_of_int (Hashtbl.hash ft)  
-            and _hash_ct _ = function
-            | TActivationRef mt -> (base_ct ** 1.) :: hash_mt mt
-            | TArrow (mt1, mt2) -> (base_ct ** 2.) :: (hash_mt mt1) @ (hash_mt mt2)
-            | TVar x -> (base_ct ** 3.) :: [float_of_int (Hashtbl.hash x)]
-            | TFlatType ft -> (base_ct ** 4.) :: [hash_ft ft]
-            | TArray mt -> (base_ct ** 5.) :: hash_mt mt
-            | TDict (mt1, mt2) -> (base_ct ** 6.) :: (hash_mt mt1) @ (hash_mt mt2)
-            | TList mt -> (base_ct ** 7.) :: (hash_mt mt)
-            | TTuple mts -> (base_ct ** 11.) :: (List.flatten (List.map hash_mt mts))
-            and hash_ct ct = map0_place _hash_ct ct
-            and _hash_st _ = function
-            | STEnd -> [ base_st ** 1.]
-            | STVar x -> (base_st ** 2.) :: [float_of_int (Hashtbl.hash x)]
-            and hash_st st = map0_place _hash_st st
-            and _hash_cmt _ = function
-            | CompTUid x -> (base_cmt ** 1.)  :: [float_of_int (Hashtbl.hash x)]
-            and hash_cmt cmt = map0_place _hash_cmt cmt
-            and _hash_mt _ = function 
-            | EmptyMainType -> [0.]
-            | CType ct -> (base_mt ** 1.) :: hash_ct ct 
-            | SType st -> (base_mt ** 2.) :: hash_st st 
-            | CompType cmt -> (base_mt ** 3.) :: hash_cmt cmt
-            | ConstrainedType _ -> failwith "hash_cmt" 
-            and hash_mt mt = map0_place _hash_mt mt in
-
-            Hashtbl.hash (hash_mt mt)
-        end)
+        let hash = [%hash: main_type]
+    end)
 
             
 
@@ -61,12 +28,12 @@ module Make () = struct
     let hashtbl_mt2event = MTHashtbl.create 16 
     let events = Hashtbl.create 16
 
-    let mt2event mt = 
+    let mt2event flag_register mt = 
         match MTHashtbl.find_opt hashtbl_mt2event mt with
         | Some (_, e) -> e 
         | None -> 
             let event = Atom.fresh "auto_boxed_type" in
-            MTHashtbl.add hashtbl_mt2event mt (mt, event);
+            if flag_register then MTHashtbl.add hashtbl_mt2event mt (mt, event);
             event
         
     let needs_autoboxing = function
@@ -75,17 +42,19 @@ module Make () = struct
             Hashtbl.find_opt events x = None
         (* BLabel is a "builtin" event *)
         | {value=CType {value = TFlatType TBLabel}} -> false
-        | _ -> true
+        | _ as ct -> 
+            logger#debug "need auto-boxing for %s<true>" (show_main_type ct);
+            true
 
-    let rec _autobox_st _ st = 
+    let rec _autobox_st flag_register _ st = 
     match st with
     | STEnd | STWildcard | STBottom | STVar _ | STInline _ -> st
     | STSend (t_msg, st_continuation) | STRecv (t_msg, st_continuation) -> begin
-        let st_continuation = autobox_st st_continuation in
+        let st_continuation = autobox_st flag_register st_continuation in
         let t_msg = 
             if needs_autoboxing t_msg then begin
                 logger#debug "auto_boxing %s" (show__main_type t_msg.value);
-                mtype_of_var (mt2event t_msg)
+                mtype_of_var (mt2event flag_register t_msg)
             end else t_msg
         in
 
@@ -96,7 +65,7 @@ module Make () = struct
     | STBranch branches | STSelect branches -> begin
         let branches = 
             List.map 
-                (function (label, st_branch, opt) -> (label, autobox_st st_branch, opt))
+                (function (label, st_branch, opt) -> (label, autobox_st flag_register st_branch, opt))
                 branches
         in
 
@@ -104,9 +73,9 @@ module Make () = struct
         | STBranch _ -> STBranch branches
         | STSelect _ -> STSelect branches
     end
-    | STRec (x, st) -> STRec (x, autobox_st st)
-    | STDual st -> STDual (autobox_st st)
-    and autobox_st st = map_place _autobox_st st
+    | STRec (x, st) -> STRec (x, autobox_st flag_register st)
+    | STDual st -> STDual (autobox_st flag_register st)
+    and autobox_st flag_register st = map_place (_autobox_st flag_register) st
 
     let generate_eventdefs () : term list = 
         List.of_seq (
@@ -143,8 +112,9 @@ module Make () = struct
                 let [s; msg] = args in
 
                 let e_msg, t_msg = msg.value in
-                if needs_autoboxing t_msg then 
-                    let event = mt2event t_msg in
+                if needs_autoboxing t_msg then( 
+                    logger#debug "needs auto-boxing_fire";
+                    let event = mt2event true t_msg in
                     CallExpr ( e2var x, [
                         s;
                         e2_e (NewExpr(
@@ -152,7 +122,7 @@ module Make () = struct
                             [ e2_e e_msg ]
                         ))
                     ])
-                else e
+                )else e
             | CallExpr ({place; value= (VarExpr x, _)}, args) when Atom.hint x = "receive" && Atom.is_builtin x -> 
                 logger#debug "receive auto-boxing";
                 let [s] = args in
@@ -209,7 +179,7 @@ module Make () = struct
 
             [
                 if needs_autoboxing t_msg then
-                    let event = mt2event t_msg in
+                    let event = mt2event true t_msg in
 
                     let param_msg = Atom.fresh "msg" in
                     let param_session = Atom.fresh "session" in
@@ -248,7 +218,7 @@ module Make () = struct
         let rewritor = function 
             | SType st -> 
                 logger#debug "scan st for auto-boxing\n%s" (show_session_type st);
-                SType (autobox_st st) 
+                SType (autobox_st false st) (* False in order to avoid rewriting unused type annotation in the AST like the builtin signature of fire/receive *)
         in
 
         let program = rewrite_type_program selector rewritor program in

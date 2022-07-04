@@ -21,9 +21,16 @@ component B {
         debug("> methodb");
     }
 }
+
 component TopLevel {
+    component Inner { (*spawn in can not be used in guardian directly, since we need to generate ports and so on*)
+        onstartup (){
+            activation_ref<A> a = spawn A();
+            activation_ref<B> b = spawn B() in a;
+        }
+    }
+
     onstartup (){
-        activation_ref<A> a = spawn A();
-        activation_ref<B> b = spawn B() in a;
+        spawn Inner();
     }
 }

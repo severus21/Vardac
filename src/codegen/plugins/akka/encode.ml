@@ -91,8 +91,7 @@ let encode_builtin_fct_0 place name =
     | "current_activation" ->
         fst (Misc.e_get_self_activation place (Misc.e_get_context place)).value
     | "forge_activation_ref" ->
-        (* TODO FIXME add an id to actoref *)
-        T.RawExpr {|ActivationRef("mocked", new ActorRef(), Optional.empty())|}
+        T.RawExpr "new ActivationRef()"
     | _ -> Error.perror place "%s takes zero argument" name
 
 let encode_builtin_fct_1 place name a =

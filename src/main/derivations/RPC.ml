@@ -89,7 +89,7 @@ module Make(Args:Args) : Sig = struct
 
         (* Rewrite the component *)
         let cstruct_selector (cstruct:component_structure) = cname = cstruct.name in
-        let cstruct_rewriter place (cstruct:component_structure) =
+        let cstruct_rewriter parent_opt place (cstruct:component_structure) =
             (* TODO add annotations to restrict method concerned by rpc *)
             let rpc_methods = List.flatten (List.map (
                 function 
@@ -372,7 +372,7 @@ module Make(Args:Args) : Sig = struct
         let caller_selector (cstruct:component_structure) = 
             (Hashtbl.find_opt rpc_outports_translator cstruct.name) <> None
         in
-        let caller_rewriter place (cstruct:component_structure) = 
+        let caller_rewriter parent_opt place (cstruct:component_structure) = 
             let caller_name = cstruct.name in
 
 
