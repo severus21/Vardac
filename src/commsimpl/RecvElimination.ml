@@ -328,13 +328,14 @@ module Make () : Sig = struct
 
         function
         | [] -> 
+            logger#debug "end split_body";
             let current_method = { next_method with 
                 body = next_method.body @ (List.rev acc_stmts);
             } in
 
             [], [], [ current_method ]
         | {place; value=LetStmt ({value=CType{value=TTuple [t_msg;{value = SType st_continuation}]}}, let_x, {place=place1; value=(CallExpr ({value=(VarExpr x, _)}, [s]),_)})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
-            logger#error "receive at %s" (Error.show place1);
+            logger#debug "receive at %s" (Error.show place1);
             (*** Prepare ***)
             let stage_stmts = next_method.body @ (List.rev acc_stmts) in
             let current_method = { next_method with 
@@ -399,6 +400,7 @@ module Make () : Sig = struct
         
         (* If case - conditional branching is painfull *)
         | ({place; value = IfStmt (e, stmt1, stmt2_opt)} as stmt) :: stmts -> 
+            logger#debug "recv-elim IfStmt";
             (* DEBUG Code split_body (main_name, main_annotations) acc_stmts next_method (stmt1::stmts)*)
             let _,_,flag1 = collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> [true]) stmt1 in
             let flag1 = flag1 <> [] in
@@ -436,6 +438,8 @@ module Make () : Sig = struct
                 let next_method = fresh_next_method main_name main_annotations t_msg_cont in
                 
                 let split_branch stmt_branch = 
+                    logger#debug "split_branch of \n";
+
                     (*** 
                         stmts should be add as the continuation of branch
 
@@ -498,7 +502,7 @@ module Make () : Sig = struct
 
                 let stmt1, intermediate_states1, receive_entries1, intermediate_methods1 = 
                     if flag1 then (
-                        logger#debug "Detect receive in If block1";
+                        logger#debug "Detect receive in If block1\n"; 
                         split_branch stmt1
                     ) else stmt1, [], [], []
                 in
@@ -516,7 +520,7 @@ module Make () : Sig = struct
                 let stmt = auto_fplace (IfStmt(e, stmt1, stmt2_opt)) in
 
                 (* Sanity check *)
-                collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> assert false) stmt;
+                (*collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> assert false) stmt;*)
 
                 
                 (*** Finish parent split execution branch since there is conditional branching *)

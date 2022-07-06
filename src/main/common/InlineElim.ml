@@ -955,6 +955,7 @@ module Make () = struct
                 let a_session_0 = Atom.fresh "s" in
                 let a_session_1 = Atom.fresh "s" in
                 let a_res       = Atom.fresh "res" in
+                let _tmp_res = Atom.fresh "tmp_res" in (* Needed since RecvElim does not handle correctly receive hidden in expression *)
                 [
                     (* Initiate session *)
                     auto_fplace (LetStmt(
@@ -996,10 +997,10 @@ module Make () = struct
                             [ e2var a_session_1 ]
                         )),
                         (* let res  = (receive(s2)?)._0;*)
-                        auto_fplace(LetStmt(
-                            mtype_of_var (spawn_response schema),
-                            a_res,
-                            e2_e(AccessExpr(
+                        auto_fplace (BlockStmt [
+                            auto_fplace(LetStmt(
+                                mtype_of_ct (TTuple [mtype_of_var (spawn_response schema); mtype_of_st STEnd]),
+                                _tmp_res,
                                 e2_e(CallExpr(
                                     e2var (Atom.builtin "receive"),
                                     [
@@ -1008,10 +1009,17 @@ module Make () = struct
                                             [e2var a_session_1]
                                         ));
                                     ]
-                                )),
-                                e2var (Atom.builtin "_0")
-                            ))
-                        )),
+                                ))
+                            ));
+                            auto_fplace(LetStmt(
+                                mtype_of_var (spawn_response schema),
+                                a_res,
+                                e2_e(AccessExpr(
+                                    e2var _tmp_res,
+                                    e2var (Atom.builtin "_0")
+                                ))
+                            ));
+                        ]),
                         None
                     ));
                 ],
