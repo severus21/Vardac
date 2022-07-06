@@ -554,6 +554,7 @@ module Make () = struct
                         let tmp = match (snd e1.value).value with
                             | CompType _ -> mt_of_citem parent_opt place (snd e1.value) field
                             | CType {value= TObject _}-> mt_of_clitem parent_opt place (snd e1.value) field
+                            | mt -> Error.perror e1.place "Accessed expr can not have type %s" (show__main_type mt)
                         in
                         logger#debug "endaccess";
                         tmp

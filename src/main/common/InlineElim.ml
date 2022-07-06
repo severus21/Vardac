@@ -74,7 +74,7 @@ module Make () = struct
         | _ -> false
 
     let renaming = Hashtbl.create 256
-    let refresh_atom freevars freetvars x = 
+    let refresh_atom ?(renaming=renaming) freevars freetvars x = 
         logger#debug "try to refresh x=[%s]" (Atom.to_string x);
         if Atom.is_builtin x then x (* TODO guarantee *) 
         else
@@ -391,9 +391,10 @@ module Make () = struct
                         spawn_B15 (args of spawn B15) -> ActivationRef<A> 
                         return this;
                     ***)
+                    let renaming_spawn_inline_args = Hashtbl.create 16 in
                     let spawn_inline_args = 
                         match  get_onstartup cstruct with
-                        | Some schema_onstartup -> List.map (map_place(fun place (mt, x) -> (mt, refresh_atom Atom.Set.empty Atom.Set.empty x))) schema_onstartup.value.args
+                        | Some schema_onstartup -> List.map (map_place(fun place (mt, x) -> (mt, refresh_atom ~renaming:renaming_spawn_inline_args Atom.Set.empty Atom.Set.empty x))) schema_onstartup.value.args
                         | None -> []
                     in
 
@@ -460,12 +461,12 @@ module Make () = struct
 
 
                     (*** add inports [p_B15_pb15name] in A + routing to the corresponding instance in [instances_B15] ***)
-                    let n_inports = 
+                    let n_callbacks, n_inports = 
                         let inports = List.filter (function 
                             | {value={v=Inport _}} -> true
                             | _ -> false
                         ) cstruct.body in
-                        List.map (map_place(transparent_plgannot(function place ->function
+                        List.split (List.map (map0_place(map0_plgannot(fun place plgannots ->function
                             | Inport {value=port,mt;place} ->
                                 assert(port._children = []);
 
@@ -510,14 +511,12 @@ module Make () = struct
                                             mtype_of_ct (TObject (cl_name schema schema_in)),
                                             a_obj,
                                             e2_e(CallExpr(
-                                                e2_e(AccessExpr(
+                                                e2var (Atom.builtin "get2dict"),
+                                                [
                                                     e2_e(AccessExpr(
                                                         e2_e This,
                                                         e2var name_inlined_instances
-                                                    )),
-                                                    e2var (Atom.builtin "get2dict")
-                                                )),
-                                                [
+                                                    ));
                                                     e2var a_objid
                                                 ]
                                             ))
@@ -546,8 +545,8 @@ module Make () = struct
                                     _is_intermediate = port._is_intermediate;
 
                                 }, auto_fplace EmptyMainType)) in
-                                n_port
-                        ))) inports 
+                                {place = place@fplace; value = auto_plgannot (Method (auto_fplace n_callback))}, {place=place@fplace; value={v=n_port; plg_annotations=plgannots}}
+                        ))) inports) 
                     in
                     
                     (*** add outports [p_B15_pb15name] in A ***)
@@ -592,7 +591,7 @@ module Make () = struct
                         List.map (map_place(transparent_plgannot(function place ->function
                             | Eport {value=port,mt;place} ->
                                 let cl_callback_in = extract_cl_callback cl port.callback in
-
+                                
                                 let n_args = List.map (map_place(fun place (mt, x) -> (mt, refresh_atom Atom.Set.empty Atom.Set.empty x))) cl_callback_in.value.args in
                                 let a_obj = Atom.fresh "obj" in
                                 let n_callback = {
@@ -648,7 +647,7 @@ module Make () = struct
                     (*** Spwan request/response + inport + callback ***)
                     let spawn_request_tdef = Typedef (auto_fplace (EventDef( 
                         spawn_request schema,
-                        List.map (function {value=(mt, x)} -> mt) spawn_inline_args
+                        List.map (function {value=(mt, _)} -> mt) spawn_inline_args
                         ,
                         ()
                     ))) in
@@ -707,7 +706,7 @@ module Make () = struct
                                         e2_e This,
                                         e2var spawn_inline.name
                                     )),
-                                    (List.mapi (fun i {value=(mt, x)} -> 
+                                    (List.mapi (fun i {value=_} -> 
                                         e2_e (AccessExpr(
                                             e2var a_request,
                                             e2var (Atom.builtin (Printf.sprintf "_%d_" i))
@@ -767,7 +766,7 @@ module Make () = struct
                         Method (auto_fplace spawn_callback);
                         Inport (auto_fplace spawn_port);
                     ]))
-                    @n_inports@n_outports@n_eports
+                    @n_inports@n_outports@n_eports@n_callbacks
                 ) schemas in
 
                 (*** Add a spawn_static_bridge_B argument to A constructor + bind it with spawn port in constructor ***)

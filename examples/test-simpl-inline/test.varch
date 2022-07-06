@@ -17,7 +17,7 @@ component B {
     inport p_in :: bridge<C, B, inline p> expecting (dual p) = this.callback;
     onstartup (bridge<C, B, inline p> chan){
         debug("> init");
-        (*bind(this.p_in, chan);*)
+        bind(this.p_in, chan);
         this.methodb();
     }
 

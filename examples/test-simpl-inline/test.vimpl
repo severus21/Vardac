@@ -2,6 +2,7 @@ target akka;
 
 impl component A {}
 impl component B {}
+impl component C {}
 
 impl component TopLevel {}
 impl component TopLevel::Inner {}

@@ -455,7 +455,7 @@ module Make () : Sig = struct
                     let duplicate_stmts stmts = 
                         let _, fvars = List.split (List.map (free_vars_stmt Atom.Set.empty) stmts) in
                         let fvars = List.flatten fvars in
-                        let _, ftvars = List.split (List.map (free_tvars_stmt Atom.Set.empty) stmts) in
+                        let _, ftvars = List.split (List.map (free_tvars_stmt ~flag_tcvar:true Atom.Set.empty) stmts) in
                         let ftvars = List.flatten ftvars in
                         let not_to_rename = Atom.Set.of_list ((List.map snd fvars)@ftvars) in
                         let renaming =
@@ -466,6 +466,7 @@ module Make () : Sig = struct
                                 match Atom.Set.find_opt x not_to_rename with 
                                 | Some _ -> x  
                                 | None -> begin 
+                                    logger#debug "renaming x=%s" (Atom.to_string x);
                                     match Hashtbl.find_opt state x with 
                                     | Some y -> y 
                                     | None -> begin

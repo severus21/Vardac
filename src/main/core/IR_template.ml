@@ -241,6 +241,8 @@ module Make (Params : IRParams) = struct
     include IR_common
     include CommonUtils
 
+    let logger = Easy_logging.Logging.make_logger ("vardac.IR_template") Debug []
+
     type _state = {
             ghost: bool; 
             type0: main_type; 
@@ -1972,7 +1974,10 @@ module Make (Params : IRParams) = struct
         and rename_state ?(flag_rename_attribute=false) renaming = map_place (_rename_state flag_rename_attribute (protect_renaming renaming))
 
         and _rename_method flag_rename_attribute renaming place (m:_method0) = 
-            logger#debug "rename_method [%b]" flag_rename_attribute;
+            logger#debug "rename_method %s [%b]" (Atom.to_string m.name) flag_rename_attribute;
+            logger#debug "args_0 = {%s}" ((Atom.show_list ";") (List.map (function x -> snd x.value) m.args));
+            logger#debug "possible_args_n {%s}" ((Atom.show_list ";") (List.map (function x -> snd x.value) (List.map (rename_param renaming) m.args)));
+
             {
                 annotations = List.map (rename_method_annotation renaming) m.annotations;
                 ghost = m.ghost;
