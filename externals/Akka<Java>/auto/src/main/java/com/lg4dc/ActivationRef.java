@@ -77,8 +77,12 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
         if(this.is_mocked())
             return this.mocked_uuid.toString();
 
+        //UUID derived from (id_interceptor, id_intercepted)
         if(this.interceptedActivationRef_opt.isPresent())
-            assert(false); //TODO how to
+            return UUIDCreator.getSha1Uuid(
+                this.actorRef.path().toSerializationFormat()
+                + this.interceptedActivationRef_opt.get().activationId()
+            ).toString();
 
         return this.actorRef.path().toSerializationFormat();
     }

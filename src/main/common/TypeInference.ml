@@ -387,6 +387,7 @@ module Make () = struct
         let st = tannot_full_session_type parent_opt st in
         SType st 
     | CompType ct -> CompType (tannot_struct_type parent_opt ct)
+    | ClType ct -> ClType (tannot_struct_type parent_opt ct)
     | ConstrainedType (mt, guard) -> 
         let guard = tannot_applied_constraint parent_opt guard in (* FIXME only use for timer and metadata for protocol -> should not be used on other constraitn 
         therefore only  stype and constraint type returns an outer parent_opt CType and CompType return the identity
