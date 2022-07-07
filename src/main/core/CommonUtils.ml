@@ -2,7 +2,7 @@ open Easy_logging
 open IR_common
 open AstUtils
 
-let logger = Utils.make_log_of "CommonUtils"
+let logger = Easy_logging.Logging.make_logger ("vardac.CommonUtils") Info []
 let fplace = (Error.forge_place "CommonUtils" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
@@ -702,7 +702,8 @@ let rec rewrite_expr_place rewrite_expr_value { AstUtils.place ; AstUtils.value}
 
 let rec _rewrite_expr_expr selector rewriter place (e, mt) = 
     let e = match e with
-    | e when selector e -> rewriter mt e
+    | e when selector e -> 
+        rewriter mt e
     | (BridgeCall _ as e) | (EmptyExpr as e) | (LitExpr _ as e) | (This as e) | (Self as e) | (VarExpr _ as e) | (ImplicitVarExpr _ as e) -> e
     | ActivationAccessExpr (cname, e, mname) ->
         ActivationAccessExpr(

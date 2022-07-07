@@ -74,7 +74,7 @@ and encode_builtin_access place e name =
         T.AccessExpr(e, e2var (Atom.builtin name))
     else _encode_builtin_access place e name
 
-let encode_builtin_fct_0 place name =
+let encode_builtin_fct_0 parent_opt place name =
     let auto_place t = {place; value=t} in 
     match name with
     | "dict" -> 
@@ -94,7 +94,7 @@ let encode_builtin_fct_0 place name =
         T.RawExpr "new ActivationRef()"
     | _ -> Error.perror place "%s takes zero argument" name
 
-let encode_builtin_fct_1 place name a =
+let encode_builtin_fct_1 parent_opt place name a =
     let auto_place t = {place; value=t} in 
     match name with
     | "activationid" ->
@@ -304,13 +304,17 @@ let encode_builtin_fct_1 place name a =
     end
     | _ -> Error.perror place "%s with one argument is undefined" name
 
-let encode_builtin_fct_2 place name a b =
+let encode_builtin_fct_2 parent_opt place name a b =
     let auto_place t = {place; value=t} in 
     match name with
     | "bind_in" ->
         T.CallExpr(
             e2_e (T.AccessExpr(
-                e2_e T.This,
+                e2_e (
+                    match parent_opt with 
+                    | Some _, Some _ -> T.AccessExpr(e2_e T.This, e2var (Atom.builtin "parent_this"))
+                    | None, _ -> T.This
+                    | _ -> raise (Error.DeadbranchError "if cl is set in parent_opt then component should be set also")),
                 e2var (Atom.builtin "bind_in")
             )),
             [ 
@@ -321,7 +325,11 @@ let encode_builtin_fct_2 place name a b =
     | "bind_out" ->
         T.CallExpr(
             e2_e (T.AccessExpr(
-                e2_e T.This,
+                e2_e (
+                    match parent_opt with 
+                    | Some _, Some _ -> T.AccessExpr(e2_e T.This, e2var (Atom.builtin "parent_this"))
+                    | None, _ -> T.This
+                    | _ -> raise (Error.DeadbranchError "if cl is set in parent_opt then component should be set also")),
                 e2var (Atom.builtin "bind_out")
             )),
             [ 
@@ -452,7 +460,7 @@ let encode_builtin_fct_2 place name a b =
         )
     | _ -> Error.perror place "%s takes two arguments" name
 
-let encode_builtin_fct_3 place name a b c =
+let encode_builtin_fct_3 parent_opt place name a b c =
     let auto_place t = {place; value=t} in 
     match name with
     | "add2dict" -> 
@@ -471,7 +479,7 @@ let is_stmt_builtin = function
 | "exit" -> true
 | _ -> false
 
-let encode_builtin_fct place name (args:T.expr list) =
+let encode_builtin_fct parent_opt place name (args:T.expr list) =
     assert(Builtin.is_builtin_expr name);
     let auto_place t = {place; value=t} in 
     match name with
@@ -479,10 +487,10 @@ let encode_builtin_fct place name (args:T.expr list) =
     | name when is_stmt_builtin name-> Error.perror place "In Akka, sleep must be convertible to a statement"
     | _ -> begin
         match args with
-        | [] -> encode_builtin_fct_0 place name 
-        | [a] -> encode_builtin_fct_1 place name a
-        | [a;b] -> encode_builtin_fct_2 place name a b
-        | [a;b;c] -> encode_builtin_fct_3 place name a b c
+        | [] -> encode_builtin_fct_0 parent_opt place name 
+        | [a] -> encode_builtin_fct_1 parent_opt place name a
+        | [a;b] -> encode_builtin_fct_2 parent_opt place name a b
+        | [a;b;c] -> encode_builtin_fct_3 parent_opt place name a b c
         | _ -> Error.perror place "Akka.Finish do not yet support builtin function %s" name
     end
 

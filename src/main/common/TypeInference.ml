@@ -452,7 +452,8 @@ module Make () = struct
         let ret_type = 
             match Atom.VMap.find_opt mname cl_sign with
             | None when Atom.is_builtin mname -> Builtin.type_of place (Atom.hint mname)
-            | None -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered class have no field/method named %s" (Atom.to_string mname))))
+            | None -> 
+                raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered class have no field/method named %s" (Atom.to_string mname))))
             | Some mt -> mt
         in
         ret_type
@@ -553,7 +554,11 @@ module Make () = struct
                         (* class or component *)
                         let tmp = match (snd e1.value).value with
                             | CompType _ -> mt_of_citem parent_opt place (snd e1.value) field
-                            | CType {value= TObject _}-> mt_of_clitem parent_opt place (snd e1.value) field
+                            | CType {value= TObject _}-> begin
+                                match fst e1.value with
+                                | This -> failwith "[This] has been labelled with class type"  
+                                | _ -> mt_of_clitem parent_opt place (snd e1.value) field
+                            end
                             | mt -> Error.perror e1.place "Accessed expr can not have type %s" (show__main_type mt)
                         in
                         logger#debug "endaccess";
@@ -634,14 +639,14 @@ module Make () = struct
             | This -> begin 
                 match parent_opt with
                 | None -> Error.perror place "[this] can not be used outside component definition" 
-                | Some self -> 
-                    This, auto_fplace( CompType (auto_fplace (CompTUid (self))))
+                | Some (_, pthis) -> 
+                    This, auto_fplace( CompType (auto_fplace (CompTUid pthis)))
             end
             | Self -> begin 
                 match parent_opt with
                 | None -> Error.perror place "[self] can not be used outside class definition" 
-                | Some self -> 
-                    Self, mtype_of_ct (TObject (self))
+                | Some (pself, _) -> 
+                    Self, mtype_of_ct (TObject pself)
             end
             | Spawn spawn -> 
                 let c = tannot_component_expr parent_opt spawn.c in
@@ -995,7 +1000,7 @@ module Make () = struct
         let auto_fplace smth = {place = fplace; value=smth} in
     function 
     | ComponentStructure cdcl as c0 -> 
-        let body = List.map (tannot_component_item  (Some cdcl.name)) cdcl.body in 
+        let body = List.map (tannot_component_item  (Some (cdcl.name, cdcl.name))) cdcl.body in 
 
         ComponentStructure {
         target_name = cdcl.target_name;
@@ -1019,7 +1024,7 @@ module Make () = struct
         let fplace = (Error.forge_place "TypeInference.tannot_class_dcl" 0 0) in
         let auto_fplace smth = {place = fplace; value=smth} in
     
-        let body = List.map (tannot_class_item  (Some cl.name)) cl.body in 
+        let body = List.map (tannot_class_item  (Option.map (function (_, pthis) -> cl.name, pthis)parent_opt)) cl.body in 
 
         {
             annotations = cl.annotations;

@@ -31,6 +31,9 @@ public final class OutPort extends AbstractPort {
         assert(this.bridge.protocol.get_st() != null);
         assert(hidden_to != null);
 
+        if(hidden_to.isEmpty() && to.interceptedActivationRef_opt.isPresent())
+            hidden_to = to.interceptedActivationRef_opt;
+
         Session t = new Session(
             this.bridge.id, 
             from, 

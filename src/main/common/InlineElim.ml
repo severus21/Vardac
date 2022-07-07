@@ -183,10 +183,12 @@ module Make () = struct
         })
 
     let extract_cl_callback (cl:class_structure) port_callback= 
-        let cl_callback_name = Hashtbl.find renaming (match fst port_callback.value with
-            | AccessExpr ({value=This,_}, {value=VarExpr name, _}) -> name 
-            | _ -> failwith "Other callback for inlined inport are not supported yet"
-        ) in
+        let cl_callback_name =
+            match fst port_callback.value with
+                | AccessExpr ({value=This,_}, {value=VarExpr name, _}) -> name 
+                | _ -> failwith "Other callback for inlined inport are not supported yet"
+        in
+
         let [cl_callback_in] : method0 list = List.filter_map (map0_place(transparent0_plgannot(function place -> function | CLMethod m when m.value.name = cl_callback_name -> Some m | _-> None))) cl.body in
 
         cl_callback_in
@@ -229,6 +231,8 @@ module Make () = struct
                 
                 let spawn_static_bridges = ref [] in
 
+
+
                 let n_body = List.map (function schema -> 
                     let cstruct = Hashtbl.find inlineable_cstructs schema in 
 
@@ -238,7 +242,33 @@ module Make () = struct
                         | State item -> Atom.Set.add item.value.name env
                         | _-> env
                     ))) Atom.Set.empty cstruct.body in
-                    let body = List.flatten (List.map (map_places(transparent_plgannots(function place -> function 
+
+                    (* Prepopulate renaming for ports  *)
+                    List.iter (map0_place(transparent0_plgannot(fun place -> function
+                        | Inport {value={name},_} | Eport {value={name},_} | Outport {value={name},_} -> Hashtbl.add renaming name (port_name schema schema_in name)
+                        | _ -> ()
+                    ))) cstruct.body;
+
+                    (* refresh atom to preserve binding unicity *)
+                    let renamed_cstruct_body = 
+                        let _, freevars = List.split (List.map (free_vars_component_item Atom.Set.empty) cstruct.body) in
+                        let freevars = Atom.Set.of_list (List.map snd (List.flatten freevars)) in
+
+                        let _, freetvars = List.split (List.map (free_tvars_component_item ~flag_tcvar:true Atom.Set.empty) cstruct.body) in
+                        let freetvars = Atom.Set.of_list (List.flatten freetvars) in
+                        List.map (rename_component_item ~flag_rename_attribute:true (function x ->
+                            let y = refresh_atom freevars freetvars x in
+
+                            logger#debug "cl_item_names {%s}" (Atom.show_list "; " (Atom.Set.to_list cl_item_names));
+                            if Atom.Set.mem x cl_item_names then
+                                register_cl2c_entry clitems2citems (cl_name schema schema_in, schema) (x, y);
+                            y
+                        ))
+                        cstruct.body
+                    in
+
+                    let body = List.flatten (
+                        List.map (map_places(transparent_plgannots(function place -> function 
                             | Method item -> 
                                 [CLMethod item] 
                             | State item -> 
@@ -247,24 +277,7 @@ module Make () = struct
                             | Contract _ -> raise (Error.PlacedDeadbranchError (place, "contract should be paired with method before eliminating inlinin"))
                             | _ -> [] 
                         ))) 
-
-                        (* refresh atom to preserve binding unicity *)
-                        (
-                            let _, freevars = List.split (List.map (free_vars_component_item Atom.Set.empty) cstruct.body) in
-                            let freevars = Atom.Set.of_list (List.map snd (List.flatten freevars)) in
-
-                            let _, freetvars = List.split (List.map (free_tvars_component_item ~flag_tcvar:true Atom.Set.empty) cstruct.body) in
-                            let freetvars = Atom.Set.of_list (List.flatten freetvars) in
-
-                            (List.map (rename_component_item ~flag_rename_attribute:true (function x ->
-                                let y = refresh_atom freevars freetvars x in
-
-                                logger#debug "cl_item_names {%s}" (Atom.show_list "; " (Atom.Set.to_list cl_item_names));
-                                if Atom.Set.mem x cl_item_names then
-                                    register_cl2c_entry clitems2citems (cl_name schema schema_in, schema) (x, y);
-                                y
-                            ))
-                            cstruct.body))
+                        renamed_cstruct_body
                         )
                     in
                     let body_elmts_set = Atom.Set.of_seq (List.to_seq(List.map (map0_place(transparent0_plgannot(
@@ -301,8 +314,28 @@ module Make () = struct
                                         ClType {place = place@fplace; value = TStruct (cl_name schema schema_in, n_tstruct)}
                                 )
                             ) 
-                            (List.map (rewrite_expr_class_item (function |This -> true | _ -> false) (function mt -> function | This -> Self)) body)
+                            
+                            (List.map (rewrite_expr_class_item 
+                                (function 
+                                    |This -> true 
+                                    | _ -> false) 
+                                (function mt -> function 
+                                | This -> Self
+                                )) 
+                                body)
                     in
+
+                    (* this.port remains this.port since the port belongs to the host component and not to the class *)
+                    let cl_body = List.map (rewrite_expr_class_item 
+                        (function 
+                            | AccessExpr( {value=Self, _}, {value=_, {value=CType{value=TOutport _}}}) -> true 
+                            | AccessExpr( {value=Self, _}, {value=_, {value=CType{value=TInport _}}}) -> true 
+                            | AccessExpr( {value=Self, _}, {value=_, {value=CType{value=TEport _}}}) -> true 
+                            | _ -> false) 
+                        (function mt -> function 
+                            | AccessExpr( {place; value=Self, mt}, e2) -> AccessExpr( {place; value=This, mt}, e2)
+                        )) 
+                        cl_body in 
 
                     let cl_get_activation_ref = Atom.fresh "get_activation_ref" in
                     let a_cl_activation_ref = Atom.fresh "mocked_inlined_activation_ref" in
@@ -465,7 +498,7 @@ module Make () = struct
                         let inports = List.filter (function 
                             | {value={v=Inport _}} -> true
                             | _ -> false
-                        ) cstruct.body in
+                        ) renamed_cstruct_body in
                         List.split (List.map (map0_place(map0_plgannot(fun place plgannots ->function
                             | Inport {value=port,mt;place} ->
                                 assert(port._children = []);
@@ -537,7 +570,7 @@ module Make () = struct
 
                                 } in
                                 let n_port = Inport (auto_fplace ({
-                                    name = port_name schema schema_in port.name;
+                                    name = port.name; (* already renamed *)
                                     expecting_st = port.expecting_st;
                                     callback = e2_e (AccessExpr(e2_e This, e2var n_callback.name));
                                     _children = [];
@@ -555,12 +588,12 @@ module Make () = struct
                         let outports = List.filter (function 
                             | {value={v=Outport _}} -> true
                             | _ -> false
-                        ) cstruct.body in
+                        ) renamed_cstruct_body in
                         List.map (map_place(transparent_plgannot(function place ->function
                             | Outport {value=port,mt;place} ->
                                 assert(port._children = []);
                                 let n_port = Outport (auto_fplace({
-                                    name = port_name schema schema_in port.name;
+                                    name = port.name; (* already renamed *)
                                     protocol = port.protocol;
                                     _children = [];
                                 }, auto_fplace EmptyMainType)) in
@@ -586,7 +619,7 @@ module Make () = struct
                         let eports = List.filter (function 
                             | {value={v=Eport _}} -> true
                             | _ -> false
-                        ) cstruct.body in
+                        ) renamed_cstruct_body in
 
                         List.map (map_place(transparent_plgannot(function place ->function
                             | Eport {value=port,mt;place} ->
@@ -636,7 +669,7 @@ module Make () = struct
 
                                 } in
                                 let n_port : _component_item = Eport (auto_fplace ({
-                                    name = port_name schema schema_in port.name;
+                                    name = port.name; (* already renamed *)
                                     expecting_mt = port.expecting_mt;
                                     callback = e2_e (AccessExpr(e2_e This, e2var n_callback.name));
                                 }, auto_fplace EmptyMainType)) in
@@ -1063,8 +1096,18 @@ module Make () = struct
             in
             Error.error "%s. Parent = %s" msg parent
         in
+
+        let select_this_port = function  
+            | AccessExpr( {value=Self, _}, {value=_, {value=CType{value=TOutport _}}}) -> true 
+            | AccessExpr( {value=Self, _}, {value=_, {value=CType{value=TInport _}}}) -> true 
+            | AccessExpr( {value=Self, _}, {value=_, {value=CType{value=TEport _}}}) -> true
+            | _ -> false 
+        in
+
         (* Check: no more spawn with inline_in  *)
         ignore (collect_expr_program Atom.Set.empty select_spawn_with_inline_in (error_expr_collector "Spawn with inline_in remains in IR after InlineElim") program);
+        (* Check no self.port*)
+        ignore (collect_expr_program Atom.Set.empty select_this_port (error_expr_collector "this -> self for port access") program);
         (* Check: no more inlinable_in *)
         ignore (collect_term_program true select_component_with_inlinable (error_term_collector "Inlinable_in remains in IR after InlineElim") program);
         program 

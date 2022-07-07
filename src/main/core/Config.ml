@@ -10,7 +10,7 @@ let debug = function () ->
 (* 
   " " -> nothing
   * -> all pass
-  pass1:pass2:..*)
+  pass1,pass2..*)
 let _debug_selector = ref "*"
 
 (*
@@ -22,7 +22,7 @@ let debug_selector () =
     if !_debug_selector = "*" then None
     else if !_debug_selector = " " then Some []
     else 
-        Some (String.split_on_char ':' !_debug_selector)
+        Some (String.split_on_char ',' !_debug_selector)
 
 let _author = ref "author"
 

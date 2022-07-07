@@ -27,7 +27,7 @@ component B {
 
     void callback(int i, . st_cont){
         string msg = int_to_string(i);
-        debug("> callback ");
+        debug("> callback "+msg);
     }
 }
 

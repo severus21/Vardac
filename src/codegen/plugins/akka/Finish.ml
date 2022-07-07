@@ -185,13 +185,13 @@ module Make (Arg: sig val target:Target.target end) = struct
     (************************************* Base types ****************************)
 
     (************************************ Types **********************************)
-    let rec finish_ctype place : S._composed_type ->  T._ctype = function
-        | S.TActivationRef mt -> T.TActivationRef (fmtype mt) 
+    let rec finish_ctype parent_opt place : S._composed_type ->  T._ctype = function
+        | S.TActivationRef mt -> T.TActivationRef (fmtype parent_opt mt) 
         | S.TObject x when Atom.is_builtin x -> Encode.encode_builtin_type place (Atom.value x)
         | S.TObject x -> T.TVar x 
         | S.TArrow (m1, m2) -> T.TFunction (
-            fmtype m1,
-            fmtype m2
+            fmtype parent_opt m1,
+            fmtype parent_opt m2
         )
 
         | S.TVar x ->  begin
@@ -201,7 +201,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 if Atom.is_builtin x then 
                     Encode.encode_builtin_type place (Atom.value x)
                 else  T.TVar x
-            | Some bb -> T.TBB (fbbterm bb) 
+            | Some bb -> T.TBB (fbbterm parent_opt parent_opt bb) 
         end
         | S.TFlatType ft -> begin match ft with  
             (* When using Tuyple, Map, ... we need object so for ease we box atomic type in objects everywhere *)
@@ -221,13 +221,13 @@ module Make (Arg: sig val target:Target.target end) = struct
             | AstUtils.TBLabel -> T.Atomic "LabelEvent"
             | AstUtils.TUnit -> T.Atomic "void"
         end
-        | S.TArray mt -> T.TArray (fmtype mt)
-        | S.TDict (m1, m2) -> T.TMap (fmtype m1, fmtype m2)
-        | S.TList mt -> T.TList (fmtype mt)
-        | S.TOption mt -> T.TOption (fmtype mt)
-        | S.TResult (m1, m2) -> T.TResult (fmtype m1, fmtype m2)
-        | S.TSet mt -> T.TSet (fmtype mt)
-        | S.TTuple mts ->  T.TTuple (List.map (fun x -> (fmtype x)) mts)
+        | S.TArray mt -> T.TArray (fmtype parent_opt mt)
+        | S.TDict (m1, m2) -> T.TMap (fmtype parent_opt m1, fmtype parent_opt m2)
+        | S.TList mt -> T.TList (fmtype parent_opt mt)
+        | S.TOption mt -> T.TOption (fmtype parent_opt mt)
+        | S.TResult (m1, m2) -> T.TResult (fmtype parent_opt m1, fmtype parent_opt m2)
+        | S.TSet mt -> T.TSet (fmtype parent_opt mt)
+        | S.TTuple mts ->  T.TTuple (List.map (fun x -> (fmtype parent_opt x)) mts)
         | S.TVPlace mt -> (t_lg4dc_vplace place).value
         | S.TBridge b -> (t_lg4dc_bridge place).value
         | S.TUnion _-> T.TRaw "Object" (* TODO maybe a better solution*)
@@ -239,20 +239,20 @@ module Make (Arg: sig val target:Target.target end) = struct
         | S.TInport mt -> 
             logger#warning "TODO TInport parameter type is not yet encoded in Java";
             T.TRaw "InPort"
-        | S.TInductive mts -> T.TTuple (List.map (fun x -> (fmtype x)) mts)
-    and fctype ct :  T.ctype = map_place finish_ctype ct
+        | S.TInductive mts -> T.TTuple (List.map (fun x -> (fmtype parent_opt x)) mts)
+    and fctype parent_opt ct :  T.ctype = map_place (finish_ctype parent_opt) ct
 
     (* Represent an ST object in Java type *)
-    and finish_stype place : S._session_type -> T._ctype = function 
+    and finish_stype parent_opt place : S._session_type -> T._ctype = function 
         | S.STEnd -> T.TVar (Atom.builtin "Protocol.STEnd") 
         | (S.STSend (mt, st) as st0) | (S.STRecv (mt, st) as st0) -> begin 
-            let ct = fmtype mt in 
+            let ct = fmtype parent_opt mt in 
             T.TParam (
                 {
                     place;
                     value =  T.TVar (Atom.builtin (match st0 with | S.STSend _ -> "Protocol.STSend" | STRecv _ -> "Protocol.STRecv"))
                 },
-                [ct; fstype st]
+                [ct; fstype parent_opt st]
             )
         end
         | (S.STBranch xs as st0) | (S.STSelect xs as st0) ->
@@ -268,7 +268,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                                 place = st.place;
                                 value = T.TVar (Atom.builtin "Protocol.STEntry")
                             },
-                            [fstype st]
+                            [fstype parent_opt st]
                         )}
                     ] @ [(built_t_hlist sts)] 
                 )}
@@ -290,15 +290,15 @@ module Make (Arg: sig val target:Target.target end) = struct
                     place;
                     value = T.TVar (Atom.builtin "Protocol.STRec")
                 },
-                [ fstype st]
+                [ fstype parent_opt st]
             )
 
         | S.STInline x -> 
             raise (Error.PlacedDeadbranchError (place, "STInline should remains outside the codegen part, it should have been resolve during the partial evaluation pass."))
-    and fstype st : T.ctype = map_place finish_stype st
+    and fstype parent_opt st : T.ctype = map_place (finish_stype parent_opt) st
 
     (* Represent an ST object in Java value *)
-    and finishv_stype place : S._session_type -> T._expr * T.ctype = 
+    and finishv_stype parent_opt place : S._session_type -> T._expr * T.ctype = 
     (****** Helpers *****)
     let fplace = place@(Error.forge_place "Plg=Akka/finishv_stype" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
@@ -319,7 +319,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             let encoded_headers = List.map encode_guard_header guard_headers in
             (* TODO remove timer binop from guard_opt -> fully manage by through header in Akka *)
 
-            match fmtype mt with
+            match fmtype parent_opt mt with
             | ct ->
                 let constructor = auto_place ((match st0 with 
                 | S.STSend _ -> T.VarExpr (a_ASTStype_of "Send")
@@ -339,7 +339,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                             ))
                         );
                         e2_e (Encode.encode_list place encoded_headers);  
-                        fvstype st
+                        fvstype parent_opt st
                     ]
                 ), auto_place T.TUnknown 
             | _ -> raise (Core.Error.PlacedDeadbranchError (mt.place, "finish_stype : STSend/STRecv type should not be a session type."))
@@ -347,7 +347,7 @@ module Make (Arg: sig val target:Target.target end) = struct
 
         (* Without guard *)
         | (S.STSend (mt, st) as st0) | (S.STRecv (mt, st) as st0) -> begin 
-            match fmtype mt with
+            match fmtype parent_opt mt with
             | ct ->
                 let constructor = auto_place ((match st0 with 
                 | S.STSend _ -> T.VarExpr (a_ASTStype_of "Send")
@@ -367,7 +367,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                             ))
                         );
                         e2_e (Encode.encode_list place []);  
-                        fvstype st
+                        fvstype parent_opt st
                     ]
                 ), auto_place T.TUnknown
             | _ -> raise (Core.Error.PlacedDeadbranchError (mt.place, "finish_stype : STSend/STRecv type should not be a session type."))
@@ -391,7 +391,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                                     e2_lit (T.StringLit (Atom.to_string label)) 
                                 );
                                 e2_e (Encode.encode_list place []);  
-                                fvstype st 
+                                fvstype parent_opt st 
                             ]
                         ))) xs
                     ))
@@ -407,7 +407,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             T.NewExpr ( e2var (a_ASTStype_of "End"), []), auto_place T.TUnknown
             (* The correct behaviour is *)
             (* raise (Error.PlacedDeadbranchError (place, "STWildcard should have been concretized during type inference.")) *)
-    and fvstype st : T.expr = map_place finishv_stype st
+    and fvstype parent_opt st : T.expr = map_place (finishv_stype parent_opt) st
 
     and finish_struct_type place : S._struct_type -> T._ctype = function
     | S.CompTUid x -> T.TVar x 
@@ -417,10 +417,10 @@ module Make (Arg: sig val target:Target.target end) = struct
     | S.TPolyCVar x -> Error.perror place "TPolyCVar should have been reduce before reaching Akka ???"
     and fcctype ct : T.ctype = map_place finish_struct_type ct
 
-    and finish_mtype place : S._main_type -> T.ctype = 
+    and finish_mtype parent_opt place : S._main_type -> T.ctype = 
     let fplace = place@(Error.forge_place "Plg=Akka/finish_mtype" 0 0) in
     function
-    | S.CType ct -> fctype ct 
+    | S.CType ct -> fctype parent_opt ct 
     (* TODO FIXME URGENT
             Type de session dans Akka 
             actuellement encapsuler dans le protocol pb pour la creation après
@@ -434,13 +434,13 @@ module Make (Arg: sig val target:Target.target end) = struct
             [ ] (* FIXME at this point we do not parametrize session with session types since 
                     do not compile yet
                     if we can exhange session by message-passing Java loose the generic parameter types dynamically 
-                    [fstype st] *)
+                    [fstype parent_opt st] *)
         )
     }
     | S.CompType ct -> fcctype ct
     | S.EmptyMainType -> {place; value=T.TUnknown}
     | S.TRaw x -> {place; value=T.TRaw x}
-    and fmtype : S.main_type ->  T.ctype = function mt -> finish_mtype mt.place mt.value
+    and fmtype parent_opt : S.main_type ->  T.ctype = map0_place (finish_mtype parent_opt)
 
     (************************************ Literals *****************************)
 
@@ -476,18 +476,18 @@ module Make (Arg: sig val target:Target.target end) = struct
     | AstUtils.LessThan            -> T.LessThan
     | AstUtils.In                  -> T.In
 
-    and finish_expr place (e, mt): T._expr * T.ctype =
+    and finish_expr parent_opt place (e, mt): T._expr * T.ctype =
     let fplace = place@(Error.forge_place "Plg=Akka/finish_expr" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
     (match e with
         | S.VarExpr x -> T.VarExpr x
-        | S.AccessExpr (e1, {value=S.VarExpr x, _}) when Atom.is_builtin x -> Encode.encode_builtin_access place (fexpr e1) (Atom.value x)
-        | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr e1, fexpr e2)
-        | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr t1, fbinop op, fexpr t2)
+        | S.AccessExpr (e1, {value=S.VarExpr x, _}) when Atom.is_builtin x -> Encode.encode_builtin_access place (fexpr parent_opt e1) (Atom.value x)
+        | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr parent_opt e1, fexpr parent_opt e2)
+        | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr parent_opt t1, fbinop op, fexpr parent_opt t2)
         | S.LambdaExpr (params, e) -> 
             T.LambdaExpr (
-                List.map (map0_place (fun _ (mt, x) -> fmtype mt, x)) params,
-                auto_place (T.ReturnStmt (fexpr e))
+                List.map (map0_place (fun _ (mt, x) -> fmtype parent_opt mt, x)) params,
+                auto_place (T.ReturnStmt (fexpr parent_opt e))
             ) 
         | S.BridgeCall b -> 
         fst (e_bridge_of_protocol place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown))).value 
@@ -507,24 +507,24 @@ module Make (Arg: sig val target:Target.target end) = struct
             )
         end
         | S.LitExpr lit -> T.LitExpr (fliteral lit)
-        | S.UnopExpr (op, e) -> T.UnopExpr (op, fexpr e)
+        | S.UnopExpr (op, e) -> T.UnopExpr (op, fexpr parent_opt e)
 
         | S.CallExpr (e1, es) -> begin 
             match e1.value with 
             | S.VarExpr x,_ when Atom.is_builtin x ->
-                Encode.encode_builtin_fct e1.place (Atom.value x) (List.map fexpr es)
-            | _ -> T.CallExpr (fexpr e1, List.map fexpr es)
+                Encode.encode_builtin_fct parent_opt e1.place (Atom.value x) (List.map (fexpr parent_opt) es)
+            | _ -> T.CallExpr (fexpr parent_opt e1, List.map (fexpr parent_opt) es)
         end
         | S.NewExpr (e1, es) -> begin 
             match e1.value with 
             | S.VarExpr x,_ when Atom.is_builtin x ->
-                Encode.encode_builtin_fct e1.place (Atom.value x) (List.map fexpr es)
-            | _ -> T.NewExpr (fexpr e1, List.map fexpr es)
+                Encode.encode_builtin_fct parent_opt e1.place (Atom.value x) (List.map (fexpr parent_opt) es)
+            | _ -> T.NewExpr (fexpr parent_opt e1, List.map (fexpr parent_opt) es)
         end
         | S.RawExpr x -> T.RawExpr x
         | S.This | S.Self -> T.This
         | S.Create c -> 
-            T.NewExpr (auto_fplace(T.VarExpr c.c, auto_fplace (T.TVar c.c)), List.map fexpr c.args)
+            T.NewExpr (auto_fplace(T.VarExpr c.c, auto_fplace (T.TVar c.c)), List.map (fexpr parent_opt) c.args)
         | S.Spawn {c; args; at=None} ->
             T.ActivationRef{
                 schema = e2_lit (T.StringLit (Atom.to_string (IRMisc.schema_of c)));
@@ -534,11 +534,11 @@ module Make (Arg: sig val target:Target.target end) = struct
                         e2var (Atom.builtin "spawn"),
                         [ e2_e (T.CallExpr (
                             e2_e (T.AccessExpr (
-                                    fcexpr c,
+                                    fcexpr parent_opt c,
                                     e2var (Atom.builtin "create")
                                 )),
                                 e_this_guardian fplace
-                                :: List.map fexpr args
+                                :: List.map (fexpr parent_opt) args
                             )
                         )] @ [ e2_lit (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))]
                     ))
@@ -575,7 +575,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                                     T.TParam(
                                         t_context place,
                                         [
-                                            match (fmtype mt).value with
+                                            match (fmtype parent_opt mt).value with
                                             | T.TActivationRef ct -> 
                                                 (* NB a TUnknwon here can come from a CompType {TStruct} (see fcctype) or EmptyMainType*)
                                                 assert( ct.value <> T.TUnknown);
@@ -603,14 +603,14 @@ module Make (Arg: sig val target:Target.target end) = struct
                                                     ));
                                                     auto_place (T.ReturnStmt (
                                                         e2_e (T.NewExpr (
-                                                            fcexpr c,
+                                                            fcexpr parent_opt c,
                                                             (
                                                                 List.map (function x -> e2var x) (a_context
                                                                 ::a_timers
                                                                 ::a_guardian
                                                                 ::[]
                                                             )
-                                                            @(List.map fexpr args))
+                                                            @(List.map (fexpr parent_opt) args))
 
                                                         ))
                                                     ));
@@ -635,7 +635,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                         runnable;
                         e2_lit (T.StringLit (Atom.to_string (Atom.fresh "actor_name")));
                         e2_lit T.VoidLit;
-                        fexpr at;
+                        fexpr parent_opt at;
                     ]
                 ))
             }
@@ -647,44 +647,44 @@ module Make (Arg: sig val target:Target.target end) = struct
         )  
         | S.OptionExpr (Some e) -> T.CallExpr (
             e2var (Atom.builtin "Optional.of"),
-            [fexpr e]
+            [fexpr parent_opt e]
         )  
         | S.ResultExpr (None, Some err) ->  T.CallExpr (
             e2var (Atom.builtin "Either.left"),
-            [fexpr err]
+            [fexpr parent_opt err]
         ) 
         | S.ResultExpr (Some ok, None) -> T.CallExpr (
             e2var (Atom.builtin "Either.right"),
-            [fexpr ok]
+            [fexpr parent_opt ok]
         ) 
         | S.ResultExpr (_,_) -> raise (Core.Error.PlacedDeadbranchError (place, "finish_expr : a result expr can not be Ok and Err at the same time."))
-        | S.BlockExpr (b, es) -> T.BlockExpr(b, List.map fexpr es)
-        | S.Block2Expr (b, ees) -> T.Block2Expr(b, List.map (function (e1, e2) -> fexpr e1, fexpr e2) ees) 
+        | S.BlockExpr (b, es) -> T.BlockExpr(b, List.map (fexpr parent_opt) es)
+        | S.Block2Expr (b, ees) -> T.Block2Expr(b, List.map (function (e1, e2) -> fexpr parent_opt e1, fexpr parent_opt e2) ees) 
         | S.InterceptedActivationRef (e1, e2_opt) -> 
             T.InterceptedActivationRef{
-                actor_ref = fexpr e1;
-                intercepted_actor_ref = Option.map fexpr e2_opt
+                actor_ref = fexpr parent_opt e1;
+                intercepted_actor_ref = Option.map (fexpr parent_opt) e2_opt
             }
 
-        | S.TernaryExpr (e1, e2, e3) -> T.TernaryExpr (fexpr e1, fexpr e2, fexpr e3) 
-    ), fmtype mt
-    and fexpr e : T.expr = map_place finish_expr e
+        | S.TernaryExpr (e1, e2, e3) -> T.TernaryExpr (fexpr parent_opt e1, fexpr parent_opt e2, fexpr parent_opt e3) 
+    ), fmtype parent_opt mt
+    and fexpr parent_opt e : T.expr = map_place (finish_expr parent_opt) e
 
-    and finish_stmt place : S._stmt -> T._stmt = 
+    and finish_stmt parent_opt place : S._stmt -> T._stmt = 
     let fplace = place@(Error.forge_place "Plg=Akka/finish_stmt" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
     function
         | S.EmptyStmt -> T.CommentsStmt (AstUtils.LineComment "Empty Statement")
 
         (*S.* Binders *)
-        | S.AssignExpr (x, e) -> T.AssignExpr (auto_place (T.VarExpr x, auto_place T.TUnknown), fexpr e)
+        | S.AssignExpr (x, e) -> T.AssignExpr (auto_place (T.VarExpr x, auto_place T.TUnknown), fexpr parent_opt e)
         | S.AssignThisExpr (x, e) | S.AssignSelfExpr (x, e) -> 
             T.AssignExpr ( 
                 e2_e (T.AccessExpr (
                     e2_e T.This,
                     e2var x
                 )),
-                fexpr e)        
+                fexpr parent_opt e)        
         | S.LetStmt (mt, x, e) ->  
             (* 
                 Tmp fix, since right handside type of a let is never a TUnknown we use it for e;
@@ -692,7 +692,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 FIXME    
             *)
             let e = {e with value = (fst e.value, mt)} in
-            T.LetStmt (fmtype mt, x, Some (fexpr e))                             
+            T.LetStmt (fmtype parent_opt mt, x, Some (fexpr parent_opt e))                             
 
         (*S.* Comments *)
         | S.CommentsStmt comments -> T.CommentsStmt comments.value
@@ -701,21 +701,21 @@ module Make (Arg: sig val target:Target.target end) = struct
         | S.BreakStmt -> T.BreakStmt
         | S.ContinueStmt -> T.ContinueStmt
         | S.ExitStmt _ -> failwith "Exist is not yet supported"
-        | S.ForeachStmt (mt,x,e,stmt) -> T.ForeachStmt(fmtype mt, x, fexpr e, fstmt stmt)
-        | S.IfStmt (e, s1, s2_opt) -> T.IfStmt (fexpr e, fstmt s1, Option.map fstmt s2_opt)
+        | S.ForeachStmt (mt,x,e,stmt) -> T.ForeachStmt(fmtype parent_opt mt, x, fexpr parent_opt e, fstmt parent_opt stmt)
+        | S.IfStmt (e, s1, s2_opt) -> T.IfStmt (fexpr parent_opt e, fstmt parent_opt s1, Option.map (fstmt parent_opt) s2_opt)
         | S.MatchStmt (_,_) -> Core.Error.perror place "Match is not yet supported"
-        | S.ReturnStmt e -> T.ReturnStmt (fexpr e) 
+        | S.ReturnStmt e -> T.ReturnStmt (fexpr parent_opt e) 
 
         (*S.*type name, type definition*)
         | S.ExpressionStmt {value=S.CallExpr({value=S.VarExpr x, _}, args), _} when Atom.is_builtin x && Encode.is_stmt_builtin (Atom.hint x) -> 
-            Encode.encode_builtin_fct_as_stmt place (Atom.value x) (List.map fexpr args)
-        | S.ExpressionStmt e -> T.ExpressionStmt (fexpr e) 
-        | S.BlockStmt stmts -> T.BlockStmt (List.map fstmt stmts)
+            Encode.encode_builtin_fct_as_stmt place (Atom.value x) (List.map (fexpr parent_opt) args)
+        | S.ExpressionStmt e -> T.ExpressionStmt (fexpr parent_opt e) 
+        | S.BlockStmt stmts -> T.BlockStmt (List.map (fstmt parent_opt) stmts)
         
         | S.GhostStmt _ -> raise (Core.Error.PlacedDeadbranchError (place, "finish_stype : GhostStmt should have been remove by a previous compilation pass."))
-    and fstmt stmt : T.stmt = map_place finish_stmt stmt
+    and fstmt parent_opt stmt : T.stmt = map_place (finish_stmt parent_opt) stmt
 
-    and finish_eventdef (inner_place:Error.place) (name, mts, body) : T.event =
+    and finish_eventdef parent_opt (inner_place:Error.place) (name, mts, body) : T.event =
     match body with  
     | None -> { 
                 place = inner_place; 
@@ -723,16 +723,16 @@ module Make (Arg: sig val target:Target.target end) = struct
                     T.vis=T.Public; 
                     name= name;
                     args=List.mapi ( fun i mt ->
-                        fmtype mt, Atom.builtin ("value"^(string_of_int i))
+                        fmtype parent_opt mt, Atom.builtin ("value"^(string_of_int i))
                     ) mts;
                     headers = [];
                 }
             }
 
-    and finish_function place : S._function_dcl -> T.method0 list = function
+    and finish_function parent_opt place : S._function_dcl -> T.method0 list = function
         | f ->
             let body = match f.body with
-                | S.AbstractImpl stmts -> T.AbstractImpl (List.map fstmt stmts)
+                | S.AbstractImpl stmts -> T.AbstractImpl (List.map (fstmt parent_opt) stmts)
                 | S.BBImpl bbterm -> 
                     T.BBImpl { 
                         place = bbterm.place; 
@@ -740,7 +740,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                             language=bbterm.value.language; 
                             body = (List.map (function
                                 | S.Text t -> T.Text t 
-                                | S.Varda e -> T.Varda (fexpr e)
+                                | S.Varda e -> T.Varda (fexpr parent_opt e)
                             ) bbterm.value.body)
                         }
                     }
@@ -752,9 +752,9 @@ module Make (Arg: sig val target:Target.target end) = struct
                     decorators      = [];
                     annotations     = [ T.Visibility T.Public ]; 
                     v = {
-                        ret_type        = fmtype f.ret_type;
+                        ret_type        = fmtype parent_opt f.ret_type;
                         name            = f.name;
-                        args            = (List.map fparam f.args);
+                        args            = (List.map (fparam parent_opt) f.args);
                         throws          = [];
                         body            = body; 
                         is_constructor  = false 
@@ -763,36 +763,36 @@ module Make (Arg: sig val target:Target.target end) = struct
             } in
 
             [new_function]
-    and ffunction : S.function_dcl -> T.method0 list = function m -> finish_function m.place m.value
+    and ffunction parent_opt : S.function_dcl -> T.method0 list = function m -> finish_function parent_opt m.place m.value
     (************************************ Component *****************************)
 
 
     (* return type is T._expr for now, since we built only one state with all the variable inside FIXME *)
-    and finish_state place : S._state -> T._stmt = 
+    and finish_state parent_opt place : S._state -> T._stmt = 
     let fplace = (Error.forge_place "Plg=Akka/finish_state" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
     function 
         | {ghost; type0; name; body = S.InitExpr e} -> 
-            T.LetStmt (fmtype type0, name, Some (fexpr e))
+            T.LetStmt (fmtype parent_opt type0, name, Some (fexpr parent_opt e))
         | {ghost; type0; name; body = S.InitBB bb_term} -> 
             T.LetStmt (
-                fmtype type0, 
+                fmtype parent_opt type0, 
                 name, 
                 Some {
                     place = bb_term.place;
-                    value = T.BBExpr (fbbterm bb_term), auto_place T.TUnknown
+                    value = T.BBExpr (fbbterm parent_opt parent_opt bb_term), auto_place T.TUnknown
                 })
         | { ghost; type0; name; body = S.NoInit} ->
-            T.LetStmt (fmtype type0, name, None)
-    and fstate s : T.stmt = map_place finish_state s
+            T.LetStmt (fmtype parent_opt type0, name, None)
+    and fstate parent_opt s : T.stmt = map_place (finish_state parent_opt) s
 
 
-    and finish_param place : S._param -> (T.ctype * T.variable) = function
-    | mt, x -> fmtype mt, x
-    and fparam : S.param -> (T.ctype * T.variable) = function p -> finish_param p.place p.value
+    and finish_param parent_opt place : S._param -> (T.ctype * T.variable) = function
+    | mt, x -> fmtype parent_opt mt, x
+    and fparam parent_opt : S.param -> (T.ctype * T.variable) = function p -> finish_param parent_opt p.place p.value
 
 
-    and finish_contract place (method0 : T.method0) (contract : S._contract) : T.method0 list =
+    and finish_contract parent_opt place (method0 : T.method0) (contract : S._contract) : T.method0 list =
         let fplace = (Error.forge_place "Plg=Akka/finish_contract" 0 0) in
         let auto_place smth = {place = fplace; value=smth} in
 
@@ -807,9 +807,9 @@ module Make (Arg: sig val target:Target.target end) = struct
         } in
 
         (* Pre binders *)
-        let with_params = List.map (function (x,y,_) -> finish_param place (x,y)) contract.pre_binders in
+        let with_params = List.map (function (x,y,_) -> finish_param parent_opt place (x,y)) contract.pre_binders in
         let with_stmts : S.stmt list = List.map (function (x,y,z) -> {place; value=S.LetStmt (x,y,z)}) contract.pre_binders in 
-        let with_stmts : T.stmt list = List.map fstmt with_stmts in
+        let with_stmts : T.stmt list = List.map (fstmt parent_opt) with_stmts in
         (*let with_body : T.stmt = T.BlockStmt with_stmts in*)
 
         (* Pre-condition *)
@@ -829,7 +829,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                         name            = ensures_name;
                         body            =  T.AbstractImpl ([{ 
                             place= ensures_expr.place;
-                            value = T.ReturnStmt (fexpr ensures_expr)
+                            value = T.ReturnStmt (fexpr parent_opt ensures_expr)
                         }]);
                         args            = ensures_params;
                         throws          = [];
@@ -884,7 +884,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                         body            = T.AbstractImpl ([
                             {place = returns_expr.place; value= T.ReturnStmt (
                                 {place = returns_expr.place; value=T.CallExpr(
-                                    fexpr returns_expr,
+                                    fexpr parent_opt returns_expr,
                                     [{place = returns_expr.place; value=T.VarExpr (snd ret_type_param), auto_place T.TUnknown}]
                                     ), auto_place T.TUnknown
                                 })
@@ -959,9 +959,10 @@ module Make (Arg: sig val target:Target.target end) = struct
         in
 
         methods
-    and fcontract actor_name (method0 : T.method0) : S.contract -> T.method0 list = function m -> finish_contract m.place method0 m.value
+    and fcontract parent_opt actor_name (method0 : T.method0) : S.contract -> T.method0 list = function m -> finish_contract parent_opt m.place method0 m.value
         
-    and finish_method actor_name plg_annotations place (m0 : S._method0) : T.method0 list = 
+    and finish_method parent_opt actor_name plg_annotations place (m0 : S._method0) : T.method0 list = 
+        (* TODO actor_name is include in parent_opt, actor_name can be removed *)
         assert( false = m0.on_destroy); (* TODO not yet supported*)
 
         let decorators, annotations = List.split (List.map (map0_place (function place -> function
@@ -972,8 +973,8 @@ module Make (Arg: sig val target:Target.target end) = struct
         let annotations = List.flatten annotations in
 
         let body = match m0.body with
-            | S.AbstractImpl stmts -> T.AbstractImpl (List.map fstmt stmts)
-            | S.BBImpl body -> T.BBImpl (fbbterm body)
+            | S.AbstractImpl stmts -> T.AbstractImpl (List.map (fstmt parent_opt) stmts)
+            | S.BBImpl body -> T.BBImpl (fbbterm parent_opt parent_opt body)
         in
 
         let new_method : T.method0 = {
@@ -982,9 +983,9 @@ module Make (Arg: sig val target:Target.target end) = struct
                 decorators      = decorators; 
                 annotations     = [ T.Visibility T.Public ] @ annotations; 
                 v = {
-                    ret_type        = fmtype m0.ret_type;
+                    ret_type        = fmtype parent_opt m0.ret_type;
                     name            = if m0.on_startup then actor_name else m0.name;
-                    args            = (List.map fparam m0.args);
+                    args            = (List.map (fparam parent_opt) m0.args);
                     throws          = [];
                     body            = body; 
                     is_constructor  = m0.on_startup 
@@ -995,19 +996,19 @@ module Make (Arg: sig val target:Target.target end) = struct
         begin
             match m0.contract_opt with
             | None -> [new_method]
-            | Some contract -> fcontract actor_name new_method contract 
+            | Some contract -> fcontract parent_opt actor_name new_method contract 
         end
-    and fmethod actor_name {v; plg_annotations} = map0_place (finish_method actor_name (fplgannot plg_annotations)) v
-    and finish_bbterm place {S.language; body} = 
+    and fmethod parent_opt actor_name {v; plg_annotations} = map0_place (finish_method parent_opt actor_name (fplgannot plg_annotations)) v
+    and finish_bbterm parent_opt place {S.language; body} = 
     {
         T.language;
         body = List.map (
             function 
             | S.Text t -> T.Text t
-            | S.Varda e -> T.Varda (fexpr e)
+            | S.Varda e -> T.Varda (fexpr parent_opt e)
         ) body
     }
-    and fbbterm bbterm: T.blackbox_term = (map_place finish_bbterm) bbterm
+    and fbbterm parent_opt parent_opt bbterm: T.blackbox_term = map_place (finish_bbterm parent_opt) bbterm
 
     and finish_plgannot_component  a plg_annotations =
         let a, res = List.fold_left_map (fun (a:T.actor) -> map0_place (function place -> function
@@ -1029,24 +1030,27 @@ module Make (Arg: sig val target:Target.target end) = struct
         a, annotations, decorators
 
        
-    and finish_class_item cl_name place plg_annotations = function
-    | S.CLMethod m -> List.map (function m -> {T.annotations = []; decorators = []; v = T.MethodDeclaration m}) (fmethod cl_name {plg_annotations=plg_annotations; v=m})
-    | S.CLState s -> [ {T.annotations = []; decorators = []; v=T.Stmt (fstate s)}]
-    and fclass_item cl_name = map_places (map0_plgannot(finish_class_item cl_name))
+    and finish_class_item parent_opt cl_name place plg_annotations = function
+    | S.CLMethod m -> List.map (function m -> {T.annotations = []; decorators = []; v = T.MethodDeclaration m}) (fmethod parent_opt cl_name {plg_annotations=plg_annotations; v=m})
+    | S.CLState s -> [ {T.annotations = []; decorators = []; v=T.Stmt (fstate parent_opt s)}]
+    and fclass_item parent_opt cl_name = map_places (map0_plgannot(finish_class_item parent_opt cl_name))
 
-    and fclass (cl:S.class_structure) = 
+    and fclass parent_opt (cl:S.class_structure) = 
+    let parent_opt = match parent_opt with | _, pself_opt -> Some cl.name, pself_opt in
         auto_fplace ({T.annotations = []; decorators = []; v =T.ClassOrInterfaceDeclaration {
             isInterface = false;
             name = cl.name;
             extends = None;
             implemented_types = [];
-            body = List.flatten(List.map (fclass_item cl.name) cl.body);
+            body = List.flatten(List.map (fclass_item parent_opt cl.name) cl.body);
             headers = [];
         }})
 
 
-    and finish_component_dcl place : S._component_dcl -> T.actor list = function
+    and finish_component_dcl parent_opt place : S._component_dcl -> T.actor list = function
     | S.ComponentStructure {name; body; headers} -> begin 
+        let parent_opt = (None, Some name) in
+
         (* Registration *)
         Hashtbl.add to_capitalize_variables name ();
         collected_components := Atom.Set.add name !collected_components;
@@ -1079,17 +1083,17 @@ module Make (Arg: sig val target:Target.target end) = struct
         in
         let events = List.map ( function
             | {value=S.EventDef (name, mts, body); place} ->
-                finish_eventdef place (name, mts, body)
+                finish_eventdef parent_opt place (name, mts, body)
         ) grp_items.eventdefs in
         (* 
-            List.flatten (List.map (function x -> snd (fmtype x)) (List.filter_map (function x -> match snd x with |S.AbstractTypealias mt -> Some mt | _ -> None) (List.map (function |{value=S.EventDef (x, mts,body); _} -> (x, mts, body)) grp_items.eventdefs))) in*)
+            List.flatten (List.map (function x -> snd (fmtype parent_opt x)) (List.filter_map (function x -> match snd x with |S.AbstractTypealias mt -> Some mt | _ -> None) (List.map (function |{value=S.EventDef (x, mts,body); _} -> (x, mts, body)) grp_items.eventdefs))) in*)
         
 
         (*** Building states ***)
         let states : T.state list = List.map (
             function state -> {
                 place = state.place; 
-                value = {T.persistent=false; stmts= [fstate state] }
+                value = {T.persistent=false; stmts= [fstate parent_opt state] }
             } (* TODO handle persistency*)
         ) grp_items.states in 
 
@@ -1141,8 +1145,8 @@ module Make (Arg: sig val target:Target.target end) = struct
                             e2_e (T.NewExpr(
                                 e2_e (T.RawExpr "OutPort"),
                                 [
-                                    fexpr (S_A2.e2_lit (S.StringLit (Atom.to_string _p.name)));
-                                    fexpr (S_A2.e2_e (S.BlockExpr(AstUtils.List, 
+                                    fexpr parent_opt (S_A2.e2_lit (S.StringLit (Atom.to_string _p.name)));
+                                    fexpr parent_opt (S_A2.e2_e (S.BlockExpr(AstUtils.List, 
                                         List.map (function name -> 
                                             S_A2.e2_e (S.AccessExpr( S_A2.e2_e S.This, S_A2.e2var name))
                                         ) _p._children
@@ -1171,9 +1175,9 @@ module Make (Arg: sig val target:Target.target end) = struct
                         auto_place (T.TParam(
                             auto_place( T.Atomic "InPort"),
                             [
-                                fmtype t_msg;
-                                fmtype t_cont;
-                                fmtype t_ret;
+                                fmtype parent_opt t_msg;
+                                fmtype parent_opt t_cont;
+                                fmtype parent_opt t_ret;
                             ]
                         )),
                         _p.name,
@@ -1181,14 +1185,14 @@ module Make (Arg: sig val target:Target.target end) = struct
                             e2_e (T.NewExpr(
                                 e2_e (T.RawExpr "InPort"),
                                 [
-                                    fexpr (S_A2.e2_lit (S.StringLit (Atom.to_string _p.name)));
-                                    fexpr (S_A2.e2_e (S.BlockExpr(AstUtils.List, 
+                                    fexpr parent_opt (S_A2.e2_lit (S.StringLit (Atom.to_string _p.name)));
+                                    fexpr parent_opt (S_A2.e2_e (S.BlockExpr(AstUtils.List, 
                                         List.map (function name -> 
                                             S_A2.e2_e (S.AccessExpr( S_A2.e2_e S.This, S_A2.e2var name))
                                         ) _p._children
                                     )));
-                                    fexpr (S_A2.e2_lit (S.BoolLit _p._is_intermediate));
-                                    fvstype (match _p.expecting_st.value with
+                                    fexpr parent_opt (S_A2.e2_lit (S.BoolLit _p._is_intermediate));
+                                    fvstype parent_opt (match _p.expecting_st.value with
                                     | S.SType st -> st);
                                 ]
                             ))    
@@ -1213,7 +1217,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                             T_A2.e2_e (T.RawExpr "setCallback")
                         )),
                         [ 
-                            match (fexpr (fst p.value).callback) with 
+                            match (fexpr parent_opt (fst p.value).callback) with 
                             | {place; value=T.AccessExpr (a, {value=T.VarExpr b,_}), mt} -> {place=place@fplace; value=T.AccessMethod (a, b), mt}
                             | e -> e 
                         
@@ -1238,9 +1242,9 @@ module Make (Arg: sig val target:Target.target end) = struct
                             e2_e (T.NewExpr(
                                 e2_e (T.RawExpr "EPort"),
                                 [
-                                    fexpr (S_A2.e2_lit (S.StringLit (Atom.to_string _p.name)));
+                                    fexpr parent_opt (S_A2.e2_lit (S.StringLit (Atom.to_string _p.name)));
                                     match _p.expecting_mt.value with
-                                    | CType {value=TVar x} -> T_A2.e2_e (T.ClassOf (fmtype _p.expecting_mt))
+                                    | CType {value=TVar x} -> T_A2.e2_e (T.ClassOf (fmtype parent_opt _p.expecting_mt))
                                     | _ -> Error.perror place "unsupported expecte type for eport"
                                 ]
                             ))    
@@ -1312,7 +1316,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 ignore (Hashtbl.find inner_env key);
                 Error.perror (place@p.place) "Tuple (bridge, st) is not unique for the component %s" (Atom.hint name)
             with Not_found -> 
-                Hashtbl.add inner_env key (fexpr (fst p.value).callback)
+                Hashtbl.add inner_env key (fexpr parent_opt (fst p.value).callback)
         in
 
         List.iter hydrate_env grp_items.ports;
@@ -1513,7 +1517,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                         e2_e (T.AccessExpr(
                             e2_e T.This,
                             e2var (fst port.value).name
-                        )), fvstype remaining_st) callback)),
+                        )), fvstype parent_opt remaining_st) callback)),
                     Some acc
                 ))
             in
@@ -1558,7 +1562,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             [
                 auto_place (T.ExpressionStmt (
                     e2_e (T.CallExpr(
-                        fexpr (fst port.value).callback,
+                        fexpr parent_opt (fst port.value).callback,
                         [ l_event ]
                     ))
                 ));
@@ -1739,7 +1743,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         Hashtbl.iter (fun event _ -> add_external_e2rs event name) external_env;
 
         (***** Building methods *****)
-        let methods = receiver_methods @ (List.flatten (List.map (fmethod name) grp_items.methods)) in 
+        let methods = receiver_methods @ (List.flatten (List.map (fmethod parent_opt name) grp_items.methods)) in 
 
         (* Update constructor to
            - set InPort callback *)
@@ -1778,24 +1782,24 @@ module Make (Arg: sig val target:Target.target end) = struct
                             v = T.Actor x 
                         }
                     })
-                    (List.flatten (List.map (function {v; plg_annotations} -> List.map (function y -> {v=y; plg_annotations}) (fcdcl v)) grp_items.nested)
+                    (List.flatten (List.map (function {v; plg_annotations} -> List.map (function y -> {v=y; plg_annotations}) (fcdcl parent_opt v)) grp_items.nested)
                 ); 
                 static_items = 
-                (List.flatten (List.map fterm grp_items.others))
-                @ (List.map fclass grp_items.classes); 
+                (List.flatten (List.map (fterm parent_opt) grp_items.others))
+                @ (List.map (fclass parent_opt) grp_items.classes); 
                 receiver = receiver
             }
         }]
     end 
     | S.ComponentAssign _ -> failwith "Component expr are not yet supported" 
 
-    and fcdcl  : S.component_dcl -> T.actor list = function cdcl -> finish_component_dcl cdcl.place cdcl.value 
+    and fcdcl parent_opt : S.component_dcl -> T.actor list = function cdcl -> finish_component_dcl parent_opt cdcl.place cdcl.value 
 
     (********************** Manipulating component structure *********************)
-    and finish_component_expr place = function
-        | S.VarCExpr x, mt -> T.VarExpr x, fmtype mt
+    and finish_component_expr parent_opt place = function
+        | S.VarCExpr x, mt -> T.VarExpr x, fmtype parent_opt mt
         | _ -> failwith "Akka plg do not support yet advance component expr" 
-    and fcexpr ce : T.expr = map_place finish_component_expr ce
+    and fcexpr parent_opt ce : T.expr = map_place (finish_component_expr parent_opt) ce
 
     (************************************ Program *****************************)
 
@@ -1828,7 +1832,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         } in
         List.mapi make_getter args
 
-    and finish_term place plg_annotations : S._term -> T.term list = 
+    and finish_term parent_opt place plg_annotations : S._term -> T.term list = 
     let fplace = place@(Error.forge_place "Plg=Akka/finish_term" 0 0) in
     let auto_place smth = {place = fplace; value=smth} in
     function
@@ -1854,7 +1858,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                     v=T.Actor a
                 }
             }
-        ) (fcdcl cdcl)
+        ) (fcdcl parent_opt cdcl)
     | S.Stmt stmt -> 
         assert(plg_annotations = []);
         [{
@@ -1862,7 +1866,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         value= {
             T.annotations = [];
             decorators = [];
-            v = T.Stmt (fstmt stmt)
+            v = T.Stmt (fstmt parent_opt stmt)
         }
     }]
     | S.Function f -> 
@@ -1885,7 +1889,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                     decorators = decorators;
                     v = T.MethodDeclaration m
                 }
-    }) (ffunction f)
+    }) (ffunction parent_opt f)
     | S.Typedef {value=S.ProtocolDef (name, {value=S.SType st; _});_} -> 
         assert(plg_annotations = []);
         (*** Helpers ***)
@@ -1955,7 +1959,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 name = Atom.builtin "get_st";
                 body = AbstractImpl [
                     auto_place (T.ReturnStmt (
-                        fvstype st
+                        fvstype parent_opt st
                     ))
                 ];
                 args = [];
@@ -2018,7 +2022,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             value = {
                 T.annotations = [];
                 decorators = [];
-                v = T.Event (finish_eventdef inner_place (name, mts, None)) 
+                v = T.Event (finish_eventdef parent_opt inner_place (name, mts, None)) 
             }
         }]
 
@@ -2028,7 +2032,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         (* Registration *)
         Hashtbl.add to_capitalize_variables name ();
 
-        let args = List.map (function (arg:T.ctype) -> (arg, Atom.fresh "arg")) (List.map fmtype args) in
+        let args = List.map (function (arg:T.ctype) -> (arg, Atom.fresh "arg")) (List.map (fmtype parent_opt) args) in
         let constructor_body = 
             let place = (Error.forge_place "Plg=Akka/finish_term/typedef/implicit_constructor" 0 0) in
             let aux (_, arg_name) = 
@@ -2109,7 +2113,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 v = T.ClassOrInterfaceDeclaration {
                     headers = [];
                     isInterface = false;
-                    extends = Some (auto_place (T.TBB (fbbterm body)));
+                    extends = Some (auto_place (T.TBB (fbbterm parent_opt parent_opt body)));
                     implemented_types = [];
                     name = v;
                     body = [] 
@@ -2142,7 +2146,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             }
         }]
 
-    and fterm : S.term -> T.term list = function t -> finish_term t.place (fplgannot t.value.plg_annotations) t.value.v
+    and fterm parent_opt : S.term -> T.term list = function t -> finish_term parent_opt t.place (fplgannot t.value.plg_annotations) t.value.v
 
     and fplgannot plg_annotations = 
         plg_annotations
@@ -2155,7 +2159,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         let terms =     
             program
             |> GuardTransform.gtransform_program
-            |> function terms -> List.flatten (List.rev(List.map fterm terms))
+            |> function terms -> List.flatten (List.rev(List.map (fterm (None,None)) terms))
         in
         
         (* Apply renaming *)
