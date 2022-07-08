@@ -189,7 +189,7 @@ let encode_builtin_fct_1 parent_opt place name a =
             e_lg4dc_componentsat place,
             [
                 e_get_context place;
-                e_this_guardian place;
+                e_this_guardian (this_actor parent_opt) place;
                 a
             ]
         )
@@ -256,7 +256,7 @@ let encode_builtin_fct_1 parent_opt place name a =
             )),
             [ 
                 e_get_context place;
-                e_this_guardian place;
+                e_this_guardian (this_actor parent_opt) place;
             ]
         )
     | "rightactivations" ->
@@ -267,7 +267,7 @@ let encode_builtin_fct_1 parent_opt place name a =
             )),
             [ 
                 e_get_context place;
-                e_this_guardian place;
+                e_this_guardian (this_actor parent_opt) place;
             ]
         )
     | "bridgeof_in" | "bridgeof_out" ->
@@ -310,11 +310,7 @@ let encode_builtin_fct_2 parent_opt place name a b =
     | "bind_in" ->
         T.CallExpr(
             e2_e (T.AccessExpr(
-                e2_e (
-                    match parent_opt with 
-                    | Some _, Some _ -> T.AccessExpr(e2_e T.This, e2var (Atom.builtin "parent_this"))
-                    | None, _ -> T.This
-                    | _ -> raise (Error.DeadbranchError "if cl is set in parent_opt then component should be set also")),
+                e2_e (this_actor parent_opt),
                 e2var (Atom.builtin "bind_in")
             )),
             [ 
@@ -325,11 +321,7 @@ let encode_builtin_fct_2 parent_opt place name a b =
     | "bind_out" ->
         T.CallExpr(
             e2_e (T.AccessExpr(
-                e2_e (
-                    match parent_opt with 
-                    | Some _, Some _ -> T.AccessExpr(e2_e T.This, e2var (Atom.builtin "parent_this"))
-                    | None, _ -> T.This
-                    | _ -> raise (Error.DeadbranchError "if cl is set in parent_opt then component should be set also")),
+                e2_e (this_actor parent_opt),
                 e2var (Atom.builtin "bind_out")
             )),
             [ 
@@ -362,9 +354,9 @@ let encode_builtin_fct_2 parent_opt place name a b =
             [ 
                 b; 
                 e_get_context place;
-                e_this_timers place;
-                e_this_frozen_sessions place;
-                e_this_dead_sessions place;
+                e_this_timers (this_actor parent_opt) place;
+                e_this_frozen_sessions (this_actor parent_opt) place;
+                e_this_dead_sessions (this_actor parent_opt) place;
             ]
         ) 
     | "leftregister" ->
@@ -398,9 +390,9 @@ let encode_builtin_fct_2 parent_opt place name a b =
             [ 
                 b; 
                 e_get_context place;
-                e_this_timers place;
-                e_this_frozen_sessions place;
-                e_this_dead_sessions place;
+                e_this_timers (this_actor parent_opt) place;
+                e_this_frozen_sessions (this_actor parent_opt) place;
+                e_this_dead_sessions (this_actor parent_opt) place;
             ]
         ) 
     | "listget" ->

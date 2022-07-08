@@ -1385,9 +1385,9 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                             auto_place (S.TVar (Atom.builtin "ActivationRef")),
                                             Rt.Misc.e_get_self_activation fplace (Rt.Misc.e_get_context fplace)
                                         ), auto_place S.TUnknown);
-                                        Rt.Misc.e_this_frozen_sessions fplace; 
-                                        Rt.Misc.e_this_dead_sessions fplace; 
-                                        Rt.Misc.e_this_intermediate_states fplace;
+                                        Rt.Misc.e_this_frozen_sessions S.This fplace; 
+                                        Rt.Misc.e_this_dead_sessions S.This fplace; 
+                                        Rt.Misc.e_this_intermediate_states S.This fplace;
                                         l_event;
                                     ]
                                 ), auto_place S.TUnknown)));
@@ -1399,7 +1399,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
                     let set_timers : S.stmt = 
                         auto_place(S.AssignExpr( 
-                            Rt.Misc.e_this_timers fplace,
+                            Rt.Misc.e_this_timers S.This fplace,
                             auto_place(S.VarExpr Rt.Misc.a_timers, auto_place S.TUnknown)
                         ))
                     in 
@@ -1407,12 +1407,12 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     let set_guardian : S.stmt = 
                         if is_guardian then
                             auto_place(S.AssignExpr( 
-                                Rt.Misc.e_this_guardian fplace,
+                                Rt.Misc.e_this_guardian S.This fplace,
                                 Rt.Misc.e_get_self_actor place (Rt.Misc.e_get_context place) 
                             ))
                         else
                             auto_place(S.AssignExpr( 
-                                Rt.Misc.e_this_guardian fplace,
+                                Rt.Misc.e_this_guardian S.This fplace,
                                 auto_place(S.VarExpr Rt.Misc.a_guardian, auto_place S.TUnknown)
                             ))
                     in 

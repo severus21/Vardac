@@ -5,6 +5,15 @@ open AstUtils
 let system_name = "system"^(String.capitalize_ascii (Config.project_name ())) 
 let lg4dc_package = "com.lg4dc"
 
+
+let fplace = (Error.forge_place ("plg.Akka.Misc") 0 0) 
+include Ast.AstUtil2.Make(struct let fplace = fplace end)
+let this_actor parent_opt =
+    match parent_opt with 
+    | Some _, Some _ -> Ast.AccessExpr(e2_e Ast.This, e2var (Atom.builtin "parent_this"))
+    | None, _ -> Ast.This
+    | _ -> raise (Error.DeadbranchError "if cl is set in parent_opt then component should be set also")
+
 (* Helper name *)
 let a_ASTStype_of = function
 | "" | "Base" -> Atom.builtin "ASTStype.Base"
@@ -266,37 +275,37 @@ let e_outport_of place bridge =
             bridge
         ]
     ), auto_place Ast.TUnknown)
-let e_this_timers place =
+let e_this_timers this place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
-        auto_place (Ast.This, auto_place Ast.TUnknown),
+        auto_place (this, auto_place Ast.TUnknown),
         auto_place (Ast.VarExpr a_timers, auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
 
-let e_this_guardian place =
+let e_this_guardian this place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
-        auto_place (Ast.This, auto_place Ast.TUnknown),
+        auto_place (this, auto_place Ast.TUnknown),
         auto_place (Ast.VarExpr a_guardian, auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
     
-let e_this_receptionist_adapter place =
+let e_this_receptionist_adapter this place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
-        auto_place (Ast.This, auto_place Ast.TUnknown),
+        auto_place (this, auto_place Ast.TUnknown),
         auto_place (Ast.VarExpr a_receptionist_adapter, auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
 
-let e_this_frozen_sessions place =
+let e_this_frozen_sessions this place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
-        auto_place (Ast.This, auto_place Ast.TUnknown),
+        auto_place (this, auto_place Ast.TUnknown),
         auto_place (Ast.VarExpr (Atom.builtin "frozen_sessions"), auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
-let e_this_dead_sessions place =
+let e_this_dead_sessions this place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
-        auto_place (Ast.This, auto_place Ast.TUnknown),
+        auto_place (this, auto_place Ast.TUnknown),
         auto_place (Ast.VarExpr (Atom.builtin "dead_sessions"), auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
 let e_cast place name e2 =
@@ -306,10 +315,10 @@ let e_cast place name e2 =
         e2
     ), auto_place Ast.TUnknown)
 
-let e_this_intermediate_states place =
+let e_this_intermediate_states this place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr(
-        auto_place (Ast.This, auto_place Ast.TUnknown),
+        auto_place (this, auto_place Ast.TUnknown),
         auto_place (Ast.VarExpr (Atom.builtin "intermediate_states"), auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
 
@@ -455,7 +464,7 @@ let e_static_bridge_of_protocol place (protocol_e:Ast.expr) (id: Atom.atom)=
         ] 
     ), auto_place Ast.TUnknown)
 
-let e_apply_headers place (session:Ast.expr)=
+let e_apply_headers this place (session:Ast.expr)=
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.CallExpr(
         auto_place (Ast.AccessExpr (
@@ -464,9 +473,9 @@ let e_apply_headers place (session:Ast.expr)=
         ), auto_place Ast.TUnknown),
         [
             e_get_context place;
-            e_this_timers place;
-            e_this_frozen_sessions place;
-            e_this_dead_sessions place;
+            e_this_timers this place;
+            e_this_frozen_sessions this place;
+            e_this_dead_sessions this place;
             session;
         ]
     ), auto_place Ast.TUnknown)

@@ -537,7 +537,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                                     fcexpr parent_opt c,
                                     e2var (Atom.builtin "create")
                                 )),
-                                e_this_guardian fplace
+                                e_this_guardian (this_actor parent_opt) fplace
                                 :: List.map (fexpr parent_opt) args
                             )
                         )] @ [ e2_lit (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))]
@@ -631,7 +631,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                     e_lg4dc_spawnat fplace,
                     [
                         e_get_context place;
-                        e_this_guardian fplace;
+                        e_this_guardian (this_actor parent_opt) fplace;
                         runnable;
                         e2_lit (T.StringLit (Atom.to_string (Atom.fresh "actor_name")));
                         e2_lit T.VoidLit;
@@ -1388,7 +1388,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                         ))
                     ));
                     auto_place (T.ExpressionStmt (
-                        e_apply_headers fplace l_session
+                        e_apply_headers (this_actor parent_opt) fplace l_session
                     ));
                     auto_place (T.ExpressionStmt (
                         e2_e (T.CallExpr(
@@ -1425,8 +1425,8 @@ module Make (Arg: sig val target:Target.target end) = struct
                             [ 
                                 e_cast fplace "ActorContext" (e_get_context fplace);
                                 e_cast fplace "ActivationRef" (e_get_self_activation fplace (e_get_context fplace));
-                                e_this_frozen_sessions fplace; 
-                                e_this_dead_sessions fplace; 
+                                e_this_frozen_sessions (this_actor parent_opt) fplace; 
+                                e_this_dead_sessions (this_actor parent_opt) fplace; 
                                 e_sessionid l_event; 
                                 e_replyto l_event;
                             ]
@@ -1598,9 +1598,9 @@ module Make (Arg: sig val target:Target.target end) = struct
                                             e_get_context fplace;
                                             e_get_self_activation place (e_get_context fplace);
                                             (*Rt.Misc.e_this_timers;*)
-                                            e_this_frozen_sessions fplace;
-                                            e_this_dead_sessions fplace;
-                                            e_this_intermediate_states fplace;
+                                            e_this_frozen_sessions (this_actor parent_opt) fplace;
+                                            e_this_dead_sessions (this_actor parent_opt) fplace;
+                                            e_this_intermediate_states (this_actor parent_opt) fplace;
                                             l_event
                                         ]
                                     ))));
