@@ -473,7 +473,7 @@ let t_range () =
     ))
 let t_time () = 
     mtype_of_ct (TArrow (
-        mtype_of_ft TVoid,
+        mtype_of_ft TUnit,
         mtype_of_ft TInt
     ))
 
