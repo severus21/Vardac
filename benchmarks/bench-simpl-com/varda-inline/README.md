@@ -1,7 +1,7 @@
 
 1. Generate code
     ```bash
-    1> make run -- compile --places benchmarks/bench-simpl-com/varda/places.yml --targets benchmarks/bench-simpl-com/varda/targets.yml --filename benchmarks/bench-simpl-com/varda/bench.varch --impl benchmarks/bench-simpl-com/varda/bench.vimpl --provenance 0
+    1> make run -- compile --places benchmarks/bench-simpl-com/varda-inline/places.yml --targets benchmarks/bench-simpl-com/varda-inline/targets.yml --filename benchmarks/bench-simpl-com/varda-inline/bench.varch --impl benchmarks/bench-simpl-com/varda-inline/bench.vimpl --provenance 0
     ```
 1. ```1> cd compiler-build/akka```
 1. Build Varda targets

@@ -37,4 +37,6 @@ impl function tojson java:{=
 
 impl component Ping {}
 impl component Pong {}
+impl component Wrapper {}
 impl component TopLevel {}
+impl component TopLevel::Inner {}
