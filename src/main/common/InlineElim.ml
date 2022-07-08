@@ -583,7 +583,6 @@ module Make () = struct
                     in
                     
                     (*** add outports [p_B15_pb15name] in A ***)
-                    let cl_renaming = Hashtbl.create 16 in
                     let n_outports = 
                         let outports = List.filter (function 
                             | {value={v=Outport _}} -> true
@@ -598,21 +597,9 @@ module Make () = struct
                                     _children = [];
                                 }, auto_fplace EmptyMainType)) in
 
-                                Hashtbl.add cl_renaming 
-                                    (Hashtbl.find renaming port.name) 
-                                    (port_name schema schema_in port.name); 
-
                                 n_port
                         ))) outports 
                     in
-                    (*** apply cl_renaming i.e. rename output ports ***)
-                    let cl = {cl with 
-                        body = List.map (rename_class_item (function x -> 
-                            match Hashtbl.find_opt cl_renaming x with
-                            | Some y -> y
-                            | None -> x
-                        )) cl.body
-                    } in
 
                     (*** add eports [p_B15_pb15name] in A + routing to ******all****** instances in [instances_B15]***)
                     let n_eports : component_item list = 

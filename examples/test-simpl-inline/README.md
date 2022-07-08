@@ -12,7 +12,16 @@ Scenario
     1> make
     ```
 4. Run example
-    1. Run the Varda system (composed of one binary)
+    1. Run the Varda system (composed of one binary per case)
+    * Case A: Inline in a dummy wrapper 
     ```bash
-    1> java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB 
+    1> java -enableassertions -jar build/libs/mainA.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB 
+    ```
+    * Case B: Inline, then exchange message with host (host and inlined do not have the same type)
+    ```bash
+    1> java -enableassertions -jar build/libs/mainB.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB 
+    ```
+    * Case B: Inline, then exchange message with host (host and inlined has the same type)
+    ```bash
+    1> java -enableassertions -jar build/libs/mainC.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB 
     ```

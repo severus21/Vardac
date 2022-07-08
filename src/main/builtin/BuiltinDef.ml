@@ -68,6 +68,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "ip", "place -> string", "TODO", t_ip;
     "port", "place -> int", "TODO", t_select;
 
+    "is_none", "option<..> -> bool", "TODO", t_is_none;
     "is_ok", "result<..,..> -> bool", "TODO", t_is_ok;
     "get_ok", "result<..., error> -> ...", "TODO", t_get_ok;
     "is_err", "result<..,..> -> bool", "TODO", t_is_ok;

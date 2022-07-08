@@ -438,6 +438,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         )
     }
     | S.CompType ct -> fcctype ct
+    | S.ClType ct -> fcctype ct
     | S.EmptyMainType -> {place; value=T.TUnknown}
     | S.TRaw x -> {place; value=T.TRaw x}
     and fmtype parent_opt : S.main_type ->  T.ctype = map0_place (finish_mtype parent_opt)

@@ -377,6 +377,13 @@ let t_bind () =
             mtype_of_ft TVoid
         ))
     ))
+let t_is_none () =
+    mtype_of_ct (TArrow (
+        mtype_of_ct (TOption (
+            mtype_of_ft TWildcard
+        )),
+        mtype_of_ft TBool 
+    ))
 let t_is_ok () =
     mtype_of_ct (TArrow (
         mtype_of_ct (TResult (

@@ -1,60 +1,167 @@
 protocol p = !int?int.;
 
-component A {
-    onstartup (){
-        debug("A > init");
-        this.methoda();
+component TestA {
+    component A {
+        onstartup (){
+            debug("A > init");
+            this.methoda();
+        }
+
+        void methoda(){
+            debug("A > methoda");
+        }
     }
 
-    void methoda(){
-        debug("A > methoda");
-    }
-}
+    (* Make B inlinable in A*)
+    @inline_in([A])
+    component B {
+        inport p_in :: bridge<C, B, inline p> expecting (dual p) = this.callback;
+        onstartup (bridge<C, B, inline p> chan){
+            debug("B > init");
+            bind(this.p_in, chan);
+            this.methodb();
+        }
 
-(* Make B inlinable in A*)
-@inline_in([A])
-component B {
-    inport p_in :: bridge<C, B, inline p> expecting (dual p) = this.callback;
-    onstartup (bridge<C, B, inline p> chan){
-        debug("B > init");
-        bind(this.p_in, chan);
-        this.methodb();
+        void methodb(){
+            debug("B > methodb");
+        }
+
+        void callback(int i, ?int. st_cont){
+            string msg = int_to_string(i);
+            debug("B > callback "+msg);
+            fire(st_cont, 21);
+        }
     }
 
-    void methodb(){
-        debug("B > methodb");
+    component C {
+        outport p_out expecting (inline p);
+        inport p_in :: bridge<C, B, inline p> expecting (?int.) = this.callback;
+        onstartup (bridge<C, B, p> chan, activation_ref<B> b){
+            bind(this.p_out, chan);
+            bind(this.p_in, chan);
+            session<p> s0 = initiate_session_with(this.p_out, b);
+            fire(s0, 42);
+        }
+        
+        void callback(int i, . st_cont){
+            string msg = int_to_string(i);
+            debug("C > callback "+msg);
+        }
     }
 
-    void callback(int i, ?int. st_cont){
-        string msg = int_to_string(i);
-        debug("B > callback "+msg);
-        fire(st_cont, 21);
-    }
-}
-
-component C {
-    outport p_out expecting (inline p);
-    inport p_in :: bridge<C, B, inline p> expecting (?int.) = this.callback;
-    onstartup (bridge<C, B, p> chan, activation_ref<B> b){
-        bind(this.p_out, chan);
-        bind(this.p_in, chan);
-        session<p> s0 = initiate_session_with(this.p_out, b);
-        fire(s0, 42);
-    }
-    
-    void callback(int i, . st_cont){
-        string msg = int_to_string(i);
-        debug("C > callback "+msg);
-    }
-}
-
-component TopLevel {
     component Inner { (*spawn in can not be used in guardian directly, since we need to generate ports and so on*)
         onstartup (){
             bridge<C,B, inline p> chan = bridge(p);
             activation_ref<A> a = spawn A();
             activation_ref<B> b = spawn B(chan) in a;
             activation_ref<C> c = spawn C(chan, b);
+        }
+    }
+
+    onstartup (){
+        spawn Inner();
+    }
+}
+
+void mainB(array<string> argv){
+    print("mainB");
+}
+
+component TestB {
+    component B {
+        inport p_in :: bridge<C, B, inline p> expecting (dual p) = this.callback;
+        onstartup (bridge<C, B, inline p> chan){
+            debug("B > init");
+            bind(this.p_in, chan);
+            this.methodb();
+        }
+
+        void methodb(){
+            debug("B > methodb");
+        }
+
+        void callback(int i, ?int. st_cont){
+            string msg = int_to_string(i);
+            debug("B > callback "+msg);
+            fire(st_cont, 21);
+        }
+    }
+    @inline_in([B])
+    component C {
+        outport p_out expecting (inline p);
+        inport p_in :: bridge<C, B, inline p> expecting (?int.) = this.callback;
+        onstartup (bridge<C, B, p> chan, activation_ref<B> b){
+            bind(this.p_out, chan);
+            bind(this.p_in, chan);
+            session<p> s0 = initiate_session_with(this.p_out, b);
+            fire(s0, 42);
+        }
+        
+        void callback(int i, . st_cont){
+            string msg = int_to_string(i);
+            debug("C > callback "+msg);
+        }
+    }
+
+    component Inner { (*spawn in can not be used in guardian directly, since we need to generate ports and so on*)
+        onstartup (){
+            bridge<C,B, inline p> chan = bridge(p);
+            activation_ref<B> b = spawn B(chan);
+            activation_ref<C> c = spawn C(chan, b) in b;
+        }
+    }
+
+    onstartup (){
+        spawn Inner();
+    }
+}
+
+void mainC(array<string> argv){
+    print("mainC");
+}
+component TestC {
+    @inline_in([A])
+    component A {
+        inport p_in_a :: bridge<A, A, inline p> expecting (dual p) = this.callback_a;
+        outport p_out expecting (inline p);
+        inport p_in_b :: bridge<A, A, inline p> expecting (?int.) = this.callback_b;
+
+        onstartup (bridge<A, A, inline p> chan, option<activation_ref<A>> b_ref){
+            debug("A > init");
+            bind(this.p_in_a, chan);
+            bind(this.p_out, chan);
+            bind(this.p_in_b, chan);
+            this.methodb();
+
+            if(is_none(b_ref)){
+                debug("A > listening");
+            } else {
+                debug("A > starting");
+                session<p> s0 = initiate_session_with(this.p_out, option_get(b_ref));
+                fire(s0, 42);
+            }
+        }
+
+        void methodb(){
+            debug("A > methodb");
+        }
+
+        void callback_b(int i, . st_cont){
+            string msg = int_to_string(i);
+            debug("C > callback "+msg);
+        }
+        void callback_a(int i, ?int. st_cont){
+            string msg = int_to_string(i);
+            debug("A > callback "+msg);
+            fire(st_cont, 21);
+        }
+    }
+
+    component Inner { (*spawn in can not be used in guardian directly, since we need to generate ports and so on*)
+        onstartup (){
+            bridge<A, A, inline p> chan = bridge(p);
+            activation_ref<A> b = spawn A(chan, none);
+            activation_ref<A> c = spawn A(chan, some(b)) in b;
         }
     }
 

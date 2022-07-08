@@ -4,6 +4,9 @@
     runtime: Akka
     interface: gRPC
     mains: 
-      main:
-        bootstrap: TopLevel 
+      mainA:
+        bootstrap: TestA 
         entrypoint: no_main 
+      mainB:
+        bootstrap: TestB 
+        entrypoint: mainB 

@@ -110,6 +110,14 @@ let encode_builtin_fct_1 parent_opt place name a =
             a,
             e2_e (T.RawExpr "length")
         )
+    | "is_none" ->
+        T.CallExpr(
+            e2_e (T.AccessExpr(
+                a,
+                e2var (Atom.builtin "isEmpty")
+            )),
+            []
+        )
     | "is_ok" ->
         T.CallExpr(
             e2_e (T.AccessExpr(

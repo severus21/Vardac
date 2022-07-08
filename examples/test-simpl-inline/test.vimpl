@@ -1,8 +1,18 @@
 target akka;
 
-impl component A {}
-impl component B {}
-impl component C {}
 
-impl component TopLevel {}
-impl component TopLevel::Inner {}
+impl component TestA {}
+impl component TestA::A {}
+impl component TestA::B {}
+impl component TestA::C {}
+impl component TestA::Inner {}
+
+impl component TestB {}
+impl component TestB::A {}
+impl component TestB::B {}
+impl component TestB::C {}
+impl component TestB::Inner {}
+
+impl component TestC {}
+impl component TestC::A {}
+impl component TestC::Inner {}
