@@ -1,0 +1,40 @@
+
+target akka;
+
+impl dependencies gradle:{=
+    implementation 'com.google.code.gson:gson:2.9.0'
+=}
+
+impl headers java:{=
+    import java.io.FileWriter;
+    import java.io.IOException;
+    import com.google.gson.Gson;
+=}
+
+
+impl function aput java:{=
+    {{%arr%}}[{{%i%}}]={{%v%}};
+    return null;
+=}
+
+impl function arrayof java:{=
+    return new Long[{{%n%}}];
+=}
+
+impl function tojson java:{=
+    Gson gson = new Gson();
+
+    try {
+        FileWriter fileWriter = new FileWriter({{%filename%}}); 
+        gson.toJson({{%rtts%}}, fileWriter);
+        fileWriter.close();
+        return Either.right(null);
+    } catch (IOException e ){
+        System.err.println(e.toString());
+        return Either.left(new com.lg4dc.Error(e.toString()));
+    }
+=}
+
+impl component Ping {}
+impl component Pong {}
+impl component TopLevel {}

@@ -1,13 +1,13 @@
-protocol p = !int.;
+protocol p = !int?int.;
 
 component A {
     onstartup (){
-        debug("> init");
+        debug("A > init");
         this.methoda();
     }
 
     void methoda(){
-        debug("> methoda");
+        debug("A > methoda");
     }
 }
 
@@ -16,27 +16,35 @@ component A {
 component B {
     inport p_in :: bridge<C, B, inline p> expecting (dual p) = this.callback;
     onstartup (bridge<C, B, inline p> chan){
-        debug("> init");
+        debug("B > init");
         bind(this.p_in, chan);
         this.methodb();
     }
 
     void methodb(){
-        debug("> methodb");
+        debug("B > methodb");
     }
 
-    void callback(int i, . st_cont){
+    void callback(int i, ?int. st_cont){
         string msg = int_to_string(i);
-        debug("> callback "+msg);
+        debug("B > callback "+msg);
+        fire(st_cont, 21);
     }
 }
 
 component C {
     outport p_out expecting (inline p);
+    inport p_in :: bridge<C, B, inline p> expecting (?int.) = this.callback;
     onstartup (bridge<C, B, p> chan, activation_ref<B> b){
         bind(this.p_out, chan);
+        bind(this.p_in, chan);
         session<p> s0 = initiate_session_with(this.p_out, b);
         fire(s0, 42);
+    }
+    
+    void callback(int i, . st_cont){
+        string msg = int_to_string(i);
+        debug("C > callback "+msg);
     }
 }
 
