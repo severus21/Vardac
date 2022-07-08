@@ -44,5 +44,14 @@ FIGURES = list(itertools.chain.from_iterable([
             ("two-jvms", Bench.objects.filter(name="simpl-com-akka-multi-jvm", id=315)[0].results.all()),
             ("one-jvm", Bench.objects.filter(name="simpl-com-jvm-akka", id=69)[0].results.all())
         ]
+    ), 
+    FigureFactory.compare(
+        "Inlining overhead",
+        [("n", "duration"), ("n", "rtt")],
+        [
+            ("akka-one-jvm", Bench.objects.filter(name="simpl-com-akka-one-jvm", id=320)[0].results.all()),
+            ("varda-one-jvm", Bench.objects.filter(name="simpl-com-varda-one-jvm", id=316)[0].results.all()),
+            ("inline-one-jvm", Bench.objects.filter(name="simpl-com-varda-inline-one-jvm", id=318)[0].results.all())
+        ]
     ) 
 ]))

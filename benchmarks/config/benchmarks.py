@@ -1,3 +1,4 @@
+from zlib import DEFLATED
 from .utils import *
 
 from src.bench import *
@@ -6,6 +7,12 @@ from src.builders import *
 from src.runners import *
 from src.citerators import *
 from src.cgenerators import *
+
+DEFAULT_N_MIN = 1 #log
+DEFAULT_N_MAX = 2 #log
+DEFAULT_WARMUP_MIN = 10
+DEFAULT_WARMUP_MAX = DEFAULT_WARMUP_MIN + 1
+DEFAULT_RUNS = 3
  
 BENCHMARKS = [
     # Mono jvm
@@ -23,9 +30,9 @@ BENCHMARKS = [
             FileCollector(Path(os.getcwd())/"compiler-build"/"akka"/"rtts.json", get_rtts),
         ],
         Generator(RangeIterator({
-            "n": logrange(1, 4, base=10),
-            "warmup": range(1000, 1000+1).__iter__()
-        }), 3)
+            "n": logrange(DEFAULT_N_MIN, DEFAULT_N_MAX, base=10),
+            "warmup": range(DEFAULT_WARMUP_MIN, DEFAULT_WARMUP_MAX).__iter__()
+        }), DEFAULT_RUNS)
     ),
     # inlined Pong in Wrapper
     Benchmark(
@@ -42,9 +49,9 @@ BENCHMARKS = [
             FileCollector(Path(os.getcwd())/"compiler-build"/"akka"/"rtts.json", get_rtts),
         ],
         Generator(RangeIterator({
-            "n": logrange(1, 4, base=10),
-            "warmup": range(1000, 1000+1).__iter__()
-        }), 3)
+            "n": logrange(DEFAULT_N_MIN, DEFAULT_N_MAX, base=10),
+            "warmup": range(DEFAULT_WARMUP_MIN, DEFAULT_WARMUP_MAX).__iter__()
+        }), DEFAULT_RUNS)
     ),
     Benchmark(
         "simpl-com-akka-one-jvm",
@@ -60,9 +67,9 @@ BENCHMARKS = [
             FileCollector(Path(os.getcwd())/"benchmarks"/"bench-simpl-com"/"akka"/"rtts.json", get_rtts),
         ],
         Generator(RangeIterator({
-            "n": logrange(1, 4, base=10),
-            "warmup": range(1000, 1000+1).__iter__()
-            }), 3)
+            "n": logrange(DEFAULT_N_MIN, DEFAULT_N_MAX, base=10),
+            "warmup": range(DEFAULT_WARMUP_MIN, DEFAULT_WARMUP_MAX).__iter__()
+            }), DEFAULT_RUNS)
     ),
     # Multi jvm
     Benchmark(
@@ -90,8 +97,8 @@ BENCHMARKS = [
             FileCollector(Path(os.getcwd())/"benchmarks"/"bench-simpl-com"/"akka"/"rtts.json", get_rtts),
         ],
         Generator(RangeIterator({
-            "n": logrange(1, 4, base=10),
-            "warmup": range(1000, 1000+1).__iter__()
-            }), 3)
+            "n": logrange(DEFAULT_N_MIN, DEFAULT_N_MAX, base=10),
+            "warmup": range(DEFAULT_WARMUP_MIN, DEFAULT_WARMUP_MAX).__iter__()
+            }), DEFAULT_RUNS)
     ),
 ]
