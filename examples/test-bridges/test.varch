@@ -33,7 +33,7 @@ component TestA {
 
         inport p_in :: bridge<A, B, inline ptest> expecting (dual ptest) = this.callback;
 
-        result<void, error> callback(int x, !string?int!string. s){
+        result<void, error> callback(int x, . s){
             debug("TestA> Receive int 1");
         }
     }

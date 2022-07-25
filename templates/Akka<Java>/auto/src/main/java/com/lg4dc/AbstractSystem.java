@@ -195,6 +195,74 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
         return Behaviors.same();
     }
 
+    private <_T> Behavior<SpawnProtocol.Command> onLeftActivationsOf(SpawnProtocol.LeftActivationsOf msg) {
+        assert(this.activations_listing != null);
+        getContext().getLog().info("onLeftActivationsOf");
+
+        CompletionStage<Receptionist.Listing> result = AskPattern.ask(
+            getContext().getSystem().receptionist(),
+            (ActorRef<Receptionist.Listing> replyTo) -> Receptionist.find(Bridge.leftServiceKey(msg.bridge_id), replyTo),
+            Duration.ofSeconds(10),
+            getContext().getSystem().scheduler());
+
+        try {
+            Set<ActorRef<SpawnProtocol.Command>> _activations = result.toCompletableFuture().get().getServiceInstances(
+                Bridge.leftServiceKey(msg.bridge_id));
+
+            Set<ActorRef> activations = _activations.stream()
+                .filter(x -> {
+                    System.out.println("> collected path "+x.path().toString()); 
+                    return true;
+                })
+                .map( x -> (ActorRef) x)
+                .collect(Collectors.toSet());
+
+            getContext().getLog().info("replying with leftactorrefs "+activations.size()+" to "+msg.replyTo.toString());
+
+            msg.replyTo.tell(new WrappedActorRefs(activations));
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause().toString());
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e.toString());
+        }
+
+        return Behaviors.same();
+    }
+
+    private <_T> Behavior<SpawnProtocol.Command> onRightActivationsOf(SpawnProtocol.RightActivationsOf msg) {
+        assert(this.activations_listing != null);
+        getContext().getLog().info("onRightActivationsOf");
+
+        CompletionStage<Receptionist.Listing> result = AskPattern.ask(
+            getContext().getSystem().receptionist(),
+            (ActorRef<Receptionist.Listing> replyTo) -> Receptionist.find(Bridge.rightServiceKey(msg.bridge_id), replyTo),
+            Duration.ofSeconds(10),
+            getContext().getSystem().scheduler());
+
+        try {
+            Set<ActorRef<SpawnProtocol.Command>> _activations = result.toCompletableFuture().get().getServiceInstances(
+                Bridge.rightServiceKey(msg.bridge_id));
+
+            Set<ActorRef> activations = _activations.stream()
+                .filter(x -> {
+                    System.out.println("> collected path "+x.path().toString()); 
+                    return true;
+                })
+                .map( x -> (ActorRef) x)
+                .collect(Collectors.toSet());
+
+            getContext().getLog().info("replying with rightactorrefs "+activations.size()+" to "+msg.replyTo.toString());
+
+            msg.replyTo.tell(new WrappedActorRefs(activations));
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause().toString());
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e.toString());
+        }
+
+        return Behaviors.same();
+    }
+
     // Direct call from place discovery
     static public <_T> ActorRef<_T> applySpawn(ActorContext ctx, SpawnProtocol.Spawn<_T> spawn) {
         ActorRef<_T> actorRef;
@@ -230,6 +298,9 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
         return newReceiveBuilder().onMessage(SpawnProtocol.WrappedListing.class, this::onListing)
                 .onMessage(SpawnProtocol.SpawnAt.class, this::onSpawnAt)
                 .onMessage(SpawnProtocol.ComponentsAt.class, this::onComponentsAt)
-                .onMessage(SpawnProtocol.Spawn.class, this::onSpawn).build();
+                .onMessage(SpawnProtocol.Spawn.class, this::onSpawn)
+                .onMessage(SpawnProtocol.LeftActivationsOf.class, this::onLeftActivationsOf)
+                .onMessage(SpawnProtocol.RightActivationsOf.class, this::onRightActivationsOf)
+                .build();
     }
 }
