@@ -148,7 +148,7 @@ component TestC {
 
         void callback_b(int i, . st_cont){
             string msg = int_to_string(i);
-            debug("C > callback "+msg);
+            debug("A > callback "+msg);
         }
         void callback_a(int i, ?int. st_cont){
             string msg = int_to_string(i);

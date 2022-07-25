@@ -31,9 +31,8 @@ import com.lg4dc.*;
 import com.lg4dc.timers.*;
 import com.bmartin.*;
 
-{% for guardian_name in target_entrypoints %}
-    {% if substring(0,8,guardian_name) == "TopLevel"%}
 import static org.junit.jupiter.api.Assertions.*;
+
 public class ObservablesTest {
     ActorTestKit testKit = null;
 
@@ -51,12 +50,15 @@ public class ObservablesTest {
         testKit.shutdownTestKit();
     }
 
+{% for guardian_name in target_entrypoints %}
+    {% if substring(0,5,guardian_name) == "TestA"%}
     @Test
-    public void check_logs() throws Exception{
+    public void check_logs_A() throws Exception{
         class Counter {
-            public int api_a = 0;
-            public int api_b = 0;
-            public int api_c = 0;
+            public int a_init = 0;
+            public int b_init = 0;
+            public int a_callback = 0;
+            public int c_callback = 0;
         }
         Counter counter = new Counter ();
 
@@ -65,16 +67,75 @@ public class ObservablesTest {
         event ->{
             if(event.level() == Level.DEBUG){
                 System.out.println(event.message());
-                if(event.message().contains("> api_a")){
-                    counter.api_a += 1;
+                if(event.message().contains("A > init")){
+                    counter.a_init += 1;
                     return true;
                 }
-                else if(event.message().contains("> api_b")){
-                    counter.api_b += 1;
+                if(event.message().contains("B > init")){
+                    counter.b_init += 1;
                     return true;
                 }
-                else if(event.message().contains("> api_c")){
-                    counter.api_c += 1;
+                else if (event.message().contains("B > callback")){
+                    assertEquals(event.message().substring("A > callback ".length()), "42");
+                    counter.a_callback += 1;
+                    return true;
+                }
+                else if (event.message().contains("C > callback")){
+                    assertEquals(event.message().substring("A > callback ".length()), "21");
+                    counter.c_callback += 1;
+                    return true;
+                }
+            }
+            return false;
+        }
+        )
+        .withOccurrences​(4)
+        .expect(
+            testKit.system(),
+            () -> {
+                ActorRef<SpawnProtocol.Command> kvs1 = testKit.spawn({{author}}.{{project_name}}.{{guardian_name|lower}}.{{guardian_name}}.create(true), "KVS1");
+
+                try{
+                    java.lang.Thread.sleep(1);
+                }catch(InterruptedException e) {}
+
+                return null;
+            });
+
+        assertEquals(counter.a_init, 1, "count init");
+        assertEquals(counter.b_init, 1, "count init");
+        assertEquals(counter.a_callback, 1, "count callback");
+        assertEquals(counter.c_callback, 1, "count callback");
+    }
+    {% endif %}
+
+    {% if substring(0,5,guardian_name) == "TestB"%}
+    @Test
+    public void check_logs_B() throws Exception{
+        class Counter {
+            public int b_init = 0;
+            public int b_callback = 0;
+            public int c_callback = 0;
+        }
+        Counter counter = new Counter ();
+
+        LoggingTestKit.messageContains(">")
+        .withCustom(
+        event ->{
+            if(event.level() == Level.DEBUG){
+                System.out.println(event.message());
+                if(event.message().contains("B > init")){
+                    counter.b_init += 1;
+                    return true;
+                }
+                else if (event.message().contains("B > callback")){
+                    assertEquals(event.message().substring("A > callback ".length()), "42");
+                    counter.b_callback += 1;
+                    return true;
+                }
+                else if (event.message().contains("C > callback")){
+                    assertEquals(event.message().substring("A > callback ".length()), "21");
+                    counter.c_callback += 1;
                     return true;
                 }
             }
@@ -85,22 +146,8 @@ public class ObservablesTest {
         .expect(
             testKit.system(),
             () -> {
-                ActorRef<SpawnProtocol.Command> kvs1 = testKit.spawn({{guardian_name}}.create(true), "KVS1");
-                // Start gRPC server
-                {{grpc_server}}.main_run(testKit.system());
-                try{
-                    java.lang.Thread.sleep(1);
-                }catch(InterruptedException e) {}
-                // Start gRPC client
-                {{grpc_client}} gRPC_client = new {{grpc_client}}("127.0.0.1", 8090, Adapter.toClassic(testKit.system())); //WARNING ip, port still hardcoded in gRPCServer
+                ActorRef<SpawnProtocol.Command> kvs1 = testKit.spawn({{author}}.{{project_name}}.{{guardian_name|lower}}.{{guardian_name}}.create(true), "KVS1");
 
-                try {
-                    assertEquals(gRPC_client.api_a14(), 1);
-                    assertEquals(gRPC_client.api_b15("KeyA"), 2);
-                    assertEquals(gRPC_client.api_c16("KeyB", 1), 4);
-                } catch (Exception e){
-                    fail("Unexpected error during test: " + e);
-                } 
                 try{
                     java.lang.Thread.sleep(1);
                 }catch(InterruptedException e) {}
@@ -108,10 +155,70 @@ public class ObservablesTest {
                 return null;
             });
 
-        assertEquals(counter.api_a, 1);
-        assertEquals(counter.api_b, 1);
-        assertEquals(counter.api_c, 1);
+        assertEquals(counter.b_init, 1, "count init");
+        assertEquals(counter.b_callback, 1, "count callback");
+        assertEquals(counter.c_callback, 1, "count callback");
     }
-}
+    {% endif %}
+
+    {% if substring(0,5,guardian_name) == "TestC"%}
+    @Test
+    public void check_logs_C() throws Exception{
+        class Counter {
+            public int init = 0;
+            public int listening = 0;
+            public int starting = 0;
+            public int callback = 0;
+        }
+        Counter counter = new Counter ();
+
+        LoggingTestKit.messageContains(">")
+        .withCustom(
+        event ->{
+            if(event.level() == Level.DEBUG){
+                System.out.println(event.message());
+                if(event.message().contains("A > init")){
+                    counter.init += 1;
+                    return true;
+                }
+                else if(event.message().contains("A > listening")){
+                    counter.listening += 1;
+                    return true;
+                }
+                else if(event.message().contains("A > starting")){
+                    counter.starting += 1;
+                    return true;
+                }
+                else if (event.message().contains("A > callback")){
+                    if(counter.callback == 0)
+                        assertEquals(event.message().substring("A > callback ".length()), "42");
+                    if(counter.callback == 1)
+                        assertEquals(event.message().substring("A > callback ".length()), "21");
+                    counter.callback += 1;
+                    return true;
+                }
+            }
+            return false;
+        }
+        )
+        .withOccurrences​(6)
+        .expect(
+            testKit.system(),
+            () -> {
+                ActorRef<SpawnProtocol.Command> kvs1 = testKit.spawn({{author}}.{{project_name}}.{{guardian_name|lower}}.{{guardian_name}}.create(true), "KVS1");
+
+                try{
+                    java.lang.Thread.sleep(1);
+                }catch(InterruptedException e) {}
+
+                return null;
+            });
+
+        assertEquals(counter.init, 2, "count init");
+        assertEquals(counter.listening, 1, "count listening");
+        assertEquals(counter.starting, 1, "count starting");
+        assertEquals(counter.callback, 2, "count callback");
+    }
     {% endif %}
 {% endfor %}
+}

@@ -10,3 +10,6 @@
       mainB:
         bootstrap: TestB 
         entrypoint: mainB 
+      mainC:
+        bootstrap: TestC 
+        entrypoint: mainC 
