@@ -295,6 +295,13 @@ module Make () = struct
                         List.map 
                             (rewrite_type_class_item 
                                 (function 
+                                    (* 
+                                       @inline_in[A]
+                                       component A { }
+
+                                       therefore activation_ref<A> should remains activation_ref<A>
+                                    *)
+                                    | CType {value = TActivationRef{value=CompType{value = CompTUid name }}} | CType {value = TActivationRef{value=CompType{value = TStruct (name,_) }}} when name = schema && schema = cstruct.name -> true (* returns true then rewritten with identity since rewrite automatically explores subpatterns of rejected pattern *)
                                     | CompType{value = CompTUid name} -> name = schema
                                     | CompType{value = TStruct (name,_)} -> name = schema
                                     | _ -> false)
@@ -312,6 +319,8 @@ module Make () = struct
                                                 ) 
                                                 tstruct in 
                                         ClType {place = place@fplace; value = TStruct (cl_name schema schema_in, n_tstruct)}
+                                    (* identity for activation inlined in activation *)
+                                    | mt -> mt 
                                 )
                             ) 
                             
