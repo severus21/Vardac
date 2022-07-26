@@ -1551,10 +1551,6 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     auto_place(S.LetStmt(
                         Rt.Misc.t_actor_timer fplace is_guardian None, Rt.Misc.a_timers, None ))
                     ]}
-                :: auto_place {S.persistent = false; stmts = [
-                    auto_place(S.LetStmt(
-                        Rt.Misc.t_actor_guardian fplace, Rt.Misc.a_guardian, None ))
-                    ]}
                 :: states
             in
 

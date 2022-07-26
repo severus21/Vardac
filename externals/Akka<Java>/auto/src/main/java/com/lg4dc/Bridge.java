@@ -87,12 +87,13 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
     } 
 
 
-    public Either<Error, Boolean> leftRegister(ActorContext context, ActivationRef a){
+    private Either<Error, Boolean> register(ActorContext context, ActorRef<SpawnProtocol.Command> guardian, ActivationRef a, boolean left){
         // register to receptionist to allow reflexivity
         CompletionStage<Receptionist.Registered> ask = AskPattern.ask(
             context.getSystem().receptionist(),
             (ActorRef<Receptionist.Registered> replyTo) ->
-                Receptionist.register(this.leftServiceKey(), a.actorRef, replyTo),
+                Receptionist.register(
+                    left ? this.leftServiceKey() : this.rightServiceKey(), a.actorRef, replyTo),
             Duration.ofSeconds(10),
             context.getSystem().scheduler());
 
@@ -104,8 +105,31 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
             return Either.left(new Error(e.toString()));
         }
 
-        context.getLog().info("leftRegister "+a.actorRef.toString()+" at left of "+this.id.toString());
-        return Either.right(true);
+        //Wait that the registered activation is visible
+        for(int i = 0; i < 10; i++){ //10 retry max
+            Set<ActivationRef> activations = 
+                left ? this.leftActivations(context, guardian).get() : this.rightActivations(context, guardian).get();
+            
+            if(activations.contains(a.actorRef)){
+                if(left)
+                    context.getLog().info("leftRegister "+a.actorRef.toString()+" at left of "+this.id.toString());
+                else
+                    context.getLog().info("rightRegister "+a.actorRef.toString()+" at right of "+this.id.toString());
+
+                return Either.right(true);
+            } else {
+                try{
+                    Thread.sleep(200);
+                } catch( Exception e){
+                    System.out.println(e);
+                }
+            }
+        }
+        return Either.left(new Error("timeout before seeing its own update"));
+    }
+
+    public Either<Error, Boolean> leftRegister(ActorContext context, ActorRef<SpawnProtocol.Command> guardian, ActivationRef a){
+        return this.register(context, guardian, a, true); 
     }
 
     public ServiceKey<SpawnProtocol.Command> rightServiceKey(){
@@ -115,25 +139,8 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
         return ServiceKey.create(SpawnProtocol.Command.class, AbstractSystem.NAME+"_bridge_right_"+id.toString());
     } 
 
-    public Either<Error, Boolean> rightRegister(ActorContext context, ActivationRef a){
-        // register to receptionist to allow reflexivity
-        CompletionStage<Receptionist.Registered> ask = AskPattern.ask(
-            context.getSystem().receptionist(),
-            (ActorRef<Receptionist.Registered> replyTo) ->
-                Receptionist.register(this.rightServiceKey(), a.actorRef, replyTo),
-            Duration.ofSeconds(10),
-            context.getSystem().scheduler());
-
-        try{
-            // blocking call
-            Receptionist.Registered dummy = ask.toCompletableFuture().get();
-        } catch (Exception e){
-            context.getLog().error(e.toString());
-            return Either.left(new Error(e.toString()));
-        }
-
-        context.getLog().info("rightRegister "+a.actorRef.toString()+" at right of "+this.id.toString());
-        return Either.right(true);
+    public Either<Error, Boolean> rightRegister(ActorContext context, ActorRef<SpawnProtocol.Command> guardian, ActivationRef a){
+        return this.register(context, guardian, a, false); 
     }
 
     public Either<Error, Set<ActivationRef>> activationsOf(ActorContext context, ActorRef<SpawnProtocol.Command> guardian, Function<ActorRef, SpawnProtocol.Command> msg){

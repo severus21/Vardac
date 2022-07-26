@@ -25,11 +25,14 @@ import akka.actor.typed.javadsl.TimerScheduler;
 
 import io.vavr.*;
 import java.util.*;
+import com.bmartin.*;
 
 public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     public static final String NAME = "{{system_name}}_component_";
     HashMap<UUID,  InPort> registered_session = new HashMap();
     String schema = "";
+    
+    public ActorRef<SpawnProtocol.Command> guardian;
 
     public AbstractComponent(ActorContext<T> context){
         super(context);
@@ -65,7 +68,7 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
         this.currently_inport_bindings.put(key, port.id);
 
         //Register the activations 
-        bridge.rightRegister(getContext(), this.activation_ref());
+        bridge.rightRegister(getContext(), this.guardian, this.activation_ref());
 
         return null;
     }
@@ -76,7 +79,7 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
 
     public Void bind_out(OutPort port, Bridge bridge) {
         //Register the activations 
-        bridge.leftRegister(getContext(), this.activation_ref());
+        bridge.leftRegister(getContext(), this.guardian, this.activation_ref());
 
         return port.bind(bridge);
     }

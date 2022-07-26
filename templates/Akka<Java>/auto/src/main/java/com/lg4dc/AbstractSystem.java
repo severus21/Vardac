@@ -40,6 +40,8 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
     public Receptionist.Listing activations_listing; // Maintain a cache
     public ActorRef<Receptionist.Listing> receptionist_adapter;
 
+    public ActorRef<SpawnProtocol.Command> guardian;
+
     public AbstractSystem(ActorContext<SpawnProtocol.Command> context, TimerScheduler<SpawnProtocol.Command> timers,
             String name, Wait wait) {
         super(context);
@@ -206,6 +208,9 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
             getContext().getSystem().scheduler());
 
         try {
+            System.out.println("---");
+            System.out.println(result.toCompletableFuture().get().toString());
+            System.out.println("---");
             Set<ActorRef<SpawnProtocol.Command>> _activations = result.toCompletableFuture().get().getServiceInstances(
                 Bridge.leftServiceKey(msg.bridge_id));
 

@@ -375,6 +375,7 @@ let encode_builtin_fct_2 parent_opt place name a b =
             )),
             [ 
                 e_get_context place;
+                e_this_guardian (this_actor parent_opt) place;
                 b;
             ]
         )
@@ -386,6 +387,7 @@ let encode_builtin_fct_2 parent_opt place name a b =
             )),
             [ 
                 e_get_context place;
+                e_this_guardian (this_actor parent_opt) place;
                 b;
             ]
         )
