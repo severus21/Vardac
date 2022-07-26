@@ -82,6 +82,7 @@
     (test-bridges/places.yml as test-bridges/places.yml)
     (test-bridges/targets.yml as test-bridges/targets.yml)
     (test-bridges/test.vimpl as test-bridges/test.vimpl)
+    (test-bridges/templates/Akka<Java>/auto/src/test/java/author/project_name/ObservablesTest.java.j2 as test-bridges/templates/Akka<Java>/auto/src/test/java/author/project_name/ObservablesTest.java.j2)
     (2-ping-pong-intercept/pingpong.varch as 2-ping-pong-intercept/pingpong.varch)
     (2-ping-pong-intercept/README.md as 2-ping-pong-intercept/README.md)
     (2-ping-pong-intercept/places.yml as 2-ping-pong-intercept/places.yml)

@@ -16,6 +16,15 @@ component TestA {
             string n = int_to_string(setlength(tmp));
 
             debug("TestA> leftactivations "+n);
+
+            sleep(1000); (* wait for other activations to start *)
+            set<activation_ref<A|B>> activations = rightactivations(bridgeof(this.p_out))?;
+            for(activation_ref<A|B> a in activations){
+                debug("TestA> initiate session");
+                session<ptest> s0 = initiate_session_with(this.p_out, a);
+                . s1 = fire(s0, 1)?; 
+            }
+
         }
     }
 
@@ -29,21 +38,24 @@ component TestA {
 
         result<void, error> run(){
             set<activation_ref<A|B>> tmp = rightactivations(bridgeof(this.p_in))?;
+            string n = int_to_string(setlength(tmp));
+
+            debug("TestA> rightactivations "+n);
         }
 
         inport p_in :: bridge<A, B, inline ptest> expecting (dual ptest) = this.callback;
 
         result<void, error> callback(int x, . s){
-            debug("TestA> Receive int 1");
+            string s = int_to_string(x);
+            debug("TestA> Receive int "+s);
         }
     }
 
     onstartup (){
         bridge<A, B, inline ptest> b2 = bridge(ptest);
-        activation_ref<A> a     = spawn A(b2);  
-        activation_ref<A> aa    = spawn A(b2);  
-        activation_ref<B> aaa   = spawn B(b2);
-        activation_ref<B> aaaa  = spawn B(b2);
+        activation_ref<A> a    = spawn A(b2);  
+        activation_ref<B> aa   = spawn B(b2);
+        activation_ref<B> aaa  = spawn B(b2);
     }
 }
 
