@@ -27,6 +27,9 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "bind", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind; 
     "bind_in", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind; 
     "bind_out", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind; 
+    "bind_inlined", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind_inlined; 
+    "bind_in_inlined", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind_inlined; 
+    "bind_out_inlined", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind_inlined; 
     "activationsat", "place -> set<activation_ref>", "", t_activationat;
     "add2dict", "dict<k,v> -> k -> v -> ()", "add in place",t_add2dict ;
     "bridge", "() -> Bridge<'A, 'B, 'a>", "create a new bridge with a fresh id",
@@ -38,8 +41,8 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "dict", "() -> dict", "create a new dict", t_dict;
     "first", "Tuple<'a, 'b> -> 'a", "Return the first element of list, failed if empty", t_first;
     "get2dict", "dict<k,v> -> k -> v", "get", t_get2dict;
-    "initiate_session_with", "TODO", "TODO", 
-    t_initiate;
+    "initiate_session_with", "TODO", "TODO", t_initiate;
+    "initiate_session_with_inlined", "TODO", "TODO", t_initiate_inlined;
     "listget", " list<T> -> int -> t", "", t_listget;
     "setlength", "set -> int", "", t_setlength; 
     "pick", "dict<k,v> -> v", "Random choice in a sequence, failed if empty", t_select; (*TODO*)

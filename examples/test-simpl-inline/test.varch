@@ -69,45 +69,53 @@ void mainB(array<string> argv){
 
 component TestB {
     component B {
-        inport p_in :: bridge<C, B, inline p> expecting (dual p) = this.callback;
-        onstartup (bridge<C, B, inline p> chan){
+        outport p_out expecting (inline p);
+        inport p_in :: bridge<C, B, inline p> expecting (?int.) = this.callback;
+       onstartup (bridge<C, B, inline p> chan){
             debug("B > init");
             bind(this.p_in, chan);
+            bind(this.p_out, chan);
             this.methodb();
+
         }
 
-        void methodb(){
+        result<void, error> methodb(){
             debug("B > methodb");
+
+            sleep(1000); (* wait for other activations to start *)
+            set<activation_ref<B|C>> activations = rightactivations(bridgeof(this.p_out))?;
+            for(activation_ref<B|C> a in activations){
+                session<!int?int.> s0 = initiate_session_with(this.p_out, a);
+                . s1 = fire(s0, 42)?; 
+            }
+        }
+
+        void callback(int i, . st_cont){
+            string msg = int_to_string(i);
+            debug("B > callback "+msg);
+        }
+
+    }
+    @inline_in([B])
+    component C {
+        inport p_in :: bridge<C, B, inline p> expecting (dual p) = this.callback;
+        onstartup (bridge<C, B, p> chan){
+            bind(this.p_in, chan);
         }
 
         void callback(int i, ?int. st_cont){
             string msg = int_to_string(i);
-            debug("B > callback "+msg);
+            debug("C > callback "+msg);
             fire(st_cont, 21);
         }
-    }
-    @inline_in([B])
-    component C {
-        outport p_out expecting (inline p);
-        inport p_in :: bridge<C, B, inline p> expecting (?int.) = this.callback;
-        onstartup (bridge<C, B, p> chan, activation_ref<B> b){
-            bind(this.p_out, chan);
-            bind(this.p_in, chan);
-            session<p> s0 = initiate_session_with(this.p_out, b);
-            fire(s0, 42);
-        }
         
-        void callback(int i, . st_cont){
-            string msg = int_to_string(i);
-            debug("C > callback "+msg);
-        }
     }
 
     component Inner { (*spawn in can not be used in guardian directly, since we need to generate ports and so on*)
         onstartup (){
             bridge<C,B, inline p> chan = bridge(p);
             activation_ref<B> b = spawn B(chan);
-            activation_ref<C> c = spawn C(chan, b) in b;
+            activation_ref<C> c = spawn C(chan) in b;
         }
     }
 

@@ -13,6 +13,7 @@ module Make () = struct
 
     let selector = function
         | CallExpr ({value=VarExpr x,_}, _) when (Atom.is_builtin x) && (Atom.hint x = "bind") -> true
+        | CallExpr ({value=VarExpr x,_}, _) when (Atom.is_builtin x) && (Atom.hint x = "bind_inlined") -> true
         | CallExpr ({value=VarExpr x,_}, _) when (Atom.is_builtin x) && (Atom.hint x = "bridgeof") -> true
         | _ -> false
 
@@ -32,6 +33,17 @@ module Make () = struct
                 CallExpr (
                     {place=p_bind; value=VarExpr (Atom.builtin name), mt},
                     [ port; bridge]
+                )
+            | CallExpr ({place=p_bind;value=VarExpr x, mt}, [port; bridge; a])  when (Atom.is_builtin x) && (Atom.hint x = "bind_inlined") ->
+                let name = 
+                    match (snd port.value).value with
+                    | CType {value=TInport _} -> "bind_in_inlined"
+                    | CType {value=TOutport _} -> "bind_out_inlined"
+                in
+
+                CallExpr (
+                    {place=p_bind; value=VarExpr (Atom.builtin name), mt},
+                    [ port; bridge; a]
                 )
             | CallExpr ({place=p_bridgeof;value=VarExpr x, mt}, [port]) when (Atom.is_builtin x) && (Atom.hint x = "bridgeof") ->
                 let name = 

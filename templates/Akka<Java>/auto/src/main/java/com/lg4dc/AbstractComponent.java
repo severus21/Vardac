@@ -48,7 +48,7 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     // (bridge_id, port.expecting_st) -> port_id
     private HashMap<Tuple2<UUID, ASTStype.Base>, UUID> currently_inport_bindings = new HashMap();
 
-    public Void bind_in(InPort port, Bridge bridge) {
+    public Void bind_in(InPort port, Bridge bridge, ActivationRef current) {
         // Check that there is at most once (bridge.id, port.expecting_st) couple defined at a time
         // See Wiki for more details
 
@@ -68,20 +68,28 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
         this.currently_inport_bindings.put(key, port.id);
 
         //Register the activations 
-        bridge.rightRegister(getContext(), this.guardian, this.activation_ref());
+        bridge.rightRegister(getContext(), this.guardian, current);
 
         return null;
+    }
+
+    public Void bind_in(InPort port, Bridge bridge) {
+        return this.bind_in(port, bridge, this.activation_ref());
     }
 
     public ActivationRef activation_ref(){
         return new ActivationRef(this.schema, getContext().getSelf(), false, Optional.empty());
     }
 
-    public Void bind_out(OutPort port, Bridge bridge) {
+    public Void bind_out(OutPort port, Bridge bridge, ActivationRef current) {
         //Register the activations 
-        bridge.leftRegister(getContext(), this.guardian, this.activation_ref());
+        bridge.leftRegister(getContext(), this.guardian, current);
 
         return port.bind(bridge);
+    }
+
+    public Void bind_out(OutPort port, Bridge bridge) {
+        return this.bind_out(port, bridge, this.activation_ref());
     }
 
     public List<InPort> reflexivity_inports() {

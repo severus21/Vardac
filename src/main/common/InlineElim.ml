@@ -346,9 +346,36 @@ module Make () = struct
                         )) 
                         cl_body in 
 
+
                     let cl_get_activation_ref = Atom.fresh "get_activation_ref" in
                     let a_cl_activation_ref = Atom.fresh "mocked_inlined_activation_ref" in
                     let a_parent_activation_ref = Atom.fresh "parent_activation_ref" in
+
+                    (*
+                        rewrite bind_in/out -> to register the indirected activation_ref
+                        rewrite initiate_session -> to use an indirected activation_ref   
+                    *)
+                    let cl_body = List.map (rewrite_expr_class_item 
+                        (function 
+                            | CallExpr( {value=VarExpr x, _}, es) when Atom.is_builtin x -> 
+                                List.mem (Atom.hint x) ["bind";"bind_in"; "bind_out"; "initiate_session_with"] 
+                            | _ -> false) 
+                        (function mt -> function 
+                            | CallExpr( {value=VarExpr x, mt1; place}, es) when Atom.hint x = "bind" ->
+                                CallExpr( {value=VarExpr (Atom.builtin "bind_inlined"), mt1;place}, es@[ e2var a_cl_activation_ref ])
+                            | CallExpr( {value=VarExpr x, mt1; place}, es) when Atom.hint x = "bind_in" ->
+                                CallExpr( {value=VarExpr (Atom.builtin "bind_in_inlined"), mt1;place}, es@[ e2var a_cl_activation_ref ])
+                            | CallExpr( {value=VarExpr x, mt1; place}, es) when Atom.hint x = "bind_out" ->
+                                CallExpr( {value=VarExpr (Atom.builtin "bind_out_inlined"), mt1; place}, es@[ e2var a_cl_activation_ref ])
+
+                            | CallExpr( {value=VarExpr x, mt1; place}, es) when Atom.hint x = "initiate_session_with" ->
+                                CallExpr( {value=VarExpr (Atom.builtin "initiate_session_with_inlined"), mt1; place}, es@[
+                                    e2_e (OptionExpr (Some (e2var a_cl_activation_ref)))
+                                ])
+                        )) 
+                        cl_body in 
+
+
                     let cl = {
                         annotations = cstruct.annotations;
                         name = cl_name schema schema_in;

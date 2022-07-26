@@ -135,6 +135,30 @@ let t_initiate () =
             mtype_of_ft TWildcard
         ))
     ))
+let t_initiate_inlined () =
+    let a = Atom.fresh "A" in
+    let b = Atom.fresh "B" in
+    
+    (*mtype_of_ct (TArrow(
+        fresh_outport (),
+        mtype_of_ct(TArrow(
+            mtype_of_ct(TForall(a, mtype_poly_of_cvar b)), 
+            mtype_of_ct(TActivationRef (
+                mtype_of_ct(TForall(b, mtype_poly_of_cvar b))
+            ))
+        ))
+    ))*)
+
+    mtype_of_ct(TArrow(
+        mtype_of_ft TWildcard,
+        mtype_of_ct(TArrow(
+            mtype_of_ft TWildcard,
+            mtype_of_ct(TArrow(
+                mtype_of_ft TWildcard,
+                mtype_of_ft TWildcard
+            ))
+        ))
+    ))
 
 let t_print () = 
     mtype_of_ct(TArrow(
@@ -377,6 +401,22 @@ let t_bind () =
             mtype_of_ft TVoid
         ))
     ))
+
+let t_bind_inlined () =
+    mtype_of_ct (TArrow (
+        mtype_of_ct (TUnion (
+            mtype_of_ct (TOutport (mtype_of_st STWildcard)),
+            mtype_of_ct (TInport (mtype_of_st STWildcard))
+        )),
+        mtype_of_ct (TArrow (
+            fresh_tbridge (),
+            mtype_of_ct (TArrow (
+                mtype_of_ct (TActivationRef(mtype_of_ft TWildcard)),
+                mtype_of_ft TVoid
+            ))
+        ))
+    ))
+
 let t_is_none () =
     mtype_of_ct (TArrow (
         mtype_of_ct (TOption (

@@ -473,6 +473,45 @@ let encode_builtin_fct_3 parent_opt place name a b c =
             )),
             [ b; c ]
         ) 
+    | "bind_in_inlined" ->
+        T.CallExpr(
+            e2_e (T.AccessExpr(
+                e2_e (this_actor parent_opt),
+                e2var (Atom.builtin "bind_in")
+            )),
+            [ 
+                a; 
+                b;
+                c 
+            ]
+        )
+    | "bind_out_inlined" ->
+        T.CallExpr(
+            e2_e (T.AccessExpr(
+                e2_e (this_actor parent_opt),
+                e2var (Atom.builtin "bind_out")
+            )),
+            [ 
+                a; 
+                b;
+                c
+            ]
+        )
+    | "initiate_session_with_inlined" ->
+        (* TODO i need to get the name of the type of the protocol 
+        Maybe some thing like protocol is a value and we bind a protocol type with it.
+        *)
+        T.CallExpr (
+            e2_e (T.AccessExpr (a, e2var (Atom.builtin "initiate_session_with"))),
+            [
+                e2_e (T.CastExpr(
+                    auto_place (T.TVar (Atom.builtin "ActivationRef")), (* TODO can we move cast elsewhere ?*)
+                    Misc.e_get_self_activation place (Misc.e_get_context place)
+                ));
+                b;
+                c;
+            ]
+        )
     | _ -> Error.perror place "%s takes three arguments" name
     
 
