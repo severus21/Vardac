@@ -36,6 +36,14 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
     public Boolean isInterceptor; 
 
     @JsonCreator 
+    public ActivationRef (String componentSchema, ActorRef<Command> actorRef, Boolean isInterceptor, Optional<ActivationRef<Command>> interceptedActivationRef_opt, UUID mocked_uuid){
+        this.actorRef = actorRef;
+        this.componentSchema = componentSchema;
+        this.interceptedActivationRef_opt = interceptedActivationRef_opt;
+        this.isInterceptor = isInterceptor; 
+        this.mocked_uuid = mocked_uuid;
+    }
+
     public ActivationRef (String componentSchema, ActorRef<Command> actorRef, Boolean isInterceptor, Optional<ActivationRef<Command>> interceptedActivationRef_opt){
         this.actorRef = actorRef;
         this.componentSchema = componentSchema;
@@ -62,6 +70,8 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
         assert(this.check_integrity());
         if(this.is_mocked())
             return this.mocked_uuid.toString();
+        else if(this.interceptedActivationRef_opt.isPresent())
+            return "Intercepted: \n\t-"+this.interceptedActivationRef_opt.get().toString()+"\nBehind\n\t-"+this.actorRef.toString();
         else 
             return this.actorRef.toString();
     }
@@ -107,16 +117,13 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
 
         assert(this.check_integrity());
         assert(b.check_integrity());
-        if(
-            this.actorRef.equals(b.actorRef) && 
-            this.isInterceptor.equals(b.isInterceptor) && 
-            this.interceptedActivationRef_opt.equals(b.interceptedActivationRef_opt) && 
-            this.mocked_uuid.equals(b.mocked_uuid)){
-            assert(this.componentSchema.equals(b.componentSchema));
-            return true;
-        }else{
-            return false;
-        }
+       
+        return this.activationId() == b.activationId();
+    }
+
+    @Override
+    public int hashCode() {
+        return activationId().hashCode();
     }
     
 }

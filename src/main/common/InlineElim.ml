@@ -408,7 +408,7 @@ module Make () = struct
                                     auto_fplace(ReturnStmt(e2_e(CallExpr(
                                         e2var (Atom.builtin "one_hop_activation_ref"),
                                         [
-                                            e2_e (CallExpr(e2var (Atom.builtin "current_activation"), []));
+                                            e2var a_parent_activation_ref;
                                             e2_e (OptionExpr (Some (
                                                 e2_e (AccessExpr(
                                                     e2_e Self,

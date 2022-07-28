@@ -197,6 +197,7 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
         return Behaviors.same();
     }
 
+    /*
     private <_T> Behavior<SpawnProtocol.Command> onLeftActivationsOf(SpawnProtocol.LeftActivationsOf msg) {
         assert(this.activations_listing != null);
         getContext().getLog().info("onLeftActivationsOf");
@@ -266,7 +267,7 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
         }
 
         return Behaviors.same();
-    }
+    }*/
 
     // Direct call from place discovery
     static public <_T> ActorRef<_T> applySpawn(ActorContext ctx, SpawnProtocol.Spawn<_T> spawn) {
@@ -304,8 +305,8 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
                 .onMessage(SpawnProtocol.SpawnAt.class, this::onSpawnAt)
                 .onMessage(SpawnProtocol.ComponentsAt.class, this::onComponentsAt)
                 .onMessage(SpawnProtocol.Spawn.class, this::onSpawn)
-                .onMessage(SpawnProtocol.LeftActivationsOf.class, this::onLeftActivationsOf)
-                .onMessage(SpawnProtocol.RightActivationsOf.class, this::onRightActivationsOf)
+                //.onMessage(SpawnProtocol.LeftActivationsOf.class, this::onLeftActivationsOf)
+                //.onMessage(SpawnProtocol.RightActivationsOf.class, this::onRightActivationsOf)
                 .build();
     }
 }

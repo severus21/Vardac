@@ -73,8 +73,8 @@ component TestB {
         inport p_in :: bridge<C, B, inline p> expecting (?int.) = this.callback;
        onstartup (bridge<C, B, inline p> chan){
             debug("B > init");
-            bind(this.p_in, chan);
             bind(this.p_out, chan);
+            bind(this.p_in, chan);
             this.methodb();
 
         }
@@ -85,8 +85,9 @@ component TestB {
             sleep(1000); (* wait for other activations to start *)
             set<activation_ref<B|C>> activations = rightactivations(bridgeof(this.p_out))?;
             for(activation_ref<B|C> a in activations){
+                debug("B > init session with");
                 session<!int?int.> s0 = initiate_session_with(this.p_out, a);
-                . s1 = fire(s0, 42)?; 
+                . s1 = fire(s0, 42)?;
             }
         }
 

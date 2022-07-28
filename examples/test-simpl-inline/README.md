@@ -17,7 +17,7 @@ Scenario
     ```bash
     1> java -enableassertions -jar build/libs/mainA.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB 
     ```
-    * Case B: Inline, then exchange message with host (host and inlined do not have the same type)
+    * Case B: Inline, then exchange message with host (host and inlined do not have the same type - discovery using bridges)
     ```bash
     1> java -enableassertions -jar build/libs/mainB.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB 
     ```
