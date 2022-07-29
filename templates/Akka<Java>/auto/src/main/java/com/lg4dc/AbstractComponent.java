@@ -68,7 +68,8 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
         this.currently_inport_bindings.put(key, port.id);
 
         //Register the activations 
-        bridge.rightRegister(getContext(), this.guardian, current);
+        if(bridge.protocol.get_st().equals(port.expecting_st) || bridge.protocol.get_st().equals(port.expecting_st.dual()) )
+            bridge.rightRegister(getContext(), this.guardian, current);
 
         return null;
     }
@@ -83,7 +84,8 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
 
     public Void bind_out(OutPort port, Bridge bridge, ActivationRef current) {
         //Register the activations 
-        bridge.leftRegister(getContext(), this.guardian, current);
+        if(bridge.protocol.get_st().equals(port.expecting_st) || bridge.protocol.get_st().equals(port.expecting_st.dual()) )
+            bridge.leftRegister(getContext(), this.guardian, current);
 
         return port.bind(bridge);
     }

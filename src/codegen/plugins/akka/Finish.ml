@@ -1152,6 +1152,8 @@ module Make (Arg: sig val target:Target.target end) = struct
                                             S_A2.e2_e (S.AccessExpr( S_A2.e2_e S.This, S_A2.e2var name))
                                         ) _p._children
                                     )));
+                                    fvstype parent_opt (match _p.protocol.value with
+                                    | S.SType st -> st);
                                 ]
                             ))    
                         )

@@ -6,11 +6,15 @@ import com.bmartin.*;
 
 // FIXME a port should be serializable
 public final class OutPort extends AbstractPort {
-    public OutPort (String name, List<AbstractPort> children){
+    public ASTStype.Base expecting_st;
+
+    public OutPort (String name, List<AbstractPort> children, ASTStype.Base expecting_st){
         super(name);
 
         assert( children != null);
+        assert( expecting_st != null);
         this.children = children;
+        this.expecting_st = expecting_st;
     }
 
     @Override

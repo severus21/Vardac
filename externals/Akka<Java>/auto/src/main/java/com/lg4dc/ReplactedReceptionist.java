@@ -40,6 +40,16 @@ public class ReplactedReceptionist extends AbstractBehavior<ReplactedReceptionis
         }
     }
 
+    public static class GetCachedValue implements Command {
+        public final String key;
+        public final ActorRef<Set<ActivationRef>> replyTo;
+
+        public GetCachedValue(String key, ActorRef<Set<ActivationRef>> replyTo) {
+            this.key = key;
+            this.replyTo = replyTo;
+        }
+    }
+
     enum Unsubscribe implements Command {
         INSTANCE
     }
@@ -87,7 +97,7 @@ public class ReplactedReceptionist extends AbstractBehavior<ReplactedReceptionis
     private final SelfUniqueAddress node;
     private final Key<ORMultiMap<String, ActivationRef>> key;
 
-    private java.util.Map<String, java.util.Set<ActivationRef>>	 cachedValue;
+    private java.util.Map<String, java.util.Set<ActivationRef>>	cachedValue;
 
     private ReplactedReceptionist(
         ActorContext<Command> context,
@@ -111,6 +121,7 @@ public class ReplactedReceptionist extends AbstractBehavior<ReplactedReceptionis
           .onMessage(Register.class, this::onRegister)
           .onMessage(InternalUpdateResponse.class, msg -> Behaviors.same())
           .onMessage(GetValue.class, this::onGetValue)
+          .onMessage(GetCachedValue.class, this::onGetCachedValue)
           .onMessage(Unsubscribe.class, this::onUnsubscribe)
           .onMessage(InternalGetResponse.class, this::onInternalGetResponse)
           .onMessage(InternalSubscribeResponse.class, this::onInternalSubscribeResponse)
@@ -118,7 +129,6 @@ public class ReplactedReceptionist extends AbstractBehavior<ReplactedReceptionis
     }
 
     private Behavior<Command> onRegister(Register register) {
-        System.out.println("registering "+register.a+ "at "+register.key);
         replicatorAdapter.askUpdate(
             askReplyTo ->
                 new Replicator.Update<>(
@@ -140,6 +150,11 @@ public class ReplactedReceptionist extends AbstractBehavior<ReplactedReceptionis
         return this;
     }
 
+    private Behavior<Command> onGetCachedValue(GetCachedValue cmd) {
+        cmd.replyTo.tell(cachedValue.get(cmd.key));
+        return this;
+    }
+
     private Behavior<Command> onUnsubscribe(Unsubscribe cmd) {
         replicatorAdapter.unsubscribe(key);
         return this;
@@ -148,7 +163,7 @@ public class ReplactedReceptionist extends AbstractBehavior<ReplactedReceptionis
     private Behavior<Command> onInternalGetResponse(InternalGetResponse msg) {
         if (msg.rsp instanceof Replicator.GetSuccess) {
             scala.Option<scala.collection.immutable.Set<ActivationRef>> value = ((Replicator.GetSuccess<?>) msg.rsp).get(key).get(msg.key);
-            
+
             if(value.isEmpty())
                 msg.replyTo.tell(new java.util.HashSet());
             else
@@ -166,7 +181,6 @@ public class ReplactedReceptionist extends AbstractBehavior<ReplactedReceptionis
             cachedValue = map.getEntries();
             return this;
         } else {
-            // no deletes
             return Behaviors.unhandled();
         }
     }

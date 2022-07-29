@@ -497,14 +497,9 @@ module Make () = struct
                                     e2_e (CallExpr(
                                         e2var (Atom.builtin "activationid"),
                                         [
-                                            e2_e (CallExpr(
-                                                e2_e (AccessExpr(
-                                                    e2var a_instance,
-                                                    e2var cl_get_activation_ref
-                                                )),
-                                                [ 
-                                                    e2_e (CallExpr(e2var (Atom.builtin "current_activation"), []));
-                                                ]
+                                            e2_e (AccessExpr(
+                                                e2var a_instance,
+                                                e2var a_cl_activation_ref
                                             ))
                                         ]
                                     ));

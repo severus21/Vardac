@@ -106,13 +106,6 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
         for(int i = 0; i < 10; i++){ //10 retry max
             Set<ActivationRef> activations = 
                 left ? this.leftActivations(context, guardian).get() : this.rightActivations(context, guardian).get();
-            System.out.println("key>"+(left ? this.leftServiceKey() : this.rightServiceKey()));
-            System.out.println(a.toString());
-            System.out.println(activations.toString());
-            for(ActivationRef aa : activations ){
-                System.out.println(">>> ("+aa.hashCode()+") ("+a.hashCode()+")");
-            }
-            System.out.println(activations.contains(a));
             if(activations.contains(a)){
                 if(left)
                     context.getLog().info("leftRegister "+a.toString()+" at left of "+this.id.toString());
@@ -129,7 +122,6 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
             }
         }
 
-        System.out.println("_______not registered, timeout");
         context.getLog().error("not registered, timeout");
         return Either.left(new Error("timeout before seeing its own update"));
     }
@@ -175,7 +167,7 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
     }
 
     public Either<Error, Set<ActivationRef>> rightActivations(ActorContext context, ActorRef<SpawnProtocol.Command> guardian){
-        return activationsOf( context, true);
+        return activationsOf( context, false);
     }
 
 }
