@@ -42,7 +42,11 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
         assert (null != cluster);
 
         // register to receptionist to allow reflexivity : componentsat place -> actoref list
-        context.getSystem().receptionist().tell(Receptionist.register(PlaceDiscovery.activationsServiceKeyOf(cluster.selfMember().address()), context.getSelf()));
+        PlaceDiscovery.register(
+            context, 
+            cluster.selfMember().address(),
+            new ActivationRef(this.schema, context.getSelf(), false, Optional.empty())
+            );
     }
 
     // (bridge_id, port.expecting_st) -> port_id

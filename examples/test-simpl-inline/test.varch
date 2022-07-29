@@ -109,8 +109,6 @@ component TestB {
             string msg = int_to_string(i);
             debug("C > callback "+msg);
         }
-
-        
     }
 
     component Inner { (*spawn in can not be used in guardian directly, since we need to generate ports and so on*)
@@ -118,6 +116,11 @@ component TestB {
             bridge<C,B, inline p> chan = bridge(p);
             activation_ref<B> b = spawn B(chan);
             activation_ref<C> c = spawn C(chan, b) in b;
+
+            (* Check place reflexivity *)
+            for(activation_ref<B|C> x in activationsat(current_place())){
+                print("Inner > activation");
+            }
         }
     }
 

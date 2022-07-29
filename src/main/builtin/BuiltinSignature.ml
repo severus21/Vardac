@@ -193,7 +193,7 @@ let t_second () =
 
 let t_current_place () =
     mtype_of_ct(TArrow(
-        mtype_of_ft TVoid,
+        mtype_of_ft TUnit,
         mtype_of_ft TPlace
     ))
 
@@ -580,5 +580,14 @@ let t_one_hop_activation_ref () =
         mtype_of_ct (TArrow (
             mtype_of_ct (TActivationRef (mtype_of_ft TWildcard)),
             mtype_of_ct (TActivationRef (mtype_of_ft TWildcard))
+        ))
+    ))
+
+let t_register_activation_at () = 
+    mtype_of_ct( TArrow(
+        mtype_of_ct (TActivationRef (mtype_of_ft TWildcard)),
+        mtype_of_ct (TArrow (
+            mtype_of_ft TPlace,
+            mtype_of_ft TVoid
         ))
     ))

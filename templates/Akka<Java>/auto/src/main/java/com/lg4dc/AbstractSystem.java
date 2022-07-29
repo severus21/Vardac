@@ -37,7 +37,6 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
 
     public TimerScheduler<SpawnProtocol.Command> timers;
     public Receptionist.Listing root_listing; // Maintain a cache
-    public Receptionist.Listing activations_listing; // Maintain a cache
     public ActorRef<Receptionist.Listing> receptionist_adapter;
 
     public ActorRef<SpawnProtocol.Command> guardian;
@@ -56,7 +55,7 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
         Cluster cluster = Cluster.get(context.getSystem());
         assert (null != cluster);
 
-        // register to receptionist
+        // register JVM to receptionist
         context.getSystem().receptionist().tell(
                 Receptionist.register(PlaceDiscovery.serviceKeyOf(cluster.selfMember().address()), context.getSelf())); // per
                                                                                                                         // place
@@ -98,10 +97,7 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
                 SpawnProtocol.WrappedListing::new);
         context.getSystem().receptionist().tell(
             Receptionist.subscribe(PlaceDiscovery.serviceKeyOf(cluster.selfMember().address()), this.receptionist_adapter)
-        ); // per
-        context.getSystem().receptionist().tell(
-            Receptionist.subscribe(PlaceDiscovery.activationsServiceKeyOf(cluster.selfMember().address()), this.receptionist_adapter)
-        ); // per
+        );
         //TODO monitor Reachability and MemberEvent cf. ClusterListener
         forceUpdateListing(cluster.selfMember().address());
     }
@@ -110,12 +106,7 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
     }
 
     private Behavior<SpawnProtocol.Command> onListing(SpawnProtocol.WrappedListing msg) {
-        getContext().getLog().info("onListing "+msg.response.getKey().id());
-        if(msg.response.getKey().id().contains("_activations_")){ //TODO FIXME fragile but there is no api to break down the key correctly
-            this.activations_listing = msg.response;
-        } else {
-            this.root_listing = msg.response;
-        }
+        this.root_listing = msg.response;
         return Behaviors.same();
     }
 
@@ -182,21 +173,6 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
         return Behaviors.same();
     }
 
-    private <_T> Behavior<SpawnProtocol.Command> onComponentsAt(SpawnProtocol.ComponentsAt msg) {
-        assert(this.activations_listing != null);
-        getContext().getLog().info("onComponentsAt");
-
-        Set<ActorRef> activations = Set.of();
-        activations = this.activations_listing.getServiceInstances(PlaceDiscovery.activationsServiceKeyOf(msg.at));
-        activations = activations.stream()
-        .filter(x -> {System.out.println("> collected path "+x.path().toString()); return msg.at.equals(Place.of_actor_ref(getContext(), x).address);})
-        .collect(Collectors.toSet());
-
-        getContext().getLog().info("replying with actorrefs "+activations.size()+" to "+msg.replyTo.toString());
-        msg.replyTo.tell(new WrappedActorRefs(activations));
-        return Behaviors.same();
-    }
-
     // Direct call from place discovery
     static public <_T> ActorRef<_T> applySpawn(ActorContext ctx, SpawnProtocol.Spawn<_T> spawn) {
         ActorRef<_T> actorRef;
@@ -231,7 +207,6 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
     public Receive<SpawnProtocol.Command> createReceive() {
         return newReceiveBuilder().onMessage(SpawnProtocol.WrappedListing.class, this::onListing)
                 .onMessage(SpawnProtocol.SpawnAt.class, this::onSpawnAt)
-                .onMessage(SpawnProtocol.ComponentsAt.class, this::onComponentsAt)
                 .onMessage(SpawnProtocol.Spawn.class, this::onSpawn)
                 .build();
     }

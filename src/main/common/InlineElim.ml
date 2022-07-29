@@ -439,6 +439,22 @@ module Make () = struct
                                             []
                                         ))
                                     ))
+                                )::(
+                                    auto_fplace(ExpressionStmt(
+                                        e2_e(CallExpr(
+                                            e2var (Atom.builtin "register_activation_at"),
+                                            [
+                                                e2_e (AccessExpr(
+                                                    e2_e Self,
+                                                    e2var a_cl_activation_ref
+                                                ));
+                                                e2_e(CallExpr(
+                                                    e2var (Atom.builtin "current_place"),
+                                                    []
+                                                ));
+                                            ]
+                                        ))
+                                    ))
                                 )::constructor.value.body 
                                 }}
                     in

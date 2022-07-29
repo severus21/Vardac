@@ -356,7 +356,7 @@ let e_lg4dc_componentsat place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
         auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
-        auto_place (Ast.RawExpr "PlaceDiscovery.componentsAt", auto_place Ast.TUnknown) 
+        auto_place (Ast.RawExpr "PlaceDiscovery.activationsAt", auto_place Ast.TUnknown) 
     ), auto_place Ast.TUnknown)
 let e_lg4dc_placeof place =
     let auto_place smth = {place; value=smth} in

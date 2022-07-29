@@ -7,11 +7,16 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import akka.cluster.ddata.ORMultiMap;
+import akka.cluster.ddata.ORMultiMapKey;
 import akka.cluster.ddata.Key;
 import akka.cluster.ddata.SelfUniqueAddress;
 import akka.cluster.ddata.typed.javadsl.DistributedData;
 import akka.cluster.ddata.typed.javadsl.Replicator;
 import akka.cluster.ddata.typed.javadsl.ReplicatorMessageAdapter;
+
+import akka.cluster.typed.ClusterSingleton;
+import akka.cluster.typed.ClusterSingletonSettings;
+import akka.cluster.typed.SingletonActor;
 
 import scala.collection.JavaConverters;
 
@@ -19,6 +24,11 @@ import java.util.Set;
 import java.util.Map;
 
 public class ReplactedReceptionist extends AbstractBehavior<ReplactedReceptionist.Command> {
+    public static ActorRef<ReplactedReceptionist.Command> getReceptionist(ActorContext context){
+        ClusterSingleton singleton = ClusterSingleton.get(context.getSystem());
+        return singleton.init(SingletonActor.of(ReplactedReceptionist.create(new ORMultiMapKey("bridge")), "replacted_receptionist"));
+    }
+
     interface Command {}
     public static class Register implements Command {
         public final ActivationRef a;

@@ -91,15 +91,8 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
         return AbstractSystem.NAME+"_bridge_left_"+id.toString();
     } 
 
-
-    public static ActorRef<ReplactedReceptionist.Command> getReceptionist(ActorContext context){
-        ClusterSingleton singleton = ClusterSingleton.get(context.getSystem());
-        return singleton.init(SingletonActor.of(ReplactedReceptionist.create(new ORMultiMapKey("bridge")), "replacted_receptionist"));
-    }
-
-
     private Either<Error, Boolean> register(ActorContext context, ActorRef<SpawnProtocol.Command> guardian, ActivationRef a, boolean left){
-        ActorRef<ReplactedReceptionist.Command> receptionist = getReceptionist(context); 
+        ActorRef<ReplactedReceptionist.Command> receptionist = ReplactedReceptionist.getReceptionist(context); 
         receptionist.tell(new ReplactedReceptionist.Register(left ? this.leftServiceKey() : this.rightServiceKey(), a));
 
         //Wait that for visible registered activation
@@ -141,9 +134,9 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
         return this.register(context, guardian, a, false); 
     }
 
-    public Either<Error, Set<ActivationRef>> activationsOf(ActorContext context, boolean left){
+    public Either<Error, Set<ActivationRef>> activationsAt(ActorContext context, boolean left){
         assert( context != null);
-        ActorRef<ReplactedReceptionist.Command> receptionist = getReceptionist(context); 
+        ActorRef<ReplactedReceptionist.Command> receptionist = ReplactedReceptionist.getReceptionist(context); 
 
         CompletionStage<Set<ActivationRef>> ask = AskPattern.ask(
             receptionist,
@@ -163,11 +156,11 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
     }
 
     public Either<Error, Set<ActivationRef>> leftActivations(ActorContext context, ActorRef<SpawnProtocol.Command> guardian){
-        return activationsOf( context, true);
+        return activationsAt( context, true);
     }
 
     public Either<Error, Set<ActivationRef>> rightActivations(ActorContext context, ActorRef<SpawnProtocol.Command> guardian){
-        return activationsOf( context, false);
+        return activationsAt( context, false);
     }
 
 }

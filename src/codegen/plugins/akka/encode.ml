@@ -197,7 +197,6 @@ let encode_builtin_fct_1 parent_opt place name a =
             e_lg4dc_componentsat place,
             [
                 e_get_context place;
-                e_this_guardian (this_actor parent_opt) place;
                 a
             ]
         )
@@ -390,7 +389,16 @@ let encode_builtin_fct_2 parent_opt place name a b =
                 e_this_guardian (this_actor parent_opt) place;
                 b;
             ]
-        )
+        )    
+        | "register_activation_at" -> 
+        T.CallExpr( 
+            e2_e (T.RawExpr "PlaceDiscovery.register"),
+            [ 
+                e_get_context place;
+                b;
+                a;
+            ]
+        ) 
     | "select" -> 
         T.CallExpr( 
             e2_e (T.AccessExpr (

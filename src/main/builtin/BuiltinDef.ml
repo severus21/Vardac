@@ -35,6 +35,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "bridge", "() -> Bridge<'A, 'B, 'a>", "create a new bridge with a fresh id",
     fresh_tbridge;
     "string_of_bridge", "bridge -> string", "", t_string_of_bridge;
+    "register_activation_at", "activation->place->()", "", t_register_activation_at;
     "fire", "STSend<'msg, 'continuation> -> 'msg -> 'continuation", "TODO", t_fire
     ;
     "current_place", " unit -> place", "current place", t_current_place;
