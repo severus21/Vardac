@@ -19,7 +19,7 @@ let _debug_selector = ref "*"
   "pass1:pass2" -> Some [pass1; pass2]
 *)
 let debug_selector () =
-    if !_debug_selector = "*" then None
+    if !_debug_selector = "*" || !_debug_selector = "all" then None
     else if !_debug_selector = " " then Some []
     else 
         Some (String.split_on_char ',' !_debug_selector)

@@ -1365,6 +1365,7 @@ rewrite_type_aconstraint
             callback = rename_expr ~flag_rename_attribute:flag_rename_attribute true renaming p.callback;
             _children = List.map renaming p._children;
             _is_intermediate = p._is_intermediate;
+            _receive_id = p._receive_id;
         }, rename_main_type renaming mt_p)
         and rename_port ?(flag_rename_attribute=false) renaming = map_place (_rename_port flag_rename_attribute (protect_renaming  renaming))
 

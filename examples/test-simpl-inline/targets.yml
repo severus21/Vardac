@@ -13,3 +13,6 @@
       mainC:
         bootstrap: TestC 
         entrypoint: mainC 
+      mainD:
+        bootstrap: TestD 
+        entrypoint: mainD 

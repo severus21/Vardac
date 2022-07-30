@@ -522,15 +522,12 @@ module Make () = struct
                                     e2var a_instance;
                                 ]
                             ))));
-                            auto_fplace (ReturnStmt (e2_e (InterceptedActivationRef (
-                                e2_e (CallExpr(e2var (Atom.builtin "current_activation"), [])), 
-                                (Some (e2_e (CallExpr(
-                                    e2_e (AccessExpr(
-                                        e2var a_instance,
-                                        e2var cl_get_activation_ref
-                                    )),
-                                    [ e2_e (CallExpr(e2var (Atom.builtin "current_activation"), [])) ]
-                                ))))
+                            auto_fplace (ReturnStmt (e2_e (CallExpr(
+                                e2_e (AccessExpr(
+                                    e2var a_instance,
+                                    e2var cl_get_activation_ref
+                                )),
+                                [ e2_e (CallExpr(e2var (Atom.builtin "current_activation"), [])) ]
                             ))));
                         ];
                         contract_opt = None;
@@ -623,6 +620,7 @@ module Make () = struct
                                     _children = [];
                                     _disable_session = port._disable_session;
                                     _is_intermediate = port._is_intermediate;
+                                    _receive_id = port._receive_id;
 
                                 }, auto_fplace EmptyMainType)) in
                                 {place = place@fplace; value = auto_plgannot (Method (auto_fplace n_callback))}, {place=place@fplace; value={v=n_port; plg_annotations=plgannots}}
@@ -812,6 +810,7 @@ module Make () = struct
                             _children = [];
                             _disable_session = false;
                             _is_intermediate = false;
+                            _receive_id = None
                         },
                         mtype_of_ct (TInport (mtype_of_st (IRMisc.dual (spawn_protocol_st schema)).value))
                     ) in
@@ -1057,6 +1056,11 @@ module Make () = struct
                             ]
                         ))
                     ));
+                    auto_fplace(LetStmt(
+                        mtype_of_var (spawn_response schema),
+                        a_res,
+                        e2_lit VoidLit 
+                    ));
                     auto_fplace(IfStmt(
                         e2_e (CallExpr(
                             e2var (Atom.builtin "is_ok"),
@@ -1077,8 +1081,7 @@ module Make () = struct
                                     ]
                                 ))
                             ));
-                            auto_fplace(LetStmt(
-                                mtype_of_var (spawn_response schema),
+                            auto_fplace(AssignExpr(
                                 a_res,
                                 e2_e(AccessExpr(
                                     e2var _tmp_res,

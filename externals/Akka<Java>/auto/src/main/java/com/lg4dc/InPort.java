@@ -11,6 +11,7 @@ public final class InPort<A, B, C> extends AbstractPort {
     public ASTStype.Base expecting_st;
     boolean is_intermediate = false;
     BiFunction<A,B,C> callback;
+    public Optional<String> receive_id;
 
     /*
       if(this.registered_session.containsKey(e.session_id)){
@@ -19,7 +20,7 @@ public final class InPort<A, B, C> extends AbstractPort {
       }
      */
 
-    public InPort (String name, List<AbstractPort> children, boolean is_intermediate, ASTStype.Base expecting_st){
+    public InPort (String name, List<AbstractPort> children, boolean is_intermediate, ASTStype.Base expecting_st, Optional<String> receive_id){
         super(name);
 
         assert( expecting_st != null);
@@ -27,6 +28,7 @@ public final class InPort<A, B, C> extends AbstractPort {
         this.expecting_st = expecting_st;
         this.children = children;
         this.is_intermediate = is_intermediate;
+        this.receive_id = receive_id;
     }
 
     @Override

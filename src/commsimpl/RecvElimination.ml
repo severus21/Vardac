@@ -33,7 +33,7 @@ module type Sig = sig
 end
 
 module Make () : Sig = struct
-    let logger = make_log_of "RecvElimination"
+    let logger = make_log_of "Commsimpl.RecvElimination"
     let pass_name = "Commsimpl.RecvElimination"
     let fplace = (Error.forge_place "RecvElimination" 0 0) 
     let auto_fplace smth = {place = fplace; value=smth}
@@ -141,7 +141,7 @@ module Make () : Sig = struct
             intermediate_args 
         in
 
-        intermediate_args
+        Utils.deduplicate (function (_,x) -> Atom.to_string x) intermediate_args
 
 
     (* 
@@ -313,7 +313,7 @@ module Make () : Sig = struct
                     | Some session -> session (* when we are in the first method of the list*)
                     | None -> e2var param_session (* for all the intermediate (and last) methods *)
                 )
-            ]} in
+                ]} in
 
             (*** Add header m2 - to unregister the session ***)
             let m2 = {m2 with body = m2.body @ [ unregister (e2var param_session)]} in
@@ -335,7 +335,7 @@ module Make () : Sig = struct
 
             [], [], [ current_method ]
         | {place; value=LetStmt ({value=CType{value=TTuple [t_msg;{value = SType st_continuation}]}}, let_x, {place=place1; value=(CallExpr ({value=(VarExpr x, _)}, [s]),_)})}::stmts  when Atom.is_builtin x && Atom.hint x = "receive" -> 
-            logger#debug "receive at %s" (Error.show place1);
+            logger#debug "receive %s at %s" (Atom.to_string let_x) (Error.show place1);
             (*** Prepare ***)
             let stage_stmts = next_method.body @ (List.rev acc_stmts) in
             let current_method = { next_method with 
@@ -351,6 +351,8 @@ module Make () : Sig = struct
             (*** Gathering intells ***)
             let intermediate_args = compute_intermediate_args stmts (Some let_x) in
 
+            logger#debug "split: \n\tlet_x: %s\n\t args:%s" (Atom.to_string let_x) (Atom.show_list "," (List.map snd intermediate_args));
+
 
             let receive_id = Atom.fresh ((Atom.to_string current_method.name)^"receive_id") in
 
@@ -362,7 +364,8 @@ module Make () : Sig = struct
                         e2var (Atom.builtin "__get_intermediate_port")
                     )),
                     [
-                        s
+                        s;
+                        e2_e( OptionExpr (Some (e2_lit (StringLit (Atom.to_string receive_id)))));
                     ]
             )) in
             
@@ -671,6 +674,7 @@ module Make () : Sig = struct
                         _disable_session = false;
                         _children = [];
                         _is_intermediate = true;
+                        _receive_id = Some receive_id;
                     }, auto_fplace EmptyMainType)
                 ]
             in

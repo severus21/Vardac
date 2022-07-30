@@ -180,6 +180,7 @@ module Make(Args:Args) : Sig = struct
                         _disable_session = false;
                         _children = [];
                         _is_intermediate = false;
+                        _receive_id = None;
                     }, mt_port)))) in
 
 

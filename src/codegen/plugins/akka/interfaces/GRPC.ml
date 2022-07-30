@@ -486,6 +486,7 @@ end) = struct
                             )); 
                             _children = [];
                             _is_intermediate = false;
+                            _receive_id = None;
                         }, auto_fplace S.EmptyMainType))))
                     ) !service2actor_events in
 

@@ -1197,6 +1197,10 @@ module Make (Arg: sig val target:Target.target end) = struct
                                     fexpr parent_opt (S_A2.e2_lit (S.BoolLit _p._is_intermediate));
                                     fvstype parent_opt (match _p.expecting_st.value with
                                     | S.SType st -> st);
+                                    fexpr parent_opt (match _p._receive_id with
+                                        | None -> S_A2.e2_e (S.OptionExpr None)
+                                        | Some x -> S_A2.e2_e (S.OptionExpr (Some (S_A2.e2_lit (S.StringLit (Atom.to_string x)))))
+                                    );
                                 ]
                             ))    
                         )

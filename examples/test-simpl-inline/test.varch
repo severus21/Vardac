@@ -182,3 +182,83 @@ component TestC {
         spawn Inner();
     }
 }
+
+void mainD(array<string> argv){
+    print("mainD");
+}
+
+component TestD {
+    component A {
+        onstartup (){
+            debug("A > init");
+            this.methoda();
+        }
+
+        void methoda(){
+            debug("A > methoda");
+        }
+    }
+
+    (* Make B inlinable in A*)
+    @inline_in([A])
+    component B {
+        inport p_in :: bridge<C, B, inline p> expecting (dual p) = this.callback;
+        int token = 0;
+        onstartup (bridge<C, B, inline p> chan, int token){
+            debug("B > init");
+            this.token=token;
+            bind(this.p_in, chan);
+            this.methodb();
+        }
+
+        void methodb(){
+            debug("B > methodb");
+        }
+
+        void callback(int i, ?int. st_cont){
+            string msg = int_to_string(i);
+            debug("B > callback "+msg);
+            if(i != this.token){
+                debug("Erro mismatch");
+            }else{
+                debug("Ok match");
+            }
+            fire(st_cont, 21);
+        }
+    }
+
+    component C {
+        outport p_out expecting (inline p);
+        inport p_in :: bridge<C, B, inline p> expecting (?int.) = this.callback;
+        int token = 0;
+        onstartup (bridge<C, B, p> chan, activation_ref<B> b, int token){
+            debug("C > init");
+            bind(this.p_out, chan);
+            bind(this.p_in, chan);
+            this.token = token;
+            session<p> s0 = initiate_session_with(this.p_out, b);
+            fire(s0, this.token);
+            debug("C > send");
+        }
+        
+        void callback(int i, . st_cont){
+            string msg = int_to_string(i);
+            debug("C > callback "+msg);
+        }
+    }
+
+    component Inner { (*spawn in can not be used in guardian directly, since we need to generate ports and so on*)
+        onstartup (){
+            bridge<C,B, inline p> chan = bridge(p);
+            activation_ref<A> a = spawn A();
+            activation_ref<B> b = spawn B(chan, 6) in a;
+            activation_ref<B> bb = spawn B(chan, 12) in a;
+            activation_ref<C> c = spawn C(chan, b, 6);
+            activation_ref<C> cc = spawn C(chan, bb, 12);
+        }
+    }
+
+    onstartup (){
+        spawn Inner();
+    }
+}

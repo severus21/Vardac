@@ -16,3 +16,9 @@ impl component TestB::Inner {}
 impl component TestC {}
 impl component TestC::A {}
 impl component TestC::Inner {}
+
+impl component TestD {}
+impl component TestD::A {}
+impl component TestD::B {}
+impl component TestD::C {}
+impl component TestD::Inner {}

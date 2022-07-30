@@ -847,6 +847,7 @@ module Make () = struct
         callback = tannot_expr parent_opt p.callback;
         _children = p._children;
         _is_intermediate = p._is_intermediate;
+        _receive_id = p._receive_id;
     } 
     and tannot_port parent_opt p = 
         let fplace = (Error.forge_place "TypeInference.tannot_port" 0 0) in
