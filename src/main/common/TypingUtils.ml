@@ -97,7 +97,7 @@ and _is_subtype_cmt place1 place2 cmt1 cmt2 =
     | TPolyCVar x, TPolyCVar y -> x = y
     | _ -> false 
 and is_subtype_cmt cmt1 cmt2 = 
-    equal_structtype cmt1 cmt2 ||
+    equal_struct_type cmt1 cmt2 ||
     _is_subtype_cmt cmt1.place cmt2.place cmt1.value cmt2.value
 and _is_subtype place1 place2 mt1 mt2 = 
     match (mt1, mt2) with
@@ -251,7 +251,7 @@ and _is_instance_cmt cvars constraints place1 place2 cmt1 cmt2 =
     | TPolyCVar x, TPolyCVar y -> constraints, x = y
     | _ -> constraints, false 
 and is_instance_cmt cvars constraints cmt1 cmt2 = 
-    if equal_structtype cmt1 cmt2 then constraints, true
+    if equal_struct_type cmt1 cmt2 then constraints, true
     else _is_instance_cmt cvars constraints cmt1.place cmt2.place cmt1.value cmt2.value 
 (* TODO FIXME change type of form list to set for perf cvars - if we keep this architecture *)
 (* cvars are the type schema variable already seen in mt2 that can be used to create new constraints*)
