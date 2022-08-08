@@ -34,13 +34,12 @@ module Make () = struct
             Format.fprintf out "\t- %d (%s)" ([%hash: main_type] x) (show_main_type x)
         ) (List.of_seq(MTHashtbl.to_seq hashtbl_mt2event)))
 
-    let mt2event flag_register mt = 
+    let mt2event mt = 
         match MTHashtbl.find_opt hashtbl_mt2event mt with
         | Some (_, e) -> e 
         | None -> 
             let event = Atom.fresh "auto_boxed_type" in
             logger#debug "auto-box %s -> %s" (show_main_type mt) (Atom.to_string event);
-            (*if flag_register then MTHashtbl.add hashtbl_mt2event mt (mt, event);*)
             MTHashtbl.add hashtbl_mt2event mt (mt, event);
             debug_print_mt2event ();
             event
@@ -55,15 +54,15 @@ module Make () = struct
             (*logger#debug "need auto-boxing for %s<true>" (show_main_type ct);*)
             true
 
-    let rec _autobox_st flag_register _ st = 
+    let rec _autobox_st _ st = 
     match st with
     | STEnd | STWildcard | STBottom | STVar _ | STInline _ -> st
     | STSend (t_msg, st_continuation) | STRecv (t_msg, st_continuation) -> begin
-        let st_continuation = autobox_st flag_register st_continuation in
+        let st_continuation = autobox_st st_continuation in
         let t_msg = 
             if needs_autoboxing t_msg then begin
                 (*logger#debug "auto_boxing %s" (show__main_type t_msg.value);*)
-                mtype_of_var (mt2event flag_register t_msg)
+                mtype_of_var (mt2event t_msg)
             end else t_msg
         in
 
@@ -74,7 +73,7 @@ module Make () = struct
     | STBranch branches | STSelect branches -> begin
         let branches = 
             List.map 
-                (function (label, st_branch, opt) -> (label, autobox_st flag_register st_branch, opt))
+                (function (label, st_branch, opt) -> (label, autobox_st st_branch, opt))
                 branches
         in
 
@@ -82,9 +81,9 @@ module Make () = struct
         | STBranch _ -> STBranch branches
         | STSelect _ -> STSelect branches
     end
-    | STRec (x, st) -> STRec (x, autobox_st flag_register st)
-    | STDual st -> STDual (autobox_st flag_register st)
-    and autobox_st flag_register st = map_place (_autobox_st flag_register) st
+    | STRec (x, st) -> STRec (x, autobox_st st)
+    | STDual st -> STDual (autobox_st st)
+    and autobox_st st = map_place _autobox_st st
 
     let generate_eventdefs () : term list = 
         List.of_seq (
@@ -123,7 +122,7 @@ module Make () = struct
                 let e_msg, t_msg = msg.value in
                 if needs_autoboxing t_msg then( 
                     logger#debug "needs auto-boxing_fire";
-                    let event = mt2event true t_msg in
+                    let event = mt2event t_msg in
                     CallExpr ( e2var x, [
                         s;
                         e2_e (NewExpr(
@@ -188,7 +187,7 @@ module Make () = struct
 
             [
                 if needs_autoboxing t_msg then
-                    let event = mt2event true t_msg in
+                    let event = mt2event t_msg in
 
                     let param_msg = Atom.fresh "msg" in
                     let param_session = Atom.fresh "session" in
@@ -227,7 +226,7 @@ module Make () = struct
         let rewritor = function 
             | SType st -> 
                 (*logger#debug "scan st for auto-boxing\n%s" (show_session_type st);*)
-                SType (autobox_st false st) (* False in order to avoid rewriting unused type annotation in the AST like the builtin signature of fire/receive *)
+                SType (autobox_st st)
         in
 
         let program = rewrite_type_program selector rewritor program in
