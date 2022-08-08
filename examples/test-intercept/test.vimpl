@@ -1,18 +1,9 @@
-
 target akka;
 
-impl component A {
-}
-
-impl component B {
-}
-
+impl component A {}
+impl component B {}
 impl component PingPong {}
-
 impl component MsgCounter {}
-
 impl component PassivePlayer {}
-
 impl component MultiJVMOrchestrator {}
-
-impl component MultiJVMOrchestrator::Inner{}
+impl component MultiJVMOrchestrator::Inner {}

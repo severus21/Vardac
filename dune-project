@@ -33,6 +33,7 @@
   (ppx_deriving (>= 5.2.1))
   (ppx_fields_conv (>= v0.14.2))
   (ppx_hash (>= v0.14.0))
+  (ppx_compare (>= v0.15.0))
   (ppx_import (>= 1.9.0))
   (process (>= 0.2.1))
   (rresult (>= 0.6.0))

@@ -2,6 +2,7 @@
   codegen: 
     language: Java
     runtime: Akka
+    interface: gRPC
     mains: 
       multiPlayer:
         bootstrap: MultiJVMOrchestrator

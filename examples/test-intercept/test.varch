@@ -9,37 +9,35 @@ protocol p_pingpong = !ping?pong.;
 (********************* PingPong *********************)
 @capturable([MsgCounter])
 component A {
-    bridge<B, A, inline p_pingpong> _b;
-    
-    onstartup (bridge<B, A, inline p_pingpong> b0){
+    onstartup (bridge<B, A, inline p_pingpong> chan){
         print("> Starting A");
-        this._b = b0;
+        bind(this.p_in, chan);
     }
 
-    inport p_in on this._b :: bridge<B, A, inline p_pingpong> expecting (dual p_pingpong) = this.handle_ping;
+    inport p_in :: bridge<B, A, inline p_pingpong> expecting (dual p_pingpong) = this.handle_ping;
 
-    void handle_ping (ping msg, !pong. s1) {
+    result<void, error> handle_ping (ping msg, !pong. s1) {
         print("ping");
-        fire(s1, pong()); 
+        fire(s1, pong())?; 
     }
 }
 
 component B {
-    bridge<B, A, inline p_pingpong> _b;
-    outport p_out on this._b :: bridge<B, A, inline p_pingpong>;
+    outport p_out expecting (inline p_pingpong);
 
-    onstartup (bridge<B, A, inline p_pingpong> b0, activation_ref<A> b) {
-        this._b = b0;
+    onstartup (bridge<B, A, inline p_pingpong> chan, activation_ref<A> b) {
+        bind(this.p_out, chan);
+        this.methodb(chan);
+    }
 
+    result<void, error> methodb(bridge<B, A, inline p_pingpong> chan){
         print("> Starting B");
-        session<p_pingpong> s0 = initiate_session_with(this.p_out, b);
+        session<p_pingpong> s0 = initiate_session_with(this.p_out, chan);
 
-        ?pong. s1 = fire(s0, ping());
+        ?pong. s1 = fire(s0, ping())?;
         print("> Ping fired");
-        (* TODO add this 
-        tuple<pong, !ping!ping.> res = receive(s1, this._b);
+        tuple<pong, !ping!ping.> res = receive(s1);
         print("pong_or_timeout");
-        *)
     }
 }
 
@@ -79,12 +77,12 @@ component PingPong {
     TODO write a msg counter - independent of msg
 *)
 component MsgCounter {
+    int nbr_msg = 0;
     onstartup () {
         print(">MsgCounter"); (* count ping *)
     }
 
     (****************************** Programmer defined state and state handling ******************************)
-    int nbr_msg = 0;
     void incr(){
         this.nbr_msg = this.nbr_msg + 1;
     }
