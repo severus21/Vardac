@@ -257,6 +257,8 @@ module Make () = struct
         let cstruct = Atom.VMap.of_seq (List.to_seq (List.flatten cstruct)) in
 
         let signature = auto_fplace(CompType(auto_fplace(TStruct (cdcl.name, cstruct)))) in
+
+        logger#debug "signature %s\n%s" (Atom.to_string cdcl.name) (Atom.VMap.show cstruct);
         register_cexpr_type cdcl.name signature;
         [cdcl.name, signature]
     end
@@ -472,7 +474,9 @@ module Make () = struct
         let ret_type = 
             match Atom.VMap.find_opt mname c_sign with
             | None when Atom.is_builtin mname -> Builtin.type_of place (Atom.hint mname)
-            | None -> raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered component have no field/method named %s" (Atom.to_string mname))))
+            | None -> 
+                logger#debug "%s\n\n%s" (Atom.VMap.show c_sign) (show_main_type mt_component);
+                raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered component have no field/method named %s" (Atom.to_string mname))))
             | Some mt -> mt
         in
         ret_type

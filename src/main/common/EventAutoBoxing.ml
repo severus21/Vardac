@@ -16,7 +16,7 @@ module TypeInference2 = IRCompilationPass.Make(TypeInference.Make())
 module MTHashtbl = Hashtbl.Make(
     struct  
         type t = main_type
-        let equal x y = equal_mtype x y 
+        let equal = [%equal: main_type] 
         let hash = [%hash: main_type]
     end)
 
@@ -28,12 +28,21 @@ module Make () = struct
     let hashtbl_mt2event = MTHashtbl.create 16 
     let events = Hashtbl.create 16
 
+    (* debug only *)
+    let debug_print_mt2event () = 
+        logger#debug "mt2event {\n%s}" (Error.show_list "\n" (fun out (x,_) ->
+            Format.fprintf out "\t- %d (%s)" ([%hash: main_type] x) (show_main_type x)
+        ) (List.of_seq(MTHashtbl.to_seq hashtbl_mt2event)))
+
     let mt2event flag_register mt = 
         match MTHashtbl.find_opt hashtbl_mt2event mt with
         | Some (_, e) -> e 
         | None -> 
             let event = Atom.fresh "auto_boxed_type" in
-            if flag_register then MTHashtbl.add hashtbl_mt2event mt (mt, event);
+            logger#debug "auto-box %s -> %s" (show_main_type mt) (Atom.to_string event);
+            (*if flag_register then MTHashtbl.add hashtbl_mt2event mt (mt, event);*)
+            MTHashtbl.add hashtbl_mt2event mt (mt, event);
+            debug_print_mt2event ();
             event
         
     let needs_autoboxing = function
@@ -43,7 +52,7 @@ module Make () = struct
         (* BLabel is a "builtin" event *)
         | {value=CType {value = TFlatType TBLabel}} -> false
         | _ as ct -> 
-            logger#debug "need auto-boxing for %s<true>" (show_main_type ct);
+            (*logger#debug "need auto-boxing for %s<true>" (show_main_type ct);*)
             true
 
     let rec _autobox_st flag_register _ st = 
@@ -53,7 +62,7 @@ module Make () = struct
         let st_continuation = autobox_st flag_register st_continuation in
         let t_msg = 
             if needs_autoboxing t_msg then begin
-                logger#debug "auto_boxing %s" (show__main_type t_msg.value);
+                (*logger#debug "auto_boxing %s" (show__main_type t_msg.value);*)
                 mtype_of_var (mt2event flag_register t_msg)
             end else t_msg
         in
@@ -217,7 +226,7 @@ module Make () = struct
         in
         let rewritor = function 
             | SType st -> 
-                logger#debug "scan st for auto-boxing\n%s" (show_session_type st);
+                (*logger#debug "scan st for auto-boxing\n%s" (show_session_type st);*)
                 SType (autobox_st false st) (* False in order to avoid rewriting unused type annotation in the AST like the builtin signature of fire/receive *)
         in
 

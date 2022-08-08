@@ -6,6 +6,7 @@
 open Printf 
 open Ppx_hash_lib.Std
 open Hash.Builtin
+open Ppx_compare_lib.Builtin
 
 module StringStorage =
   Weak.Make(struct
@@ -109,10 +110,14 @@ let refresh_value a value =
 let equal a b =
   a.identity = b.identity
 
+
 let compare a b =
   (* Identities are always positive numbers (see [allocate] above)
      so I believe overflow is impossible here. *)
   a.identity - b.identity
+
+let compare_atom = compare 
+let equal_atom = equal 
 
 let hash a =
   Hashtbl.hash a.identity
@@ -279,7 +284,7 @@ module VMap = struct
   let codomain f m =
     fold (fun _ v accu -> Set.union (f v) accu) m Set.empty
   
-  let show m = Format.sprintf "" 
+  let show m = (Error.show_list ";" (fun out (x,_)-> Format.fprintf out "%s" (to_string x))) (List.of_seq (to_seq m))  
   let pp _ fmt m = Format.fprintf fmt "%a" (Error.pp_list ";" (fun out (x,_)-> Format.fprintf out "%s" (to_string x))) (List.of_seq (to_seq m)) 
 
   let hash_fold_t hash_fold_elem s map = 

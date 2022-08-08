@@ -4,10 +4,109 @@ open OUnitLogger
 open Testutils
 open AstUtils
 open IR
+open Utils
+open AstUtils
+open IRMisc
 
 let fplace = (Error.forge_place "Main.Unittests" 0 0) 
 let auto_fplace smth = {place = fplace; value=smth}
 include AstUtils2.Mtype.Make(struct let fplace = fplace end)
+
+(************************* AST equality/hashing function *********************)
+
+let hash_mt = [%hash: main_type]
+let equal_mt = [%equal: main_type]
+let heq_suite () = 
+    [
+    "heq-type" >:: (function ctx ->
+        (* check basic structural equality *)
+        let mt1 = mtype_of_ft TPlace in
+        let mt2 = mtype_of_ft TPlace in
+
+        assert_equal ~cmp:equal_mt mt1 mt2;
+        assert_equal (hash_mt mt1) (hash_mt mt2);
+
+        (* check ignore place for structural equality*)
+        let mt3 = { 
+            place = fplace;
+            value = (CType { place = (Error.forge_place "aaa" 0 0); value = (TFlatType TPlace) }) }
+        in
+        let mt4 = { 
+            place = fplace;
+            value = (CType { place = (Error.forge_place "bbb" 0 0); value = (TFlatType TPlace) }) }
+        in
+
+        assert_equal ~cmp:equal_mt mt3 mt4;
+        assert_equal (hash_mt mt3) (hash_mt mt4);
+
+        (* complex structural equality, same fplace *)
+        let fplace = (Error.forge_place "fplace5" 0 0) in
+        let mt5 = { place = fplace;
+            value =
+            (CType
+                { place = fplace;
+                value =
+                (TTuple
+                    [{ place = fplace;
+                        value =
+                        (CType
+                            { place = fplace;
+                            value =
+                            (TActivationRef
+                                { place = fplace;
+                                value =
+                                (CompType
+                                    { place = fplace;
+                                        value =
+                                        (CompTUid
+                                        (Atom.craft 15 "A" "A" false))
+                                        })
+                                })
+                            })
+                        };
+                        { place = fplace;
+                        value =
+                        (CType { place = fplace; value = (TFlatType TPlace) }) }
+                        ])
+                })
+            } in
+            let fplace = (Error.forge_place "fplace6" 0 0) in
+            let mt6 = { place = fplace;
+                value =
+                    (CType
+                    { place = fplace;
+                    value =
+                    (TTuple
+                    [{ place = fplace;
+                    value =
+                    (CType
+                    { place = fplace;
+                        value =
+                        (TActivationRef
+                            { place = fplace;
+                            value =
+                            (CompType
+                                { place = fplace;
+                                value =
+                                (CompTUid
+                                    (Atom.craft 15 "A" "A" false))
+                                })
+                            })
+                        })
+                    };
+                    { place = fplace;
+                    value =
+                    (CType { place = fplace; value = (TFlatType TPlace) }) }
+                    ])
+                    })
+                    } 
+            in
+
+            assert_equal ~cmp:equal_mt mt5 mt6;
+            assert_equal (hash_mt mt5) (hash_mt mt6);
+        ()
+    );
+]
 
 
 (************************* Utils - ftvars/fvars ******************************)
@@ -335,6 +434,7 @@ let ftvars_error_suite () = [
 let coverage_suite () = 
     List.flatten (List.map (function f -> f ()) [
         ftvars_suite;
+        heq_suite;
     ])
 
 let error_coverage_suite () = 

@@ -2,6 +2,7 @@ open AstUtils
 open Easy_logging
 open Ppx_hash_lib.Std
 open Hash.Builtin
+open Ppx_compare_lib.Builtin
 
 (************************************* Base types ****************************)
 open Label
@@ -120,7 +121,7 @@ and place = _place placed
 and vplace = { 
     name:           component_variable;
     nbr_instances:  expr;
-    features:     (string, string) Hashtbl.t;[@opaque][@hash.ignore]
+    features:     (string, string) Hashtbl.t;[@opaque][@hash.ignore][@compare.ignore][@equal.ignore]
     children:       vplace list
 }
 
@@ -317,5 +318,5 @@ and component_expr = (_component_expr * main_type) placed
 
 (* The following annotation requests the automatic generation of a [show_]
 function for each of the types defined above.*)
-[@@deriving show { with_path = false }, hash]
+[@@deriving show { with_path = false }, hash, compare, equal]
 

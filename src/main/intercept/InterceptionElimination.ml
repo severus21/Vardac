@@ -176,7 +176,6 @@ module Make (Args: TArgs) = struct
                         e2var (Atom.builtin "receive"),
                         [
                             e2var local_s2;
-                            e_this_b_onboard
                         ]
                     ))
                 ));
@@ -1289,7 +1288,7 @@ module Make (Args: TArgs) = struct
                         else x
                     | Some y -> y
             in
-            let base_interceptor = {base_interceptor with body = List.map (rename_component_item renaming) base_interceptor.body} in
+            let base_interceptor = {base_interceptor with body = List.map (rename_component_item ~flag_rename_attribute:true renaming) base_interceptor.body} in
             (*** End prepare ***)
 
 

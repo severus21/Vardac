@@ -617,7 +617,14 @@ module Make () : Sig = struct
     | ComponentAssign _ as cdcl -> cdcl
     | ComponentStructure cdcl -> 
         (* Define component names *)
-        let a_registered_sessions = Atom.fresh "registered_session" in 
+        let a_registered_sessions = 
+            match 
+                List.find_opt (function | {value={v=State {value={name}}}} -> Atom.hint name = "registered_session" | _-> false) cdcl.body 
+            with
+            | Some {value={v=State {value={name}}}} -> name (* exactly once per component *)
+            | None -> Atom.fresh "registered_session" 
+        in
+
 
 
         let body = cdcl.body in

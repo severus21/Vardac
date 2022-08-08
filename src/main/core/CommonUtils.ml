@@ -767,6 +767,7 @@ let rec _rewrite_expr_expr selector rewriter place (e, mt) =
         rewrite_expr_expr selector rewriter e1,
         Option.map (rewrite_expr_expr selector rewriter) e2_opt
     )
+    | RawExpr str -> RawExpr str
     in 
     (e, mt)
 and rewrite_expr_expr selector rewriter = map_place (_rewrite_expr_expr selector rewriter)

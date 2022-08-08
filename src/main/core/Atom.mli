@@ -28,6 +28,8 @@ val refresh_value : atom -> string -> atom
 
 (* Comparison of atoms. *)
 
+val compare_atom: atom -> atom -> int (* for ppx_compare, alias of compare *)
+val equal_atom: atom -> atom -> bool (* for ppx_equal, alias of equal *)
 val equal: atom -> atom -> bool
 val compare: atom -> atom -> int
 val hash: atom -> int
