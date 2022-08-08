@@ -54,6 +54,12 @@ module Make () = struct
     let rec extract_ainline = function
         | [] -> []
         | InlinableIn schemas::xs -> schemas@(extract_ainline xs)
+        | Capturable _ ::xs -> extract_ainline xs
+
+    let rec extract_capturable = function
+        | [] -> []
+        | InlinableIn _::xs -> extract_capturable xs
+        | Capturable x::xs -> x.allowed_interceptors@(extract_capturable xs)
 
     let select_component_with_inlinable = function
         | Component {value=ComponentStructure cstruct} -> 

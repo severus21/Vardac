@@ -741,9 +741,8 @@ module Make () : Sig = struct
             if Config.is_first_apply_pass pass_name then begin
                 (*List<Map<TSessionId, ?>> this.intermediate_states = new ArrayList(); [this. ....]; registration at each creation*)
                 (* Tips: we use Atom.builtin since Java code in externals needs to access the state, we can template it 
-                    FIXME Atom.builtin -> Atom.fresh to preserve binder unicity
                 *)
-                let a_intermediate_states = Atom.builtin "intermediate_states" in
+                let a_intermediate_states = Atom.fresh "intermediate_states" in
                 let intermediate_states_index = auto_place(auto_plgannot(State( auto_place({ 
                     ghost = false;
                     type0 = mtype_of_ct (TList(

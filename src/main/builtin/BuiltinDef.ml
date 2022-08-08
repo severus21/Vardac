@@ -46,7 +46,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "initiate_session_with_inlined", "TODO", "TODO", t_initiate_inlined;
     "listget", " list<T> -> int -> t", "", t_listget;
     "setlength", "set -> int", "", t_setlength; 
-    "pick", "dict<k,v> -> v", "Random choice in a sequence, failed if empty", t_select; (*TODO*)
+    "pick", "dict<k,v> -> v", "Random choice in a sequence, failed if empty", t_pick;
     "placeof", "abs -> place option", "Give the current place where the abstraction is running. Returns None if the abstraction is not yet placed.", t_placeof;
     "place_to_string", "place -> string", "", t_place_to_string;
     "int_to_string", "int -> string", "", t_place_to_string;

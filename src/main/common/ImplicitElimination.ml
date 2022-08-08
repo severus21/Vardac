@@ -75,7 +75,7 @@ module Make (Args : Params ) : Sig = struct
         (* Make implicit constructor variables explicit *)
         let _, implicit_vars = free_vars_component_dcl Atom.Set.empty {place; value=ComponentStructure cdcl} in (* Variable coming from outside the component, that have not been reduced to value during partial evaluation*)
        
-        logger#info "registering in implicits %s" (Atom.to_string cdcl.name);
+        logger#debug "registering in implicits %s" (Atom.to_string cdcl.name);
         Hashtbl.add implicits cdcl.name (Env.of_seq (List.to_seq implicit_vars)); (* Free vars only at this point, implicit comming from inner spawn will be computed later on *)
 
         (* C, scope*)

@@ -205,7 +205,7 @@ let t_ip () =
 
 let t_places () =
     mtype_of_ct(TArrow(
-        mtype_of_ft TVoid,
+        mtype_of_ft TUnit,
         mtype_of_ct (TList (mtype_of_ft TPlace))
     ))
 let t_place_to_string () = 
@@ -367,7 +367,7 @@ let t_dict () =
     ))*)
 
     mtype_of_ct(TArrow(
-        mtype_of_ft TVoid,
+        mtype_of_ft TUnit,
         mtype_of_ft TWildcard
     ))
 
@@ -455,7 +455,7 @@ let t_get_err () =
 
 let t_exit () =
     mtype_of_ct (TArrow (
-        mtype_of_ft TVoid,
+        mtype_of_ft TUnit,
         mtype_of_ft TVoid 
     ))
 
@@ -593,4 +593,10 @@ let t_register_activation_at () =
             mtype_of_ft TPlace,
             mtype_of_ft TVoid
         ))
+    ))
+
+let t_pick () =
+    mtype_of_ct(TArrow(
+        mtype_of_ct(TDict (mtype_of_ft TWildcard, mtype_of_ft TWildcard)),
+        mtype_of_ft TWildcard
     ))
