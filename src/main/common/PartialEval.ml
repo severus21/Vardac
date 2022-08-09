@@ -61,20 +61,8 @@ module Make () = struct
     let map_snd f = function (x,y) -> (x, f y)
 
     let print_env env =
-        let print_keys env = Env.iter (fun x _ -> Printf.printf "%s;" (Atom.to_string x)) env in
-
-        print_newline ();
-        print_string "Env = {";
-
-        List.iter (
-            function (name, l) -> print_string ("\t"^name^"\n\t\t"); print_keys (l env);print_newline (); 
-        ) [("named_types", named_types)];
-        List.iter (
-            function (name, l) -> print_string ("\t"^name^"\n\t\t"); print_keys (l env);print_newline (); 
-        ) [("terminal_expr_assignements", terminal_expr_assignements)];
-        
-        print_string "}";
-        print_newline ()
+        let keys x = Atom.show_list "," (List.map fst (List.of_seq (Atom.VMap.to_seq x))) in
+        logger#debug "\nEnv = {\nnamed_types:\n\t%s\nterminal_expr_assignements\n\t%s\n}\n" (keys (named_types env)) (keys (terminal_expr_assignements env))
 
     let rec peval_composed_type env place : _composed_type -> env * _composed_type = function
     | TActivationRef mt -> env, TActivationRef ((snd <-> pe_mtype env) mt)
@@ -609,7 +597,7 @@ module Make () = struct
     | State s       -> 
         let s = snd(pe_state env s)in
         env, State (snd(pe_state env s))
-    | Term t        -> env, Term (snd(pe_term env t))
+    | Term t        -> map_snd (function x -> Term x) (pe_term env t)
 
     and pe_component_item env: component_item -> env * component_item = map2_place (transparent2_plgannot(peval_component_item env))
 
@@ -619,7 +607,11 @@ module Make () = struct
         value = snd(pe_component_expr env value) 
     } 
     | ComponentStructure cdcl ->
+        logger#debug "start [%s] env:" (Atom.to_string cdcl.name);
+        print_env env;
         let new_env, citems = List.fold_left_map pe_component_item env cdcl.body in 
+        logger#debug "end [%s] env:" (Atom.to_string cdcl.name);
+        print_env new_env;
         new_env, ComponentStructure {cdcl with body = citems }
 
     and pe_component_dcl env: component_dcl -> env * component_dcl = map2_place (peval_component_dcl env)
@@ -677,7 +669,6 @@ module Make () = struct
         logger#debug "bind type %s" (Atom.to_string x);
         let _, mt = pe_mtype env mt in
         let new_env = bind_named_types env x (Some mt) in
-        logger#debug "bind type %s" (Atom.hint x);
 
         new_env, Typedef ({ place; value = 
         ProtocolDef (x, mt) })
@@ -685,7 +676,6 @@ module Make () = struct
     | Typedef {value= VPlaceDef x; place} -> begin
         logger#debug "bind type %s" (Atom.to_string x);
         let new_env = bind_named_types env x None in
-        logger#debug "bind type %s" (Atom.hint x);
 
         new_env, Typedef ({ place; value = 
         VPlaceDef x})
@@ -694,7 +684,6 @@ module Make () = struct
         logger#debug "bind type %s" (Atom.to_string x);
         let args = List.map (function mt -> snd(pe_mtype env mt)) args in
         let new_env = bind_named_types env x None in
-        logger#debug "bind type %s" (Atom.hint x);
 
         new_env, Typedef ({ place; value = 
         match tdef with 
@@ -715,6 +704,7 @@ module Make () = struct
 
 
     let peval_program (terms: IR.program) : IR.program = 
+        logger#debug "> start peval_program";
         let env, program = pe_terms (fresh_env ()) terms in
         check_program program;
         program

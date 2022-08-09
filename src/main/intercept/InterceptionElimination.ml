@@ -277,7 +277,7 @@ module Make (Args: TArgs) = struct
             ghost = false;
             type0 = interceptor_info.onboard_info.b_onboard_mt;
             name = this_b_onboard;
-            body = None;
+            body = Some (e2_lit (IntLit 1)); (*TODO correct the init*)
         }))) in
 
         let this_onboarded_activations = Atom.fresh "onboarded_activations" in 
@@ -1267,7 +1267,7 @@ module Make (Args: TArgs) = struct
             let _, freevars = List.split (List.map (free_vars_component_item Atom.Set.empty) citems_wo_onstartup) in
             let freevars = Atom.Set.of_list (List.map snd (List.flatten freevars)) in
 
-            let _, freetvars = List.split (List.map (free_tvars_component_item Atom.Set.empty) citems_wo_onstartup) in
+            let _, freetvars = List.split (List.map (free_tvars_component_item ~flag_tcvar:true  Atom.Set.empty) citems_wo_onstartup) in
             let freetvars = Atom.Set.of_list (List.flatten freetvars) in
 
             let renaming = 
