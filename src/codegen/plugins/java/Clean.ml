@@ -83,9 +83,16 @@ module Make(Arg: sig val filename:string end) = struct
                             ), auto_place TUnknown),
                             es
                         )
-                | LambdaExpr _ -> failwith "LambdaExpr with more than two args are not yet supported (Akka Plg)"
-                | _ -> 
-                    AppExpr (cexpr e, List.map cexpr es)
+                    | LambdaExpr _ -> failwith "LambdaExpr with more than two args are not yet supported (Akka Plg)"
+                    | VarExpr _ -> 
+                        AppExpr(
+                            auto_place(AccessExpr(
+                                e,
+                                auto_place (RawExpr "apply", auto_place TUnknown)
+                            ), auto_place TUnknown),
+                            es
+                        )
+                    | _ -> AppExpr (cexpr e, List.map cexpr es)
                 end
                 | _ -> AppExpr (cexpr e, List.map cexpr es)
         end

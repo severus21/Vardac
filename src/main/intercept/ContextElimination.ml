@@ -440,13 +440,17 @@ module Make () = struct
                 | LetStmt (mt,_,_) -> mt
                 in
                 [mt; mt]
-            ) (List.of_seq (Hashtbl.to_seq_values generated_bridges)));
+            ) (List.of_seq (Hashtbl.to_seq_values generated_bridges)))
+            @ [mtype_of_ct (TOption (mtype_of_ft (TPlace)))]
+            ;
         in 
+
         (* targs -> activation_ref<Interceptor>*) 
         let factory_signature  = mtype_of_fun2 factory_targs (mtype_of_ct (TActivationRef (mtype_of_cvar interceptor))) in
 
         let factory = Atom.fresh "factory" in
-        let factory_expr = make_wraper core_factory (List.rev base_interceptor_constructor_params) in
+        let local_b_onboard = Atom.fresh (Atom.hint b_onboard) in
+        let factory_expr = make_wraper core_factory (List.map (function mt -> auto_fplace (mt, Atom.fresh "arg")) factory_targs) in
 
         factory, auto_fplace (LetStmt(factory_signature, factory, factory_expr))
 
@@ -728,6 +732,7 @@ module Make () = struct
                     (*** Not hydrated by ctx_elim ***)
                     (*** Hydrated by intercept elim***)
                     this_onboarded_activations = None;
+                    this_port_onboard = None;
                     b_onboard_state = None;
                     inout_statebridges_info = None;
                     sessions_info = None;

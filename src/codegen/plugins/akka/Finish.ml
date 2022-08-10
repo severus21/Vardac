@@ -558,9 +558,9 @@ module Make (Arg: sig val target:Target.target end) = struct
             *)
 
             (* Local variable for lambda - should be unique to avoid name clash with constructor arguments. *)
-            let a_context = Atom.fresh "context" in
-            let a_guardian = Atom.fresh "guardian" in
-            let a_timers = Atom.fresh "timers" in
+            let a_context = Atom.fresh "ccontext" in
+            let a_guardian = Atom.fresh "gguardian" in
+            let a_timers = Atom.fresh "ttimers" in
             let schema = IRMisc.schema_of c in
 
             (* TODO ?? DUplicated with AkkaJAva [arg_lambda] ?? *)

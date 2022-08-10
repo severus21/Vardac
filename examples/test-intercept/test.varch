@@ -27,12 +27,12 @@ component B {
 
     onstartup (bridge<B, A, inline p_pingpong> chan, activation_ref<A> b) {
         bind(this.p_out, chan);
-        this.methodb(chan);
+        this.methodb(b);
     }
 
-    result<void, error> methodb(bridge<B, A, inline p_pingpong> chan){
+    result<void, error> methodb(activation_ref<A> b){
         print("> Starting B");
-        session<p_pingpong> s0 = initiate_session_with(this.p_out, chan);
+        session<p_pingpong> s0 = initiate_session_with(this.p_out, b);
 
         ?pong. s1 = fire(s0, ping())?;
         print("> Ping fired");

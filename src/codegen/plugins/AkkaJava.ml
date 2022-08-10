@@ -1638,36 +1638,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     ), auto_place S.TUnknown)))
                 ])
             ), auto_place S.TUnknown) in
-            (*let arg_lambda_guardian = auto_place (S.LambdaExpr (
-                [Rt.Misc.a_context],
-                auto_place (S.BlockStmt [
-                    auto_place (S.ExpressionStmt (
-                        Rt.Misc.e_debug_of 
-                            place 
-                            (auto_place (S.VarExpr Rt.Misc.a_context)) 
-                            [
-                                auto_place (S.LitExpr (auto_place (S.StringLit (Atom.to_string name^"::create"))))
-                            ]
-                    ));
-                    auto_place(S.ExpressionStmt( auto_place (S.CallExpr(
-                        auto_place (S.VarExpr (Atom.builtin "prepare_create")),
-                        [
-                            auto_place (S.VarExpr (Atom.builtin "context"));
-                            auto_place (S.VarExpr (Atom.builtin "name"));
-                            auto_place (S.VarExpr (Atom.builtin "wait"))
-                        ]
 
-                    ))));
-                    auto_place(S.ReturnStmt( auto_place (S.NewExpr(
-                        auto_place (S.VarExpr name),
-                        [
-                            auto_place(S.VarExpr Rt.Misc.a_context);
-                            auto_place (S.VarExpr (Atom.builtin "wait"))
-                        ]
-
-                    ))));
-                ])
-            )) in*)
             let m_create : S.method0 = auto_place {
                 S.annotations = [S.Visibility S.Public; S.Static];
                 decorators = [];
