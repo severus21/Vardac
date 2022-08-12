@@ -1,0 +1,81 @@
+
+target akka;
+
+impl dependencies gradle:{=
+    implementation 'com.google.code.gson:gson:2.9.0'
+=}
+
+impl headers java:{=
+    import java.io.FileWriter;
+    import java.io.IOException;
+    import com.google.gson.Gson;
+=}
+
+
+impl function aput java:{=
+    {{%arr%}}[{{%i%}}]={{%v%}};
+    return null;
+=}
+
+impl function arrayof java:{=
+    return new Long[{{%n%}}];
+=}
+
+impl function array_length java:{=
+    return {{%a}}.length;
+=}
+
+impl function generate_random_input java:{=
+    //deterministic since the seed is controled, only depends on size value
+
+    Random random = new Random(0L); 
+    int[] input = IntStream.range(0, 1 << {{%size%}}).map(i -> random.nextInt()).toArray();
+    return input;
+=}
+impl function is_sort java:{=
+    if({{%array%}}.length == 0)
+        return true;
+
+    int last = {{%array%}}[0];
+    for(int i: {{%array%}}){
+        if(last > i)
+            return false;
+        last = i;
+    }
+
+    return true;
+=}
+
+impl function merge java:{=
+    int[] answer = new int[{{%a%}}.length + {{%b%}}.length];
+    int i = {{%a%}}.length - 1, j = {{%b%}}.length - 1, k = answer.length;
+    while (k > 0)
+        answer[--k] = (j < 0 || (i >= 0 && {{%a%}}[i] >= {{%b%}}[j])) ? {{%a%}}[i--] : {{%b%}}[j--];
+    return answer;
+=}
+
+impl function splitleft java:{=
+    return Arrays.copyOfRange({{%a%}}, 0, {{%a%}}.length / 2);
+=}
+
+impl function splitright java:{=
+    return Arrays.copyOfRange({{%a%}}, {{%a%}}.length / 2, {{%a%}}.length);
+=}
+
+impl function tojson java:{=
+    Gson gson = new Gson();
+
+    try {
+        FileWriter fileWriter = new FileWriter({{%filename%}}); 
+        gson.toJson({{%rtts%}}, fileWriter);
+        fileWriter.close();
+        return Either.right(null);
+    } catch (IOException e ){
+        System.err.println(e.toString());
+        return Either.left(new com.lg4dc.Error(e.toString()));
+    }
+=}
+
+impl component Ping {}
+impl component Pong {}
+impl component TopLevel {}
