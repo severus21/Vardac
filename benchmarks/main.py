@@ -27,6 +27,7 @@ parser_run = subparsers.add_parser('run', help='TODO')
 parser_run.add_argument("--bench-selector", default="all",
                     help=f"all or name1:name2:")
 parser_render = subparsers.add_parser('render', help='TODO')
+parser_render.add_argument("--save", action='store_true', default=False, help='save figure to disk')
 parser_render.add_argument("--fig-selector", default="all",
                     help=f"all or name1:name2:")
 
@@ -36,7 +37,9 @@ cmdactions = defaultdict(lambda *args: parser.print_help())
 cmdactions['run'] = lambda kwargs: do_run(**kwargs)
 cmdactions['render'] = lambda kwargs: do_render(**kwargs)
 
-def do_render(fig_selector):
+FIGURESDIR = 'figures'
+
+def do_render(save, fig_selector):
     if fig_selector == "all":
         figures = FIGURES 
     else:
@@ -48,6 +51,13 @@ def do_render(fig_selector):
         print("\t- "+"\n\t- ".join([b.title for b in FIGURES]))
 
     for fig in figures:
+        if save:
+            from src.provenance import get_current_stamp
+            import json
+            fig.filename = os.path.join(FIGURESDIR, fig.title+'.png')
+            with open(os.path.join(FIGURESDIR, f'{fig.title}.json'), 'w') as f:
+                # TODO write more provenance data
+                json.dump({'stamp': get_current_stamp()}, f)
         fig.render()
 
 def do_run(bench_selector):

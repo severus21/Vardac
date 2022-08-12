@@ -2,3 +2,4 @@ django
 coloredlogs
 checksumdir
 jsonfield
+gitpython
