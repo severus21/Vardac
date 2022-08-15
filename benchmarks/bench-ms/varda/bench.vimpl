@@ -16,7 +16,7 @@ impl function generate_random_input java:{=
     //deterministic since the seed is controled, only depends on size() value
 
     Random random = new Random(0L); 
-    return new ArrayList(Arrays.asList(IntStream.range(0, 1 << {{%size%}}).map(i -> random.nextInt()).toArray()));
+    return new ArrayList<Integer>(IntStream.range(0, 1 <<  size ).map(i -> random.nextInt()).boxed().collect(Collectors.toList()));
 =}
 impl function is_sort java:{=
     if({{%array%}}.size() == 0)
@@ -52,6 +52,31 @@ impl function splitright java:{=
 =}
 impl function init_matrix java:{=
     return new ArrayList<ArrayList<Integer>>({{%n%}});
+=}
+impl function print_array java:{=
+    String buffer = "\n\n\ninput_vector<"; 
+    buffer += {{%input_array%}}.size()+"> = [";
+    for(Integer i: {{%input_array%}}){
+        buffer += i.toString()+",";	
+    }
+    buffer += "]";
+    System.out.println(buffer);
+    return null;
+=}
+impl function print_output java:{=
+    String buffer = "\n\n\ninput_vector = [";
+    for(Integer i: {{%input_array%}}){
+        buffer += i.toString()+",";	
+    }
+    buffer += "]";
+    buffer += "\nsorted_vector = [";
+    for(Integer i: {{%result_array%}}){
+        buffer += i.toString()+",";	
+    }
+    buffer += {{%result_array%}}.toString();
+    buffer += "]\n\n\n";
+    System.out.println(buffer);
+    return null;
 =}
 
 impl component Master {}

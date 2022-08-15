@@ -5,6 +5,9 @@ event resultmsg of array<int>, int, int, bool, long; (* array, side, ... *)
 protocol p_merge = !startmsg?resultmsg.;
 bridge<Master|Sorter, Sorter, inline p_merge> b0 = bridge(p_merge);
 
+void print_output(array<int> input_array, array<int> result_array);
+void print_array(array<int> input_array);
+
 (* 
 
 Mono JVM
@@ -30,8 +33,6 @@ component Master {
     long starttime = 0;
     array<long> rtts = [||];
 
-    bridge<Master|Sorter, Sorter, inline p_merge> b0 = ();
-
     array<int> input = [||];
 
     onstartup (int n, int warmup, array<int> input, bridge<Master|Sorter, Sorter, inline p_merge> b0) {
@@ -39,7 +40,6 @@ component Master {
         this.n = n;
         this.warmup = warmup;
         this.input = input;
-        this.b0 = this.b0;
 
         bind(this.p_out, b0);
         bind(this.p_in, b0);
@@ -49,13 +49,14 @@ component Master {
         if(this.warmup > 0 ){
             this.start_warmup();
         } else {
+            print(">No warmup");
             this.start();
         }
     }
 
     result<void, error> start_warmup(){
         for(int i in range(0, this.warmup)){
-            activation_ref<Sorter> sorter = spawn Sorter(-1, this.b0);
+            activation_ref<Sorter> sorter = spawn Sorter(-1, bridgeof(this.p_out));
             session<p_merge> s0 = initiate_session_with(this.p_out, sorter);
             ?resultmsg. s1 = fire(s0, startmsg(this.input, i, true, time()))?; 
         }
@@ -63,7 +64,8 @@ component Master {
 
     result<void, error> start(){
         for(int i in range(0, this.n)){
-            activation_ref<Sorter> sorter = spawn Sorter(-1, this.b0);
+            print("> Run start once");
+            activation_ref<Sorter> sorter = spawn Sorter(-1, bridgeof(this.p_out));
             session<p_merge> s0 = initiate_session_with(this.p_out, sorter);
             ?resultmsg. s1 = fire(s0, startmsg(this.input, i, false, time()))?; 
         }
@@ -84,6 +86,7 @@ component Master {
         tojson(this.rtts, "rtts.json");
         info("Terminated ueyiqu8R");
         info("JamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglog");
+        print_output(this.input, res);
     }
 
     result<void, error> callback(resultmsg msg, . s){
@@ -126,8 +129,10 @@ component Sorter {
     onstartup (int side, bridge<Master|Sorter, Sorter, inline p_merge> b0){
         debug("> Starting Sorter");
         bind(this.p_in, b0);
+        bind(this.p_in_result, b0);
         bind(this.p_out, b0);
 
+        this.res = init_matrix(2);
         this.side = side;
     }
 
@@ -140,6 +145,7 @@ component Sorter {
                 start._0_, this.side, start._1_, start._2_, start._3_
             ))?;
         } else {
+            print("> Start new branch");
             array<int> left = splitleft(start._0_);
             array<int> right = splitright(start._0_);
 
@@ -209,7 +215,7 @@ component TopLevel {
     onstartup (int n, int warmup, int size) {
         print(">> Entering toplevel");
         bridge<Master|Sorter, Sorter, inline p_merge> b0 = bridge(p_merge);
-        activation_ref<Master> m = (spawn Master(n, warmup, generate_random_input(size), b0));  
+        activation_ref<Master> m = (spawn Master(n, warmup, generate_random_input(size), b0));
         print(">> Ending toplevel");
     }
 }
