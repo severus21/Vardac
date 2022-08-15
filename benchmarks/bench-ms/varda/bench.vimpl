@@ -9,34 +9,31 @@ impl headers java:{=
     import java.io.FileWriter;
     import java.io.IOException;
     import com.google.gson.Gson;
+
+    import java.util.Arrays;
+    import java.util.Random;
+    import java.util.stream.IntStream;
 =}
 
-
-impl function aput java:{=
-    {{%arr%}}[{{%i%}}]={{%v%}};
-    return null;
-=}
 
 impl function arrayof java:{=
-    return new Long[{{%n%}}];
+    return new ArrayList<>({{%n%}});
 =}
-
-impl function array_length java:{=
-    return {{%a}}.length;
+impl function intarrayof java:{=
+    return new ArrayList<>({{%n%}});
 =}
 
 impl function generate_random_input java:{=
-    //deterministic since the seed is controled, only depends on size value
+    //deterministic since the seed is controled, only depends on size() value
 
     Random random = new Random(0L); 
-    int[] input = IntStream.range(0, 1 << {{%size%}}).map(i -> random.nextInt()).toArray();
-    return input;
+    return new ArrayList(Arrays.asList(IntStream.range(0, 1 << {{%size%}}).map(i -> random.nextInt()).toArray()));
 =}
 impl function is_sort java:{=
-    if({{%array%}}.length == 0)
+    if({{%array%}}.size() == 0)
         return true;
 
-    int last = {{%array%}}[0];
+    int last = {{%array%}}.get(0);
     for(int i: {{%array%}}){
         if(last > i)
             return false;
@@ -47,19 +44,25 @@ impl function is_sort java:{=
 =}
 
 impl function merge java:{=
-    int[] answer = new int[{{%a%}}.length + {{%b%}}.length];
-    int i = {{%a%}}.length - 1, j = {{%b%}}.length - 1, k = answer.length;
+    ArrayList<Integer> answer = new ArrayList({{%a%}}.size() + {{%b%}}.size());
+    int i = {{%a%}}.size() - 1, j = {{%b%}}.size() - 1, k = answer.size();
     while (k > 0)
-        answer[--k] = (j < 0 || (i >= 0 && {{%a%}}[i] >= {{%b%}}[j])) ? {{%a%}}[i--] : {{%b%}}[j--];
+        if(i >= 0 && {{%a%}}.get(i) >= {{%b%}}.get(j))
+            answer.add(--k, {{%a%}}.get(i--));
+        else
+            answer.add(--k, {{%b%}}.get(j--));
     return answer;
 =}
 
 impl function splitleft java:{=
-    return Arrays.copyOfRange({{%a%}}, 0, {{%a%}}.length / 2);
+    return new ArrayList({{%a%}}.subList(0, {{%a%}}.size() / 2));
 =}
 
 impl function splitright java:{=
-    return Arrays.copyOfRange({{%a%}}, {{%a%}}.length / 2, {{%a%}}.length);
+    return new ArrayList({{%a%}}.subList({{%a%}}.size() / 2, {{%a%}}.size()));
+=}
+impl function init_matrix java:{=
+    return new ArrayList<ArrayList<Integer>>({{%n%}});
 =}
 
 impl function tojson java:{=
@@ -76,6 +79,6 @@ impl function tojson java:{=
     }
 =}
 
-impl component Ping {}
-impl component Pong {}
+impl component Master {}
+impl component Sorter {}
 impl component TopLevel {}

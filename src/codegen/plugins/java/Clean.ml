@@ -17,7 +17,7 @@ module SDecorator = Set.Make(DecoratorOrder)
 
 
 (*****************************************************)
-module Make(Arg: sig val filename:string end) = struct
+module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) = struct
     let logger = Core.Utils.make_log_of "Java.Clean"
 
     let name = "Java.Clean"
@@ -84,7 +84,7 @@ module Make(Arg: sig val filename:string end) = struct
                             es
                         )
                     | LambdaExpr _ -> failwith "LambdaExpr with more than two args are not yet supported (Akka Plg)"
-                    | VarExpr _ -> 
+                    | VarExpr x when Atom.Set.find_opt x Arg.toplevel_functions = None -> 
                         AppExpr(
                             auto_place(AccessExpr(
                                 e,
@@ -99,13 +99,23 @@ module Make(Arg: sig val filename:string end) = struct
         | AssertExpr e -> AssertExpr (cexpr e)
         | AssignExpr (e1, op, e2) -> AssignExpr (cexpr e1, op, cexpr e2)
         | BinaryExpr (e1, StructuralEqual, e2) -> 
-            AppExpr ( 
-                auto_place (AccessExpr (
-                    cexpr e1, 
-                    auto_place (VarExpr (Atom.builtin "equals"), auto_place TUnknown)
-                ), auto_place TUnknown),
-                [cexpr e2]
-            ) 
+        begin
+            match (snd e1.value).value with
+            | TAtomic "Integer" -> 
+                (*  Equal == StructuralEqual for those types in Java
+                    Moreover, .equals() works only on boxed types (e.g. Integer) and not on atomic (e.g. int)    
+                    Therefore, we use Equal
+                *)
+                BinaryExpr (e1, Equal, e2)
+            | _-> 
+                AppExpr ( 
+                    auto_place (AccessExpr (
+                        cexpr e1, 
+                        auto_place (VarExpr (Atom.builtin "equals"), auto_place TUnknown)
+                    ), auto_place TUnknown),
+                    [cexpr e2]
+                ) 
+        end
         | BinaryExpr (e1, NotStructuralEqual, e2) -> 
             fst (cexpr (auto_place( UnaryExpr( 
                 AstUtils.Not, 

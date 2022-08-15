@@ -8,6 +8,6 @@
         (x -> y)(z) -> ((Function<T1, T2>)x->y).apply(z)
         t(z) such that t:Arrow  -> t.apply(z)
 *)
-module Make : functor (Arg : sig val filename : string end) -> sig 
+module Make : functor (Arg : sig val filename : string val toplevel_functions : Core.Atom.Set.t end) -> sig 
     include AstCompilationPass.Pass
 end

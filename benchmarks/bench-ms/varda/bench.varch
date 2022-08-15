@@ -1,6 +1,6 @@
-event start of array<int>, int, bool, long; (* array * i * warmup * init_timestamp*)
-event result of array<int>, int, int, bool, long; (* array, side, ... *)
-protocol p_merge = !start?result.;
+event startmsg of array<int>, int, bool, long; (* array * i * warmup * init_timestamp*)
+event resultmsg of array<int>, int, int, bool, long; (* array, side, ... *)
+protocol p_merge = !startmsg?resultmsg.;
 bridge<Master|Sorter, Sorter, inline p_merge> b0 = bridge(p_merge);
 
 (* 
@@ -11,18 +11,18 @@ Mono JVM
 *)
 
 array<long> arrayof(int n);
-void aput(array<long> arr, int i, long v);
+array<int> intarrayof(int n);
 result<void, error> tojson(array<long> rtts, string filename);
 array<int> generate_random_input(int size);
 bool is_sort(array<int> array);
 array<int> merge(array<int> a, array<int> b);
 array<int> splitleft(array<int> a);
 array<int> splitright(array<int> a);
-int array_length(array<int> a);
+array<array<int>> init_matrix(int n);
 
 component Master {
     outport p_out expecting (inline p_merge);
-    inport p_in :: bridge<Master|Sorter, Sorter, inline p_merge> expecting ?result. = this.callback;
+    inport p_in :: bridge<Master|Sorter, Sorter, inline p_merge> expecting ?resultmsg. = this.callback;
 
     int n = 0;
     int warmup = 0;
@@ -31,9 +31,9 @@ component Master {
     long starttime = 0;
     array<long> rtts = arrayof(0);
 
-    bridge<Master|Sorter, Sorter, inline p_merge> b0;
+    bridge<Master|Sorter, Sorter, inline p_merge> b0 = ();
 
-    array<int> input = arrayof(0);
+    array<int> input = intarrayof(0);
 
     onstartup (int n, int warmup, array<int> input, bridge<Master|Sorter, Sorter, inline p_merge> b0) {
         debug("> Starting Master");
@@ -58,7 +58,7 @@ component Master {
         for(int i in range(0, this.warmup)){
             activation_ref<Sorter> sorter = spawn Sorter(-1, this.b0);
             session<p_merge> s0 = initiate_session_with(this.p_out, sorter);
-            ?result. s1 = fire(s0, start(this.input, i, true, time()))?; 
+            ?resultmsg. s1 = fire(s0, startmsg(this.input, i, true, time()))?; 
         }
     }
 
@@ -66,7 +66,7 @@ component Master {
         for(int i in range(0, this.n)){
             activation_ref<Sorter> sorter = spawn Sorter(-1, this.b0);
             session<p_merge> s0 = initiate_session_with(this.p_out, sorter);
-            ?result. s1 = fire(s0, start(this.input, i, false, time()))?; 
+            ?resultmsg. s1 = fire(s0, startmsg(this.input, i, false, time()))?; 
         }
     }
 
@@ -87,8 +87,8 @@ component Master {
         info("JamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglog");
     }
 
-    result<void, error> callback(result msg, . s){
-        if(msg._1_){
+    result<void, error> callback(resultmsg msg, . s){
+        if(msg._3_){
             this.warmup_counter = this.warmup_counter + 1;
             string x = int_to_string(this.warmup_counter);
             print("warmup_counter "+x);
@@ -100,13 +100,13 @@ component Master {
         } else {
             this.counter = this.counter + 1;
             long endTimestamp = time();
-            print(int_to_string(msg._0_));
-            aput(this.rtts, msg._0_, endTimestamp - msg._2_);
+            print(int_to_string(msg._2_));
+            aput(this.rtts, msg._2_, endTimestamp - msg._4_);
 
             // Last pong
             (* TODO multiple stmts in an if => unable to parse *)
             if( this.counter == this.n ){
-                this.sumup();
+                this.sumup(msg._0_);
             }
         }
 
@@ -116,41 +116,42 @@ component Master {
 
 component Sorter {
     int side = -1;
-    array<array<int>> res;
+    array<array<int>> res = init_matrix(2);
 
     inport p_in :: bridge<Master | Sorter, Sorter, inline p_merge> expecting (dual p_merge) = this.callback;
-    inport p_in_result :: bridge<Master | Sorter, Sorter, inline p_merge> expecting ?result. = this.onResult;
+    inport p_in_result :: bridge<Master | Sorter, Sorter, inline p_merge> expecting ?resultmsg. = this.onResult;
     outport p_out expecting p_merge;
 
-    !result. upstream;
+    !resultmsg. upstream = ();
 
     onstartup (int side, bridge<Master|Sorter, Sorter, inline p_merge> b0){
         debug("> Starting Sorter");
         bind(this.p_in, b0);
+        bind(this.p_out, b0);
 
         this.side = side;
     }
 
-    result<void, error> callback (start start, ?result. s0) {
+    result<void, error> callback (startmsg start, ?resultmsg. s0) {
         debug("> Start received");
         this.upstream = s0;
 
-        if( array_length(start._0_) == 1){
-            fire(s0, result(
+        if( asize(start._0_) == 1){
+            fire(s0, resultmsg(
                 start._0_, this.side, start._1_, start._2_, start._3_
             ))?;
         } else {
             array<int> left = splitleft(start._0_);
             array<int> right = splitright(start._0_);
 
-            activation_ref<Sorter> a = spawn Sorter(0);
-            activation_ref<Sorter> b = spawn Sorter(-1);
+            activation_ref<Sorter> a = spawn Sorter(0, bridgeof(this.p_in));
+            activation_ref<Sorter> b = spawn Sorter(-1, bridgeof(this.p_in));
 
             session<p_merge> s_a = initiate_session_with(this.p_out, a);
             session<p_merge> s_b = initiate_session_with(this.p_out, b);
 
-            fire(s_a, start(left, start._1_, start._2_, start._3_))?;
-            fire(s_b, start(right, start._1_, start._2_, start._3_))?;
+            fire(s_a, startmsg(left, start._1_, start._2_, start._3_))?;
+            fire(s_b, startmsg(right, start._1_, start._2_, start._3_))?;
         }
 
         debug(">> Result fired");
@@ -162,12 +163,12 @@ component Sorter {
     ensures "a" == "a"
     returns (res : result<void, error> -> is_ok(res) )
 
-    result<void, error> onResult(result result, . s){
+    result<void, error> onResult(resultmsg result, . s){
         aput(this.res, result._1_, result._0_);
 
-        if(aget(this.res, 0) != () && aget(this.res, 1) != ()){
+        if((aget(this.res, 0) != ()) && (aget(this.res, 1) != ())){
             array<int> resultarray = merge(aget(this.res, 0), aget(this.res, 1));
-            fire(this.upstream, result(resultarray, result._1_, result._2_, result._3_))?;
+            fire(this.upstream, resultmsg(resultarray, result._1_, result._2_, result._3_, result._4_))?;
         }
 
     }
@@ -191,7 +192,7 @@ tuple<array<string>, tuple<int,int, int>> main (array<string> args){
                 warmup = int_of_string(aget(args, i+1));
                 skip = i + 1;
             } else {
-                if( ((aget(args, i)) == "-s") && ((i - 1)< asize(args)) ){
+                if( ((aget(args, i)) == "-vs") && ((i - 1)< asize(args)) ){
                     size = int_of_string(aget(args, i+1));
                     skip = i + 1;
                 } else {
@@ -209,7 +210,7 @@ component TopLevel {
     onstartup (int n, int warmup, int size) {
         print(">> Entering toplevel");
         bridge<Master|Sorter, Sorter, inline p_merge> b0 = bridge(p_merge);
-        activation_ref<Master> m = (spawn Master(n, warmup, size, b0));  
+        activation_ref<Master> m = (spawn Master(n, warmup, generate_random_input(size), b0));  
         print(">> Ending toplevel");
     }
 }

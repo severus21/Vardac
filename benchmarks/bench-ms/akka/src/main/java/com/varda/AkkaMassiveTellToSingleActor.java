@@ -22,7 +22,7 @@ public class AkkaMassiveTellToSingleActor {
 
         Options options = new Options();
         Option nIterationsOpt = new Option("n", "niterations", true, "number of iterations");
-        Option nVSizeOpt = new Option("s", "vsize", true, "vector size");
+        Option nVSizeOpt = new Option("vs", "vsize", true, "vector size");
         Option nWarmupIterationsOpt = new Option("warmup", "nwarmupiterations", true, "number of iterations for warmup");
 		options.addOption(nIterationsOpt);
 		options.addOption(nWarmupIterationsOpt);

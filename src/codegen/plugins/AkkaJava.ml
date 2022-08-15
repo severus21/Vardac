@@ -196,7 +196,17 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                 a_tmpargs,
                                 Some (auto_place (S.CallExpr (
                                     auto_place (S.VarExpr _main.value.v.name, auto_place S.TUnknown),
-                                    [ S_A2.e2var (Atom.builtin "args") ]
+                                    [ 
+                                        S_A2.e2_e (S.NewExpr(
+                                            S_A2.e2_e (S.RawExpr "ArrayList"),
+                                            [
+                                                S_A2.e2_e(S.CallExpr(
+                                                    S_A2.e2_e (S.RawExpr "Arrays.asList"),
+                                                    [ S_A2.e2var (Atom.builtin "args") ]
+                                                ))
+                                            ]
+                                        ))
+                                    ]
                                 ), auto_place S.TUnknown))
                             )) ;
                             auto_place (S.LetStmt(
@@ -227,7 +237,10 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                 ) mts
                             | _ -> [ S_A2.e2var a_margs ]
                         ),[
-                            S_A2.e2var a_nargs
+                            S_A2.e2_e(S.AccessExpr(
+                                S_A2.e2var a_nargs,
+                                S_A2.e2_e (S.RawExpr "toArray(new String[0])")
+                            ))
                         ]
                     end
                     | _ -> Error.perror _main.place "main should have type tuple<string[], ...> not" 
@@ -1900,6 +1913,8 @@ module Make (Arg: Plugin.CgArgSig) = struct
     let plgstate = ref (Rt.Finish.empty_cstate ())
     let iplgstate = ref (Plg.Interface_plugin.empty_istate ())
 
+    let toplevel_functions = ref Atom.Set.empty
+
     let finish_ir_program (target:Core.Target.target) project_dir build_dir (ir_program: Plugin.S.program) : ((string * Fpath.t) * T.program) List.t =
 
         let module RFinish = Rt.Finish.Make(struct let target = target end) in
@@ -1921,6 +1936,19 @@ module Make (Arg: Plugin.CgArgSig) = struct
         (* Warning: must be called after exactly one apply, since it needs Module state *)
         RtGenInterface.update_build_dir project_dir build_dir;
         RtGenInterface.resolve_templates project_dir build_dir;
+
+        (* Hydrate toplevel_functions *)
+        let tlfct_selector = function
+            | Plugin.S.Function _ -> true
+            | _ -> false
+        in
+        let tlfct_collector _ _ = function
+            | Plugin.S.Function {value={name}} -> [name] 
+        in
+
+        let tlfcts = Plugin.S.collect_term_program true tlfct_selector tlfct_collector ir_program in
+        toplevel_functions := Atom.Set.union (Atom.Set.of_list tlfcts) !toplevel_functions;
+
 
         let program = ir_program
             |> RtPrepare.apply
@@ -1948,7 +1976,10 @@ module Make (Arg: Plugin.CgArgSig) = struct
         |> finish_ir_program target project_dir build_dir
         |> List.rev (* order stages by dependencies order *)
         |> List.map (function ((package_name, file), program) -> 
-            let module Clean = Lg.Clean.Make(struct let filename = (Fpath.to_string file) end) in
+            let module Clean = Lg.Clean.Make(struct 
+                let filename = (Fpath.to_string file) 
+                let toplevel_functions = !toplevel_functions
+            end) in
             let module Clean = Lg.AstCompilationPass.Make(Clean) in
             let module HumanReadable = Lg.HumanReadable.Make(struct 
                 let filename = (Fpath.to_string file) 

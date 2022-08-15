@@ -133,7 +133,7 @@ module Make () = struct
     | UnpackOrPropagateResult, CType{value=TForall (x, {value=CType {value=TResult (ok, err)};})} -> ok 
     | UnpackOrPropagateResult, t -> Error.perror mt_e.place "this expression is not a result, it can not be unpacked or propagated %s" (show__main_type t)
 
-    let typeof_binop op mt_e1 mt_e2 = 
+    let typeof_binop place op mt_e1 mt_e2 = 
         let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
         let auto_fplace smth = {place = fplace; value=smth} in
         let of_tflat ft = auto_fplace(CType ( auto_fplace (TFlatType ft))) in
@@ -155,7 +155,7 @@ module Make () = struct
         match op with
         | Plus -> of_tflat TStr
     end
-    | binop, _, _ -> failwith (show_binop binop)
+    | binop, _, _ -> Error.perror place "%s" (show_binop binop)
 
 
     let typeof_block b (mts:main_type list) = 
@@ -577,7 +577,7 @@ module Make () = struct
             | BinopExpr (e1, op, e2) ->
                 let e1 = tannot_expr parent_opt e1 in
                 let e2 = tannot_expr parent_opt e2 in
-                BinopExpr (e1, op, e2), typeof_binop op (snd e1.value) (snd e2.value)
+                BinopExpr (e1, op, e2), typeof_binop place op (snd e1.value) (snd e2.value)
             | InterceptedActivationRef (e1, e2_opt) ->
                 let e1 = tannot_expr parent_opt e1 in
                 let e2_opt = Option.map (tannot_expr parent_opt) e2_opt in

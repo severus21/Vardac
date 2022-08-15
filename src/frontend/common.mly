@@ -21,11 +21,14 @@ any_composed_type_:
     { TFlatType flat_type}
 | ct = any_composed_type LANGLEBRACKET args=right_flexible_list(COMMA, any_type) RANGLEBRACKET 
     {
+        let mtwildcard = {place=[$loc]; value=CType {place=[$loc]; value=TFlatType TWildcard}} in
+
         (* TODO Dict and co -> to lower *)
         match ct.value with
         (* Primitive types *)
         | TVar "array" -> begin
             match args with
+            | [] -> TArray mtwildcard
             | [x] -> TArray x
             | _ -> Core.Error.perror ct.place "Array type excepts exactly one type parameter, gets %d !" (List.length args)
         end
@@ -36,6 +39,7 @@ any_composed_type_:
         end
         | TVar "list" -> begin
             match args with
+            | [] -> TList mtwildcard
             | [x] -> TList x
             | _ -> Core.Error.perror ct.place "List type excepts exactly one type parameter, gets %d !" (List.length args)
         end
@@ -46,6 +50,7 @@ any_composed_type_:
         end
         | TVar "option" -> begin
             match args with
+            | [] -> TOption mtwildcard
             | [x] -> TOption x
             | _ -> Core.Error.perror ct.place "Option type excepts exactly one type parameter, gets %d !" (List.length args)
         end
@@ -56,6 +61,7 @@ any_composed_type_:
         end
         | TVar "set" -> begin
             match args with
+            | [] -> TSet mtwildcard
             | [x] -> TSet x
             | _ -> Core.Error.perror ct.place "Result type excepts exactly one type parameter, gets %d !" (List.length args)
         end

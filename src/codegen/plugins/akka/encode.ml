@@ -106,9 +106,12 @@ let encode_builtin_fct_1 parent_opt place name a =
             []
         )
     | "asize" ->
-        T.AccessExpr(
-            a,
-            e2_e (T.RawExpr "length")
+        T.CallExpr(
+            e2_e(T.AccessExpr(
+                a,
+                e2_e (T.RawExpr "size")
+            )),
+            []
         )
     | "is_none" ->
         T.CallExpr(
@@ -295,17 +298,9 @@ let encode_builtin_fct_1 parent_opt place name a =
     | "list2array" -> begin
         match (snd a.value).value with
         | T.TList mt -> 
-            T.CallExpr(
-                e2_e (T.AccessExpr(
-                    a,
-                    e2_e (T.RawExpr "toArray")
-                )),
-                [  
-                    e2_e (T.AccessMethod(
-                      Ast.encodectype (auto_fplace (T.TArray mt)),
-                        Atom.builtin "new"
-                    ))
-                ]
+            T.NewExpr(
+                e2_e (T.RawExpr "ArrayList"),
+                [ a ]
             )
         | _ -> raise (Error.PlacedDeadbranchError (a.place, "should be of type: list<?>")) 
     end
@@ -427,8 +422,11 @@ let encode_builtin_fct_2 parent_opt place name a b =
             T.CastExpr(
                 mt,
                 e2_e (T.CallExpr(
-                    e2var (Atom.builtin "Array.get"),
-                    [ a; b ]
+                    e2_e(T.AccessExpr(
+                        a,
+                        e2var (Atom.builtin "get")
+                    )),
+                    [ b]
                 ))
             )
         | _ -> raise (Error.PlacedDeadbranchError (a.place, "should be of type: array<?>"))
@@ -481,6 +479,18 @@ let encode_builtin_fct_3 parent_opt place name a b c =
             )),
             [ b; c ]
         ) 
+    | "aput" -> begin
+        match (snd a.value).value with
+        | T.TArray _ -> 
+            T.CallExpr(
+                e2_e(T.AccessExpr(
+                    a,
+                    e2var (Atom.builtin "add")
+                )),
+                [ b; c]
+            )
+        | _ -> raise (Error.PlacedDeadbranchError (a.place, "should be of type: array<?>"))
+    end
     | "bind_in_inlined" ->
         T.CallExpr(
             e2_e (T.AccessExpr(

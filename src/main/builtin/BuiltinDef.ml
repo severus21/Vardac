@@ -85,6 +85,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "info", "string -> ()", "TODO", t_debug;
     
     "aget", "array<item> -> int -> item", "...", t_aget;
+    "aput", "array<item> -> int -> item -> ()", "...", t_aput;
     "asize", "array<item> -> int", "...", t_asize;
 
     "leftactivations", "...", "discover activations interconnecting by the bridge", t_leftactivations;

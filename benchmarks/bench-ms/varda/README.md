@@ -11,8 +11,8 @@
 1. Run example
     1. Run the Varda system (composed of one binary)
     ```bash
-    1> java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB -n 1 -warmup 0 -s 2 
+    1> java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB -n 1 -warmup 0 -vs 2 
     ```
     where
     -n is the number of round of ping pong
-    -s size of the vector to sort
+    -size size of the vector to sort

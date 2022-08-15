@@ -250,6 +250,27 @@ let t_aget () =
         ))
     ))
 
+let t_aput () =
+    (*quantify ["a"] (function [a] ->
+        mtype_of_ct(TArrow(
+            mtype_of_ct (TList (mtype_poly_of_var a)),
+            mtype_of_ct(TArrow(
+                mtype_of_ft TInt,
+                mtype_of_ft TPlace
+            ))
+        ))
+    )*)
+    mtype_of_ct(TArrow(
+        mtype_of_ft TWildcard,
+        mtype_of_ct(TArrow(
+            mtype_of_ft TWildcard,
+            mtype_of_ct(TArrow(
+                mtype_of_ft TWildcard,
+                mtype_of_ft TVoid
+            ))
+        ))
+    ))
+
 let t_asize () =
     mtype_of_ct(TArrow(
         mtype_of_ft TWildcard,

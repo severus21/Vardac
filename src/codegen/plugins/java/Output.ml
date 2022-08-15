@@ -88,7 +88,7 @@ module Make () = struct
             fprintf out "@[%a(@[<hv>@;<0 3>%a@])@]" oexpr e1 oexprs es
         | AssertExpr e -> fprintf out "assert(%a)" oexpr e                   
         | AssignExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_assignop op oexpr e2
-        | BinaryExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_binop op oexpr e2
+        | BinaryExpr (e1, op, e2) -> fprintf out "(%a) %a (%a)" oexpr e1 output_binop op oexpr e2
         | CastExpr (ct, ({value=LambdaExpr _,_} as lambda)) -> (* Otherwise Java error "error: lambda expression not expected here"*)
             fprintf out "( (%a) %a )" ojtype ct oexpr lambda 
         | CastExpr (ct, e) -> fprintf out "((%a) %a)" ojtype ct oexpr e
@@ -104,7 +104,7 @@ module Make () = struct
             fprintf out "( (%a) -> { %a } )" output_lambda_params params ostmt stmt
         | NewExpr (e1, es) -> fprintf out "new @[%a(@[<hv>@;<0 3>%a@])@]" oexpr e1 oexprs es
         | ThisExpr -> pp_print_string out "this";
-        | UnaryExpr (op, e) -> fprintf out "%a %a" output_unop op oexpr e
+        | UnaryExpr (op, e) -> fprintf out "%a (%a)" output_unop op oexpr e
         | VarExpr x -> output_var out x             
         | RawExpr str -> pp_print_string out str
         | TernaryExpr (e1, e2, e3) -> fprintf out "%a ? %a : %a" oexpr e1 oexpr e2 oexpr e3 
@@ -257,7 +257,7 @@ module Make () = struct
     and output_jtype place out : _jtype -> unit = function
         | ClassOrInterfaceType (t, []) ->  ojtype out t  
         | ClassOrInterfaceType (t, params) -> fprintf out "%a<@[<hv>%a@]>" ojtype t output_type_params params
-        | TArray t -> fprintf out "%a[]" ojtype t 
+        | TArray t -> fprintf out "ArrayList<%a>" ojtype t 
         | TAtomic str -> pp_print_string out str
         | TVar x -> output_var out x 
         | TAccess (t1, t2) -> fprintf out "%a.%a" ojtype t1 ojtype t2
