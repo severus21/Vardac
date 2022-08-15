@@ -7,6 +7,7 @@ open Easy_logging
 let logger = Core.Utils.make_log_of "Codegen" 
 
 let display_available_plugins = Factory.display_available_plugins 
+let stdlib_impls = Factory.stdlib_impls
 
 let codegen_program project_dir build_dir places (target2dependencies, target2headers) ((target, program):Core.Target.target * Core.IRI.program) : unit =
     let build_dir = Fpath.add_seg build_dir target.value.name in

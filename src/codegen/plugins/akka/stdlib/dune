@@ -1,0 +1,7 @@
+ (install
+  (section (site (vardac akka_stdlib_impl)))
+  (files 
+    (stdlib.vimpl as stdlib.vimpl)
+   
+  )
+ )

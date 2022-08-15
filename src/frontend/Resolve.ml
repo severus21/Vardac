@@ -6,6 +6,9 @@ module S = Ast
 (* The target calculus. *)
 module T = Ast 
 
+let [stdlib_dir_arch] =  Mysites.Sites.stdlib
+let stdlib_mainfile = Fpath.append (Fpath.v stdlib_dir_arch) (Fpath.v "stdlib")
+
 module UseSet = Set.Make(String)
 let use_env = ref UseSet.empty 
 
@@ -101,6 +104,12 @@ and rcexpr cexpr = map_place resolve_component_expr cexpr
 and resolve_ppterm {Core.AstUtils.place ; Core.AstUtils.value}: T.term list= 
 match value with
 | S.UsePP xs -> 
+    (* Replace std with current stdlib location *)
+    let xs = List.map (function
+        | "std" -> Fpath.to_string stdlib_mainfile
+        | x -> x
+    ) xs in
+
     let libfilename = List.fold_left (fun tmp x -> Filename.concat tmp x) "" xs in (* FIXME *)
     let libfilename = libfilename ^".varch" in
     match UseSet.find_opt libfilename (!use_env)  with

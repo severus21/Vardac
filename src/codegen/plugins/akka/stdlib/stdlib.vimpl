@@ -1,0 +1,6 @@
+target akka;
+
+impl function toto java:{=
+    System.out.println("TOTO");
+    return null;
+=}

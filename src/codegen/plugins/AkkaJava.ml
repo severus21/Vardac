@@ -6,6 +6,10 @@ open Plg
 
 let name = "Akka<Java>"
 let version = "0.0.1"
+let default_stdlib_impl  = 
+    match Mysites.Sites.akka_stdlib_impl with
+    | [location] -> Fpath.to_string (Fpath.append (Fpath.v location) (Fpath.v "stdlib.vimpl"))
+    | _ -> raise (Error.DeadbranchError "akka_stdlib_impl site not found for Akka plugin")
 
 module Rt = Akka
 module Lg = Java
@@ -45,6 +49,9 @@ module Make (Arg: Plugin.CgArgSig) = struct
         match Mysites.Sites.externals with
         | [externals_location] -> externals_location
         | _ -> raise (Error.DeadbranchError "templates site not found for Akka plugin")
+
+
+    (*let [stdlib_dir_arch_impl] =  Mysites.Sites.stdlib in*)
 
     let fplace = (Error.forge_place "Plg=AkkaJava" 0 0)
     let auto_place smth = {place = fplace; value=smth}

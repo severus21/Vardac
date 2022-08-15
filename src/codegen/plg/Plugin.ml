@@ -101,6 +101,9 @@ end
 module type CCg_plg = sig
     val name: string
     val version: string
+    val default_stdlib_impl : string 
+
+
     module Rt : Rt_plg
     module Lg : Lg_plg 
 

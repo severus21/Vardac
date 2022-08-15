@@ -40,6 +40,16 @@ let display_available_plugins () =
     in
     Seq.iter display_plug (Hashtbl.to_seq cg_plugins)
 
+let stdlib_impls () =
+    Core.Utils.StringMap.of_seq(
+        Seq.map 
+            (function(k,value) -> 
+                let module Plug = (val value:Plugin.CCg_plg) in    
+                (k, Plug.default_stdlib_impl)
+            )
+            (Hashtbl.to_seq cg_plugins)
+    )
+
 let load_plugin (dependencies, headers) rt_name lg_name : (module Plugin.Plug) =
     let key = rt_name^"<"^lg_name^">" in
     try

@@ -12,9 +12,6 @@ module Make() = struct
 
     module Frontend = Frontend.Make()
 
-    let process_impl filename =
-        Frontend.to_impl filename
-
     (* Static passes *)
     module Clean = IRCompilationPass.Make(Common.Clean.Make())
     module Derive = IRCompilationPass.Make(Derive)
@@ -121,7 +118,8 @@ module Make() = struct
         in
 
         ir3
-        |> Frontend.to_impl gamma gamma_types sealed_envs InlineElimOrigin.clitems2citems targets impl_filenames  
+        |> Frontend.to_impl gamma gamma_types sealed_envs InlineElimOrigin.clitems2citems targets 
+            ((List.of_seq (Seq.map snd (StringMap.to_seq ((Codegen.stdlib_impls ()))))) @ impl_filenames)  
         |> Codegen.codegen project_dir build_dir places targets;
 
         (* Before rewriting *)

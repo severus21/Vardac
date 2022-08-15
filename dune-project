@@ -45,5 +45,7 @@
   (share externals) 
   (share templates) 
   (share akka_interfaces_grpc_externals) 
-  (share akka_interfaces_grpc_templates))
+  (share akka_interfaces_grpc_templates)
+  (share stdlib)
+  (share akka_stdlib_impl))
 )

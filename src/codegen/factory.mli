@@ -17,3 +17,5 @@ val get_plugins : unit -> Plugin.plug list
 val load_plugin : (string * string) -> string -> string -> (module Plug)
 
 val display_available_plugins : unit -> unit
+
+val stdlib_impls : unit -> string Core.Utils.StringMap.t 

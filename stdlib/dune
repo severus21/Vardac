@@ -1,0 +1,7 @@
+ (install
+  (section (site (vardac stdlib)))
+  (files 
+    (stdlib.varch as stdlib.varch)
+   
+  )
+ )

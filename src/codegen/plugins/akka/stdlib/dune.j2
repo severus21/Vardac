@@ -1,0 +1,7 @@
+ (install
+  (section (site (vardac akka_stdlib_impl)))
+  (files 
+   {% for location in locations %} ({{location.filename}} as {{location.filename}})
+   {% endfor %}
+  )
+ )
