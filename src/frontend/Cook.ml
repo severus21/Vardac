@@ -316,9 +316,6 @@ module Make(Arg:ArgSig) = struct
         { env with component = {env.component with eventdef_from_labels=Env.add key edef env.component.eventdef_from_labels}}
 
 
-    module StringMap = Map.Make(String)
-
-
     (*****************************************************************************)
     (** Pass 1 : cartography the structure
             i.e hydrate iota
