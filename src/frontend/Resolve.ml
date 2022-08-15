@@ -102,6 +102,7 @@ and resolve_ppterm {Core.AstUtils.place ; Core.AstUtils.value}: T.term list=
 match value with
 | S.UsePP xs -> 
     let libfilename = List.fold_left (fun tmp x -> Filename.concat tmp x) "" xs in (* FIXME *)
+    let libfilename = libfilename ^".varch" in
     match UseSet.find_opt libfilename (!use_env)  with
     | None -> 
         use_env := UseSet.add libfilename !use_env ;

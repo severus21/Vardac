@@ -3,7 +3,7 @@
 
 let filenames = ref []
 
-let impl_filename = ref ""
+let impl_filenames = ref [] 
 
 let places_file = ref ""
 
@@ -34,14 +34,15 @@ let common_options =
 let options_compile = 
     Arg.align common_options @ 
     [
-        "--impl", Arg.Set_string impl_filename, "Impl file"
+
+        "--impl", Arg.String (function x-> impl_filenames := x::!impl_filenames), "Impl file";
     ]
 
 let options_check = common_options
 let options_stats = 
     common_options @ 
     [
-        "--impl", Arg.Set_string impl_filename, "Impl file"
+        "--impl", Arg.String (function x-> impl_filenames := x::!impl_filenames), "Impl file";
     ]
 
 
@@ -96,13 +97,13 @@ let () =
         end
         | "compile" -> begin
             try
-                List.iter (Vardaclib.process_compile !build_dir !places_file !targets_file !impl_filename) filenames
+                List.iter (Vardaclib.process_compile !build_dir !places_file !targets_file !impl_filenames) filenames
             with
             | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
         end
         | "stats" -> begin
             try
-                List.iter (Vardaclib.process_stats !places_file !targets_file !impl_filename) filenames
+                List.iter (Vardaclib.process_stats !places_file !targets_file !impl_filenames) filenames
             with
             | (Core.Error.SyntaxError _ as e) | (Core.Error.PlacedDeadbranchError _ as e)-> Core.Error.error_of_syntax_error e
         end

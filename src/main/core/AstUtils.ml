@@ -123,6 +123,7 @@ and block =
     | List 
     | Tuple
     | Set
+    | Array
 and block2 =
     | Dict
 [@@deriving show { with_path = false }, hash, compare, equal]

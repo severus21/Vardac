@@ -1,0 +1,1 @@
+result<void, error> tojson(array<long> rtts, string filename);

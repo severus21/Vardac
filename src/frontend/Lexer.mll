@@ -232,6 +232,10 @@ rule entry = parse
     { LBRACKET }
 | "]"
     { RBRACKET }
+| "[|"
+    { LPBRACKET }
+| "|]"
+    { RPBRACKET }
 | ";"
     { SEMICOLON }
 | ","

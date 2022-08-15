@@ -1128,6 +1128,16 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     List.map fexpr es
                 )
                 | Block -> raise (Error.PlacedDeadbranchError (place, "Block expr should have been compiled away!"))
+                | Array -> begin
+                    fst (fexpr (S_A2.e2_e (S.NewExpr(
+                        S_A2.e2_e (S.RawExpr "ArrayList"),
+                        match es with
+                        | [] -> [];
+                        (* TODO [|n|] -> array of size n, [|[n]|] -> {n} array *)
+                        | [{value=S.LitExpr {value=S.IntLit _},_} as n] -> [n] 
+                        | es ->  [S_A2.e2_e (S.BlockExpr(List, es))]
+                    )))).value
+                end
             end
             | S.Block2Expr (b, ees) -> begin
                 match b with

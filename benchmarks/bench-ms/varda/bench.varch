@@ -1,3 +1,5 @@
+use benchmarks.libbench;
+
 event startmsg of array<int>, int, bool, long; (* array * i * warmup * init_timestamp*)
 event resultmsg of array<int>, int, int, bool, long; (* array, side, ... *)
 protocol p_merge = !startmsg?resultmsg.;
@@ -10,9 +12,6 @@ Mono JVM
 1) 
 *)
 
-array<long> arrayof(int n);
-array<int> intarrayof(int n);
-result<void, error> tojson(array<long> rtts, string filename);
 array<int> generate_random_input(int size);
 bool is_sort(array<int> array);
 array<int> merge(array<int> a, array<int> b);
@@ -29,11 +28,11 @@ component Master {
     int warmup_counter = 0;
     int counter = 0;
     long starttime = 0;
-    array<long> rtts = arrayof(0);
+    array<long> rtts = [||];
 
     bridge<Master|Sorter, Sorter, inline p_merge> b0 = ();
 
-    array<int> input = intarrayof(0);
+    array<int> input = [||];
 
     onstartup (int n, int warmup, array<int> input, bridge<Master|Sorter, Sorter, inline p_merge> b0) {
         debug("> Starting Master");
@@ -46,7 +45,7 @@ component Master {
         bind(this.p_in, b0);
 
         this.starttime = time();
-        this.rtts = arrayof(this.n);
+        this.rtts = [|n|]; (*array of size n*)
         if(this.warmup > 0 ){
             this.start_warmup();
         } else {

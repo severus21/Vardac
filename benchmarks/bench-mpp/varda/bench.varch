@@ -1,3 +1,5 @@
+use benchmarks.libbench;
+
 event ping of int, bool, long; (* i * warmup * init_timestamp*)
 event pong of int, bool, long;
 protocol p_pingpong = !ping?pong.;
@@ -16,9 +18,6 @@ Mono JVM
 3) Select/branch
 *)
 
-array<long> arrayof(int n);
-void aput(array<long> arr, int i, long v);
-result<void, error> tojson(array<long> rtts, string filename);
 
 component Ping {
     outport p_out expecting (inline p_pingpong);
@@ -29,7 +28,7 @@ component Ping {
     int warmup_counter = 0;
     int counter = 0;
     long starttime = 0;
-    array<long> rtts = arrayof(0);
+    array<long> rtts = [||];
 
     activation_ref<Pong> b = ();
     
@@ -43,7 +42,7 @@ component Ping {
         bind(this.p_in, b0);
 
         this.starttime = time();
-        this.rtts = arrayof(this.n);
+        this.rtts = [|this.n|];
         if(this.warmup > 0 ){
             this.start_warmup();
         } else {

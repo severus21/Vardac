@@ -2,26 +2,15 @@
 target akka;
 
 impl dependencies gradle:{=
-    implementation 'com.google.code.gson:gson:2.9.0'
 =}
 
 impl headers java:{=
-    import java.io.FileWriter;
-    import java.io.IOException;
-    import com.google.gson.Gson;
-
     import java.util.Arrays;
     import java.util.Random;
     import java.util.stream.IntStream;
 =}
 
 
-impl function arrayof java:{=
-    return new ArrayList<>({{%n%}});
-=}
-impl function intarrayof java:{=
-    return new ArrayList<>({{%n%}});
-=}
 
 impl function generate_random_input java:{=
     //deterministic since the seed is controled, only depends on size() value
@@ -63,20 +52,6 @@ impl function splitright java:{=
 =}
 impl function init_matrix java:{=
     return new ArrayList<ArrayList<Integer>>({{%n%}});
-=}
-
-impl function tojson java:{=
-    Gson gson = new Gson();
-
-    try {
-        FileWriter fileWriter = new FileWriter({{%filename%}}); 
-        gson.toJson({{%rtts%}}, fileWriter);
-        fileWriter.close();
-        return Either.right(null);
-    } catch (IOException e ){
-        System.err.println(e.toString());
-        return Either.left(new com.lg4dc.Error(e.toString()));
-    }
 =}
 
 impl component Master {}

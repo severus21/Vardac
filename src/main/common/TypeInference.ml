@@ -177,6 +177,7 @@ module Make () = struct
             | List -> TList mt
             | Tuple -> assert(mts <> []); TTuple mts
             | Set -> TSet mt 
+            | Array -> TArray (mtype_of_ft TWildcard) 
         )))
     let typeof_block2 b (mts: (main_type * main_type) list) = 
         let fplace = (Error.forge_place "TypeInference.typeof_block" 0 0) in

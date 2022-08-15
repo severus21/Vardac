@@ -46,7 +46,7 @@ module Make() = struct
         |> Check.check_program project_dir build_dir
         (* TODO incoporate type checking as check*)
 
-    let process_compile (build_dir: Fpath.t) places_file targets_file impl_filename filename = 
+    let process_compile (build_dir: Fpath.t) places_file targets_file impl_filenames filename = 
         (* Prepare dir *)
         Utils.refresh_or_create_dir build_dir;
         Printf.eprintf "Codegeneration directory is \"%s\":\n" (Fpath.to_string build_dir);
@@ -121,7 +121,7 @@ module Make() = struct
         in
 
         ir3
-        |> Frontend.to_impl gamma gamma_types sealed_envs InlineElimOrigin.clitems2citems targets impl_filename  
+        |> Frontend.to_impl gamma gamma_types sealed_envs InlineElimOrigin.clitems2citems targets impl_filenames  
         |> Codegen.codegen project_dir build_dir places targets;
 
         (* Before rewriting *)
@@ -137,7 +137,7 @@ module Make() = struct
         TopologyPrinter.generate_static_logical_topology build_dir "ir3" ir3;
         ()
 
-    let process_stats places_file targets_file impl_filename filename =
+    let process_stats places_file targets_file impl_filenames filename =
         let places = Frontend.process_place places_file in
 
         let ir = Frontend.to_ast places filename in

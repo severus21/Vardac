@@ -247,6 +247,8 @@ any_dict_item:
     { (k,v) }
 any_expr_bloc:
 (* {} could be Set or Dict, the matching order implies it is denoted as a Set *)
+| LPBRACKET exprs=right_flexible_list(COMMA, any_expr) RPBRACKET
+    {BlockExpr (Array, exprs)}
 | LBRACKET exprs=right_flexible_list(COMMA, any_expr) RBRACKET
     {BlockExpr (List, exprs)}
 | LCURLYBRACKET exprs=right_list(COMMA, any_dict_item) RCURLYBRACKET

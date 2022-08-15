@@ -54,7 +54,7 @@ module Make () = struct
         |> function x-> logger#sinfo "PlaceAST has been coocked";x
         |> dump_selected "Place" "Place" IR.show_vplaces  
 
-    let to_impl gamma gamma_types sealed_envs eliminline_env targets filename program = 
+    let to_impl gamma gamma_types sealed_envs eliminline_env targets filenames program = 
         let module PairedImpl = PairedImpl.Make(struct 
             let sealed_envs = sealed_envs 
             let gamma = gamma
@@ -62,8 +62,15 @@ module Make () = struct
             let eliminline_env = eliminline_env
         end) in 
 
-        filename
-        |> ParseImpl.read
+        (* Semantics: 
+            f is defined in both a.vimpl and b.vimpl
+            and ```vardac ... --impl a.vimpl --impl b.vimpl```
+            then the definition of b.vimpl (the last of the list is used)
+            This behaviour is controlled by List.rev filenames
+
+            headers and dependencies are merged
+        *)
+        (List.flatten(List.map ParseImpl.read (List.rev filenames))) 
         |> function ast -> logger#sinfo "Main impl file has been read"; ast 
         |> dump_selected "ParseImpl" "ParseImpl" Ast_impl.show_program
         |> CookImpl.cook_program
