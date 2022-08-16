@@ -18,7 +18,7 @@ BENCHMARKS = [
     # Mono jvm
     Benchmark(
         "simpl-com-varda-one-jvm",
-        VardaBuilder("simpl-com-varda-one-jvm", "benchmarks/bench-mpp/varda", "dune exec --profile release -- vardac compile --places benchmarks/bench-mpp/varda-inline/places.yml --targets benchmarks/bench-mpp/varda-inline/targets.yml --filename benchmarks/bench-mpp/varda-inline/bench.varch --impl benchmarks/bench-mpp/varda-inline/bench.vimpl --provenance 0 && cd compiler-build/akka && sed -i 's/DEBUG/INFO/g' src/main/resources/logback.xml && make", Path(os.getcwd()).absolute()),
+        VardaBuilder("simpl-com-varda-one-jvm", "benchmarks/bench-mpp/varda", "dune exec --profile release -- vardac compile --places benchmarks/bench-mpp/varda-inline/places.yml --targets benchmarks/bench-mpp/varda-inline/targets.yml --filename benchmarks/bench-mpp/varda-inline/bench.varch --impl benchmarks/bench-mpp/varda-inline/bench.vimpl --provenance 0 && cd compiler-build/akka && make", Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
             "simpl-com-varda-one-jvm",
             "java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB", 
@@ -37,7 +37,7 @@ BENCHMARKS = [
     # inlined Pong in Wrapper
     Benchmark(
         "simpl-com-varda-inline-one-jvm",
-        VardaBuilder("simpl-com-varda-inline-one-jvm", "benchmarks/bench-mpp/varda", "dune exec --profile release -- vardac compile --places benchmarks/bench-mpp/varda-inline/places.yml --targets benchmarks/bench-mpp/varda-inline/targets.yml --filename benchmarks/bench-mpp/varda-inline/bench.varch --impl benchmarks/bench-mpp/varda-inline/bench.vimpl --provenance 0 && cd compiler-build/akka && sed -i 's/DEBUG/INFO/g' src/main/resources/logback.xml && make", Path(os.getcwd()).absolute()),
+        VardaBuilder("simpl-com-varda-inline-one-jvm", "benchmarks/bench-mpp/varda", "dune exec --profile release -- vardac compile --places benchmarks/bench-mpp/varda-inline/places.yml --targets benchmarks/bench-mpp/varda-inline/targets.yml --filename benchmarks/bench-mpp/varda-inline/bench.varch --impl benchmarks/bench-mpp/varda-inline/bench.vimpl --provenance 0 && cd compiler-build/akka && make", Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
             "simpl-com-varda-one-jvm",
             "java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB", 
@@ -55,7 +55,7 @@ BENCHMARKS = [
     ),
     Benchmark(
         "simpl-com-akka-one-jvm",
-        VardaBuilder("simpl-com-akka-one-jvm", "benchmarks/bench-mpp/akka", "cd benchmarks/bench-mpp/akka && make", Path(os.getcwd()).absolute()),
+        AkkaBuilder("simpl-com-akka-one-jvm", "benchmarks/bench-mpp/akka", "cd benchmarks/bench-mpp/akka && make", Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
             "simpl-com-akka-one-jvm",
             "java -enableassertions -jar build/libs/main.jar", 
@@ -74,7 +74,7 @@ BENCHMARKS = [
     # Multi jvm
     Benchmark(
         "simpl-com-akka-multi-jvms",
-        VardaBuilder("simpl-com-akka-multi-jvms", "benchmarks/bench-mpp/akka", "cd benchmarks/bench-mpp/akka && make", Path(os.getcwd()).absolute()),
+        AkkaBuilder("simpl-com-akka-multi-jvms", "benchmarks/bench-mpp/akka", "cd benchmarks/bench-mpp/akka && make", Path(os.getcwd()).absolute()),
         MultiShellRunnerFactory(
             "simpl-com-akka-multi-jvms",
             [
@@ -99,6 +99,45 @@ BENCHMARKS = [
         Generator(RangeIterator({
             "n": logrange(DEFAULT_N_MIN, DEFAULT_N_MAX, base=10),
             "warmup": range(DEFAULT_WARMUP_MIN, DEFAULT_WARMUP_MAX).__iter__()
+            }), DEFAULT_RUNS)
+    ),
+    ### MS Bench
+    Benchmark(
+        "ms-varda-one-jvm",
+        VardaBuilder("ms-varda-one-jvm", "benchmarks/bench-mpp/varda", "dune exec --profile release -- vardac compile --places benchmarks/bench-ms/varda/places.yml --targets benchmarks/bench-ms/varda/targets.yml --filename benchmarks/bench-ms/varda/bench.varch --impl benchmarks/libbench.vimpl --impl benchmarks/bench-ms/varda/bench.vimpl --provenance 0 && cd compiler-build/akka && make", Path(os.getcwd()).absolute()),
+        ShellRunnerFactory(
+            "ms-varda-one-jvm",
+            "java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB", 
+            Path(os.getcwd())/"compiler-build"/"akka", 
+            "Terminated ueyiqu8R"
+        ),
+        [ 
+            StdoutCollector(get_elapse_time),
+            FileCollector(Path(os.getcwd())/"compiler-build"/"akka"/"rtts.json", get_rtts),
+        ],
+        Generator(RangeIterator({
+            "n": 1,
+            "warmup": 0,
+            "vs": 3,
+        }), DEFAULT_RUNS)
+    ),
+    Benchmark(
+        "ms-akka-one-jvm",
+        AkkaBuilder("ms-akka-one-jvm", "benchmarks/bench-ms/akka", "cd benchmarks/bench-ms/akka && make", Path(os.getcwd()).absolute()),
+        ShellRunnerFactory(
+            "ms-akka-one-jvm",
+            "java -enableassertions -jar build/libs/main.jar", 
+            Path(os.getcwd())/"benchmarks"/"bench-mpp"/"akka", 
+            "Terminated ueyiqu8R" 
+        ),
+        [ 
+            StdoutCollector(get_elapse_time),
+            FileCollector(Path(os.getcwd())/"benchmarks"/"bench-ms"/"akka"/"rtts.json", get_rtts),
+        ],
+        Generator(RangeIterator({
+            "n": 1,
+            "warmup": 0,
+            "vs": 3,
             }), DEFAULT_RUNS)
     ),
 ]

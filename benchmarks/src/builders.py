@@ -79,8 +79,10 @@ class AbstractBuilder:
             logging.info(f"Bench {self.name}> Already built !")
             return True, self.get_bench_model()[0]
 
-
-
 class VardaBuilder(AbstractBuilder):
+    def __init__(self, name, project_dir, build_cmd, build_cwd, build_dir=Path(os.getcwd())/"compiler-build") -> None:
+        super().__init__(name, project_dir, build_dir, build_cmd, build_cwd)
+
+class AkkaBuilder(AbstractBuilder):
     def __init__(self, name, project_dir, build_cmd, build_cwd, build_dir=Path(os.getcwd())/"compiler-build") -> None:
         super().__init__(name, project_dir, build_dir, build_cmd, build_cwd)

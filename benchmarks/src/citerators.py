@@ -13,6 +13,13 @@ class RangeIterator:
         self.init = True
         self.closed = set()
 
+
+        # arg1: iterators
+        # arg2: n -> iterate over {n}
+        for k in self.defs:
+            if type(self.defs[k]) == int:
+                self.defs[k] = range(self.defs[k], self.defs[k]+1).__iter__()
+
         self.snapshot   = [ r.__next__() for k, r in self.defs.items()]
         self.pos2key    = { i: k for i, k in enumerate(self.defs.keys())}
 

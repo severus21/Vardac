@@ -53,5 +53,13 @@ FIGURES = list(itertools.chain.from_iterable([
             ("varda-one-jvm", Bench.objects.filter(name="simpl-com-varda-one-jvm", id=316)[0].results.all()),
             ("inline-one-jvm", Bench.objects.filter(name="simpl-com-varda-inline-one-jvm", id=318)[0].results.all())
         ]
+    ),
+    FigureFactory.compare(
+        "MS",
+        [("n", "duration")],
+        [
+            ("akka-one-jvm", Bench.objects.filter(name="ms-akka-one-jvm")[0].results.all()),
+            ("varda-one-jvm", Bench.objects.filter(name="ms-varda-one-jvm")[0].results.all()),
+        ]
     ) 
 ]))
