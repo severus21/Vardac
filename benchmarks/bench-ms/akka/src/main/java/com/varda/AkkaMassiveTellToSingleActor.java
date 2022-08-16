@@ -41,7 +41,7 @@ public class AkkaMassiveTellToSingleActor {
         }
 
         assert (null != cmd);
-        if(!cmd.hasOption("n")|| !cmd.hasOption("s")  || !cmd.hasOption("warmup") ){
+        if(!cmd.hasOption("n")|| !cmd.hasOption("vs")  || !cmd.hasOption("warmup") ){
             System.out.println("niterations/nwarmupiterations/vsize argument is mandatory!");
             formatter.printHelp("g", options);
             System.exit(1);
@@ -49,7 +49,7 @@ public class AkkaMassiveTellToSingleActor {
 
 		int nIterations = Integer.parseInt(cmd.getOptionValue("n"));
 		int nWarmupIterations = Integer.parseInt(cmd.getOptionValue("warmup"));
-		int nVSize = Integer.parseInt(cmd.getOptionValue("s"));
+		int nVSize = Integer.parseInt(cmd.getOptionValue("vs"));
 
 
 		run(nIterations, nWarmupIterations, generate_random_input(nVSize));

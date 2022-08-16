@@ -56,10 +56,10 @@ FIGURES = list(itertools.chain.from_iterable([
     ),
     FigureFactory.compare(
         "MS",
-        [("n", "duration")],
+        [("vs", "duration")],
         [
-            ("akka-one-jvm", Bench.objects.filter(name="ms-akka-one-jvm")[0].results.all()),
-            ("varda-one-jvm", Bench.objects.filter(name="ms-varda-one-jvm")[0].results.all()),
+            ("akka-one-jvm", Bench.objects.filter(name="ms-akka-one-jvm").order_by('-pk')[0].results.all()),
+            ("varda-one-jvm", Bench.objects.filter(name="ms-varda-one-jvm").order_by('-pk')[0].results.all()),
         ]
     ) 
 ]))

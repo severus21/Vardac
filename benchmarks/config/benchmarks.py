@@ -118,7 +118,7 @@ BENCHMARKS = [
         Generator(RangeIterator({
             "n": 1,
             "warmup": 0,
-            "vs": 3,
+            "vs": range(3,6).__iter__(),
         }), DEFAULT_RUNS)
     ),
     Benchmark(
@@ -127,7 +127,7 @@ BENCHMARKS = [
         ShellRunnerFactory(
             "ms-akka-one-jvm",
             "java -enableassertions -jar build/libs/main.jar", 
-            Path(os.getcwd())/"benchmarks"/"bench-mpp"/"akka", 
+            Path(os.getcwd())/"benchmarks"/"bench-ms"/"akka", 
             "Terminated ueyiqu8R" 
         ),
         [ 
@@ -137,7 +137,7 @@ BENCHMARKS = [
         Generator(RangeIterator({
             "n": 1,
             "warmup": 0,
-            "vs": 3,
+            "vs": range(3,6).__iter__(),
             }), DEFAULT_RUNS)
     ),
 ]
