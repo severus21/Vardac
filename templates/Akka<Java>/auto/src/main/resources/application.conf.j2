@@ -1,6 +1,10 @@
 akka {
 ;     coordinated-shutdown.exit-jvm = on
 
+    loggers = ["akka.event.slf4j.Slf4jLogger"]
+    loglevel = "DEBUG"
+    logging-filter = "akka.event.slf4j.Slf4jLoggingFilter"
+
     actor {
         provider = "cluster"
         serializers {

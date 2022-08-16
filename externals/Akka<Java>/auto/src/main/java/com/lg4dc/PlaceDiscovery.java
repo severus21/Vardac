@@ -58,14 +58,14 @@ public class PlaceDiscovery {
         assert (name != null);
         assert (at != null);
         assert (at.address != null);
-        context.getLog().info("Requesting for spawn " + context.getSelf().toString());
-        context.getLog().info("PlaceDiscovery::spawnAt at " + at.toString());
+        context.getLog().debug("Requesting for spawn " + context.getSelf().toString());
+        context.getLog().debug("PlaceDiscovery::spawnAt at " + at.toString());
 
         if (at.equals(Place.currentPlace(context))) {
             // Local spawn, the current actor is the parent of the child actor
             SpawnProtocol.Spawn<_T> spawn = new SpawnProtocol.Spawn(runnable, name, props, null);
             ActorRef<_T> actorRef = AbstractSystem.applySpawn(context, spawn);
-            context.getLog().info("spawnAt has been converted into local spawn");
+            context.getLog().debug("spawnAt has been converted into local spawn");
             return actorRef;
         } else {
             CompletionStage<WrappedActorRef<_T>> ask = AskPattern.ask(
@@ -74,16 +74,16 @@ public class PlaceDiscovery {
                     Duration.ofSeconds(10),
                     context.getSystem().scheduler());
 
-            context.getLog().info("waiting PlaceDiscovery::spawnAt");
+            context.getLog().debug("waiting PlaceDiscovery::spawnAt");
             try {
                 // blocking call
                 WrappedActorRef<_T> tmp = ask.toCompletableFuture().get();
-                context.getLog().info("end PlaceDiscovery::spawnAt");
+                context.getLog().debug("end PlaceDiscovery::spawnAt");
                 return tmp.response;
             } catch (Exception e) {
                 System.out.println(e);
             }
-            context.getLog().info("end PlaceDiscovery::spawnAt");
+            context.getLog().debug("end PlaceDiscovery::spawnAt");
         }
 
         return null;
@@ -100,7 +100,7 @@ public class PlaceDiscovery {
         for(int i = 0; i < 10; i++){ //10 retry max
             Set<ActivationRef> activations = activationsAt(context, addr);
             if(activations.contains(a)){
-                context.getLog().info("register "+a.toString()+" at "+addr.toString());
+                context.getLog().debug("register "+a.toString()+" at "+addr.toString());
                 return Either.right(true);
             } else {
                 try{

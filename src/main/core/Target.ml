@@ -17,7 +17,8 @@ and codegen_info = {
 and _target = {
     name:string; 
     codegen: codegen_info;
-    user_defined: string
+    user_defined: string;
+    compiler: string Collections.StringMap.t
 } 
 and target = _target placed
 and targets = target list

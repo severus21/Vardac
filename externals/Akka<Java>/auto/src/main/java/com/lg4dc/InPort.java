@@ -16,7 +16,7 @@ public final class InPort<A, B, C> extends AbstractPort {
     /*
       if(this.registered_session.containsKey(e.session_id)){
          InPort p = this.registered_session.get(e.session_id);
-         getContext().getLog().info(">>>> find intermediate for "+e.session_id.toString());
+         getContext().getLog().debug(">>>> find intermediate for "+e.session_id.toString());
       }
      */
 

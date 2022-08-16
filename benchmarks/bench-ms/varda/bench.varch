@@ -71,11 +71,7 @@ component Master {
         }
     }
 
-    (*
-        TODO
-        contract sumup
-        ensures res:array<int> -> is_sort(res)
-    *)
+    
 
     void sumup(array<int> res){
         long start = this.starttime;
@@ -88,6 +84,11 @@ component Master {
         info("JamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglog");
         print_output(this.input, res);
     }
+
+    (* 
+        TODO TODO contract sumup
+        ensures is_sort(res)
+    *)
 
     result<void, error> callback(resultmsg msg, . s){
         if(msg._3_){
@@ -137,7 +138,6 @@ component Sorter {
     }
 
     result<void, error> callback (startmsg start, ?resultmsg. s0) {
-        debug("> Start received");
         this.upstream = s0;
 
         if( asize(start._0_) == 1){
@@ -145,12 +145,11 @@ component Sorter {
                 start._0_, this.side, start._1_, start._2_, start._3_
             ))?;
         } else {
-            print("> Start new branch");
             array<int> left = splitleft(start._0_);
             array<int> right = splitright(start._0_);
 
             activation_ref<Sorter> a = spawn Sorter(0, bridgeof(this.p_in));
-            activation_ref<Sorter> b = spawn Sorter(-1, bridgeof(this.p_in));
+            activation_ref<Sorter> b = spawn Sorter(1, bridgeof(this.p_in));
 
             session<p_merge> s_a = initiate_session_with(this.p_out, a);
             session<p_merge> s_b = initiate_session_with(this.p_out, b);
@@ -159,7 +158,6 @@ component Sorter {
             fire(s_b, startmsg(right, start._1_, start._2_, start._3_))?;
         }
 
-        debug(">> Result fired");
         return ok(());
     }
 
@@ -173,11 +171,14 @@ component Sorter {
 
         if((aget(this.res, 0) != ()) && (aget(this.res, 1) != ())){
             array<int> resultarray = merge(aget(this.res, 0), aget(this.res, 1));
-            fire(this.upstream, resultmsg(resultarray, result._1_, result._2_, result._3_, result._4_))?;
+            fire(this.upstream, resultmsg(resultarray, this.side, result._2_, result._3_, result._4_))?;
         }
-
     }
 
+    contract onResult
+    invariant 0 == 0 
+    ensures "a" == "a"
+    returns (ress : result<void, error> -> is_ok(ress) )
 }
 
 tuple<array<string>, tuple<int,int, int>> main (array<string> args){

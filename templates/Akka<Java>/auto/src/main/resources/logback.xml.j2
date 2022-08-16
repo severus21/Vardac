@@ -9,7 +9,7 @@
             <fileNamePattern>myapp_%d{yyyy-MM-dd}.log</fileNamePattern>
         </rollingPolicy>
         <encoder>
-            <pattern>[%date{ISO8601}] [%level] [%logger] [%marker] [%thread] - %msg MDC: {%mdc}%n</pattern>
+            {%raw%}<pattern>[%date{ISO8601}] [%level] [%logger] [%marker] [%thread] - %msg MDC: {%mdc}%n</pattern>{%endraw%}
         </encoder>
     </appender>
     -->
@@ -24,14 +24,14 @@
         <!-- Add color support -->
         <withJansi>true</withJansi>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>DEBUG</level>
+            <level>{{target_compiler.loglevel}}</level>
         </filter>
         <encoder>
-            <pattern>[%date{ISO8601}] %highlight([%level]) [%logger] [%marker] [%thread] - %msg MDC: {%mdc}%n</pattern>
+            {%raw%}<pattern>[%date{ISO8601}] %highlight([%level]) [%logger] [%marker] [%thread] - %msg MDC: {%mdc}%n</pattern>{%endraw%}
         </encoder>
     </appender>
 
-    <root level="DEBUG">
+    <root level="{{target_compiler.loglevel}}">
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="ASYNC"/>
     </root>

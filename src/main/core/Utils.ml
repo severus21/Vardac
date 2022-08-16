@@ -171,5 +171,3 @@ let log_lvl_of pass_name : Easy_logging.Logging_internals.Logging_types.level =
 let make_log_of pass_name = 
     (*Printf.fprintf stdout "\nlog level for %s : %s\n{%s}\n" pass_name (if log_lvl_of pass_name = Debug then "Debug" else "Info") (List.fold_left (fun x y -> x^", "^y) "" (Option.fold ~none:[] ~some:Fun.id (Config.debug_selector())));*)
     Easy_logging.Logging.make_logger ("vardac."^pass_name) (log_lvl_of pass_name) []
-
-module StringMap = Map.Make(String) 

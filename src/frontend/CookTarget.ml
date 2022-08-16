@@ -84,6 +84,7 @@ module Make () = struct
                     mains = List.map snd (List.map (cook_maindef target.place ast env) target.value.codegen.mains);
                 };
                 user_defined = target.value.user_defined;
+                compiler = target.value.compiler;
             }
         } 
                     

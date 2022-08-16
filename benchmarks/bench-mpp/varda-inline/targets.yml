@@ -21,3 +21,5 @@
       }
       with jar
     }
+  compiler: 
+    loglevel: INFO 

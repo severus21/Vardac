@@ -33,13 +33,25 @@ impl function is_sort java:{=
 =}
 
 impl function merge java:{=
-    ArrayList<Integer> answer = new ArrayList({{%a%}}.size() + {{%b%}}.size());
-    int i = {{%a%}}.size() - 1, j = {{%b%}}.size() - 1, k = answer.size();
-    while (k > 0)
-        if(i >= 0 && {{%a%}}.get(i) >= {{%b%}}.get(j))
-            answer.add(--k, {{%a%}}.get(i--));
-        else
-            answer.add(--k, {{%b%}}.get(j--));
+    int k = {{%a%}}.size() + {{%b%}}.size();
+    ArrayList<Integer> answer = new ArrayList(Collections.nCopies(k, null));
+    int i = {{%a%}}.size() - 1, j = {{%b%}}.size() - 1;
+
+    while (k > 0){
+        if(j < 0 || (i >= 0 && {{%a%}}.get(i) >= {{%b%}}.get(j))){
+            answer.set(--k, {{%a%}}.get(i--));
+        } else {
+            answer.set(--k, {{%b%}}.get(j--));
+        }
+    }
+
+    for(Integer u: {{%a%}})
+        assert(u!=null);
+    for(Integer v: {{%b%}})
+        assert(v!=null);
+    for(Integer w: answer)
+        assert(w!=null);
+
     return answer;
 =}
 
@@ -50,9 +62,11 @@ impl function splitleft java:{=
 impl function splitright java:{=
     return new ArrayList({{%a%}}.subList({{%a%}}.size() / 2, {{%a%}}.size()));
 =}
+
 impl function init_matrix java:{=
-    return new ArrayList<ArrayList<Integer>>({{%n%}});
+      return new ArrayList<ArrayList<Integer>>( Collections.nCopies({{%n%}}, null) );
 =}
+
 impl function print_array java:{=
     String buffer = "\n\n\ninput_vector<"; 
     buffer += {{%input_array%}}.size()+"> = [";
@@ -65,14 +79,9 @@ impl function print_array java:{=
 =}
 impl function print_output java:{=
     String buffer = "\n\n\ninput_vector = [";
-    for(Integer i: {{%input_array%}}){
-        buffer += i.toString()+",";	
-    }
+    buffer += {{%input_array%}}.toString();
     buffer += "]";
     buffer += "\nsorted_vector = [";
-    for(Integer i: {{%result_array%}}){
-        buffer += i.toString()+",";	
-    }
     buffer += {{%result_array%}}.toString();
     buffer += "]\n\n\n";
     System.out.println(buffer);

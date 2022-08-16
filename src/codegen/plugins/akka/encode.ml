@@ -485,7 +485,7 @@ let encode_builtin_fct_3 parent_opt place name a b c =
             T.CallExpr(
                 e2_e(T.AccessExpr(
                     a,
-                    e2var (Atom.builtin "add")
+                    e2var (Atom.builtin "set")
                 )),
                 [ b; c]
             )

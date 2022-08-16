@@ -100,8 +100,10 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
         | AssignExpr (e1, op, e2) -> AssignExpr (cexpr e1, op, cexpr e2)
         | BinaryExpr (e1, StructuralEqual, e2) -> 
         begin
-            match (snd e1.value).value with
-            | TAtomic "Integer" -> 
+            match (snd e1.value).value, (snd e2.value).value with
+            | TAtomic "Integer", _ | TAtomic "Void", _ | TAtomic "void", _ 
+            | _, TAtomic "Integer" | _, TAtomic "Void" | _, TAtomic "void"
+             -> 
                 (*  Equal == StructuralEqual for those types in Java
                     Moreover, .equals() works only on boxed types (e.g. Integer) and not on atomic (e.g. int)    
                     Therefore, we use Equal

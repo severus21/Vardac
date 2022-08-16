@@ -28,7 +28,7 @@ dependencies {
     implementation "com.google.guava:guava:31.0.1-jre"
     implementation group: "commons-cli", name: "commons-cli", version: "1.4"
     implementation "ch.qos.logback:logback-classic:1.2.3"
-    implementation "org.slf4j:slf4j-api:1.7.28"
+    implementation "com.typesafe.akka:akka-slf4j_${versions.ScalaBinary}"
     implementation group: 'com.typesafe.akka', name: "akka-actor-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
     implementation group: 'com.typesafe.akka', name: "akka-cluster-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"
     implementation group: 'com.typesafe.akka', name: "akka-cluster-sharding-typed_${versions.ScalaBinary}", version: "${versions.AkkaVersion}"

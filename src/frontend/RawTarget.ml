@@ -15,6 +15,7 @@ and _target = {
     name:string; 
     codegen: codegen_info;
     user_defined: string;
+    compiler: string Core.Collections.StringMap.t
 }     
 and target = _target placed
 and targets = target list

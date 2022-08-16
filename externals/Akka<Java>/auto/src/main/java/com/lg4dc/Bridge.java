@@ -101,9 +101,9 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
                 left ? this.leftActivations(context, guardian).get() : this.rightActivations(context, guardian).get();
             if(activations.contains(a)){
                 if(left)
-                    context.getLog().info("leftRegister "+a.toString()+" at left of "+this.id.toString());
+                    context.getLog().debug("leftRegister "+a.toString()+" at left of "+this.id.toString());
                 else
-                    context.getLog().info("rightRegister "+a.toString()+" at right of "+this.id.toString());
+                    context.getLog().debug("rightRegister "+a.toString()+" at right of "+this.id.toString());
 
                 return Either.right(true);
             } else {
@@ -147,7 +147,7 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
         try{
             // blocking call
             Set<ActivationRef> tmp = ask.toCompletableFuture().get();
-            context.getLog().info("Find at right/left "+tmp.size());
+            context.getLog().debug("Find at right/left "+tmp.size());
             return Either.right(tmp);
         } catch (Exception e){
             context.getLog().error(e.toString());

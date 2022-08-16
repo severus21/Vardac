@@ -2,7 +2,8 @@ open Core
 open Jingoo
 
 
-let default_jingoo_models = [
+let default_jingoo_models = 
+    [
     ("compiler_version", Jg_types.Tstr Config.version);
     ("compiler_debug", Jg_types.Tbool (Config.debug ()));
     ("compiler_keep_ghost", Jg_types.Tbool (Config.keep_ghost ()));

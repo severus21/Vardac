@@ -56,6 +56,20 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
             | _ -> Error.perror mock_place "Syntax error in [user_defined] definition of target [%s]\n" name 
         in
 
+        let compiler = match Hashtbl.find_opt table "compiler" with 
+            | None -> Core.Collections.StringMap.empty 
+            | Some `O body->
+                let table = tableof body in
+                Core.Collections.StringMap.of_seq (
+                    Seq.map
+                        (function 
+                            | (x, `String y) -> x, y
+                            | x, _ -> Error.perror mock_place "Syntax error in [compiler].[%s] definition of target [%s], should be string\n" x name 
+                        )
+                        (Hashtbl.to_seq table)
+                )
+        in
+
         let codegen = match Hashtbl.find_opt table "codegen" with 
             | None -> Error.perror mock_place "Codegen attribut must be declared for target [%s]\n" current_target
             | Some `O body-> ( 
@@ -164,7 +178,7 @@ let rec _parse_targets filename current_target (v : Yaml.value) : target list =
         in
         [{  Core.AstUtils.place=mock_place; 
             Core.AstUtils.value=
-                {name=name; codegen=codegen; user_defined}
+                {name; codegen; user_defined; compiler}
         }]
   end
   |_ -> Error.perror mock_place "Syntax error in targets definition of target [%s]\n" current_target                

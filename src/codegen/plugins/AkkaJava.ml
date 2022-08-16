@@ -1140,8 +1140,16 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         S_A2.e2_e (S.RawExpr "ArrayList"),
                         match es with
                         | [] -> [];
-                        (* TODO [|n|] -> array of size n, [|[n]|] -> {n} array *)
-                        | [{value=S.LitExpr {value=S.IntLit _},_} as n] -> [n] 
+                        | [{value=S.LitExpr {value=S.IntLit _},_} as n] -> [
+                            S_A2.e2_e (S.CallExpr(
+                                (* Init array with n case set to null *)
+                                S_A2.e2_e (S.RawExpr "Collections.nCopies"),
+                                [ 
+                                    n;
+                                    S_A2.e2_lit (VoidLit)
+                                ]
+                            ))
+                        ] 
                         | es ->  [S_A2.e2_e (S.BlockExpr(List, es))]
                     )))).value
                 end
@@ -2066,6 +2074,24 @@ module Make (Arg: Plugin.CgArgSig) = struct
             ));
             ("dependencies", Jg_types.Tstr (dependencies));
         ] @ istate.jingoo_models in
+
+        (* User defined target *)
+        let sanitize_target_compiler = function
+            | "loglevel",y -> List.mem y ["OFF"; "ERROR"; "WARNING"; "INFO"; "DEBUG"]
+            | x,_ -> Error.perror target.place "Unsupported attribute [%s] for [type=akka<java>] target_compiler." x
+        in
+        let default_target_compiler = Collections.StringMap.of_list ["loglevel", "DEBUG"] in
+        let target_compiler_models = 
+            List.map 
+                (function (x,y) -> 
+                sanitize_target_compiler (x,y);
+                (x, Jg_types.Tstr y)) 
+                (Core.Collections.StringMap.to_list (Collections.StringMap.union 
+                    (fun x y_default y -> Some y)
+                    default_target_compiler
+                    target.value.compiler))
+        in 
+        let models = ("target_compiler", Jg_types.Tobj target_compiler_models) :: models in
 
         (* User-define is a template *)
         let models =  
