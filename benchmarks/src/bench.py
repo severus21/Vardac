@@ -28,7 +28,7 @@ class Benchmark:
 
                 runner = self.runner_factory.make(config)
 
-                tmp_flag = runner.run_async()
+                tmp_flag = runner.run()
                 flag = flag and tmp_flag
                 if not tmp_flag:
                     logging.error(f"Bench {self.name}> Run failure !\n{config}"+runner.run_stderr+"\n"+runner.run_stdout)

@@ -1,9 +1,13 @@
 use benchmarks.libbench;
 
-event ping of int, bool, long; (* i * warmup * init_timestamp*)
-event pong of int, bool, long;
+type payload;
+
+event ping of int, bool, long, payload; (* i * warmup * init_timestamp*)
+event pong of int, bool, long, payload;
 protocol p_pingpong = !ping?pong.;
 bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
+
+payload fresh_payload(int size); (* size in bits *) 
 
 (* 
 
@@ -53,14 +57,14 @@ component Ping {
     result<void, error> start_warmup(){
         for(int i in range(0, this.warmup)){
             session<p_pingpong> s0 = initiate_session_with(this.p_out, this.b);
-            ?pong. s1 = fire(s0, ping(i, true, time()))?; 
+            ?pong. s1 = fire(s0, ping(i, true, time(), fresh_payload(10)))?; 
         }
     }
 
     result<void, error> start(){
         for(int i in range(0, this.n)){
             session<p_pingpong> s0 = initiate_session_with(this.p_out, this.b);
-            ?pong. s1 = fire(s0, ping(i, false, time()))?; 
+            ?pong. s1 = fire(s0, ping(i, false, time(), fresh_payload(10)))?; 
         }
     }
 
@@ -112,7 +116,7 @@ component Pong {
 
     result<void, error> callback (ping msg, ?pong. s0) {
         debug("> Ping received");
-        . s1 = fire(s0, pong(msg._0_, msg._1_, msg._2_))?; 
+        . s1 = fire(s0, pong(msg._0_, msg._1_, msg._2_, msg._3_))?; 
         debug(">> Pong fired");
         return ok(());
     }

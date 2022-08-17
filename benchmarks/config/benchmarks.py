@@ -5,6 +5,7 @@ from src.bench import *
 from src.collectors import *
 from src.builders import *
 from src.runners import *
+from src.factories import *
 from src.citerators import *
 from src.cgenerators import *
 
@@ -138,6 +139,25 @@ BENCHMARKS = [
             "n": 1,
             "warmup": 0,
             "vs": range(3,6).__iter__(),
+            }), DEFAULT_RUNS)
+    ),
+    Benchmark(
+        "ms-akka-one-jvm-docker",
+        DockerBuilder("testdockerbuilder", Path(os.getcwd())/'benchmarks'/'bench-ms'/'akka'),
+        DockerRunnerFactory(
+            "ms-akka-one-jvm-docker",
+            "testdockerbuilder_7c03a55710", #TODO get this from builder
+            "/usr/local/openjdk-11/bin/java -enableassertions -jar main.jar", 
+            "Terminated ueyiqu8R" 
+        ),
+        [ 
+            StdoutCollector(get_elapse_time),
+            #FileCollector(Path(os.getcwd())/"benchmarks"/"bench-ms"/"akka"/"rtts.json", get_rtts), # TODO collector for docker
+        ],
+        Generator(RangeIterator({
+            "n": 1,
+            "warmup": 0,
+            "vs": range(3,4).__iter__(),
             }), DEFAULT_RUNS)
     ),
 ]

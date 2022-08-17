@@ -7,6 +7,13 @@ impl dependencies gradle:{=
 impl headers java:{=
 =}
 
+impl type payload java:{=
+    int bits[] = null;
+=}
+impl type fresh_payload java:{=
+    return new int[{{%size%}}];
+=}
+
 impl component Ping {}
 impl component Pong {}
 impl component TopLevel {}
