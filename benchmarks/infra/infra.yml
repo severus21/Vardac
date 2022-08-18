@@ -1,0 +1,8 @@
+# Setup of the containers infrastructure
+---
+- hosts: nodes
+  gather_facts: true
+  become_user: root
+  become: yes 
+  roles:
+  - deploy 
