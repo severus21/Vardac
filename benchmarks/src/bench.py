@@ -1,5 +1,7 @@
 import logging
 
+from sympy import O
+
 from .models import *
 
 class Benchmark:
@@ -11,6 +13,13 @@ class Benchmark:
         self.generator              = generator
 
         self.bench                  = None
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, type, value, traceback):
+        if self.builder:
+            self.builder.__exit__(type, value, traceback)
 
     def build(self):
         flag, bench = self.builder.build()
@@ -26,13 +35,14 @@ class Benchmark:
             for i, _ in enumerate(range(self.generator.n_run)):
                 logging.info(f"Bench {self.name}> Start run {i+1}/{self.generator.n_run} for config {config}")
 
-                runner = self.runner_factory.make(config)
+                with self.runner_factory.make(self.builder, config) as runner:
 
-                tmp_flag = runner.run()
-                flag = flag and tmp_flag
-                if not tmp_flag:
-                    logging.error(f"Bench {self.name}> Run failure !\n{config}"+runner.run_stderr+"\n"+runner.run_stdout)
-                res = self.collect_results(runner)
+                    tmp_flag = runner.run()
+                    flag = flag and tmp_flag
+                    if not tmp_flag:
+                        logging.error(f"Bench {self.name}> Run failure !\n{config}"+runner.run_stderr+"\n"+runner.run_stdout)
+                    res = self.collect_results(runner)
+
                 tmp = BenchResult.objects.create(run_config=res["config"], results=res['results'])
                 self.bench.results.add(tmp)
                 self.bench.save()

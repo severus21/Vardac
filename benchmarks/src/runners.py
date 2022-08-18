@@ -54,6 +54,13 @@ class Runner(ABC):
         self._run_stdout = ""
         self._run_stderr = ""
 
+    def __enter__(self):
+        logging.debug(f"Entering runner {self.name}")
+        return self
+
+    def __exit__(self, type, value, traceback):
+        logging.debug(f"Exiting runner {self.name}")
+
     @property
     def run_stdout(self):
         return self._run_stdout
@@ -159,8 +166,8 @@ class BaseRunner(Runner):
         return self.error_token and self.error_token in buffer
 
     async def run_async_skeleton(self, pod, stop_event, stop_display_time):
-        stdout_buffer = ""
-        stderr_buffer = ""
+        self._run_stdout = ""
+        self._run_stderr = ""
         print("run_async_skeleton")
 
         while True:
@@ -170,7 +177,7 @@ class BaseRunner(Runner):
                 await self.terminate(pod, stop_event, stop_display_time)
 
                 # stdout_termination_token == None => this task never terminates by itself
-                return self.stdout_termination_token == None or self.is_terminated(stdout_buffer)
+                return self.stdout_termination_token == None or self.is_terminated(self._run_stdout)
 
             try:
                 done, pending = await asyncio.wait(
@@ -199,18 +206,16 @@ class BaseRunner(Runner):
                     if statuscode == 0:
                         logging.debug(f"{self.name}> Is terminated")
                         await self.terminate(pod, stop_event, stop_display_time)
-                        self._run_stdout = stdout_buffer
                         return True
                     else:
                         logging.error(f"{self.name}> Has crash")
-                        self._run_stdout = stdout_buffer
                         self._run_stderr = await pod.stderr()
-                        print(stdout_buffer)
+                        print(self._run_stdout)
                         print(self.run_stderr)
                         return False
 
                 ## Processing stdout
-                stdout_buffer += ''.join(lines)
+                self._run_stdout += ''.join(lines)
 
                 for line in lines:
                     if not line:  # EOF
@@ -220,20 +225,18 @@ class BaseRunner(Runner):
                     elif self.is_terminated(line):
                         logging.debug(f"{self.name}> Is terminated")
                         await self.terminate(pod, stop_event, stop_display_time)
-                        self._run_stdout = stdout_buffer
                         return True
                     elif self.has_failed(line):
                         logging.error(f"{self.name}> Has failed")
-                        self._run_stdout = stdout_buffer
                         self._run_stderr = await pod.stderr()
-                        print(stdout_buffer)
+                        print(self._run_stdout)
                         print(self.run_stderr)
                         await self.terminate(pod, stop_event, stop_display_time)
                         return False
 
             except asyncio.TimeoutError:
                 logging.error(f"{self.name}> Timeout !")
-                print(stdout_buffer)
+                print(self._run_stdout)
                 await self.terminate(pod, stop_event, stop_display_time)
                 return False
             except asyncio.CancelledError:
@@ -275,23 +278,95 @@ class DockerRunner(BaseRunner):
         self.run_cmd = run_cmd
 
         self.docker = aiodocker.Docker()
+        self.volumes = []
+        self.containers = []
 
-    def __del__(self):
-        asyncio.run(self.docker.close())
+    @property
+    def currentdatavolume(self):
+        return self.volumes[-1]#['Mountpoint']/'Name
+
+    def __exit__(self, type, value, traceback):
+        super().__exit__(type, value, traceback)
+        async def aux():
+            for container in self.containers:
+                try:
+                    await container.kill()
+                    await container.delete()
+                except aiodocker.DockerError as e:
+                    if e.status in [404, 409]:
+                        # container no longer exists
+                        pass 
+                    else:
+                        raise e
+
+            for volume in self.volumes:
+                try:
+                    pass
+                    #await aiodocker.docker.DockerVolume(self.docker, volume['Name']).delete()
+                except aiodocker.DockerError as e:
+                    if e.status == 404:
+                        # volume no longer exists
+                        pass 
+                    else:
+                        raise e
+
+            await self.docker.close()
+
+        asyncio.get_event_loop().run_until_complete(asyncio.gather(aux()))
 
     def render(self, snapshot):
         return " ".join([f"-{k} {shlex.quote(str(v))}" for k, v in snapshot.items()])
 
+    def collect_from(self):
+        import docker
+        client = docker.from_env()
+        client.containers.run(
+            'ubuntu:latest',
+            'cp -r /data/container/* /data/host/',
+            mounts= [
+                docker.types.Mount(
+                    target = "/data/container",
+                    source = self.currentdatavolume['Name'],
+                    type = "bind",
+                ),
+                docker.types.Mount(
+                    target = "/data/host",
+                    source = self.datadir,
+                    type = "bind",
+                ),
+            ]
+        )
+
     async def run_async(self, stop_event, stop_display_time):
+        import uuid
+        volume_name = f"bench_varda{str(uuid.uuid4())[0:16]}"
+        container_name = f"bench_varda{str(uuid.uuid4())[0:16]}"
+
         container = await self.docker.containers.run(
             config={
                 'Cmd': [self.run_cmd+" "+self.render(self.config)],
                 'Image': self.image,
+                'Binds': [
+                    f'{volume_name}:/data'
+                ] 
             },
-            name='testing',
+            name = container_name,
         )
+        self.containers.append(container)
+
+
+        volumes = await self.docker.volumes.list()
+        volume = None
+        for v in volumes['Volumes']:
+            if v['Name'] == volume_name:
+                volume = v
+        assert(volume != None)
+        self.volumes.append(volume)
+
         logging.debug(f"Starting container {container.id} with image {self.image} and cmd {self.run_cmd}")
-        return await self.run_async_skeleton(DockerPod(container), stop_event, stop_display_time)
+        res = await self.run_async_skeleton(DockerPod(container), stop_event, stop_display_time)
+
+        return res
         
 #class DockerComposeRunner(Runner):
 #class DockerSwarmRunner

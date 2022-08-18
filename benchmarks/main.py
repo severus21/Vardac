@@ -12,8 +12,6 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "orm.settings")
 import django
 django.setup()
 
-from config.figures import FIGURES
-from config.benchmarks import BENCHMARKS
 
 
 coloredlogs.install(level='DEBUG')
@@ -46,6 +44,8 @@ FIGURESDIR = 'figures'
 
 
 def do_render(save, fig_selector):
+    from config.figures import FIGURES
+
     if fig_selector == "all":
         figures = FIGURES
     else:
@@ -68,6 +68,8 @@ def do_render(save, fig_selector):
 
 
 def do_run(bench_selector):
+    from config.benchmarks import BENCHMARKS
+
     if bench_selector == "all":
         benchmarks = BENCHMARKS
     else:
@@ -79,18 +81,20 @@ def do_run(bench_selector):
         print("\t- "+"\n\t- ".join([b.name for b in BENCHMARKS]))
 
     n_error = 0
-    print(benchmarks)
 
     loop = asyncio.get_event_loop()
     try:
         for bench in benchmarks:
-            tmp_flag = bench.start()
+            with bench: 
+                tmp_flag = bench.start()
 
-            n_error += int(not tmp_flag)
+                n_error += int(not tmp_flag)
 
         if n_error > 0:
             logging.error(
                 f"{n_error} benchmark{'s' if n_error > 1 else ''} ha{'ve' if n_error > 1 else 's'} failed !")
+
+        logging.info("Benchmarks are done!")
     finally:
         logging.info("Closing loop in main")
         loop.close()

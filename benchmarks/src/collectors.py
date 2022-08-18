@@ -1,6 +1,9 @@
 import logging
 import os
 import subprocess
+from tkinter import W
+
+from src.runners import DockerRunner
 
 from .models import *
 
@@ -61,3 +64,52 @@ class FileCollector(AbstractCollector):
     def clean(self):
         if os.path.exists(self.filename):
             os.remove(self.filename)
+
+import docker
+from tempfile import TemporaryDirectory
+
+class VolumeCollector(AbstractCollector):
+    def __init__(self, collectors) -> None:
+        super().__init__()
+        self.collectors = collectors
+
+    def repatriate(self, tmpdir, runner : DockerRunner):
+        client = docker.from_env()
+        r = client.containers.run(
+            'ubuntu:latest',
+            ['cp', '-av', '/data/container/', '/data/host/'],
+            mounts= [
+                docker.types.Mount(
+                    target = "/data/container",
+                    source = runner.currentdatavolume['Name'],
+                    type = "volume",
+                    read_only = True
+                ),
+                docker.types.Mount(
+                    target = "/data/host",
+                    source = tmpdir,
+                    type = "bind",
+                ),
+            ],
+            user = os.getuid()
+        )
+
+        #print("Result:", r)
+
+    def collect(self, runner : DockerRunner):
+        with TemporaryDirectory() as tmpdir:
+            # repatriate data from container to host
+            self.repatriate(tmpdir, runner)
+
+            # apply collectors on repatriated data
+            res = {} 
+            for collector in self.collectors:
+                past = collector.filename
+
+                collector.filename = os.path.join(tmpdir, os.path.join('container', collector.filename))
+                tmp = collector.collect(runner)
+                if tmp:
+                    res = res | tmp
+
+                collector.filename = past
+            return res

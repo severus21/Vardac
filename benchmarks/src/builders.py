@@ -21,6 +21,12 @@ class AbstractBuilder(ABC):
 
         self._is_build = False
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        pass
+
     @abstractmethod
     def _get_bench_model(self):
         pass
@@ -121,11 +127,16 @@ class DockerBuilder(AbstractBuilder):
         super().__init__(name, project_dir)
         self.docker = aiodocker.Docker()
 
-    def image_name(self):
-        return self.name+"_"+dirhash(self.project_dir, 'md5')[:10]
+        self._image_name = None
 
-    def __del__(self):
-        asyncio.run(self.docker.close())
+    @property
+    def image_name(self):
+        if not self._image_name:
+            self._image_name = self.name+"_"+dirhash(self.project_dir, 'md5')[:10]
+        return self._image_name
+
+    def __exit__(self, type, value, traceback):
+        asyncio.get_event_loop().run_until_complete(asyncio.gather(self.docker.close()))
 
     def aux_is_build(self):
         async def aux():
@@ -135,7 +146,7 @@ class DockerBuilder(AbstractBuilder):
                 )
                 return True
             except aiodocker.DockerError as e:
-                if e.status == 400: 
+                if e.status == 400 or e.status == 404: 
                     #image does not exists
                     return False
                 else:
@@ -171,7 +182,7 @@ class DockerBuilder(AbstractBuilder):
             bname = os.path.basename(self.project_dir)
             print(bname)
             print(fpgz.name)
-            print(self.image_name())
+            print(self.image_name)
             subprocess.check_call(
                 f'find {bname} -printf "%P\n" -type f -o -type l -o -type d | tar -czf {fpgz.name} --no-recursion -C {bname} -T -', 
                 encoding='utf-8',
@@ -182,7 +193,7 @@ class DockerBuilder(AbstractBuilder):
             try:
                 res = await self.docker.images.build(
                     fileobj = fpgz,
-                    tag = f'{self.image_name()}:latest',
+                    tag = f'{self.image_name}:latest',
                     #nocache=True,
                     rm = True,
                     encoding="gzip"

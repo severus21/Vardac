@@ -143,16 +143,15 @@ BENCHMARKS = [
     ),
     Benchmark(
         "ms-akka-one-jvm-docker",
-        DockerBuilder("testdockerbuilder", Path(os.getcwd())/'benchmarks'/'bench-ms'/'akka'),
+        DockerBuilder("ms-akka-one-jvm-docker", Path(os.getcwd())/'benchmarks'/'bench-ms'/'akka'),
         DockerRunnerFactory(
             "ms-akka-one-jvm-docker",
-            "testdockerbuilder_7c03a55710", #TODO get this from builder
             "/usr/local/openjdk-11/bin/java -enableassertions -jar main.jar", 
             "Terminated ueyiqu8R" 
         ),
         [ 
             StdoutCollector(get_elapse_time),
-            #FileCollector(Path(os.getcwd())/"benchmarks"/"bench-ms"/"akka"/"rtts.json", get_rtts), # TODO collector for docker
+            VolumeCollector([FileCollector("rtts.json", get_rtts)]),
         ],
         Generator(RangeIterator({
             "n": 1,
