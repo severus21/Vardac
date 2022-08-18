@@ -1,3 +1,4 @@
+from inspect import trace
 import logging
 import os
 import subprocess
@@ -121,6 +122,33 @@ from tempfile import NamedTemporaryFile
 import aiodocker
 import asyncio
 import base64
+
+class ChainBuilder(AbstractBuilder):
+    def __init__(self, builders):
+        self.builders = builders
+
+    def __enter__(self):
+        for k in range(self.builders):
+            self.builders[k] = self.builders[k].__enter__()
+        return super().__enter__()
+
+    def __exit__(self, type, value, traceback):
+        for builder in self.builders:
+            builder.__exit__(self, type, value, traceback)
+        return super().__exit__(self, type, value, traceback)
+
+    def aux_is_build(self):
+        flag = True
+        for builder in self.builders:
+            flag = flag and builder.aux_is_build()
+        return flag
+
+    def _get_bench_model(self):
+        raise Exception("TODO get_bench_model")
+
+    def _build(self):
+        for builder in self.builders:
+            builder._build()
 
 class DockerBuilder(AbstractBuilder):
     def __init__(self, name, project_dir=None) -> None:
