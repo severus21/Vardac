@@ -4,3 +4,10 @@ impl function toto java:{=
     System.out.println("TOTO");
     return null;
 =}
+
+impl type java_object java:{=
+    Object
+=}
+impl function java_object_size java:{=
+    return com.lg4dc.objectsize.InstrumentationAgent.getObjectSize(obj);
+=}

@@ -1,1 +1,7 @@
 void toto();
+
+(* Java specific -> move to some javalib 
+    needs -javaagent:"path_to_agent_directory\InstrumentationAgent.jar"
+*)
+type java_object;
+long java_object_size(java_object obj);

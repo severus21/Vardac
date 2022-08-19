@@ -1,6 +1,6 @@
 ## Mono JVM setup
 ```make```
-```java -enableassertions -jar build/libs/main.jar -n 100 -warmup 100 -payload 10```
+```java -javaagent:jvm-instrumentation/InstrumentationAgent.jar -enableassertions -jar build/libs/main.jar -n 100 -warmup 100 -payload 10```
 
 ## Two JVM setup
 

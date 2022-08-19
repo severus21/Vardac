@@ -109,5 +109,21 @@ task jar{{main.name[0]|capitalize}}{{substring(1,strlen(main.name), main.name)}}
 }
 {% endfor %}
 
+task jarInstrumentationAgent(type: ShadowJar) {
+    archiveBaseName.set('InstrumentationAgent')
+    archiveClassifier.set('')
+    archiveVersion.set('')
+    configurations = [project.configurations.compileClasspath]
+    manifest {
+        
+        attributes('Premain-class': 'com.lg4dc.objectsize.InstrumentationAgent')
+        
+    }
+    transform(AppendingTransformer) {
+        resource = 'reference.conf'
+    }
+    with jar
+}
+
 // Target defined outside the reach of Varda
 {{user_defined_targets|safe}}
