@@ -2,7 +2,7 @@ default: build
 
 
 build_main:
-	gradle -x test jarMain 
+	gradle -x test jarMain jarInstrumentationAgent 
 
 build: protobuf  build_main
 

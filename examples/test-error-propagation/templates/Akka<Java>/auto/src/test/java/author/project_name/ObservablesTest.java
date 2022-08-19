@@ -23,8 +23,8 @@ import java.util.*;
 import io.vavr.*;
 import io.vavr.control.*;
 
-import com.lg4dc.*;
-import com.lg4dc.timers.*;
+import com.varda.*;
+import com.varda.timers.*;
 import com.bmartin.*;
 
 {% for guardian_name in target_entrypoints %}

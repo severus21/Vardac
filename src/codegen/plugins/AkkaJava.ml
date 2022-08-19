@@ -451,7 +451,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     S.annotations = [S.Visibility S.Public];
                     decorators = []; 
                     v = S.Actor ( auto_place({
-                        S.extends = Some (Rt.Misc.t_lg4dc_abstract_system fplace);
+                        S.extends = Some (Rt.Misc.t_varda_abstract_system fplace);
                         implemented_types = [];
                         is_guardian = true;
                         name = name;
@@ -706,7 +706,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                                     guardian with 
                                         value = {guardian.value with 
                                             is_guardian = true;
-                                            extends = Some(Rt.Misc.t_lg4dc_abstract_system fplace);
+                                            extends = Some(Rt.Misc.t_varda_abstract_system fplace);
                                             methods = change_constructor guardian.value.methods;
                                         }
                                     }
@@ -1363,7 +1363,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         isInterface         = false;
                         name                = name;
                         parameters          = []; 
-                        extends             = Some (fctype (Rt.Misc.t_lg4dc_event fplace None));
+                        extends             = Some (fctype (Rt.Misc.t_varda_event fplace None));
                         implemented_types   = implemented_types; 
                         body                = constructor::(fields@getters)
                     }
@@ -1552,7 +1552,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             let extends = 
                 Option.fold 
                     ~none:(Some (auto_place (T.ClassOrInterfaceType (
-                        fctype (Rt.Misc.t_lg4dc_abstract_component fplace),
+                        fctype (Rt.Misc.t_varda_abstract_component fplace),
                         [ 
                             fctype (Rt.Misc.t_command_of_actor place name)     
                         ]) 

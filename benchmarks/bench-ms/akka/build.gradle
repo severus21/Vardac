@@ -104,3 +104,19 @@ task jarMain(type: ShadowJar) {
     }
     with jar
 }
+
+task jarInstrumentationAgent(type: ShadowJar) {
+    archiveBaseName.set('InstrumentationAgent')
+    archiveClassifier.set('')
+    archiveVersion.set('')
+    configurations = [project.configurations.compileClasspath]
+    manifest {
+        
+        attributes('Premain-class': 'com.varda.objectsize.InstrumentationAgent')
+        
+    }
+    transform(AppendingTransformer) {
+        resource = 'reference.conf'
+    }
+    with jar
+}

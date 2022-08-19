@@ -3,7 +3,7 @@ open Utils
 open AstUtils
 
 let system_name = "system"^(String.capitalize_ascii (Config.project_name ())) 
-let lg4dc_package = "com.lg4dc"
+let varda_package = "com.varda"
 
 
 let fplace = (Error.forge_place ("plg.Akka.Misc") 0 0) 
@@ -97,29 +97,29 @@ let t_actor_guardian place =
         auto_place(Ast.Atomic "SpawnProtocol.Command")
     ))
 
-let t_lg4dc_abstract_system place =
+let t_varda_abstract_system place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin varda_package)),
         auto_place (Ast.TVar (Atom.builtin "AbstractSystem")) 
     ))
-let t_lg4dc_abstract_component place =
+let t_varda_abstract_component place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin varda_package)),
         auto_place (Ast.TVar (Atom.builtin "AbstractComponent")) 
     ))
-let t_lg4dc_protocol place =
+let t_varda_protocol place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin varda_package)),
         auto_place (Ast.TVar (Atom.builtin "Protocol")) 
     ))
 
-let t_lg4dc_bridge place =
+let t_varda_bridge place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin varda_package)),
         auto_place (Ast.TVar (Atom.builtin "Bridge")) 
     ))
 let t_akka_member place =
@@ -130,48 +130,48 @@ let t_akka_cluster place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TVar (Atom.builtin "Cluster")) 
 
-let t_lg4dc_nometadata place =
+let t_varda_nometadata place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin varda_package)),
         auto_place (Ast.TVar (Atom.builtin "metadata.NoMetadata")) 
     ))
 
-let t_lg4dc_vplace place =
+let t_varda_vplace place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin varda_package)),
         auto_place (Ast.TVar (Atom.builtin "VPlace")) 
     ))
-let t_lg4dc_event place metadata_opt =
+let t_varda_event place metadata_opt =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TParam(
         auto_place (Ast.TAccess (
-            auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+            auto_place (Ast.TVar (Atom.builtin varda_package)),
             auto_place (Ast.TVar (Atom.builtin "Event")) 
         )),
         [
             match metadata_opt with 
-            | None -> t_lg4dc_nometadata place
+            | None -> t_varda_nometadata place
             | Some ct -> ct
         ]
     ))
-let t_lg4dc_session place =
+let t_varda_session place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin varda_package)),
         auto_place (Ast.TVar (Atom.builtin "Session")) 
     ))
-let t_lg4dc_place place =
+let t_varda_place place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin varda_package)),
         auto_place (Ast.TVar (Atom.builtin "Place")) 
     ))
-let t_lg4dc_vplace place =
+let t_varda_vplace place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.TAccess (
-        auto_place (Ast.TVar (Atom.builtin lg4dc_package)),
+        auto_place (Ast.TVar (Atom.builtin varda_package)),
         auto_place (Ast.TVar (Atom.builtin "VPlace")) 
     ))
 
@@ -339,29 +339,29 @@ let e_behaviors_with_timers place =
     ), auto_place Ast.TUnknown)
 
 
-let e_lg4dc_session place =
+let e_varda_session place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
-        auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
+        auto_place (Ast.VarExpr (Atom.builtin varda_package), auto_place Ast.TUnknown),
         auto_place (Ast.VarExpr (Atom.builtin "Session"), auto_place Ast.TUnknown) 
     ), auto_place Ast.TUnknown)
 
-let e_lg4dc_spawnat place =
+let e_varda_spawnat place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
-        auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
+        auto_place (Ast.VarExpr (Atom.builtin varda_package), auto_place Ast.TUnknown),
         auto_place (Ast.RawExpr "PlaceDiscovery.spawnAt", auto_place Ast.TUnknown) 
     ), auto_place Ast.TUnknown)
-let e_lg4dc_componentsat place =
+let e_varda_componentsat place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
-        auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
+        auto_place (Ast.VarExpr (Atom.builtin varda_package), auto_place Ast.TUnknown),
         auto_place (Ast.RawExpr "PlaceDiscovery.activationsAt", auto_place Ast.TUnknown) 
     ), auto_place Ast.TUnknown)
-let e_lg4dc_placeof place =
+let e_varda_placeof place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.AccessExpr (
-        auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
+        auto_place (Ast.VarExpr (Atom.builtin varda_package), auto_place Ast.TUnknown),
         auto_place (Ast.RawExpr "Place.of_actor_ref", auto_place Ast.TUnknown)
     ), auto_place Ast.TUnknown)
 let e_session_of_protocol place protocol = 
@@ -492,22 +492,22 @@ let e_is_instance place cl obj =
         ), auto_place Ast.TUnknown),
         [ obj ]
     ), auto_place Ast.TUnknown)
-let e_lg4dc_places place =
+let e_varda_places place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.CallExpr(
         auto_place (Ast.AccessExpr (
-            auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
+            auto_place (Ast.VarExpr (Atom.builtin varda_package), auto_place Ast.TUnknown),
             auto_place (Ast.RawExpr ("Place.places"), auto_place Ast.TUnknown) 
         ), auto_place Ast.TUnknown),
         [
             e_get_context place
         ]
     ), auto_place Ast.TUnknown)
-let e_lg4dc_current_place place =
+let e_varda_current_place place =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.CallExpr(
         auto_place (Ast.AccessExpr (
-            auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
+            auto_place (Ast.VarExpr (Atom.builtin varda_package), auto_place Ast.TUnknown),
             auto_place (Ast.RawExpr ("Place.currentPlace"), auto_place Ast.TUnknown) 
         ), auto_place Ast.TUnknown),
         [
@@ -515,11 +515,11 @@ let e_lg4dc_current_place place =
         ]
     ), auto_place Ast.TUnknown)
 
-let e_lg4dc_select_places place vp predicate =
+let e_varda_select_places place vp predicate =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.CallExpr(
         auto_place (Ast.AccessExpr (
-            auto_place (Ast.VarExpr (Atom.builtin lg4dc_package), auto_place Ast.TUnknown),
+            auto_place (Ast.VarExpr (Atom.builtin varda_package), auto_place Ast.TUnknown),
             auto_place (Ast.RawExpr ("Place.places"), auto_place Ast.TUnknown) 
         ), auto_place Ast.TUnknown),
         [

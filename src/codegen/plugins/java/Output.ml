@@ -353,8 +353,8 @@ module Make () = struct
             JModule (mock_placed(ImportDirective "io.vavr.control.*"));
 
             (* Plugin (external) libs imports *)
-            JModule (mock_placed(ImportDirective "com.lg4dc.*"));
-            JModule (mock_placed(ImportDirective "com.lg4dc.timers.*"));
+            JModule (mock_placed(ImportDirective "com.varda.*"));
+            JModule (mock_placed(ImportDirective "com.varda.timers.*"));
             JModule (mock_placed(ImportDirective "com.bmartin.*"));
         ])
         @ items in

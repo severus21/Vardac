@@ -2,13 +2,13 @@ default: build
 
 
 build_main:
-	gradle -x test jarMain 
+	gradle -x test jarMain jarInstrumentationAgent 
 
 build_pingService:
-	gradle -x test jarPingService
+	gradle -x test jarPingService jarInstrumentationAgent
 
 build_pongService:
-	gradle -x test jarPongService
+	gradle -x test jarPongService jarInstrumentationAgent
 
 build: protobuf  build_main build_pingService build_pongService
 

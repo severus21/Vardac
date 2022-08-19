@@ -25,8 +25,8 @@ import java.util.*;
 import java.util.Optional;
 import java.util.function.Function;
 
-import com.lg4dc.WrappedActorRef;
-import com.lg4dc.WrappedActivationRef;
+import com.varda.WrappedActorRef;
+import com.varda.WrappedActivationRef;
 
 public class SpawnProtocol {
     @JsonSerialize(using = LambdaJsonSerializer.class)

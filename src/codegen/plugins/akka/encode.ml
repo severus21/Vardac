@@ -27,7 +27,7 @@ let encode_builtin_type place name =
     let auto_place t = {place; value=t} in 
     
     match name with
-    | "error" -> T.TVar (Atom.builtin "com.lg4dc.Error")
+    | "error" -> T.TVar (Atom.builtin "com.varda.Error")
     | _ -> failwith (Printf.sprintf "Unsupported builtin access in Akka:  %s" name) 
 
 
@@ -83,9 +83,9 @@ let encode_builtin_fct_0 parent_opt place name =
             []
         ) 
     | "places" -> 
-        fst (e_lg4dc_places place).value
+        fst (e_varda_places place).value
     | "current_place" ->
-         fst (e_lg4dc_current_place place).value
+         fst (e_varda_current_place place).value
     | "time" ->
         T.RawExpr "System.currentTimeMillis()"
     | "current_activation" ->
@@ -197,7 +197,7 @@ let encode_builtin_fct_1 parent_opt place name a =
     | "activationsat" ->
         (* TODO rename activationsat or componentsat in order to have same name in java and ocaml code*)
         T.CallExpr(
-            e_lg4dc_componentsat place,
+            e_varda_componentsat place,
             [
                 e_get_context place;
                 a
@@ -205,12 +205,12 @@ let encode_builtin_fct_1 parent_opt place name a =
         )
     | "placeof" -> 
         T.CallExpr(
-            e_lg4dc_placeof place,
+            e_varda_placeof place,
             [ e_get_context place; a ]
         )
     | "pick" ->
         T.CallExpr(
-            e2var (Atom.builtin "com.lg4dc.Utils.pick"),
+            e2var (Atom.builtin "com.varda.Utils.pick"),
             [ a ]
         )
     | "debug" -> 
@@ -445,7 +445,7 @@ let encode_builtin_fct_2 parent_opt place name a b =
             [ a; b ]
         )
     | "select_places" ->
-        fst (e_lg4dc_select_places place a b).value
+        fst (e_varda_select_places place a b).value
     | "initiate_session_with" ->
         (* TODO i need to get the name of the type of the protocol 
         Maybe some thing like protocol is a value and we bind a protocol type with it.

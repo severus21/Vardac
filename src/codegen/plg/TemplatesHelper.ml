@@ -68,7 +68,7 @@ end) = struct
         let destfile = Fpath.append build_dir destfile in
         (template, env, destfile)
 
-    (** @param root - empty for lg4dc or projec_name directory *)
+    (** @param root - empty for varda or projec_name directory *)
     let process_templates root jingoo_models = 
         (* auto_templates *)
         let _auto_templates_dir = auto_templates_dir root in

@@ -115,7 +115,7 @@ module Make (Plg: Cg_plg) = struct
     include Plg
 
     (*
-        lg4dc/
+        varda/
         - externals
             - auto
             - custom
@@ -132,8 +132,8 @@ module Make (Plg: Cg_plg) = struct
         ...
         
         precedence rules
-        - project_name [externals/templates] overrides lg4dc
-        - custom overides auto in project_name and lg4dc (independently)
+        - project_name [externals/templates] overrides varda
+        - custom overides auto in project_name and varda (independently)
 
     *)
 

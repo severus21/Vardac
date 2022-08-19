@@ -116,7 +116,7 @@ task jarInstrumentationAgent(type: ShadowJar) {
     configurations = [project.configurations.compileClasspath]
     manifest {
         
-        attributes('Premain-class': 'com.lg4dc.objectsize.InstrumentationAgent')
+        attributes('Premain-class': 'com.varda.objectsize.InstrumentationAgent')
         
     }
     transform(AppendingTransformer) {

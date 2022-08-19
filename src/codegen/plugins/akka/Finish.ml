@@ -217,7 +217,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             | AstUtils.TUUID -> T.Atomic "UUID" 
             | AstUtils.TWildcard -> T.Atomic "?"
             | AstUtils.TBottom -> T.Atomic "Object"
-            | AstUtils.TPlace -> (t_lg4dc_place place).value
+            | AstUtils.TPlace -> (t_varda_place place).value
             | AstUtils.TBLabel -> T.Atomic "LabelEvent"
             | AstUtils.TUnit -> T.Atomic "void"
         end
@@ -228,8 +228,8 @@ module Make (Arg: sig val target:Target.target end) = struct
         | S.TResult (m1, m2) -> T.TResult (fmtype parent_opt m1, fmtype parent_opt m2)
         | S.TSet mt -> T.TSet (fmtype parent_opt mt)
         | S.TTuple mts ->  T.TTuple (List.map (fun x -> (fmtype parent_opt x)) mts)
-        | S.TVPlace mt -> (t_lg4dc_vplace place).value
-        | S.TBridge b -> (t_lg4dc_bridge place).value
+        | S.TVPlace mt -> (t_varda_vplace place).value
+        | S.TBridge b -> (t_varda_bridge place).value
         | S.TUnion _-> T.TRaw "Object" (* TODO maybe a better solution*)
         | S.TForall _ -> T.TUnknown (* TODO maybe encode it as class <T> ... { <T> } *)
         | S.TPolyVar _ -> T.TUnknown (* TODO maybe encode it as class <T> ... { <T> } *)
@@ -426,11 +426,11 @@ module Make (Arg: sig val target:Target.target end) = struct
             actuellement encapsuler dans le protocol pb pour la creation après
             puisque dans le language on utilise le protocol que pour le initiate_sesion et les autres types de sessions sont indépendants du protocol.
     *)
-    | S.SType {value=S.STInline _} -> t_lg4dc_session place (* FIXME x not used *)
+    | S.SType {value=S.STInline _} -> t_varda_session place (* FIXME x not used *)
     | S.SType st -> {
         place; 
         value = T.TParam (
-            t_lg4dc_session fplace,
+            t_varda_session fplace,
             [ ] (* FIXME at this point we do not parametrize session with session types since 
                     do not compile yet
                     if we can exhange session by message-passing Java loose the generic parameter types dynamically 
@@ -629,7 +629,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 schema = e2_lit (T.StringLit (Atom.to_string (IRMisc.schema_of c)));
                 actor_ref = 
                 e2_e (T.CallExpr(
-                    e_lg4dc_spawnat fplace,
+                    e_varda_spawnat fplace,
                     [
                         e_get_context place;
                         e_this_guardian (this_actor parent_opt) fplace;
@@ -1369,10 +1369,10 @@ module Make (Arg: sig val target:Target.target end) = struct
             let generate_case_body ((e_port, e_remaining_st): T.expr * T.expr) (callback:T.expr) : T.stmt list = 
                 [
                     auto_place (T.LetStmt (
-                        t_lg4dc_session place,
+                        t_varda_session place,
                         a_session,
                         Some ( e2_e (T.NewExpr(
-                            e_lg4dc_session place,
+                            e_varda_session place,
                             [
                                 e_bridgeid l_event;
                                 e2_e (T.CastExpr(
@@ -1450,7 +1450,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 (*
                     if(this.registered_session.containsKey(e.session_id)){
                         InPort p = this.registered_session.get(e.session_id);
-                        com.lg4dc.Session s = ...
+                        com.varda.Session s = ...
                         s.set_id(e.session_id);
                         ASTStype.TimerHeader.apply_headers(...);
  
@@ -1685,7 +1685,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                             (
                                 auto_place (T.TParam (
                                     auto_place(T.TVar event_name),
-                                    [ ] (* FIXME for now metadata is fixed per type of event and cannot be changed in a per channel basis TODO t_lg4dc_nometadata fplace ]*)
+                                    [ ] (* FIXME for now metadata is fixed per type of event and cannot be changed in a per channel basis TODO t_varda_nometadata fplace ]*)
                                 )), 
                                 l_event_name
                             )
@@ -1957,7 +1957,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             e2var l_st
         ) in
 
-        (* com.lg4dc.Protocol *)
+        (* com.varda.Protocol *)
         let m_get_st = {
             T.decorators = [];
             annotations = [T.Visibility T.Public];
@@ -1999,7 +1999,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 v = T.ClassOrInterfaceDeclaration {
                     headers = [];
                     isInterface = false;
-                    extends = Some(t_lg4dc_protocol place);
+                    extends = Some(t_varda_protocol place);
                     implemented_types = [];
                     name = name;
                     body = stmts @ sub_classes @ methods (*@ events*)

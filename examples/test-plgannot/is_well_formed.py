@@ -60,7 +60,7 @@ def check_dummy():
         # Check component: extends
         assert(
             "TOTO" in extends and
-            f"com.lg4dc.AbstractComponent<Dummy{atom_id}.Command>" in extends
+            f"com.varda.AbstractComponent<Dummy{atom_id}.Command>" in extends
         )
 
         # Check method: override
@@ -80,7 +80,7 @@ def check_inner():
         # Check component: extends
         assert(
             "TITI" in extends and
-            f"com.lg4dc.AbstractComponent<Inner{atom_id}.Command>" in extends
+            f"com.varda.AbstractComponent<Inner{atom_id}.Command>" in extends
         )
 
         # Check method: override

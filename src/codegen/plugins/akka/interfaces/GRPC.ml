@@ -769,7 +769,7 @@ end) = struct
                 ) services;
                 isInterface = false;
                 name = main_server_name; 
-                extends = Some (Misc.t_lg4dc_abstract_system fplace);
+                extends = Some (Misc.t_varda_abstract_system fplace);
                 implemented_types = [];
                 body = [
                     auto_fplace {

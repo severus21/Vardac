@@ -21,7 +21,7 @@ impl component Dummy {
         // Perform the GET request on key [k]
         String tmp = jedis.get({{%k%}});
         if( tmp == null){
-            return Either.left(new com.lg4dc.Error("Failure"));
+            return Either.left(new com.varda.Error("Failure"));
         } else {
             return Either.right(Integer.parseInt(tmp));
         }
@@ -33,9 +33,9 @@ impl component Dummy {
         // Perform the PUT request on key [k]
         String tmp = jedis.set({{%k%}}, {{%v%}}.toString());
         if ( tmp == null ){
-            return Either.left(new com.lg4dc.Error("Failure"));
+            return Either.left(new com.varda.Error("Failure"));
         } else if ( tmp != "OK") {
-            return Either.left(new com.lg4dc.Error(tmp)); //Assume error = String
+            return Either.left(new com.varda.Error(tmp)); //Assume error = String
         } else {
             return Either.right(tmp == "OK");
         }

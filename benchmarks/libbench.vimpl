@@ -20,6 +20,6 @@ impl function tojson java:{=
         return Either.right(null);
     } catch (IOException e ){
         System.err.println(e.toString());
-        return Either.left(new com.lg4dc.Error(e.toString()));
+        return Either.left(new com.varda.Error(e.toString()));
     }
 =}
