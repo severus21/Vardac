@@ -17,8 +17,8 @@ class AbstractBuilder(ABC):
         self.name= name
         self.project_dir = project_dir
 
-        self.build_stdout           = ""
-        self.build_stderr           = ""
+        self._build_stdout           = ""
+        self._build_stderr           = ""
 
         self._is_build = False
 
@@ -27,6 +27,16 @@ class AbstractBuilder(ABC):
 
     def __exit__(self, type, value, traceback):
         pass
+
+    def for_runner(self):
+        return self
+
+    def build_stdout(self):
+        return self._build_stdout
+
+    @property
+    def build_stderr(self):
+        return self._build_stderr
 
     @abstractmethod
     def _get_bench_model(self):
@@ -58,15 +68,15 @@ class AbstractBuilder(ABC):
 
     def build(self, *args, **kwargs):
         if not self.is_build:
-            logging.info(f"Bench {self.name}> Building !")
+            logging.info(f"Bench {self.name}> Building ({type(self)})!")
             tmp = self._build(*args, **kwargs)
             self._is_build = True
             b, _ = self.get_bench_model()
             if b:
-                logging.info(f"Bench {self.name}> Built !")
+                logging.info(f"Bench {self.name}> Built ({type(self)})!")
             return tmp, b
         else:
-            logging.info(f"Bench {self.name}> Already built !")
+            logging.info(f"Bench {self.name}> Already built ({type(self)})!")
             return True, self.get_bench_model()[0]
 
 class ShellBuilder(AbstractBuilder):
@@ -92,10 +102,19 @@ class ShellBuilder(AbstractBuilder):
         )
 
     def aux_is_build(self):
-        if not self._is_build and self.build_dir and self.project_dir:
-            _, is_created = self.get_bench_model()
-            if not is_created:
-                self._is_build = True
+        if self._is_build:
+            return True
+
+        if not self.build_dir or not self.project_dir:
+            return False
+
+        if not os.path.isdir(self.build_dir) or not os.path.isdir(self.project_dir):
+            return False
+
+        _, is_created = self.get_bench_model()
+        if not is_created:
+            self._is_build = True
+
         return self._is_build
 
     def _build(self) -> bool:
@@ -105,9 +124,10 @@ class ShellBuilder(AbstractBuilder):
             encoding='utf-8',
             cwd = self.build_cwd,
             shell=True)
+        print("_build", self.build_cmd, res.returncode)
 
-        self.build_stdout = res.stdout
-        self.build_stderr = res.stderr
+        self._build_stdout = res.stdout
+        self._build_stderr = res.stderr
         return res.returncode == 0
 
 class VardaBuilder(ShellBuilder):
@@ -124,8 +144,23 @@ import asyncio
 import base64
 
 class ChainBuilder(AbstractBuilder):
-    def __init__(self, builders):
+    def __init__(self, builders, stamp_strategy, exposed_builder):
+        super().__init__(None, None)
+
         self.builders = builders
+        self.stamp_strategy = stamp_strategy
+        self.exposed_builder = exposed_builder(self.builders)
+
+    @property
+    def run_stdout(self):
+        return '\n'.join([self._run_stdout]+[r.run_stdout for r in self.builders])
+
+    @property
+    def run_stderr(self):
+        return '\n'.join([self._run_stderr]+[r.run_stdout for r in self.builders])
+
+    def for_runner(self):
+        return self.exposed_builder
 
     def __enter__(self):
         for k in range(self.builders):
@@ -134,21 +169,28 @@ class ChainBuilder(AbstractBuilder):
 
     def __exit__(self, type, value, traceback):
         for builder in self.builders:
-            builder.__exit__(self, type, value, traceback)
-        return super().__exit__(self, type, value, traceback)
+            builder.__exit__(type, value, traceback)
+        return super().__exit__(type, value, traceback)
 
     def aux_is_build(self):
-        flag = True
         for builder in self.builders:
-            flag = flag and builder.aux_is_build()
-        return flag
+            if not builder.is_build:
+                return False
+            print(type(builder), "is built")
+        return True 
 
     def _get_bench_model(self):
-        raise Exception("TODO get_bench_model")
+        return self.stamp_strategy(self.builders)
 
     def _build(self):
         for builder in self.builders:
-            builder._build()
+            if not builder.build():
+                logging.error(f"Bench {self.name}> Intermediaire built failure {type(builder)}!")
+                print(builder.build_stdout)
+                print(builder.build_stderr)
+                return False
+        return True
+
 
 class DockerBuilder(AbstractBuilder):
     def __init__(self, name, project_dir=None) -> None:
@@ -167,6 +209,9 @@ class DockerBuilder(AbstractBuilder):
         asyncio.get_event_loop().run_until_complete(asyncio.gather(self.docker.close()))
 
     def aux_is_build(self):
+        print(self.project_dir)
+        assert(os.path.isdir(self.project_dir))
+
         async def aux():
             try:
                 await self.docker.images.inspect(
@@ -179,7 +224,6 @@ class DockerBuilder(AbstractBuilder):
                     return False
                 else:
                     raise e
-
         # Image name encode project hash 
         loop = asyncio.get_event_loop()
         result = loop.run_until_complete(aux())

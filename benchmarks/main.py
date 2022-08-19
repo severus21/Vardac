@@ -26,11 +26,13 @@ subparsers = parser.add_subparsers(help='sub-command help', dest="cmdaction")
 parser_run = subparsers.add_parser('run', help='TODO')
 parser_run.add_argument("--bench-selector", default="all",
                         help=f"all or name1:name2:")
+parser_run.add_argument("--use_re", default=False, help=f"TODO", action='store_true')
 parser_render = subparsers.add_parser('render', help='TODO')
 parser_render.add_argument(
     "--save", action='store_true', default=False, help='save figure to disk')
 parser_render.add_argument("--fig-selector", default="all",
                            help=f"all or name1:name2:")
+parser_render.add_argument("--use_re", default=False, help=f"TODO", action='store_true')
 parser_test = subparsers.add_parser('test', help='TODO')
 
 args = parser.parse_args()
@@ -43,14 +45,18 @@ cmdactions['test'] = lambda kwargs: do_test(**kwargs)
 FIGURESDIR = 'figures'
 
 
-def do_render(save, fig_selector):
+def do_render(save, fig_selector, use_re=False):
     from config.figures import FIGURES
 
     if fig_selector == "all":
         figures = FIGURES
     else:
-        selected_fig_names = set(fig_selector.split(":"))
-        figures = [f for f in FIGURES if f.title in selected_fig_names]
+        if not use_re:
+            selected_fig_names = set(fig_selector.split(":"))
+            figures = [f for f in FIGURES if f.title in selected_fig_names]
+        else:
+            p = re.compile(fig_selector)
+            figures = [ f for f in FIGURES if p.match(f.name)]
 
     if not figures:
         print("No selected figures!")
@@ -66,15 +72,21 @@ def do_render(save, fig_selector):
                 json.dump({'stamp': get_current_stamp()}, f)
         fig.render()
 
+import re
 
-def do_run(bench_selector):
+def do_run(bench_selector, use_re=False):
     from config.benchmarks import BENCHMARKS
 
     if bench_selector == "all":
         benchmarks = BENCHMARKS
     else:
-        selected_bench_names = set(bench_selector.split(":"))
-        benchmarks = [b for b in BENCHMARKS if b.name in selected_bench_names]
+
+        if not use_re:
+            selected_bench_names = set(bench_selector.split(":"))
+            benchmarks = [b for b in BENCHMARKS if b.name in selected_bench_names]
+        else:
+            p = re.compile(bench_selector)
+            benchmarks = [ b for b in BENCHMARKS if p.match(b.name)]
 
     if not benchmarks:
         print("No selected benchmarks!")

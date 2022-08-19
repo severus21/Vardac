@@ -35,7 +35,8 @@ class Benchmark:
             for i, _ in enumerate(range(self.generator.n_run)):
                 logging.info(f"Bench {self.name}> Start run {i+1}/{self.generator.n_run} for config {config}")
 
-                with self.runner_factory.make(self.builder, config) as runner:
+
+                with self.runner_factory.make(self.builder.for_runner(), config) as runner:
 
                     tmp_flag = runner.run()
                     flag = flag and tmp_flag

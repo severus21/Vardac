@@ -161,23 +161,25 @@ BENCHMARKS = [
     ),
     Benchmark(
         "ms-varda-one-jvm-docker",
-        ChainBuilder([
-            VardaBuilder("ms-varda-one-jvm-docker", "benchmarks/bench-mpp/varda", "dune exec --profile release -- vardac compile --places benchmarks/bench-ms/varda/places.yml --targets benchmarks/bench-ms/varda/targets.yml --filename benchmarks/bench-ms/varda/bench.varch --impl benchmarks/libbench.vimpl --impl benchmarks/bench-ms/varda/bench.vimpl --provenance 0 && cd compiler-build/akka && make", Path(os.getcwd()).absolute()),
-            DockerRunnerFactory(
-                "ms-varda-one-jvm-docker",
-                "/usr/local/openjdk-11/bin/java -enableassertions -jar main.jar", 
-                "Terminated ueyiqu8R" 
-            ),
-        ]),
-        ShellRunnerFactory( #TODO DockerRunnerFactory
-            "ms-varda-one-jvm",
-            "java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB", 
-            Path(os.getcwd())/"compiler-build"/"akka", 
+        ChainBuilder(
+            [
+                VardaBuilder(
+                    "ms-varda-one-jvm-docker", 
+                    "benchmarks/bench-mpp/varda", "dune exec --profile release -- vardac compile --places benchmarks/bench-ms/varda/places.yml --targets benchmarks/bench-ms/varda/targets.yml --filename benchmarks/bench-ms/varda/bench.varch --impl benchmarks/libbench.vimpl --impl benchmarks/bench-ms/varda/bench.vimpl --provenance 0 && cd compiler-build/akka && make", 
+                    Path(os.getcwd()).absolute()),
+                DockerBuilder("ms-akka-one-jvm-docker", Path(os.getcwd())/"compiler-build"/"akka"),
+            ],
+            stamp_strategy = lambda builders: builders[0]._get_bench_model(), #since Varda striclty stronger than docker
+            exposed_builder = lambda builders: builders[-1]# the one pass to runner
+        ),
+        DockerRunnerFactory(
+            "ms-varda-one-jvm-docker",
+            "/usr/local/openjdk-11/bin/java -enableassertions -jar main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB", 
             "Terminated ueyiqu8R"
         ),
         [ 
             StdoutCollector(get_elapse_time),
-            FileCollector(Path(os.getcwd())/"compiler-build"/"akka"/"rtts.json", get_rtts),#TODO DockerCollector
+            VolumeCollector([FileCollector("rtts.json", get_rtts)]),
         ],
         Generator(RangeIterator({
             "n": 1,
