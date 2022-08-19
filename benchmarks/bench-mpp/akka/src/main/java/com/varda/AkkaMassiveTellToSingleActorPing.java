@@ -28,8 +28,10 @@ public class AkkaMassiveTellToSingleActorPing {
         Options options = new Options();
         Option nIterationsOpt = new Option("n", "niterations", true, "number of iterations");
         Option nWarmupIterationsOpt = new Option("warmup", "nwarmupiterations", true, "number of iterations for warmup");
+        Option payloadOpt = new Option("payload", "payload", true, "number of iterations for warmup");
 		options.addOption(nIterationsOpt);
 		options.addOption(nWarmupIterationsOpt);
+		options.addOption(payloadOpt);
 
         Tuple2<CommandLine, HelpFormatter> res = AbstractMain.get_cmd(options, args);
         CommandLine cmd = res._1;
@@ -43,9 +45,10 @@ public class AkkaMassiveTellToSingleActorPing {
 
 		int nIterations = Integer.parseInt(cmd.getOptionValue("n"));
 		int nWarmupIterations = Integer.parseInt(cmd.getOptionValue("warmup"));
+		int payload = Integer.parseInt(cmd.getOptionValue("payload"));
 
 
-		run(AbstractMain.get_config(cmd), nIterations, nWarmupIterations);
+		run(AbstractMain.get_config(cmd), nIterations, nWarmupIterations, payload);
 	}
 
     static public ActorRef<PongActor.Command> getPongActor(ActorContext context, int retry) {
@@ -80,10 +83,10 @@ public class AkkaMassiveTellToSingleActorPing {
         }
     }
 
-	public static void run(Config config, int messagecount, int limitWarmup) throws InterruptedException {
+	public static void run(Config config, int messagecount, int limitWarmup, int payload) throws InterruptedException {
         System.out.println("PING SERVICE STARTED");
 		final ActorSystem system = ActorSystem.create(
-			PingActor.create(context -> getPongActor(context, 0), messagecount, limitWarmup),
+			PingActor.create(context -> getPongActor(context, 0), messagecount, limitWarmup, payload),
 			AbstractMain.SYSTEM_NAME,
             config);
 

@@ -151,8 +151,8 @@ module Make () = struct
     let precondition program = program 
 
     let postcondition program = 
-        (* Ensures there are no remaining Typealias *)
-        collect_term_program true (function | Typealias _ -> true | _-> false) (fun _ place _ -> Error.perror place "Typealias remains after UntypeCleansing") program;
+        (* Ensures there are no remaining Typealias except those for abstract type => TODO abstract type as a typedef and not a typealias*)
+        collect_term_program true (function | Typealias (_,Some _) -> true | _-> false) (fun _ place _ -> Error.perror place "Typealias remains after UntypeCleansing") program;
 
         (* FIXME collect_type is not recursive yet *)
         collect_stype_program Atom.Set.empty (function | STInline _ -> true | _-> false) (fun _ _ {place; _} -> Error.perror place "STInline remains after STInline") program;

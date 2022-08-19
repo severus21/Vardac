@@ -164,7 +164,7 @@ any_type_:
     { Typealias (x, None) }*)
 | TYPE x=LID EQ t=any_type SEMICOLON
     { Typealias (x, Some t) }
-| TYPE x=UID SEMICOLON
+| TYPE x=LID SEMICOLON (* abstract type *)
     { Typealias (x, None) }
 | TYPE x=UID EQ t=any_type SEMICOLON
     { Typealias (x, Some t) }

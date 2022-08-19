@@ -43,7 +43,7 @@ public class PongActor extends AbstractBehavior<PongActor.Command> {
     }
     
     private Behavior<Command> onPing(Ping ping) {
-        ping.replyTo.tell(new Pong(ping.i, ping.warmup, getContext().getSelf(), ping.initTimestamp));
+        ping.replyTo.tell(new Pong(ping.i, ping.warmup, ping.payload, getContext().getSelf(), ping.initTimestamp));
         return Behaviors.same();
     }
 }

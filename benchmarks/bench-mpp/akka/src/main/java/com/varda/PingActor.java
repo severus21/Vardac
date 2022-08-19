@@ -18,19 +18,20 @@ public class PingActor extends AbstractBehavior<PingActor.Command> {
 
 	public interface Command extends CborSerializable {}
 
-	static public Behavior<Command> create(Function<ActorContext, ActorRef<PongActor.Command>> pongFactory, int n, int limitWarmup) {
-		return Behaviors.setup(context -> new PingActor(context, pongFactory.apply(context), n, limitWarmup));
+	static public Behavior<Command> create(Function<ActorContext, ActorRef<PongActor.Command>> pongFactory, int n, int limitWarmup, int payload) {
+		return Behaviors.setup(context -> new PingActor(context, pongFactory.apply(context), n, limitWarmup, payload));
 	}
 
 	long start;
 	private final int limit;
 	private final int limitWarmup;
+	private final int payload;
 	private final BitSet bitset;
 	private final BitSet bitsetWarmup;
 	private final ActorRef<PongActor.Command> pongAct;
 	private final long[] rtts;
 
-	public PingActor(ActorContext<Command> context, ActorRef<PongActor.Command> pongAct, int limit, int limitWarmup) {
+	public PingActor(ActorContext<Command> context, ActorRef<PongActor.Command> pongAct, int limit, int limitWarmup, int payload) {
 		super(context);
 		assert(pongAct != null);
 		this.limit = limit;
@@ -41,8 +42,13 @@ public class PingActor extends AbstractBehavior<PingActor.Command> {
 		bitsetWarmup.set(0, limitWarmup);
 		this.pongAct = pongAct;
 		this.rtts = new long[limit];
+		this.payload = payload;
 
 		this.start();
+	}
+
+	private static int[] fresh_payload(int payload){
+		return new int[payload];
 	}
 
 	private void store_rtts(){
@@ -60,7 +66,7 @@ public class PingActor extends AbstractBehavior<PingActor.Command> {
 	private void start() {
 		System.err.println("AKKA PingPong warmup");
 		for (int i=0; i<limitWarmup; i++) {
-			this.pongAct.tell(new Ping(i, true, getContext().getSelf(), System.currentTimeMillis()));	
+			this.pongAct.tell(new Ping(i, true, fresh_payload(this.payload), getContext().getSelf(), System.currentTimeMillis()));	
 		}
 
 		if (limitWarmup == 0)
@@ -71,7 +77,7 @@ public class PingActor extends AbstractBehavior<PingActor.Command> {
 		System.err.println("VKKA Massive Tell started...");
 		this.start = System.currentTimeMillis();
 		for (int i=0; i<limit; i++) {
-			this.pongAct.tell(new Ping(i, false, getContext().getSelf(), System.currentTimeMillis()));	
+			this.pongAct.tell(new Ping(i, false, fresh_payload(this.payload), getContext().getSelf(), System.currentTimeMillis()));	
 		}
 	}
 

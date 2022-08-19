@@ -11,8 +11,10 @@ public class AkkaMassiveTellToSingleActor {
         Options options = new Options();
         Option nIterationsOpt = new Option("n", "niterations", true, "number of iterations");
         Option nWarmupIterationsOpt = new Option("warmup", "nwarmupiterations", true, "number of iterations for warmup");
+        Option payloadOpt = new Option("payload", "payload", true, "payload size");
 		options.addOption(nIterationsOpt);
 		options.addOption(nWarmupIterationsOpt);
+		options.addOption(payloadOpt);
 
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
@@ -35,17 +37,18 @@ public class AkkaMassiveTellToSingleActor {
 
 		int nIterations = Integer.parseInt(cmd.getOptionValue("n"));
 		int nWarmupIterations = Integer.parseInt(cmd.getOptionValue("warmup"));
+		int payload = Integer.parseInt(cmd.getOptionValue("payload"));
 
 
-		run(nIterations, nWarmupIterations);
+		run(nIterations, nWarmupIterations, payload);
 	}
 
-	public static void run(int messagecount, int limitWarmup) throws InterruptedException {
+	public static void run(int messagecount, int limitWarmup, int payload) throws InterruptedException {
         System.out.println("PINGPONG SERVICE STARTED");
 		final ActorSystem system = ActorSystem.create(
 			PingActor.create(
 				context -> context.spawn(PongActor.create(), "runner"),
-				messagecount, limitWarmup), 
+				messagecount, limitWarmup, payload), 
 			AbstractMain.SYSTEM_NAME);
 
 		system.getWhenTerminated().toCompletableFuture().join();

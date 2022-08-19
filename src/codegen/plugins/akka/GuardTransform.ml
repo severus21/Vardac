@@ -529,7 +529,7 @@ module Make () = struct
     | Component cdcl -> Component (gtransform_cdcl cdcl)
     | Class cl -> Class cl (* No protocol def inside class *)
     | Function fcdcl -> Function fcdcl
-    | Typealias _ -> failwith "Typealias is not supported by guardTransform semantics to be defined" 
+    | Typealias _ as t -> t 
     | Typedef {place=p_p; value=ProtocolDef (x, mt)} ->
         Typedef {place=p_p; value=ProtocolDef (x, gtransform_mt mt)} 
     | Typedef _ as t -> t

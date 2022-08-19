@@ -1140,7 +1140,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         S_A2.e2_e (S.RawExpr "ArrayList"),
                         match es with
                         | [] -> [];
-                        | [{value=S.LitExpr {value=S.IntLit _},_} as n] -> [
+                        | [{value=_,{value=S.Atomic x}} as n] when x ="Integer" || x="Long" -> [
                             S_A2.e2_e (S.CallExpr(
                                 (* Init array with n case set to null *)
                                 S_A2.e2_e (S.RawExpr "Collections.nCopies"),

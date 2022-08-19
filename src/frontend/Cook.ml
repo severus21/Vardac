@@ -204,7 +204,7 @@ module Make(Arg:ArgSig) = struct
     (* Used to cook Varda expr in impl with the same environment as Varda file. Sealed envs includes: 
         - method env
         - function env
-        - typedef env for classiclalDef (i.e. if it is an abstract type)
+        - typealias
     *)
     let sealed_envs = Hashtbl.create 32  
 
@@ -1193,7 +1193,10 @@ module Make(Arg:ArgSig) = struct
         let new_env, y = bind_type env place x in
         (* No type constructor for alias *)
         match mt_opt with 
-        | None -> new_env, [T.Typealias (y, None)]
+        | None -> 
+            (* Registed an abstract type *)
+            Hashtbl.add sealed_envs y env;
+            new_env, [T.Typealias (y, None)]
         | Some mt -> 
             let cenv1, mt = cmtype env mt in
             new_env << [cenv1], [T.Typealias (y, Some mt)]
@@ -1247,9 +1250,6 @@ module Make(Arg:ArgSig) = struct
         (* We use resgister_expr y here in order to preserve atom identity between both the world of types and the world of values (type constructor for instance) *)
         let new_env2 = register_expr new_env1 place ~create_instance:true y in
         let envs, args = List.split (List.map (cmtype env) args) in 
-
-        (* Registed typedef (parent env) in sealed env - in case it is an abstract type *)
-        Hashtbl.add sealed_envs y env;
 
         (* t : args1 -> ... argsn -> t *)
         let constructor_type = mtype_of_fun2 args (auto_fplace(T.CType(auto_fplace(T.TVar y)))) in 
