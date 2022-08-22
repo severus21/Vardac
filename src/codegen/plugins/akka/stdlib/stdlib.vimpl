@@ -1,0 +1,30 @@
+target akka;
+
+impl function toto java:{=
+    System.out.println("TOTO");
+    return null;
+=}
+
+impl type java_object java:{=
+    Object
+=}
+
+impl type akka_system java:{=
+    ActorSystem 
+=}
+
+impl type akka_actor java:{=
+    AbstractBehavior
+=}
+
+impl function akka_get_current_system java:{=
+    return {{%a%}}.getContext().getSystem();
+=}
+
+impl function java_object_size java:{=
+    return com.varda.objectsize.InstrumentationAgent.getObjectSize({{%obj%}});
+=}
+
+impl function akka_msg_serialized_size java:{=
+    return com.varda.objectsize.InstrumentationAgent.getSerializedSize({{%sys%}}, {{%obj%}});
+=}

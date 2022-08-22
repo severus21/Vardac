@@ -8,7 +8,10 @@ impl headers java:{=
 =}
 
 impl function fresh_payload java:{=
-    return new int[{{%size%}}];
+    int[] tmp = new int[{{%size%}}];
+    for(int i = 0; i<{{%size%}}; i++)
+        tmp[i] = i;
+    return tmp;
 =}
 
 impl type payload java:{=

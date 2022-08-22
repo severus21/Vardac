@@ -12,16 +12,18 @@ DESCRIPTIVE_STATISTICS_CENTER = set(['mean', 'median', 'min', 'max'])
 DESCRIPTIVE_STATISTICS_DISPERSION = set([None, 'stdev'])
 
 class FigureFactory:
-    def compare(fig_name, xy, args, descriptive_statistics_center='mean', descriptive_statistics_dispersion='stdev'):
+    def compare(fig_name, xy, args, selector=lambda x: True, ylabeling=None, descriptive_statistics_center='mean', descriptive_statistics_dispersion='stdev'):
+        print(f"Compare of {fig_name}")
         assert(descriptive_statistics_center in DESCRIPTIVE_STATISTICS_CENTER)
         assert(descriptive_statistics_dispersion in DESCRIPTIVE_STATISTICS_DISPERSION)
         figures = []
-        for x,y in xy:
+        for xy_parameters in xy:
+            x,y = xy_parameters[0], xy_parameters[1]
             curves = []
             for (name, results) in args:
                 curves.append(Curve(
                         name,
-                        Stats(results).extract(x, y),
+                        Stats(results).extract(*xy_parameters, selector=selector, ylabeling=ylabeling),
                         descriptive_statistics_center,
                         descriptive_statistics_dispersion
                     ))
@@ -53,6 +55,16 @@ FIGURES = list(itertools.chain.from_iterable([
             ("varda-one-jvm", Bench.objects.filter(name="simpl-com-varda-one-jvm", id=316)[0].results.all()),
             ("inline-one-jvm", Bench.objects.filter(name="simpl-com-varda-inline-one-jvm", id=318)[0].results.all())
         ]
+    ),
+    FigureFactory.compare(
+        "payload",
+        [("payload", "duration"),],
+        [
+            ("akka-one-jvm", Bench.objects.filter(name="mpp-akka-one-jvm").order_by('-pk')[0].results.all()),
+            ("varda-one-jvm", Bench.objects.filter(name="mpp-varda-one-jvm").order_by('-pk')[0].results.all()),
+        ],
+        selector    = (lambda x : x['n'] == 100),
+        ylabeling   = lambda s,k: s.extract_metric('pp_size')[k].min,
     ),
     FigureFactory.compare(
         "MS",

@@ -65,10 +65,10 @@ class ProcessPod(Pod):
         return [line.decode()]
 
     async def stderr(self):
-        return self.elmt.stderr.read()
+        return (await self.elmt.stderr.read()).decode()
 
     async def stdout(self):
-        return self.elmt.stdout.read()
+        return (await self.elmt.stdout.read()).decode()
 
     async def _is_terminated(self):
         if self.elmt.returncode == None:

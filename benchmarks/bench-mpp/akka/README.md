@@ -1,9 +1,9 @@
 ## Mono JVM setup
 ```make```
-```java -javaagent:jvm-instrumentation/InstrumentationAgent.jar -enableassertions -jar build/libs/main.jar -n 100 -warmup 100 -payload 10```
+```java -javaagent:build/libs/InstrumentationAgent.jar -enableassertions -jar build/libs/main.jar -n 100 -warmup 100 -payload 10```
 
 ## Two JVM setup
 
 1. ```make```
-2. ```1> java -enableassertions -jar build/libs/pongService.jar -ip 127.0.0.1 -p 25520 -s akka://systemAkkaBench@127.0.0.1:25520```
-3. ```2> java -enableassertions -jar build/libs/pingService.jar -ip 127.0.0.1 -p 25521 -s akka://systemAkkaBench@127.0.0.1:25520 -n 100 -warmup 100 -payload 10```
+2. ```1> java -javaagent:build/libs/InstrumentationAgent.jar -enableassertions -jar build/libs/pongService.jar -ip 127.0.0.1 -p 25520 -s akka://systemAkkaBench@127.0.0.1:25520```
+3. ```2> java -javaagent:build/libs/InstrumentationAgent.jar -enableassertions -jar build/libs/pingService.jar -ip 127.0.0.1 -p 25521 -s akka://systemAkkaBench@127.0.0.1:25520 -n 100 -warmup 100 -payload 10```

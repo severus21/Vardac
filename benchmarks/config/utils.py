@@ -10,7 +10,14 @@ def get_elapse_time(stdout):
 
 def get_rtts(filename):
     with open(filename) as fp:
-        return {"rtt": {"unit": "ms", "value":json.load(fp)}}
+        data = json.load(fp)
+        return {"rtt": {"unit": "ms", "value":data['rtts']}}
+
+def get_pp_size(filename):
+    '''ping+pong size'''
+    with open(filename) as fp:
+        data = json.load(fp)
+        return {"pp_size": {"unit": "bytes", "value":data['ping_size']+data['pong_size']}}
 
 def remove_dict(d, k_s):
     d = copy.copy(d)

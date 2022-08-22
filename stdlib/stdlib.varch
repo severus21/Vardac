@@ -5,3 +5,9 @@ void toto();
 *)
 type java_object;
 long java_object_size(java_object obj);
+
+type akka_system;
+type akka_actor;
+akka_system akka_get_current_system(akka_actor a);
+
+long akka_msg_serialized_size(akka_system sys, java_object obj);

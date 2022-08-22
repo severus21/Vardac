@@ -34,6 +34,8 @@ component Ping {
     int counter = 0;
     long starttime = 0;
     array<long> rtts = [|this.n|];
+    long ping_size = 0;
+    long pong_size = 0;
 
     activation_ref<Pong> b = ();
     
@@ -66,7 +68,13 @@ component Ping {
     result<void, error> start(){
         for(int i in range(0, this.n)){
             session<p_pingpong> s0 = initiate_session_with(this.p_out, this.b);
-            ?pong. s1 = fire(s0, ping(i, false, time(), fresh_payload(this.payload)))?; 
+
+            ping msg = ping(i, false, time(), fresh_payload(this.payload));
+            if (this.ping_size == 0){
+                this.ping_size = akka_msg_serialized_size(akka_get_current_system(this), msg);
+            }
+
+            ?pong. s1 = fire(s0, msg)?; 
         }
     }
 
@@ -76,7 +84,13 @@ component Ping {
         long elapse = end - start;
         string tmp = long_to_string(elapse);
         info("Time elapse "+tmp+" ms");
-        tojson(this.rtts, "rtts.json");
+
+        dict<string, java_object> res = dict();
+        add2dict(res, "ping_size", this.ping_size);
+        add2dict(res, "pong_size", this.pong_size);
+        add2dict(res, "rtts", this.rtts);
+        tojson(res, "results.json");
+
         info("Terminated ueyiqu8R");
         info("JamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglog");
     }
@@ -92,6 +106,10 @@ component Ping {
                 this.start();
             }
         } else {
+            if(this.pong_size == 0){
+                this.pong_size = akka_msg_serialized_size(akka_get_current_system(this), msg);
+            }
+
             this.counter = this.counter + 1;
             long endTimestamp = time();
             debug(int_to_string(msg._0_));
@@ -130,7 +148,7 @@ component Pong {
 }
 
 tuple<array<string>, tuple<int,int,int>> main (array<string> args){
-    debug("apossiblemain");
+    print("apossiblemain");
     int n = 100;
     int warmup = 100;
     int payload = 0;

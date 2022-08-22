@@ -25,3 +25,32 @@
 
 * https://shipilev.net/talks/j1-Oct2011-21682-benchmarking.pdf
 * baeldung.com/java-microbenchmark-harness
+
+## Writing bench in Akka
+
+### Exporting results
+
+```java
+    import java.util.*;
+    import java.io.FileWriter;
+    import java.io.IOException;
+
+    import com.google.gson.Gson;
+
+    Gson gson = new Gson();
+
+
+    HashMap<String,  Object> res = new HashMap();
+    res.put("ping_size",  this.ping_size);
+    res.put("pong_size",  this.pong_size);
+    res.put("rtts",  this.rtts);
+
+
+    try {
+        FileWriter fileWriter =new FileWriter("results.json"); 
+        gson.toJson(res, fileWriter);
+        fileWriter.close();
+    } catch (IOException e ){
+        System.err.println(e.toString());
+    }
+```

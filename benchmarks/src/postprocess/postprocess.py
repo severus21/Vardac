@@ -2,6 +2,7 @@ from collections import defaultdict
 
 import logging
 import re
+from sre_parse import State
 import statistics
 
 class Measure:
@@ -17,6 +18,12 @@ class StatMetric:
         self.items  = list(map(f, items)) if type(items) == list else [f(items)]
 
         self.f      = f 
+
+    def __str__(self):
+        return f'unit: {self.unit}, {self.items}'
+
+    def __repr__(self) -> str:
+        return str(self)
 
     def add_item_s(self, item_s):
         if type(item_s) == list:
@@ -73,6 +80,22 @@ class StatMetric:
                 return self._stdev
             else: 
                 return None
+
+    def concat(self, obj):
+        assert(type(obj) == StatMetric)
+
+        assert(obj.unit == self.unit)
+        return StatMetric(self.unit, self.items+obj.items)
+    
+    def chain(objs):
+        assert(len(objs) > 0)
+
+        obj_res = StatMetric(objs[0].unit, items=[])
+        for obj in objs:
+            obj_res = obj_res.concat(obj)
+
+        return obj_res
+
 #stats
 #{ config : {
 #    metric: StatMetric 
@@ -116,7 +139,7 @@ class Stats:
         for r in results:
             self.params[self.hash_run_config(r.run_config)] = r.run_config
 
-    def extract_metrics(self, wanted_metric):
+    def extract_metric(self, wanted_metric):
         nstats = {}
         for k in self.data.keys():
             if wanted_metric in self.data[k]:
@@ -125,11 +148,48 @@ class Stats:
                 logging.warning(f"Metric {wanted_metric} not found in stats[{k}] !")
         return nstats
 
-    def map_on_param(self, data, wanted_param):
+    def extract_metrics(self, wanted_metrics):
         nstats = {}
-        for k in data.keys():
-            nstats[self.params[k][wanted_param]] = data[k]
+
+        set_wanted_metrics =  set(wanted_metrics)
+
+        for k in self.data.keys():
+            set_keys = set(self.data[k].keys())
+            if set_wanted_metrics.issubset(set_keys):
+                nstats[k] = {wanted_metric: self.data[k][wanted_metric] for wanted_metric in set_wanted_metrics}
+            else:
+                logging.warning(f"Metric {wanted_metrics} not found in stats[{k}] !")
         return nstats
 
-    def extract(self, wanted_param, wanted_metric):
-        return self.map_on_param(self.extract_metrics(wanted_metric), wanted_param)
+    def map_on_param(self, data, wanted_param, selector, ylabeling):
+        nstats = {}
+        for k in data.keys():
+            if selector(self.params[k]):
+                if ylabeling:
+                    kk = ylabeling(self,k)
+                else:
+                    kk = self.params[k][wanted_param]
+                nstats[kk] = data[k]
+        return nstats
+
+    def extract(self, wanted_param, wanted_metric, selector, ylabeling):
+        return self.map_on_param(self.extract_metric(wanted_metric), wanted_param, selector, ylabeling)
+
+        #else:
+        #    #'''where param is in fact a result category, and a bench parameter'''
+
+        #    data = self.extract_metrics([wanted_param, wanted_metric])
+
+        #    nstats = defaultdict(list)
+        #    for k in data.keys():
+        #        if selector(self.params[k]):
+        #            print(self.data[k])
+        #            x = (data[k][wanted_param])
+        #            assert(x.min == x.max)
+        #            nstats[x.min].append(data[k][wanted_metric])
+
+        #    for k in nstats.keys():
+        #        nstats[k] = StatMetric.chain(nstats[k])
+        #        print(k, len(nstats[k].items))
+
+        #    return nstats

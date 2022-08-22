@@ -67,16 +67,18 @@ class AbstractBuilder(ABC):
         pass
 
     def build(self, *args, **kwargs):
+        cl_name = type(self).__name__
+
         if not self.is_build:
-            logging.info(f"Bench {self.name}> Building ({type(self)})!")
+            logging.info(f"Bench {self.name}> Building ({cl_name})!")
             tmp = self._build(*args, **kwargs)
             self._is_build = True
             b, _ = self.get_bench_model()
             if b:
-                logging.info(f"Bench {self.name}> Built ({type(self)})!")
+                logging.info(f"Bench {self.name}> Built ({cl_name})!")
             return tmp, b
         else:
-            logging.info(f"Bench {self.name}> Already built ({type(self)})!")
+            logging.info(f"Bench {self.name}> Already built ({cl_name})!")
             return True, self.get_bench_model()[0]
 
 class ShellBuilder(AbstractBuilder):

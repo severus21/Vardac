@@ -6,8 +6,7 @@ import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.*;
 
-import java.util.BitSet;
-import java.util.Arrays;
+import java.util.*;
 import java.util.function.*;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -50,9 +49,12 @@ public class MasterActor extends AbstractBehavior<MasterActor.Command> {
 	private void store_rtts(){
 		Gson gson = new Gson();
 
+		HashMap<String,  Object> res = new HashMap();
+		res.put("rtts",  this.rtts);
+
 		try {
-			FileWriter fileWriter =new FileWriter("rtts.json"); 
-			gson.toJson(this.rtts, fileWriter);
+			FileWriter fileWriter =new FileWriter("results.json"); 
+			gson.toJson(res, fileWriter);
 			fileWriter.close();
 		} catch (IOException e ){
 			System.err.println(e.toString());

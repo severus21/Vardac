@@ -41,6 +41,7 @@ class Curve:
         q = 2 if self.descriptive_statistics_dispersion in ['stdev', 'variance'] else 1
         
         xs = np.array(list(self.data.keys()))
+        print(">>>",self.data.keys())
         ys = np.array(list(map(lambda v: getattr(v, self.descriptive_statistics_center), self.data.values())))
         if self.descriptive_statistics_dispersion == None:
             ax.plot(xs, ys, fmt='o', label=self.name)
