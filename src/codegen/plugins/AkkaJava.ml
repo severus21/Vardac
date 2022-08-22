@@ -182,39 +182,34 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 let a_margs = Atom.fresh "margs" in
                 let a_nargs = Atom.fresh "nargs" in
                 let a_tmpargs = Atom.fresh "tmpargs" in
+
+                let e_call_main = S_A2.e2_e (S.CallExpr (
+                    auto_place (S.VarExpr _main.value.v.name, auto_place S.TUnknown),
+                    [ 
+                        S_A2.e2_e (S.NewExpr(
+                            S_A2.e2_e (S.RawExpr "ArrayList"),
+                            [
+                                S_A2.e2_e(S.CallExpr(
+                                    S_A2.e2_e (S.RawExpr "Arrays.asList"),
+                                    [ S_A2.e2var (Atom.builtin "args") ]
+                                ))
+                            ]
+                        ))
+                    ] 
+                )) in
                
                 let margs_lets, margs_params, get_config_args = 
                     match _main.value.v.ret_type.value with 
                     | S.Atomic "Void" | S.Atomic "void" -> 
                         [
-                            auto_place (S.ExpressionStmt(
-                                S_A2.e2_e (S.CallExpr (
-                                    S_A2.e2var _main.value.v.name,
-                                    [
-                                        S_A2.e2var (Atom.builtin "args")
-                                    ]
-                                ))
-                            ))
+                            auto_place (S.ExpressionStmt( e_call_main ))
                         ], [], [S_A2.e2var (Atom.builtin "args")] 
                     | S.TTuple [mt_args; mt_margs] -> begin
                         [
                             auto_place (S.LetStmt(
                                 auto_place (S.TTuple [mt_args; mt_margs]),
                                 a_tmpargs,
-                                Some (auto_place (S.CallExpr (
-                                    auto_place (S.VarExpr _main.value.v.name, auto_place S.TUnknown),
-                                    [ 
-                                        S_A2.e2_e (S.NewExpr(
-                                            S_A2.e2_e (S.RawExpr "ArrayList"),
-                                            [
-                                                S_A2.e2_e(S.CallExpr(
-                                                    S_A2.e2_e (S.RawExpr "Arrays.asList"),
-                                                    [ S_A2.e2var (Atom.builtin "args") ]
-                                                ))
-                                            ]
-                                        ))
-                                    ]
-                                ), auto_place S.TUnknown))
+                                Some e_call_main
                             )) ;
                             auto_place (S.LetStmt(
                                 mt_args,

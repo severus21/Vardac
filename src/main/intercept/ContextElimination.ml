@@ -391,20 +391,20 @@ module Make () = struct
 
 
         let body : expr = 
-            e2_e (TernaryExpr (
-                e2_e (BinopExpr(
-                    e2var p_of_i,
-                    Equal,
-                    e2_e (OptionExpr None)
-                )),
-                (e2_e (Spawn spawn)),
-                (
-                    e2_e (Spawn { spawn with at = Some (e2_e (CallExpr(
-                            e2var (Atom.builtin "option_get"),
-                            [ e2var p_of_i ]
-                        )))}) 
-                )
-            ))
+                e2_e (TernaryExpr (
+                    e2_e (BinopExpr(
+                        e2var p_of_i,
+                        Equal,
+                        e2_e (OptionExpr None)
+                    )),
+                    (e2_e (Spawn spawn)),
+                    (
+                        e2_e (Spawn { spawn with at = Some (e2_e (CallExpr(
+                                e2var (Atom.builtin "option_get"),
+                                [ e2var p_of_i ]
+                            )))}) 
+                    )
+                ))
         in
 
         let core_factory = e2_e (LambdaExpr (
@@ -428,11 +428,12 @@ module Make () = struct
             let res = e2_e (LambdaExpr ( [auto_fplace (mt,x)], core_factory)) in 
             make_wraper res params
         in
-
+assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
         (*** Generate the let ***)
-        let factory_targs = 
+        let factory_targs_wo_p_of_i = 
             (* *BaseInterceptor::on_startup_args *)
             List.map (function p -> fst p.value) base_interceptor_constructor_params
+            (* Hidden inside not exposed
             @ [b_onboard_mt]
             (* b_out_1, b_in_1, ..., b_out_n, b_in_n *)
             @ List.flatten (List.map (function (b_out, b_in, b_in_let) -> 
@@ -441,16 +442,16 @@ module Make () = struct
                 in
                 [mt; mt]
             ) (List.of_seq (Hashtbl.to_seq_values generated_bridges)))
-            @ [mtype_of_ct (TOption (mtype_of_ft (TPlace)))]
-            ;
+            *)
         in 
+        let factory_targs = factory_targs_wo_p_of_i @ [mtype_of_ct (TOption (mtype_of_ft (TPlace)))] in
 
         (* targs -> activation_ref<Interceptor>*) 
         let factory_signature  = mtype_of_fun2 factory_targs (mtype_of_ct (TActivationRef (mtype_of_cvar interceptor))) in
 
         let factory = Atom.fresh "factory" in
         let local_b_onboard = Atom.fresh (Atom.hint b_onboard) in
-        let factory_expr = make_wraper core_factory (List.map (function mt -> auto_fplace (mt, Atom.fresh "arg")) factory_targs) in
+        let factory_expr = make_wraper core_factory (List.map (function mt -> auto_fplace (mt, Atom.fresh "arg")) factory_targs_wo_p_of_i) in
 
         factory, auto_fplace (LetStmt(factory_signature, factory, factory_expr))
 

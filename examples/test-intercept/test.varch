@@ -45,12 +45,12 @@ component B {
     (* Orchestration logic *)
 component PingPong {
     activation_ref<MsgCounter> make_interceptor (
-        place -> activation_ref<MsgCounter> factory,
+        option<place> -> activation_ref<MsgCounter> factory,
         string intercepted_component_schema,
         place p_of_intercepted
     ){
         place p = current_place();
-        return factory(p);
+        return factory(some(p));
     }
 
     onstartup () {

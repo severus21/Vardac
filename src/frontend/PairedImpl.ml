@@ -7,6 +7,8 @@ open AstUtils
 open IR.IRUtils
  
 
+let logger = Core.Utils.make_log_of "frontend.PairedImpl"
+
 (* The source calculus. *)
 module S1 = Impl
 module S2 = IR
@@ -24,7 +26,7 @@ let check_seen_all seen_set htbl : unit =
     Hashtbl.iter (fun key (value: 'a AstUtils.placed) -> 
         match (SeenSet.find_opt key seen_set) with
         | Some _ -> ()
-        | None -> Error.perror value.place "%s is not defined in the spec" (key_to_string key)
+        | None -> logger#warning "%s is not defined in the spec" (key_to_string key)
     ) htbl
 
 let functions_seen = ref SeenSet.empty

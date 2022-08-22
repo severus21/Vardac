@@ -277,7 +277,7 @@ module Make (Args: TArgs) = struct
             ghost = false;
             type0 = interceptor_info.onboard_info.b_onboard_mt;
             name = this_b_onboard;
-            body = Some (e2_lit (IntLit 1)); (*TODO correct the init*)
+            body = Some (e2_lit VoidLit); (* set by constructor *)
         }))) in
 
         let this_onboarded_activations = Atom.fresh "onboarded_activations" in 
