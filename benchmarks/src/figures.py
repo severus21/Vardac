@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 class Figure:
     def __init__(self, title, xlabel, ylabel, curves, filename=None) -> None:
         self.title = title

@@ -44,6 +44,8 @@ cmdactions['test'] = lambda kwargs: do_test(**kwargs)
 
 FIGURESDIR = 'figures'
 
+def normalize_path(path):
+    return path.replace(' ', '-')
 
 def do_render(save, fig_selector, use_re=False):
     from config.figures import FIGURES
@@ -66,8 +68,8 @@ def do_render(save, fig_selector, use_re=False):
         if save:
             from src.provenance import get_current_stamp
             import json
-            fig.filename = os.path.join(FIGURESDIR, fig.title+'.png')
-            with open(os.path.join(FIGURESDIR, f'{fig.title}.json'), 'w') as f:
+            fig.filename = os.path.join(FIGURESDIR, normalize_path(fig.title+'.png'))
+            with open(os.path.join(FIGURESDIR, normalize_path(f'{fig.title}.json')), 'w') as f:
                 # TODO write more provenance data
                 json.dump({'stamp': get_current_stamp()}, f)
         fig.render()

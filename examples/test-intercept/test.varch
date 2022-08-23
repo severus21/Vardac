@@ -44,8 +44,11 @@ component B {
 
     (* Orchestration logic *)
 component PingPong {
-    activation_ref<MsgCounter> make_interceptor (
-        option<place> -> activation_ref<MsgCounter> factory,
+    (* FIXME TODO specialized MsgCounter is not subtype of MsgCounter in Java,
+        HOT FIX replace MsgCounter by Any
+    *)
+    activation_ref<any> make_interceptor (
+        option<place> -> activation_ref<any> factory,
         string intercepted_component_schema,
         place p_of_intercepted
     ){
