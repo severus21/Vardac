@@ -1,0 +1,7 @@
+---
+- name: restart docker 
+  ansible.builtin.systemd:
+      state: reloaded
+      daemon_reload: yes
+      name: docker 
+      force: yes

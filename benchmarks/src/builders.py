@@ -11,6 +11,7 @@ from unittest import result
 
 from checksumdir import dirhash
 from src.models import *
+from src.settings import * 
 
 class AbstractBuilder(ABC):
     def __init__(self, name, project_dir=None) -> None:
@@ -195,9 +196,9 @@ class ChainBuilder(AbstractBuilder):
 
 
 class DockerBuilder(AbstractBuilder):
-    def __init__(self, name, project_dir=None) -> None:
+    def __init__(self, name, project_dir=None, remote=DEFAULT_DOCKER_REMOTE) -> None:
         super().__init__(name, project_dir)
-        self.docker = aiodocker.Docker()
+        self.docker = aiodocker.Docker(remote) if remote else aiodocker.Docker()
 
         self._image_name = None
 

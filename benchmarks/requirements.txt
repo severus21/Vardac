@@ -4,3 +4,4 @@ checksumdir
 jsonfield
 gitpython
 docker
+execo

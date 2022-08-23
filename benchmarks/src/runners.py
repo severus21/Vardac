@@ -270,14 +270,17 @@ class ShellRunner(BaseRunner):
         return await self.run_async_skeleton(ProcessPod(process), stop_event, stop_display_time)
 
 
+
+
 class DockerRunner(BaseRunner):
     #TODO create img with correct stamp
-    def __init__(self, name, image, run_cmd, stdout_termination_token, error_token, config, set_stop_event) -> None:
+    def __init__(self, name, image, run_cmd, stdout_termination_token, error_token, config, set_stop_event, remote=DEFAULT_DOCKER_REMOTE) -> None:
         super().__init__(name, stdout_termination_token, error_token, config, set_stop_event)
         self.image = image
         self.run_cmd = run_cmd
 
-        self.docker = aiodocker.Docker()
+
+        self.docker = aiodocker.Docker(remote) if remote else aiodocker.Docker()
         self.volumes = []
         self.containers = []
 

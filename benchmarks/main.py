@@ -45,7 +45,9 @@ cmdactions['test'] = lambda kwargs: do_test(**kwargs)
 FIGURESDIR = 'figures'
 
 def normalize_path(path):
-    return path.replace(' ', '-')
+    for c in ' [](),':
+        path = path.replace(c, '-')
+    return path
 
 def do_render(save, fig_selector, use_re=False):
     from config.figures import FIGURES

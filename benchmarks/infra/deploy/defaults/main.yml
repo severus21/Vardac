@@ -1,0 +1,4 @@
+---
+ssh_user_docker: severus
+
+host_certs_dir:  /etc/ssl/crt

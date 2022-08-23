@@ -1,7 +1,8 @@
 import logging
 import os
 import subprocess
-from tkinter import W
+import tempfile
+from tempfile import TemporaryDirectory
 
 from src.runners import DockerRunner
 
@@ -65,13 +66,53 @@ class FileCollector(AbstractCollector):
         if os.path.exists(self.filename):
             os.remove(self.filename)
 
-import docker
-from tempfile import TemporaryDirectory
-
-class VolumeCollector(AbstractCollector):
+class ChainCollector(AbstractCollector):
     def __init__(self, collectors) -> None:
-        super().__init__()
-        self.collectors = collectors
+        super().__init__()(self)
+        self.collectors = collectors 
+
+    def collect(self, runner):
+        with TemporaryDirectory() as tmpdir:
+            # repatriate data from container/remote/... to host
+            self.repatriate(tmpdir, runner)
+
+            # apply collectors on repatriated data
+            res = {} 
+            for collector in self.collectors:
+                past = collector.filename
+
+                collector.filename = os.path.join(tmpdir, os.path.join('container', collector.filename))
+                tmp = collector.collect(runner)
+                if tmp:
+                    res = res | tmp
+
+                collector.filename = past
+            return res
+
+class RemoteCollector(ChainCollector):
+    def __init__(self, remote, collectors) -> None:
+        super().__init__(collectors)
+        self.remote = remote
+
+        self.collect_stdout = ""
+        self.collect_stderr = "" 
+
+    def repatriate(self, tmpdir):
+        res = subprocess.collect(
+            "scp -r {self.remote} {tmpdir}/container", 
+            capture_output=True, 
+            encoding='utf-8', 
+            shell=True)
+
+        self.collect_stdout += res.stdout
+        self.collect_stderr += res.stderr
+        assert(res.returncode == 0) 
+
+import docker
+
+class VolumeCollector(ChainCollector):
+    def __init__(self, collectors) -> None:
+        super().__init__(collectors)
 
     def repatriate(self, tmpdir, runner : DockerRunner):
         client = docker.from_env()
@@ -95,21 +136,3 @@ class VolumeCollector(AbstractCollector):
         )
 
         #print("Result:", r)
-
-    def collect(self, runner : DockerRunner):
-        with TemporaryDirectory() as tmpdir:
-            # repatriate data from container to host
-            self.repatriate(tmpdir, runner)
-
-            # apply collectors on repatriated data
-            res = {} 
-            for collector in self.collectors:
-                past = collector.filename
-
-                collector.filename = os.path.join(tmpdir, os.path.join('container', collector.filename))
-                tmp = collector.collect(runner)
-                if tmp:
-                    res = res | tmp
-
-                collector.filename = past
-            return res

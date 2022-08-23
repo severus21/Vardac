@@ -3,6 +3,7 @@
 - hosts: nodes
   gather_facts: true
   become_user: root
+  become_method: su
   become: yes 
   roles:
   - deploy 

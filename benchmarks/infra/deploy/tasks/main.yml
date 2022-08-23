@@ -1,0 +1,89 @@
+---
+- name: Install aptitude using apt
+  apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
+
+- name: Installing packages for administration 
+  apt:
+    name: "{{ packages }}"
+    state: latest
+    update_cache: yes
+
+- name: Install Docker Module for Python
+  pip:
+    name: "{{ python_packages }}"
+    executable: pip3
+
+# Install docker
+- name: Add Docker GPG apt Key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker Repository
+  apt_repository:
+    repo: deb https://download.docker.com/linux/ubuntu bionic stable
+    state: present
+
+
+- name: Update apt and install docker-ce
+  apt: update_cache=yes name=docker-ce state=latest
+
+# Install docker-compose
+- name: Get docker-compose release
+  ansible.builtin.get_url:
+    url: https://github.com/docker/compose/releases/download/1.25.3/docker-compose-linux-x86_64
+    dest: /usr/local/bin/docker-compose
+    mode: '+x'
+
+# Remote docker
+- name: Access docker socket through ssh 
+  user:
+    name: '{{ ssh_user_docker }}'
+    groups: docker 
+    append: yes
+
+- name: Create certs directory
+  ansible.builtin.file:
+    path: "{{host_certs_dir}}"
+    state: directory
+    mode: '0744'
+
+- name: Deploy keys 
+  copy:
+    src: "certs/{{item}}"
+    dest: "{{host_certs_dir}}/{{item}}" 
+    mode: 0400
+    force: yes
+  with_items:
+  - ca-key.pem 
+  - key.pem
+  - server-key.pem
+  
+- name: Deploy certificates 
+  copy:
+    src: "certs/{{item}}"
+    dest: "{{host_certs_dir}}/{{item}}" 
+    mode: 0444
+    force: yes
+  with_items:
+  - ca.pem 
+  - server-cert.pem 
+  - cert.pem
+
+- name: Update systemd service 
+  lineinfile: 
+    path: /lib/systemd/system/docker.service 
+    regexp: '^(.*)ExecStart(.*)$' 
+    line: 'ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2376 --containerd=/run/containerd/containerd.sock'
+    backrefs: yes
+
+
+- name: Configure the Docker daemon as a Prometheus target
+  template:
+    src: docker-daemon.json.j2
+    dest: /etc/docker/daemon.json
+    force: yes
+    owner: root
+    group: root
+    mode: 0640
+  notify: restart docker
