@@ -38,6 +38,8 @@ variables:
   # run the tests inside directories 'foo/' and 'bar/'
   # (see Dune documentation on target aliases).
 
+  REQUIREMENTS_SH: "requirements.sh"
+
 
 # This CI script is written to be portable across projects.
 # None of the code below hardcodes project filenames,
@@ -84,6 +86,7 @@ build:
   extends: .build-matrix # defines OCAML_COMPILER
 
   variables:
+    OCAML_COMPILER: "4.12.0"
     ARTIFACTS: "artifacts/$OCAML_COMPILER"
     # a local shortcut for the per-compiler artifact repository
 
@@ -91,6 +94,7 @@ build:
     # A workaround against a bug in gitlab-runner's default
     # unzipping implementation, which partially breaks caching for the dune _build cache.
     # See https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27496 for more details.
+
 
   artifacts:
     paths:
@@ -143,7 +147,7 @@ build:
     - echo -e "section_start:`date +%s`:setup_switch\r\e[0K setup opam switch"
     - if [ -d _opam ]; then echo "we reuse the local opam switch from the CI cache"; fi
 
-    - if [ ! -d _opam ]; then echo "no local switch in the CI cache, we setup a new switch"; opam switch create --yes --no-install . $OCAML_COMPILER; fi
+    - if [ ! -d _opam ]; then echo "no local switch in the CI cache, we setup a new switch for $OCAML_COMPILER"; opam switch create --yes --no-install . $OCAML_COMPILER; fi
     # --no-install prevents installing the package or its dependencies.
     # we want to setup the external dependencies (depext) first, see below.
     - echo -e "section_end:`date +%s`:setup_switch\r\e[0K"
@@ -162,40 +166,51 @@ build:
     - echo "(we used --locked to honor any lockfiles if present)"
     - echo -e "section_end:`date +%s`:setup_deps\r\e[0K"
 
+    - echo -e "section_start:`date +%s`:requirements\r\e[0K installing requirements"
+    - > 
+      if [ -f "$REQUIREMENTS_SH" ];
+      then
+        ./$REQUIREMENTS_SH
+      fi
+
     - echo -e "section_start:`date +%s`:project_build\r\e[0K build the project"
     - eval $(opam env)
-    - if [ "$DUNE_BUILD_TARGETS" != "" ]; then dune build $DUNE_BUILD_TARGETS --display short; else echo "skipped (DUNE_BUILD_TARGETS is empty)"; fi
-    - echo -e "section_end:`date +%s`:project_build\r\e[0K"
+    - make bin
 
-    - echo -e "section_start:`date +%s`:project_tests\r\e[0K run the tests"
-    - if [ "$DUNE_TEST_TARGETS" != "" ]; then dune build $DUNE_TEST_TARGETS --display short; else echo "skipped (DUNE_TEST_TARGETS is empty)"; fi
-    - echo -e "section_end:`date +%s`:project_tests\r\e[0K"
+    # TODO replace make bin by when warning/error done 
+    #- make generatedune
+    #- if [ "$DUNE_BUILD_TARGETS" != "" ]; then dune build $DUNE_BUILD_TARGETS --display short; else echo "skipped (DUNE_BUILD_TARGETS is empty)"; fi
+    #- echo -e "section_end:`date +%s`:project_build\r\e[0K"
 
-    - echo -e "section_start:`date +%s`:project_doc\r\e[0K build the documentation"
-    - if [ "$DUNE_DOC_TARGETS" != "" ]; then dune build $DUNE_DOC_TARGETS --display short; else echo "skipped (DUNE_DOC_TARGETS is empty)"; fi
-    - echo -e "section_end:`date +%s`:project_doc\r\e[0K"
+    #- echo -e "section_start:`date +%s`:project_tests\r\e[0K run the tests"
+    #- if [ "$DUNE_TEST_TARGETS" != "" ]; then dune build $DUNE_TEST_TARGETS --display short; else echo "skipped (DUNE_TEST_TARGETS is empty)"; fi
+    #- echo -e "section_end:`date +%s`:project_tests\r\e[0K"
 
-    - echo -e "section_start:`date +%s`:artifacts\r\e[0K populating the artifacts"
-    - mkdir -p $ARTIFACTS
-    - >
-      echo "Build artifacts will be available at
-              $CI_JOB_URL/artifacts/browse/$ARTIFACTS
-            Note: by default Gitlab only keeps them for a few weeks."
-    - >
-      if [ "$DUNE_DOC_TARGETS" != "" ]; then
-        cp -r _build/default/_doc/_html $ARTIFACTS/doc;
-        echo "Documentation:
-              $CI_JOB_URL/artifacts/browse/$ARTIFACTS/doc/index.html";
-      fi
-    - >
-      if [ -f _build/log ];
-      then
-        mkdir -p $ARTIFACTS/_build;
-        cp _build/log $ARTIFACTS/_build/log
-        echo "Dune build log:
-              $CI_JOB_URL/artifacts/browse/$ARTIFACTS/_build/log";
-      fi
-    - echo -e "section_end:`date +%s`:artifacts\r\e[0K"
+    #- echo -e "section_start:`date +%s`:project_doc\r\e[0K build the documentation"
+    #- if [ "$DUNE_DOC_TARGETS" != "" ]; then dune build $DUNE_DOC_TARGETS --display short; else echo "skipped (DUNE_DOC_TARGETS is empty)"; fi
+    #- echo -e "section_end:`date +%s`:project_doc\r\e[0K"
+
+    #- echo -e "section_start:`date +%s`:artifacts\r\e[0K populating the artifacts"
+    #- mkdir -p $ARTIFACTS
+    #- >
+    #  echo "Build artifacts will be available at
+    #          $CI_JOB_URL/artifacts/browse/$ARTIFACTS
+    #        Note: by default Gitlab only keeps them for a few weeks."
+    #- >
+    #  if [ "$DUNE_DOC_TARGETS" != "" ]; then
+    #    cp -r _build/default/_doc/_html $ARTIFACTS/doc;
+    #    echo "Documentation:
+    #          $CI_JOB_URL/artifacts/browse/$ARTIFACTS/doc/index.html";
+    #  fi
+    #- >
+    #  if [ -f _build/log ];
+    #  then
+    #    mkdir -p $ARTIFACTS/_build;
+    #    cp _build/log $ARTIFACTS/_build/log
+    #    echo "Dune build log:
+    #          $CI_JOB_URL/artifacts/browse/$ARTIFACTS/_build/log";
+    #  fi
+    #- echo -e "section_end:`date +%s`:artifacts\r\e[0K"
 
 
 ### CI performance

@@ -266,7 +266,8 @@ More about fuzzing
 
 config.toml
 ```toml
-concurrent = 1
+concurrent = 5 
+limit = 5
 check_interval = 0
 
 [session_server]

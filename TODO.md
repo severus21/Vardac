@@ -2,6 +2,8 @@
 
 ## Setup/Working environment
 * Setup CI
+    * parallel:mateix variables are not injested -> therefore using COMPILER_VERSION hardcoded in variables
+    * replace make bin by when warning/error done 
 * Test coverage + fuzzing coverage + gadt
 
 ## Features
