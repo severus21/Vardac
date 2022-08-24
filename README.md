@@ -257,6 +257,11 @@ More about fuzzing
             restart: unless-stopped
             depends_on: 
             - minio
+            healthcheck:
+                test: ["CMD", "curl", "-f", "http://minio:9000/minio/health/live"]
+                interval: 30s
+                timeout: 20s
+                retries: 3
 ```
 
 config.toml
@@ -301,6 +306,12 @@ Debugging locally
 ```bash
 curl -LJO "https://gitlab-runner-downloads.s3.amazonaws.com/latest/deb/gitlab-runner_amd64.deb"
 dpkg -i gitlab-runner_amd64.deb
+
+
+or 
+
+curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | sudo bash
+sudo apt-get install gitlab-runner
 ```
 1. Run locally the ci $build$ job
 ```bash
