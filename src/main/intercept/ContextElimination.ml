@@ -39,6 +39,34 @@ module Make () = struct
     (* cf. 4.b.1 *)
     let to_specialized_defined_policy : (Atom.atom, (Atom.atom * Atom.atom) list) Hashtbl.t = Hashtbl.create 16
 
+    let parent_onboarding_outports = Hashtbl.create 16
+    let get_parent_onboarding_outport parent st_onboarding = 
+        let gen () = 
+            let parent_onboarding_outport_name = Atom.fresh "parent_onboarding_outport" in
+            auto_fplace ({
+                name = parent_onboarding_outport_name;
+                protocol = mtype_of_st st_onboarding.value;
+                _children = [];
+            }, mtype_of_ct (TOutport  (mtype_of_st st_onboarding.value)))
+        in
+
+        match Hashtbl.find_opt parent_onboarding_outports parent with
+        | None -> 
+            let parent_onboarding_outport = gen () in
+            let htbl = Hashtbl.create 16 in
+            Hashtbl.add htbl st_onboarding parent_onboarding_outport;
+            Hashtbl.add parent_onboarding_outports parent htbl;
+            parent_onboarding_outport
+        | Some htbl -> begin 
+            match Hashtbl.find_opt htbl st_onboarding with
+            | None ->
+                let parent_onboarding_outport = gen () in
+                Hashtbl.add htbl st_onboarding parent_onboarding_outport;
+                parent_onboarding_outport
+            | Some p -> p
+        end
+
+
     module AtomOptionSet = Set.Make(struct 
         type t = Atom.atom option
         let compare = Option.compare Atom.compare 
@@ -552,7 +580,22 @@ module Make () = struct
             let factory, factory_let = generate_interceptor_factory place interceptor_name base_interceptor_constructor_params (generated_bridges, (b_onboard, b_onboard_mt, b_onboard_let)) in 
 
             let headers : stmt list = 
-                [ b_onboard_let ]
+                [ 
+                    b_onboard_let;
+                    auto_fplace( ExpressionStmt(
+                        e2_e (CallExpr(
+                            e2var (Atom.builtin "bind"),
+                            [
+                                e2_e (AccessExpr(
+                                    e2_e This,
+                                    e2var (fst (get_parent_onboarding_outport (Option.get parent_opt) st_onboard).value).name 
+                                ));
+                                e2var b_onboard
+                            ]
+                        ))
+                    ));
+                
+                ]
                 (* let b_in_i ;*)
                 @ ( 
                     List.map (function (_, _, b_in_let) -> b_in_let) (List.of_seq (Hashtbl.to_seq_values generated_bridges))
@@ -848,11 +891,11 @@ module Make () = struct
 
         Method (auto_fplace {
             annotations = [];
-            ret_type = mtype_of_ft TVoid;
+            ret_type = mtype_of_ct (TResult (mtype_of_ft TVoid, mtype_of_var (Atom.builtin "error")));
             name = f_name;
             args = [
-                auto_fplace (mtype_of_cvar interceptor_schema, l__i_a);
-                auto_fplace (mtype_of_cvar intercepted_schema, l__a);
+                auto_fplace (mtype_of_ct (TActivationRef (mtype_of_cvar interceptor_schema)), l__i_a);
+                auto_fplace (mtype_of_ct (TActivationRef (mtype_of_cvar intercepted_schema)), l__a);
                 auto_fplace (mtype_of_ft TPlace, l__p_of_a);
             ];
             ghost = false;
@@ -868,7 +911,7 @@ module Make () = struct
                         [
                             e2_e(AccessExpr(
                                 e2_e This,
-                                e2var (Option.get interceptor_info.this_port_onboard)
+                                e2var (fst (get_parent_onboarding_outport parent_schema interceptor_info.onboard_info.st_onboard).value).name
                             ));
                             e2var l__i_a
                         ]
@@ -877,33 +920,39 @@ module Make () = struct
                 auto_fplace(LetStmt(
                     mtype_of_st interceptor_info.onboard_info.st_onboard.value,
                     l__s1,
-                    e2_e(CallExpr(
-                        e2var (Atom.builtin "select"),
-                        [
-                            e2var l__s0;
-                            e2_lit (BLabelLit intercepted_schema)
-                        ]
+                    e2_e(UnopExpr(
+                        UnpackOrPropagateResult,
+                        e2_e(CallExpr(
+                            e2var (Atom.builtin "select"),
+                            [
+                                e2var l__s0;
+                                e2_lit (BLabelLit intercepted_schema)
+                            ]
+                        ))
                     ))
                 ));
                 (* ?bool l__s2 = fire(l__s1, ...)?; *)
                 auto_fplace(LetStmt(
                     mtype_of_st (STRecv (mtype_of_ft TBool, auto_fplace STEnd)),
                     l__s2,
-                    e2_e(CallExpr(
-                        e2var (Atom.builtin "fire"),
-                        [
-                            e2var l__s1;
-                            e2_e( BlockExpr(
-                                Tuple,
-                                [e2var l__a; e2var l__p_of_a]
-                            ))
-                        ]
+                    e2_e(UnopExpr(
+                        UnpackOrPropagateResult,
+                        e2_e(CallExpr(
+                            e2var (Atom.builtin "fire"),
+                            [
+                                e2var l__s1;
+                                e2_e( BlockExpr(
+                                    Tuple,
+                                    [e2var l__a; e2var l__p_of_a]
+                                ))
+                            ]
+                        ))
                     ))
                 ));
                 (*TODO failed if onboard refused *)
                 auto_fplace(ExpressionStmt(
                     e2_e(CallExpr(
-                        e2var (Atom.builtin "recv"),
+                        e2var (Atom.builtin "receive"),
                         [
                             e2var l__s2;
                         ]
@@ -927,7 +976,16 @@ module Make () = struct
                 (List.of_seq (Hashtbl.to_seq htbl))
             in
 
-            [{cstruct with body = cstruct.body @ methods }]
+            let outports = 
+                match Hashtbl.find_opt parent_onboarding_outports cstruct.name with
+                | Some htbl -> 
+                    List.map 
+                        (function p -> auto_fplace (auto_annote (Outport p)))
+                        (List.of_seq (Hashtbl.to_seq_values htbl))
+                | None -> []
+            in
+
+            [{cstruct with body = cstruct.body @ methods @ outports }]
         in
 
         rewrite_component_program parent_selector parent_rewriter program 

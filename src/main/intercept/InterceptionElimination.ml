@@ -151,17 +151,20 @@ module Make (Args: TArgs) = struct
             auto_fplace (BlockStmt [
                 (* ... local_s2 = select(param_s, label); *)
                 auto_fplace (LetStmt (
-                    mtype_of_ct (TTuple [ 
-                        mtype_of_ct (TTuple [ a_mt; mtype_of_ft TPlace]);
-                        mtype_of_st (STSend (mtype_of_ft TBool, auto_fplace STEnd))
-                    ]),
+                    mtype_of_st (STRecv ( 
+                        mtype_of_ct (TTuple [ a_mt; mtype_of_ft TPlace]),
+                        auto_fplace (STSend (mtype_of_ft TBool, auto_fplace STEnd))
+                    )),
                     local_s2,
-                    e2_e (CallExpr (
-                        e2var (Atom.builtin "select"),
-                        [
-                            e_param_s;
-                            e_param_schema
-                        ]
+                    e2_e(UnopExpr(
+                        UnpackOrPropagateResult,
+                        e2_e (CallExpr (
+                            e2var (Atom.builtin "select"),
+                            [
+                                e_param_s;
+                                e_param_schema
+                            ]
+                        ))
                     ))
                 ));
 
@@ -345,7 +348,7 @@ module Make (Args: TArgs) = struct
         let callback_onboard_def = auto_fplace (auto_plgannot(Method (auto_fplace {
             annotations = [];
             ghost = false;
-            ret_type = mtype_of_ft TVoid;
+            ret_type = mtype_of_ct (TResult (mtype_of_ft TVoid, mtype_of_var (Atom.builtin "error")));
             name = callback_onboard;
             args = [
                 auto_fplace (mtype_of_ft TBLabel, param_schema);
