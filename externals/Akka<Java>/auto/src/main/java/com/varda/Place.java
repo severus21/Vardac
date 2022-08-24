@@ -119,7 +119,9 @@ public class Place {
     }
 
     public boolean equals(Object obj) {
-        assert(obj != null);
+        if (obj == null)
+            return false;
+
         if (obj == this) {
             return true;
         }

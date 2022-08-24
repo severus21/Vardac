@@ -12,9 +12,7 @@ Scenario
     ```
 4. Run example
     1. Run the Varda system (composed of one binary per case)
-    * Case A:
-    ```bash
-    1> java -enableassertions -jar build/libs/passivePlayer.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeA 
-    2> java -enableassertions -jar build/libs/multiPlayer.jar -ip 127.0.0.1 -p 25521 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp Cloud 
-    ```
-    ```
+        * Case A:
+        ```bash
+        1> java -enableassertions -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeA 
+        ```

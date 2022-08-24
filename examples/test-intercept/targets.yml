@@ -4,9 +4,6 @@
     runtime: Akka
     interface: gRPC
     mains: 
-      multiPlayer:
-        bootstrap: MultiJVMOrchestrator
+      main:
+        bootstrap: Orchestrator
         entrypoint: titia
-      passivePlayer:
-        bootstrap: PassivePlayer
-        entrypoint: titib 

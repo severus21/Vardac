@@ -63,8 +63,9 @@ public class PlaceDiscovery {
 
         if (at.equals(Place.currentPlace(context))) {
             // Local spawn, the current actor is the parent of the child actor
-            SpawnProtocol.Spawn<_T> spawn = new SpawnProtocol.Spawn(runnable, name, props, null);
-            ActorRef<_T> actorRef = AbstractSystem.applySpawn(context, spawn);
+            ActorRef<_T> actorRef = AbstractSystem.applySpawn(
+                context,
+                new SpawnProtocol.Spawn(runnable, name, props, context.getSelf())); 
             context.getLog().debug("spawnAt has been converted into local spawn");
             return actorRef;
         } else {

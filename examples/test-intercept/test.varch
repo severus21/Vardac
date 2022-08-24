@@ -1,6 +1,3 @@
-vplacedef vpa of "placeA";
-vplacedef vpcloud of "Cloud";
-
 event ping of;
 event pong of;
 
@@ -145,21 +142,12 @@ component MsgCounter {
 
 (********************* Guardians and entry points *********************)
 
-component PassivePlayer {
-    onstartup () {
-        print("Start passive player"); 
-    }
-}
-
-component MultiJVMOrchestrator {
+component Orchestrator {
     onstartup () {
         spawn PingPong();
     }
 }
 
 void titia (array<string> args){
-    print("Multi player main");
-}
-void titib (array<string> args){
-    print("Passive player main");
+    print("Main");
 }
