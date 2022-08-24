@@ -305,7 +305,9 @@ dpkg -i gitlab-runner_amd64.deb
 1. Run locally the ci $build$ job
 ```bash
     cd git repo
-    gitlab-Runner exec shell/docker build
+    gitlab-runner exec shell build
+    or
+    gitlab-runner exec docker build
 ```
 
 Tips to debug add sleep to have the time to debug the container using a docker exec -it CONTAINER bash
