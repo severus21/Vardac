@@ -331,10 +331,11 @@ module Make () = struct
                             ) 
                             
                             (List.map (rewrite_expr_class_item 
+                                None 
                                 (function 
                                     |This -> true 
                                     | _ -> false) 
-                                (function mt -> function 
+                                (fun _ mt -> function 
                                 | This -> Self
                                 )) 
                                 body)
@@ -342,12 +343,13 @@ module Make () = struct
 
                     (* this.port remains this.port since the port belongs to the host component and not to the class *)
                     let cl_body = List.map (rewrite_expr_class_item 
+                        None
                         (function 
                             | AccessExpr( {value=Self, _}, {value=_, {value=CType{value=TOutport _}}}) -> true 
                             | AccessExpr( {value=Self, _}, {value=_, {value=CType{value=TInport _}}}) -> true 
                             | AccessExpr( {value=Self, _}, {value=_, {value=CType{value=TEport _}}}) -> true 
                             | _ -> false) 
-                        (function mt -> function 
+                        (fun _ mt -> function 
                             | AccessExpr( {place; value=Self, mt}, e2) -> AccessExpr( {place; value=This, mt}, e2)
                         )) 
                         cl_body in 
@@ -362,11 +364,12 @@ module Make () = struct
                         rewrite initiate_session -> to use an indirected activation_ref   
                     *)
                     let cl_body = List.map (rewrite_expr_class_item 
+                        None
                         (function 
                             | CallExpr( {value=VarExpr x, _}, es) when Atom.is_builtin x -> 
                                 List.mem (Atom.hint x) ["bind";"bind_in"; "bind_out"; "initiate_session_with"] 
                             | _ -> false) 
-                        (function mt -> function 
+                        (fun _ mt -> function 
                             | CallExpr( {value=VarExpr x, mt1; place}, es) when Atom.hint x = "bind" ->
                                 CallExpr( {value=VarExpr (Atom.builtin "bind_inlined"), mt1;place}, es@[ e2var a_cl_activation_ref ])
                             | CallExpr( {value=VarExpr x, mt1; place}, es) when Atom.hint x = "bind_in" ->
@@ -992,7 +995,7 @@ module Make () = struct
             | _ -> false
         in
 
-        let rewrite_host_spawn _ = function
+        let rewrite_host_spawn _ _ = function
             | Spawn ({c = {value=VarCExpr name, _ }} as spawn)-> 
                 logger#debug "rewrite_host_spawn of [%s]" (Atom.to_string name);
                 let static_bridges = Hashtbl.find parent2spawn_static_bridges name in

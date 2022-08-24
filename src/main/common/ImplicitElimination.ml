@@ -100,7 +100,7 @@ module Make (Args : Params ) : Sig = struct
             | Spawn _ -> failwith "Not a VarCExpr in Spawn, should not happen after partial evaluation" 
             | _ -> false
         in
-        let replace_spawn mt = function
+        let replace_spawn _ mt = function
             | Spawn {c={value=VarCExpr name, _} as c; args; at; inline_in} when name = cdcl.name-> 
                 logger#debug "Replacing spawn for %s" (Atom.to_string name);
                 Spawn {
@@ -306,8 +306,9 @@ module Make (Args : Params ) : Sig = struct
             
         (* Use explicit instead of explicit *)
         let replace_implict_var (mt, x, y) stmts = List.map (rewrite_expr_component_item 
+            None
             (function | (VarExpr z) | (ImplicitVarExpr z) when z = x -> true | _ -> false)
-            (fun _ _ -> VarExpr y)
+            (fun _ _ _ -> VarExpr y)
         ) stmts in 
         let body = List.fold_left (fun body (mt, x, _, y) -> replace_implict_var (mt, x, y) body) body implicit_vars in
         ComponentStructure {cdcl with body = body }
@@ -330,7 +331,7 @@ module Make (Args : Params ) : Sig = struct
     and rewrite_program terms = 
         spawn_rewritings := []; (* TODO handle the state using a Make module *)
         let terms = List.map rterm terms in
-        let apply_rewriting term (select, rewriter) = rewrite_expr_term select rewriter term in 
+        let apply_rewriting term (select, rewriter) = rewrite_expr_term None select rewriter term in 
         let apply_all_rewriting term = List.fold_left apply_rewriting term !spawn_rewritings in
         let terms = List.map apply_all_rewriting terms in
         List.map rterm2 terms

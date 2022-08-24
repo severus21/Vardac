@@ -13,6 +13,10 @@ module Make () = struct
 
     let fplace = (Error.forge_place "Intercept.ContextElimination" 0 0) 
     let auto_fplace smth = {place = fplace; value=smth}
+    let auto_annote (x: 'a) : 'a plg_annotated = {
+        plg_annotations = [];
+        v = x
+    }
     include AstUtils2.Mtype.Make(struct let fplace = fplace end)
 
     (******************* Shared state of the pass **************************)
@@ -32,6 +36,8 @@ module Make () = struct
     *)
     let interceptor_makes : (interceptor_key, (component_dcl * (Atom.atom * session_type * _term))) Hashtbl.t = Hashtbl.create 16 
 
+    (* cf. 4.b.1 *)
+    let to_specialized_defined_policy : (Atom.atom, (Atom.atom * Atom.atom) list) Hashtbl.t = Hashtbl.create 16
 
     module AtomOptionSet = Set.Make(struct 
         type t = Atom.atom option
@@ -54,7 +60,26 @@ module Make () = struct
     *)
     let interceptors_info : (Atom.atom, interceptor_info) Hashtbl.t = Hashtbl.create 16 
 
-
+    (* Stores registering methods for a schema B to onboard an intercepted children a:A in i:I
+        (parent_schema i.e. B) -> {(intercepted_schema i.e. A, interceptor_schema i.e I) -> registering method name of B}
+    *)
+    let do_onboards_of : (Atom.atom, (Atom.atom * Atom.atom, Atom.atom) Hashtbl.t) Hashtbl.t = Hashtbl.create 16
+    let do_onboard_of parent_schema intercepted_schema interceptor_schema = 
+        match Hashtbl.find_opt do_onboards_of parent_schema with 
+        | Some htbl -> begin
+            match Hashtbl.find_opt htbl (intercepted_schema, interceptor_schema) with 
+            | Some x -> x
+            | None ->
+                let x = Atom.fresh (Printf.sprintf "onboard_%s_in_%s" (Atom.to_string intercepted_schema) (Atom.to_string interceptor_schema)) in
+                Hashtbl.add htbl (intercepted_schema, interceptor_schema) x;
+                x
+        end
+        | None -> 
+            let x = Atom.fresh (Printf.sprintf "onboard_%s_in_%s" (Atom.to_string intercepted_schema) (Atom.to_string interceptor_schema)) in
+            let htbl = Hashtbl.create 16 in
+            Hashtbl.add htbl (intercepted_schema, interceptor_schema) x;
+            Hashtbl.add do_onboards_of parent_schema htbl;
+            x
 
     (*************** Step 0 - gather intell ******************)
 
@@ -428,7 +453,9 @@ module Make () = struct
             let res = e2_e (LambdaExpr ( [auto_fplace (mt,x)], core_factory)) in 
             make_wraper res params
         in
-assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
+
+        assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
+
         (*** Generate the let ***)
         let factory_targs_wo_p_of_i = 
             (* *BaseInterceptor::on_startup_args *)
@@ -462,7 +489,7 @@ assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
         see whitepaper for details
     *)
 
-    let ctxelim_rewrite_stmt (program:program) place = function 
+    let ctxelim_rewrite_stmt (program:program) parent_opt place = function 
         | WithContextStmt (anonymous_mod, base_interceptor_name, user_defined_policy, stmts) -> begin 
             (*** Step a - Collect intell on ctx ***)
 
@@ -500,8 +527,27 @@ assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
             (* TODOC *)
             (* Sanity checks - i.e. detects that interception ctx is not used and raise an error *)
             if Atom.Set.is_empty intercepted_schemas then Error.perror place "Interception context intercepts no component schema !!";
+            
+            (*** Step b.1 - specialize policy type -> TODO FIXME HOT FIX for Java like target where Interceptor and SpecializedInterceptor are not subtypes ***)
+            let user_defined_policy_name = 
+                match fst user_defined_policy.value with 
+                | AccessExpr(_, {value=VarExpr a, _}) -> a
+            in
+            
+            let specialized_defined_policy = Atom.fresh (Atom.to_string user_defined_policy_name) in
+            
+            Hashtbl.add to_specialized_defined_policy user_defined_policy_name (
+                match Hashtbl.find_opt to_specialized_defined_policy user_defined_policy_name with
+                | None -> [(interceptor_name, specialized_defined_policy)]
+                | Some set -> (interceptor_name, specialized_defined_policy) :: set
+            );
 
-            (*** Step b - Forge ctx headers ***)
+            let user_defined_policy = e2_e (AccessExpr(
+                e2_e This,
+                e2var specialized_defined_policy
+            )) in
+
+            (*** Step b.2 - Forge ctx headers ***)
             let (generated_bridges, (b_onboard, b_onboard_mt, b_onboard_let)) = generate_bridges place interceptor_name intercepted_schemas p_onboard (mtype_of_st st_onboard.value) intercepted_bridges in
             let factory, factory_let = generate_interceptor_factory place interceptor_name base_interceptor_constructor_params (generated_bridges, (b_onboard, b_onboard_mt, b_onboard_let)) in 
 
@@ -550,7 +596,7 @@ assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
                 List.length collected_elts > 0  
             in
 
-            let stmt_spawn_rewriter place stmt = 
+            let stmt_spawn_rewriter parent_opt place stmt = 
 
                 (* TODO must be consistent with the fct computing intercepted_activations => dedup code somehow see intercepted_activations_of_stmt *)
                 let spawn_selector = function
@@ -567,13 +613,18 @@ assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
                 let stmt_headers = ref [] in
 
                 (*
+                    - triggers the onboarding of a in i_a
+                *)
+                let stmt_footers = ref [] in
+
+                (*
                     * rewrite each spawn
                     * register headers for this stmt
                     * hydrated exposed_activations_info for each spawn 
 
                     exposed_id = some a if let a = spawn 
                 *)
-                let spawn_rewriter (exposed_info: (Atom.atom * Atom.atom) option) mt = function
+                let spawn_rewriter (a': Atom.atom) (exposed_info: (Atom.atom * Atom.atom) option) parent_opt mt = function
                     | Spawn spawn -> begin 
                         match fst spawn.c.value with
                         | VarCExpr schema_a -> begin 
@@ -625,17 +676,50 @@ assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
                                 ) 
                             ]; 
                             
-                            (* Need to replace at if exists, in case at expr is not idempotent or costly *)
-                            Spawn { spawn with
-                                at = Option.map (function _ -> e2var p_of_a) spawn.at
-                            }
+
+
+                            
+
+                            stmt_footers := !stmt_footers @ [
+                                ExpressionStmt(
+                                    e2_e (CallExpr(
+                                        e2_e (AccessExpr(
+                                            e2_e This,
+                                            e2var (do_onboard_of (Option.get parent_opt) (schema_of  spawn.c) interceptor_name)
+                                        )),
+                                        [
+                                            e2var i_a;
+                                            e2var a';
+                                            e2var p_of_a;
+                                        ]
+                                    ))
+                                )
+                            ];
+                            
+                            if exposed_info = None then (
+                                stmt_headers := !stmt_headers @ [
+                                    LetStmt(
+                                        mtype_of_ct (TActivationRef mt),
+                                        a',
+                                        e2_e (Spawn { spawn with
+                                            at = Option.map (function _ -> e2var p_of_a) spawn.at
+                                        })
+                                    )
+                                ];
+                                VarExpr a'
+                            )
+                            else
+                                (* Need to replace at if exists, in case at expr is not idempotent or costly *)
+                                Spawn { spawn with
+                                    at = Option.map (function _ -> e2var p_of_a) spawn.at
+                                }
                         end 
                         | _ -> Error.perror place "spawn first arg should have been reduce into a cexpr value (i.e. component name)"
                     end
                 in
 
                 (* TODO logic duplicated with exposed_activation*)
-                !stmt_headers @ match stmt with 
+                match stmt with 
                 (* Exposed activations must be identified to hydrate corretly the exposed_activations_info *)
                 | LetStmt (mt, a, ({value=Spawn spawn, _} as spawn_e)) ->
                     (* Replace a by a' to ensure that this pass guarantee `` a binder create a unique named variable`` even if we reintroduce a binder for [a] in ctx footer *)
@@ -643,21 +727,25 @@ assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
                     let a' = Atom.fresh (Atom.value a) in
 
                     (* Rewrite args of exposed spawn *)
-                    let args = List.map (rewrite_expr_expr spawn_selector (spawn_rewriter None) ) spawn.args in 
+                    let args = List.map (rewrite_expr_expr parent_opt spawn_selector (spawn_rewriter a' None) ) spawn.args in 
 
                     let spawn = { spawn with args } in
 
                     (* Exposed_activation *) 
-                    let e = {place = spawn_e.place @ fplace; value = spawn_rewriter (Some (a, a')) (snd spawn_e.value) (fst spawn_e.value), (snd spawn_e.value)} in
+                    let e = {
+                        place = spawn_e.place @ fplace; 
+                        value = spawn_rewriter a' (Some (a, a')) parent_opt (snd spawn_e.value) (fst spawn_e.value), (snd spawn_e.value)} in
 
-                    [ LetStmt(mt, a', e)]
+                    !stmt_headers @ [ LetStmt(mt, a', e)] @ !stmt_footers
 
                 (* Non-exposed activations *)
-                | _ -> [ (rewrite_expr_stmt spawn_selector (spawn_rewriter None) (auto_fplace stmt)).value ]
+                | _ -> 
+                    let _stmt = (rewrite_expr_stmt parent_opt spawn_selector (spawn_rewriter (Atom.fresh "a") None) (auto_fplace stmt)).value  in
+                    !stmt_headers @ [_stmt] @ !stmt_footers
             in 
 
             (* Rewrite intercepted_activations and hydrate exposed_activations_info *)
-            let stmts = List.map (function stmt -> rewrite_stmt_stmt false stmt_spawn_selector stmt_spawn_rewriter stmt) stmts in
+            let stmts = List.map (function stmt -> rewrite_stmt_stmt false parent_opt stmt_spawn_selector stmt_spawn_rewriter stmt) stmts in
             let stmts = List.flatten stmts in
 
             (*  apply renaming a -> a', for exposed_activations, in ctx body.
@@ -667,18 +755,19 @@ assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
                 List.map 
                     (
                         rewrite_expr_stmt 
-                        (function 
-                            | VarExpr a -> Hashtbl.find_opt exposed_activations_info a <> None 
-                            | _ -> false) 
-                        (function mt -> function 
-                            | VarExpr a -> 
-                                let (_, _, a', _) = 
-                                    try
-                                        Hashtbl.find exposed_activations_info a 
-                                    with Not_found -> failwith "activation %s marked as exposed but not found in exposed_activation_info" (Atom.to_string a) 
-                                in 
-                                VarExpr a'
-                        )
+                            parent_opt
+                            (function 
+                                | VarExpr a -> Hashtbl.find_opt exposed_activations_info a <> None 
+                                | _ -> false) 
+                            (fun _ mt -> function 
+                                | VarExpr a -> 
+                                    let (_, _, a', _) = 
+                                        try
+                                            Hashtbl.find exposed_activations_info a 
+                                        with Not_found -> failwith "activation %s marked as exposed but not found in exposed_activation_info" (Atom.to_string a) 
+                                    in 
+                                    VarExpr a'
+                            )
                     )
                     stmts
             in
@@ -743,6 +832,179 @@ assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
             List.map (function stmt -> stmt.value) stmts
         end
 
+    (*************** Step 5 - Add logic to parent of ctx  ******************)
+    (* Ctx add do_onboard method for triggering child onboarding *)
+
+    let generate_onboards_of parent_schema intercepted_schema interceptor_schema f_name =
+        let l__i_a = Atom.fresh "i_a" in
+        let l__a = Atom.fresh "a" in 
+        let l__p_of_a = Atom.fresh "p_of_a" in
+
+        let l__s0 = Atom.fresh "s_a" in
+        let l__s1 = Atom.fresh "s_b" in
+        let l__s2 = Atom.fresh "s_c" in
+
+        let interceptor_info = Hashtbl.find interceptors_info interceptor_schema in 
+
+        Method (auto_fplace {
+            annotations = [];
+            ret_type = mtype_of_ft TVoid;
+            name = f_name;
+            args = [
+                auto_fplace (mtype_of_cvar interceptor_schema, l__i_a);
+                auto_fplace (mtype_of_cvar intercepted_schema, l__a);
+                auto_fplace (mtype_of_ft TPlace, l__p_of_a);
+            ];
+            ghost = false;
+            contract_opt = None;
+            on_destroy = false;
+            on_startup = false;
+            body = [
+                auto_fplace(LetStmt(
+                    mtype_of_st interceptor_info.onboard_info.st_onboard.value,
+                    l__s0,
+                    e2_e(CallExpr(
+                        e2var (Atom.builtin "initiate_session_with"),
+                        [
+                            e2_e(AccessExpr(
+                                e2_e This,
+                                e2var (Option.get interceptor_info.this_port_onboard)
+                            ));
+                            e2var l__i_a
+                        ]
+                    ))
+                ));
+                auto_fplace(LetStmt(
+                    mtype_of_st interceptor_info.onboard_info.st_onboard.value,
+                    l__s1,
+                    e2_e(CallExpr(
+                        e2var (Atom.builtin "select"),
+                        [
+                            e2var l__s0;
+                            e2_lit (BLabelLit intercepted_schema)
+                        ]
+                    ))
+                ));
+                (* ?bool l__s2 = fire(l__s1, ...)?; *)
+                auto_fplace(LetStmt(
+                    mtype_of_st (STRecv (mtype_of_ft TBool, auto_fplace STEnd)),
+                    l__s2,
+                    e2_e(CallExpr(
+                        e2var (Atom.builtin "fire"),
+                        [
+                            e2var l__s1;
+                            e2_e( BlockExpr(
+                                Tuple,
+                                [e2var l__a; e2var l__p_of_a]
+                            ))
+                        ]
+                    ))
+                ));
+                (*TODO failed if onboard refused *)
+                auto_fplace(ExpressionStmt(
+                    e2_e(CallExpr(
+                        e2var (Atom.builtin "recv"),
+                        [
+                            e2var l__s2;
+                        ]
+                    ))
+                ))
+            ]
+        })     
+
+    let ctxelim_rewrite_parent program : program =
+        let parent_selector (cstruct:component_structure) = 
+            (Hashtbl.find_opt do_onboards_of cstruct.name) <> None 
+        in
+
+        let parent_rewriter parent_parent_opt place (cstruct:component_structure) : component_structure list = 
+            let htbl = Hashtbl.find do_onboards_of cstruct.name in
+
+            let methods = List.map 
+                (function ((intercepted_schema, interceptor_schema), f_name) -> 
+                    auto_fplace (auto_annote(generate_onboards_of cstruct.name intercepted_schema interceptor_schema f_name))
+                )
+                (List.of_seq (Hashtbl.to_seq htbl))
+            in
+
+            [{cstruct with body = cstruct.body @ methods }]
+        in
+
+        rewrite_component_program parent_selector parent_rewriter program 
+
+
+    (****************** Step 5 specialize policy ************************)
+    let specialize_user_defined_policies program = 
+        let policy_selector = function 
+            | Method m -> Hashtbl.mem to_specialized_defined_policy m.value.name
+            | _ -> false
+        in
+        let policy_rewriter place = function
+            | Method m -> begin
+                let specialized_ms = List.map 
+                    (function (interceptor_name, specialized_policy_name) ->
+                        logger#error "Specialized policy %s for %s" (Atom.to_string specialized_policy_name) (Atom.to_string interceptor_name); 
+                        (* rename body *)
+                        let freevars, _ = free_vars_component_item Atom.Set.empty (auto_fplace (auto_annote(Method m))) in
+                        let freetvars, _ = free_tvars_component_item ~flag_tcvar:true  Atom.Set.empty (auto_fplace (auto_annote(Method m))) in
+
+                        let renaming = 
+                            let state = Hashtbl.create 256 in
+                            function x -> 
+                            if Atom.is_builtin x then x (* TODO guarantee *) 
+                            else
+                                match Hashtbl.find_opt state x with
+                                | None -> 
+                                    (* x should not be a variable binded outside the included citems *)
+                                    if Atom.Set.find_opt x freevars = None && Atom.Set.find_opt x freetvars = None then 
+                                    begin
+                                        let y = Atom.fresh (Atom.hint x) in 
+                                        Hashtbl.add state x y;
+                                        logger#debug "rename %s -> %s" (Atom.to_string x) (Atom.to_string y);
+                                        y
+                                    end
+                                    else x
+                                | Some y -> y
+                        in
+                        let body = List.map (rename_stmt ~flag_rename_attribute:true true renaming) m.value.body in
+
+
+                        Method (auto_fplace {
+                            annotations = [];
+                            ghost = false;
+                            ret_type = mtype_of_ct (TActivationRef (mtype_of_cvar interceptor_name));
+                            name = specialized_policy_name; 
+                            args = 
+                            List.map (map_place(fun _ (mt, x) -> mt, renaming x))
+                            ((
+                                let rec _update_signature_ret_type place = function
+                                | CType {place; value=TArrow(x, {value=CType{value=TActivationRef _}})} -> 
+                                    CType {
+                                        place = place @ fplace; 
+                                        value = TArrow(x, mtype_of_ct (TActivationRef (mtype_of_cvar interceptor_name)))
+                                    }
+                                | CType{value=TArrow (x, y)} ->
+                                    CType{place = place; value = TArrow(x, update_signature_ret_type y)}
+                                and update_signature_ret_type mt = map_place _update_signature_ret_type mt
+                                in
+                                
+                                auto_fplace (update_signature_ret_type (fst (List.hd m.value.args).value), (snd (List.hd m.value.args).value))
+                            ):: (List.tl m.value.args));
+                            body = body;
+                            contract_opt = None;
+                            on_startup = false;
+                            on_destroy = false;
+                        })    
+                    )
+                    (Hashtbl.find to_specialized_defined_policy m.value.name)
+                in
+
+                (Method m) :: specialized_ms
+            end
+            | t -> [t]
+        in
+        
+        rewrite_citem_program policy_selector policy_rewriter program
 
 
     (****************** Main CTX Elim ************************)
@@ -756,6 +1018,13 @@ assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
         (* Apply the ctx elimination *)
         logger#debug "CtxElim: applying rewriting";
         let program = rewrite_stmt_program true (function | WithContextStmt _ -> true | _ -> false) (ctxelim_rewrite_stmt program) program in
+
+        let program = ctxelim_rewrite_parent program in
+
+        (* Specialize polices *)
+        logger#debug "CtxElim: specialize policies";
+        let program =  specialize_user_defined_policies program in
+
 
         (* Insert possibly shared definitions between multiple ctx (and parent schemas) *)
         logger#debug "CtxElim: insertion of shared definitions";

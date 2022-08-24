@@ -47,10 +47,10 @@ module Params : (
         selector rewriter
     = Option.map (rewrite_type_expr selector rewriter)
     let rewrite_expr_state_dcl_body 
-        selector rewriter
+        parent_opt selector rewriter
     = 
         (* TODO FIXME rewrite type0*)
-        Option.map (rewrite_expr_expr selector rewriter)
+        Option.map (rewrite_expr_expr parent_opt selector rewriter)
 
     let collect_expr_state_dcl_body 
         parent_opt already_binded selector collector 
@@ -81,13 +81,13 @@ module Params : (
         logger#debug "rewrite_type_custom_method_body";
         List.map (rewrite_type_stmt selector rewriter)
     let rewrite_expr_custom_method0_body 
-        selector rewriter
-    = List.map (rewrite_expr_stmt selector rewriter)
+        parent_opt selector rewriter
+    = List.map (rewrite_expr_stmt parent_opt selector rewriter)
     let rewrite_exprstmts_custom_method0_body rewrite_exprstmts_stmt parent_opt exclude_stmt selector rewriter = function body ->
     List.flatten (List.map (rewrite_exprstmts_stmt parent_opt exclude_stmt selector rewriter) body)
     let rewrite_stmt_custom_method0_body
-    rewrite_stmt_stmt recurse selector rewriter = function body ->
-    List.flatten (List.map (rewrite_stmt_stmt recurse selector rewriter) body)
+    rewrite_stmt_stmt recurse parent_opt selector rewriter = function body ->
+    List.flatten (List.map (rewrite_stmt_stmt recurse parent_opt selector rewriter) body)
 
     let collect_expr_custom_method0_body 
         parent_opt already_binded selector collector

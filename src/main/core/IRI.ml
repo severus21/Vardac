@@ -63,13 +63,13 @@ let rec collect_expr_bbterm_ parent_opt already_binded selector collector place 
     ) (already_binded, [], []) body
 and collect_expr_bbterm parent_opt already_binded selector collector = map0_place (collect_expr_bbterm_ parent_opt already_binded selector collector)
 
-let rewrite_expr_bbbody selector rewriter = function
+let rewrite_expr_bbbody parent_opt selector rewriter = function
     | Text str -> Text str
-    | Varda e -> Varda (rewrite_expr_expr selector rewriter e)
-let rec rewrite_expr_bbterm_ selector rewriter place {language; body} =
+    | Varda e -> Varda (rewrite_expr_expr parent_opt selector rewriter e)
+let rec rewrite_expr_bbterm_ parent_opt selector rewriter place {language; body} =
     {language;
-    body = List.map (rewrite_expr_bbbody selector rewriter) body}
-and rewrite_expr_bbterm selector collector = map_place (rewrite_expr_bbterm_ selector collector)
+    body = List.map (rewrite_expr_bbbody parent_opt selector rewriter) body}
+and rewrite_expr_bbterm parent_opt selector collector = map_place (rewrite_expr_bbterm_ parent_opt selector collector)
 
 let collect_stmt_bbbody parent_opt selector collector = function
     | Text _ -> [] 
@@ -166,10 +166,10 @@ module Params : (
         | InitBB bbterm -> InitBB (rewrite_type_bbterm rewrite_type_expr selector rewriter bbterm) 
         | (NoInit as e) -> e
     let rewrite_expr_state_dcl_body 
-        selector rewriter
+        parent_opt selector rewriter
     = function 
-        | InitExpr e -> InitExpr (rewrite_expr_expr selector rewriter e)
-        | InitBB bbterm -> InitBB (rewrite_expr_bbterm selector rewriter bbterm) 
+        | InitExpr e -> InitExpr (rewrite_expr_expr parent_opt selector rewriter e)
+        | InitBB bbterm -> InitBB (rewrite_expr_bbterm parent_opt selector rewriter bbterm) 
         | (NoInit as e) -> e
         (* TODO FIXME rewrite type0*)
 
@@ -211,22 +211,22 @@ module Params : (
             AbstractImpl (List.map (rewrite_type_stmt selector rewriter) stmts)
         | BBImpl bbterm -> BBImpl (rewrite_type_bbterm rewrite_type_expr selector rewriter bbterm)
     let rewrite_expr_custom_method0_body 
-        selector rewriter
+        parent_opt selector rewriter
     = function
         | AbstractImpl stmts -> 
             AbstractImpl (
-                List.map (rewrite_expr_stmt selector rewriter) stmts)
-        | BBImpl bbterm -> BBImpl (rewrite_expr_bbterm selector rewriter bbterm) 
+                List.map (rewrite_expr_stmt parent_opt selector rewriter) stmts)
+        | BBImpl bbterm -> BBImpl (rewrite_expr_bbterm parent_opt selector rewriter bbterm) 
     let rewrite_exprstmts_custom_method0_body rewrite_exprstmts_stmt parent_opt exclude_stmt selector rewriter = function 
         | AbstractImpl body ->
             AbstractImpl (
                 List.flatten (List.map (rewrite_exprstmts_stmt parent_opt exclude_stmt selector rewriter) body))
         | BBImpl bbterm -> BBImpl (rewrite_exprstmts_bbterm parent_opt exclude_stmt selector rewriter bbterm)
     let rewrite_stmt_custom_method0_body
-    rewrite_stmt_stmt recurse selector rewriter = function 
+    rewrite_stmt_stmt recurse parent_opt selector rewriter = function 
         | AbstractImpl body ->
             AbstractImpl (
-                List.flatten (List.map (rewrite_stmt_stmt recurse selector rewriter) body))
+                List.flatten (List.map (rewrite_stmt_stmt recurse parent_opt selector rewriter) body))
         | BBImpl bbterm -> BBImpl (rewrite_stmt_bbterm recurse selector rewriter bbterm)
 
     let collect_expr_custom_method0_body 

@@ -58,7 +58,7 @@ module Make () : Sig = struct
         )
 
 
-    let rewritor place = function 
+    let rewritor _ place = function 
     | BranchStmt {s; label; branches} -> begin
         let mt_st = snd s.value in
 

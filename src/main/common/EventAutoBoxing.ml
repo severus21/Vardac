@@ -113,7 +113,7 @@ module Make () = struct
             | CallExpr ({value= (VarExpr x, _)}, args) when Atom.hint x = "receive" && Atom.is_builtin x -> true 
             | _ -> false
         in
-        let expr_rewritor mt e =
+        let expr_rewritor _ mt e =
             match e with
             | CallExpr ({place; value= (VarExpr x, _)}, args) when Atom.hint x = "fire" && Atom.is_builtin x -> 
                 logger#debug "fire auto-boxing";

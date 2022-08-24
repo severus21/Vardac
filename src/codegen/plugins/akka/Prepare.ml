@@ -123,7 +123,7 @@ module Make () = struct
                     | This -> true 
                     | _ -> false
                 in 
-                let rewrite_this mt = function 
+                let rewrite_this _ mt = function 
                     | This -> AccessExpr(
                         e2_e Self,
                         e2var self_parent_this
@@ -136,7 +136,7 @@ module Make () = struct
                         name = self_parent_this;
                         type0 = mt_parent_this;
                         body = NoInit;
-                }))) ::(List.map (rewrite_expr_class_item select_this rewrite_this) cl.body) } in
+                }))) ::(List.map (rewrite_expr_class_item None select_this rewrite_this) cl.body) } in
 
                 let constructor = get_clconstructor cl in
                 let constructor = match constructor with 
@@ -180,7 +180,7 @@ module Make () = struct
                 Atom.Set.mem c !cls 
             | _ -> false
         in
-        let rewrite_instantiation parent_opt = function 
+        let rewrite_instantiation parent_opt place = function 
             | Create {c; args} -> begin
                 logger#debug "rewrite [NewExpr] of [%s]" (Atom.to_string c);
                 try 

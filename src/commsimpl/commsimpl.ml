@@ -22,7 +22,7 @@ module Make () = struct
         "bridgeof" -> "bridgeof_in" or "bridgeof_out" to ease encode.ml
     *)
     let speciliaze_call =
-        let rewriter place = function 
+        let rewriter _ place = function 
             | CallExpr ({place=p_bind;value=VarExpr x, mt}, [port; bridge])  when (Atom.is_builtin x) && (Atom.hint x = "bind") ->
                 let name = 
                     match (snd port.value).value with

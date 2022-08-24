@@ -422,8 +422,9 @@ module Make(Args:Args) : Sig = struct
                         (auto_fplace ((LitExpr (auto_fplace VoidLit)), fdcl.value.ret_type)) (* Works in Java since null can be of any type - FIXME maybe we will need to use an option type initialized to None *)
                     )))::stmts in
                     let stmts = List.flatten (List.map (rewrite_stmt_stmt false 
+                        None
                         (function |ReturnStmt _ -> true | _ -> false) 
-                        ( fun place -> function | ReturnStmt e -> [AssignExpr (a_ret, e)] )) stmts)
+                        ( fun _ place -> function | ReturnStmt e -> [AssignExpr (a_ret, e)] )) stmts)
                     in
                     
                     stmts, (VarExpr a_ret, fdcl.value.ret_type)

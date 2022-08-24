@@ -49,8 +49,9 @@ module type IRParams = sig
     ( _main_type -> _main_type) ->
     _state_dcl_body -> _state_dcl_body
     val rewrite_expr_state_dcl_body : 
+    Atom.atom option ->
     (_expr -> bool) ->
-    ( main_type -> _expr -> _expr) ->
+    ( Atom.atom option -> main_type -> _expr -> _expr) ->
     _state_dcl_body -> _state_dcl_body
 
 
@@ -77,17 +78,20 @@ module type IRParams = sig
     val rewrite_stmt_custom_method0_body : 
     (
         bool ->
+        Atom.atom option ->
         (_stmt -> bool) ->
-        ( Error.place -> _stmt -> _stmt list) ->
+        ( Atom.atom option -> Error.place -> _stmt -> _stmt list) ->
         stmt -> stmt list
     ) ->
-        bool ->
+    bool ->
+    Atom.atom option ->
     (_stmt -> bool) ->
-    ( Error.place -> _stmt -> _stmt list) ->
+    ( Atom.atom option -> Error.place -> _stmt -> _stmt list) ->
     _custom_method0_body -> _custom_method0_body 
     val rewrite_expr_custom_method0_body :
+    Atom.atom option ->
     (_expr -> bool) ->
-    ( main_type -> _expr -> _expr) ->
+    ( Atom.atom option -> main_type -> _expr -> _expr) ->
     _custom_method0_body -> _custom_method0_body 
     val rewrite_exprstmts_custom_method0_body :
     (
@@ -471,18 +475,24 @@ module Make (Params : IRParams) = struct
             Atom.Set.t * 'a list *
             (main_type * expr_variable) list
         val rewrite_expr_class_item :
+            Atom.atom option ->
             (_expr -> bool) ->
-            (main_type -> _expr -> _expr) ->
+            (Atom.atom option -> main_type -> _expr -> _expr) ->
             class_item -> class_item
-        val rewrite_expr_component_item : (_expr -> bool) ->
-            (main_type -> _expr -> _expr) ->
+        val rewrite_expr_component_item : 
+            Atom.atom option ->
+            (_expr -> bool) ->
+            (Atom.atom option -> main_type -> _expr -> _expr) ->
             component_item ->
             component_item
-        val rewrite_expr_term : (_expr -> bool) ->
-            (main_type -> _expr -> _expr) ->
+        val rewrite_expr_term :
+            Atom.atom option ->
+            (_expr -> bool) ->
+            (Atom.atom option -> main_type -> _expr -> _expr) ->
             term -> term
-        val rewrite_expr_program : (_expr -> bool) ->
-            (main_type -> _expr -> _expr) ->
+        val rewrite_expr_program : 
+            (_expr -> bool) ->
+            (Atom.atom option -> main_type -> _expr -> _expr) ->
             program -> program
 
         val collect_cexpr_program : 
@@ -496,12 +506,13 @@ module Make (Params : IRParams) = struct
             Error.place -> _stmt -> 'a list) ->
             term list -> 'a list
         val rewrite_stmt_class_item : bool ->
+            Atom.atom option ->
             (_stmt -> bool) ->
-            (Error.place -> _stmt -> _stmt list) ->
+            (Atom.atom option -> Error.place -> _stmt -> _stmt list) ->
             class_item -> class_item list
         val rewrite_stmt_program : bool ->
             (_stmt -> bool) ->
-            (Error.place -> _stmt -> _stmt list) ->
+            (Atom.atom option -> Error.place -> _stmt -> _stmt list) ->
             term list -> term list
 
         val rewrite_exprstmts_stmt : component_variable option ->
@@ -1429,94 +1440,94 @@ module Make (Params : IRParams) = struct
 
         (*****************************************************************)
 
-        let rec rewrite_expr_contract_ selector rewriter place _contract =
+        let rec rewrite_expr_contract_ parent_opt selector rewriter place _contract =
             {_contract with  
-                pre_binders = List.map (function (mt, x, e) -> (mt, x, rewrite_expr_expr selector rewriter e)) _contract.pre_binders; (*TODO replace for mt*)
-                ensures = Option.map (rewrite_expr_expr selector rewriter) _contract.ensures;
-                returns = Option.map (rewrite_expr_expr selector rewriter) _contract.returns;
+                pre_binders = List.map (function (mt, x, e) -> (mt, x, rewrite_expr_expr parent_opt selector rewriter e)) _contract.pre_binders; (*TODO replace for mt*)
+                ensures = Option.map (rewrite_expr_expr parent_opt selector rewriter) _contract.ensures;
+                returns = Option.map (rewrite_expr_expr parent_opt selector rewriter) _contract.returns;
             }
-        and rewrite_expr_contract selector rewriter = map_place (rewrite_expr_contract_ selector rewriter) 
+        and rewrite_expr_contract parent_opt selector rewriter = map_place (rewrite_expr_contract_ parent_opt selector rewriter) 
 
-        and rewrite_expr_port_  selector rewriter place ((_port, mt): _port * main_type) =
+        and rewrite_expr_port_  parent_opt selector rewriter place ((_port, mt): _port * main_type) =
             ({ _port with
                 (* TODO on rewirte_expr_mtype => expecting_st = rewrite_expr_mtype selector rewriter expecting_st;*)
-                callback = rewrite_expr_expr selector rewriter _port.callback; 
+                callback = rewrite_expr_expr parent_opt selector rewriter _port.callback; 
             }, mt)
             
-        and rewrite_expr_port selector rewriter = map_place (rewrite_expr_port_ selector rewriter) 
+        and rewrite_expr_port parent_opt selector rewriter = map_place (rewrite_expr_port_ parent_opt selector rewriter) 
 
-        and rewrite_expr_eport_  selector rewriter place ((_port, mt): _eport * main_type) =
+        and rewrite_expr_eport_  parent_opt selector rewriter place ((_port, mt): _eport * main_type) =
             ({ _port with
                 (* TODO on rewirte_expr_mtype => expecting_st = rewrite_expr_mtype selector rewriter expecting_st;*)
-                callback = rewrite_expr_expr selector rewriter _port.callback; 
+                callback = rewrite_expr_expr parent_opt selector rewriter _port.callback; 
             }, mt)
-        and rewrite_expr_eport selector rewriter = map_place (rewrite_expr_eport_ selector rewriter) 
+        and rewrite_expr_eport parent_opt selector rewriter = map_place (rewrite_expr_eport_ parent_opt selector rewriter) 
 
-        and rewrite_expr_outport_  selector rewriter place ((p, mt): _outport * main_type) =
+        and rewrite_expr_outport_ parent_opt selector rewriter place ((p, mt): _outport * main_type) =
             ({p with
             protocol = p.protocol;
              (*protocol = rewrite_expr_mtype selector rewriter p.protocol*)}, mt)
             
-        and rewrite_expr_outport selector rewriter = map_place (rewrite_expr_outport_ selector rewriter) 
+        and rewrite_expr_outport parent_opt selector rewriter = map_place (rewrite_expr_outport_ parent_opt selector rewriter) 
 
-        and rewrite_expr_state_  selector rewriter place sdcl = {
-            sdcl with body = rewrite_expr_state_dcl_body selector rewriter sdcl.body;
+        and rewrite_expr_state_ parent_opt selector rewriter place sdcl = {
+            sdcl with body = rewrite_expr_state_dcl_body parent_opt selector rewriter sdcl.body;
         }
-        and rewrite_expr_state selector rewriter = map_place (rewrite_expr_state_ selector rewriter) 
+        and rewrite_expr_state parent_opt selector rewriter = map_place (rewrite_expr_state_ parent_opt selector rewriter) 
 
-        and rewrite_expr_function_dcl_  selector rewriter place (m:_function_dcl) =
-            { m with body = rewrite_expr_custom_method0_body selector rewriter m.body }
-        and rewrite_expr_function_dcl selector rewriter = map_place (rewrite_expr_function_dcl_ selector rewriter) 
+        and rewrite_expr_function_dcl_ parent_opt selector rewriter place (m:_function_dcl) =
+            { m with body = rewrite_expr_custom_method0_body parent_opt selector rewriter m.body }
+        and rewrite_expr_function_dcl parent_opt selector rewriter = map_place (rewrite_expr_function_dcl_ parent_opt selector rewriter) 
 
-        and rewrite_expr_method0_  selector rewriter place (m:_method0) =
+        and rewrite_expr_method0_ parent_opt selector rewriter place (m:_method0) =
             { m with 
-                body = rewrite_expr_custom_method0_body selector rewriter m.body;
-                contract_opt = Option.map (rewrite_expr_contract selector rewriter) m.contract_opt;
+                body = rewrite_expr_custom_method0_body parent_opt selector rewriter m.body;
+                contract_opt = Option.map (rewrite_expr_contract parent_opt selector rewriter) m.contract_opt;
             }
-        and rewrite_expr_method0 selector rewriter = map_place (rewrite_expr_method0_ selector rewriter) 
+        and rewrite_expr_method0 parent_opt selector rewriter = map_place (rewrite_expr_method0_ parent_opt selector rewriter) 
 
-        and rewrite_expr_component_item_  selector rewriter place = function 
-            | Contract c    -> Contract (rewrite_expr_contract selector rewriter c)
-            | Method m      -> Method (rewrite_expr_method0 selector rewriter m)
-            | State s       -> State (rewrite_expr_state selector rewriter s )
-            | Inport p      -> Inport (rewrite_expr_port selector rewriter p)
-            | Eport p       -> Eport (rewrite_expr_eport selector rewriter p)
-            | Outport p     -> Outport (rewrite_expr_outport selector rewriter p)
-            | Term t        -> Term (rewrite_expr_term selector rewriter t)
-        and rewrite_expr_component_item selector rewriter = map_place (transparent_plgannot(rewrite_expr_component_item_ selector rewriter))
+        and rewrite_expr_component_item_ parent_opt selector rewriter place = function 
+            | Contract c    -> Contract (rewrite_expr_contract parent_opt selector rewriter c)
+            | Method m      -> Method (rewrite_expr_method0 parent_opt selector rewriter m)
+            | State s       -> State (rewrite_expr_state parent_opt selector rewriter s )
+            | Inport p      -> Inport (rewrite_expr_port parent_opt selector rewriter p)
+            | Eport p       -> Eport (rewrite_expr_eport parent_opt selector rewriter p)
+            | Outport p     -> Outport (rewrite_expr_outport parent_opt selector rewriter p)
+            | Term t        -> Term (rewrite_expr_term parent_opt selector rewriter t)
+        and rewrite_expr_component_item parent_opt selector rewriter = map_place (transparent_plgannot(rewrite_expr_component_item_ parent_opt selector rewriter))
 
-        and rewrite_expr_component_dcl_  selector rewriter place = function 
+        and rewrite_expr_component_dcl_ parent_opt selector rewriter place = function 
         | ComponentStructure cdcl -> 
-            ComponentStructure { cdcl with body = List.map (rewrite_expr_component_item selector rewriter) cdcl.body}
-        and rewrite_expr_component_dcl selector rewriter = map_place (rewrite_expr_component_dcl_ selector rewriter) 
+            ComponentStructure { cdcl with body = List.map (rewrite_expr_component_item parent_opt selector rewriter) cdcl.body}
+        and rewrite_expr_component_dcl parent_opt selector rewriter = map_place (rewrite_expr_component_dcl_ parent_opt selector rewriter) 
 
-        and rewrite_expr_class_item_  selector rewriter place = function 
-            | CLMethod m      -> CLMethod (rewrite_expr_method0 selector rewriter m)
-            | CLState s       -> CLState (rewrite_expr_state selector rewriter s )
-        and rewrite_expr_class_item selector rewriter = map_place (transparent_plgannot(rewrite_expr_class_item_ selector rewriter))
+        and rewrite_expr_class_item_ parent_opt selector rewriter place = function 
+            | CLMethod m      -> CLMethod (rewrite_expr_method0 parent_opt selector rewriter m)
+            | CLState s       -> CLState (rewrite_expr_state parent_opt selector rewriter s )
+        and rewrite_expr_class_item parent_opt selector rewriter = map_place (transparent_plgannot(rewrite_expr_class_item_ parent_opt selector rewriter))
 
-        and rewrite_expr_class_dcl  selector rewriter (cl:class_structure) =
-            { cl with body = List.map (rewrite_expr_class_item selector rewriter) cl.body}
+        and rewrite_expr_class_dcl parent_opt selector rewriter (cl:class_structure) =
+            { cl with body = List.map (rewrite_expr_class_item parent_opt selector rewriter) cl.body}
 
-        and rewrite_expr_term_ selector rewriter place = function 
+        and rewrite_expr_term_ parent_opt selector rewriter place = function 
         | EmptyTerm -> EmptyTerm 
         | Comments c -> Comments c
-        | Stmt stmt -> Stmt (rewrite_expr_stmt selector rewriter stmt)
-        | Component cdcl -> Component (rewrite_expr_component_dcl selector rewriter cdcl)
-        | Class cl -> Class (rewrite_expr_class_dcl selector rewriter cl)
-        | Function fdcl -> Function (rewrite_expr_function_dcl selector rewriter fdcl)
+        | Stmt stmt -> Stmt (rewrite_expr_stmt parent_opt selector rewriter stmt)
+        | Component cdcl -> Component (rewrite_expr_component_dcl parent_opt selector rewriter cdcl)
+        | Class cl -> Class (rewrite_expr_class_dcl parent_opt selector rewriter cl)
+        | Function fdcl -> Function (rewrite_expr_function_dcl parent_opt selector rewriter fdcl)
         | (Typealias _ as t) |(Typedef _ as t) -> t
-        | Derive derive -> Derive { derive with eargs = List.map (rewrite_expr_expr selector rewriter) derive.eargs}
-        and rewrite_expr_term selector rewriter = map_place (transparent_plgannot(rewrite_expr_term_ selector rewriter))
-        and rewrite_expr_program selector rewriter (program : program) : program = List.map (rewrite_expr_term selector rewriter) program
+        | Derive derive -> Derive { derive with eargs = List.map (rewrite_expr_expr parent_opt selector rewriter) derive.eargs}
+        and rewrite_expr_term parent_opt selector rewriter = map_place (transparent_plgannot(rewrite_expr_term_ parent_opt selector rewriter))
+        and rewrite_expr_program selector rewriter (program : program) : program = List.map (rewrite_expr_term None selector rewriter) program
 
         let make x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) = 
             let selector = function |VarExpr x when x = x_to_replace -> true | _ -> false in
-            let rewriter e _ = match replaceby_x_opt with | Some x -> VarExpr x | None -> Option.get replaceby_e_opt in
+            let rewriter _ e _ = match replaceby_x_opt with | Some x -> VarExpr x | None -> Option.get replaceby_e_opt in
             selector, rewriter
         let replace_expr_component_item x_to_replace replaceby = 
             let selector, rewriter = make x_to_replace replaceby in
-            rewrite_expr_component_item selector rewriter
+            rewrite_expr_component_item None selector rewriter
 
         (******************************************)
 
@@ -1887,59 +1898,59 @@ module Make (Params : IRParams) = struct
 
 
 
-        let rec rewrite_stmt_component_item_ recurse selector rewriter place citem = 
+        let rec rewrite_stmt_component_item_ recurse parent_opt selector rewriter place citem = 
         match citem with
         | Method m ->[Method { m with
         value = {
-            m.value with body = rewrite_stmt_custom_method0_body rewrite_stmt_stmt recurse selector rewriter m.value.body
+            m.value with body = rewrite_stmt_custom_method0_body rewrite_stmt_stmt recurse parent_opt selector rewriter m.value.body
         }
         }]
-        | Term t -> List.map (function t -> Term t) (rewrite_stmt_term recurse selector rewriter t)
+        | Term t -> List.map (function t -> Term t) (rewrite_stmt_term recurse parent_opt selector rewriter t)
         (* citem without statement *)
         | Contract _ | Include _ | Inport _ | Eport _ | Outport _ | State _ -> [citem]
-        and rewrite_stmt_component_item recurse selector rewriter = map_places (transparent_plgannots(rewrite_stmt_component_item_ recurse selector rewriter))
+        and rewrite_stmt_component_item recurse parent_opt selector rewriter = map_places (transparent_plgannots(rewrite_stmt_component_item_ recurse parent_opt selector rewriter))
 
 
-        and rewrite_stmt_class_item_ recurse selector rewriter place citem = 
+        and rewrite_stmt_class_item_ recurse parent_opt selector rewriter place citem = 
         match citem with
         | CLMethod m ->[CLMethod { m with
         value = {
-            m.value with body = rewrite_stmt_custom_method0_body rewrite_stmt_stmt recurse selector rewriter m.value.body
+            m.value with body = rewrite_stmt_custom_method0_body rewrite_stmt_stmt recurse parent_opt selector rewriter m.value.body
         }
         }]
         (* citem without statement *)
         | CLState _ -> [citem]
-        and rewrite_stmt_class_item recurse selector rewriter = map_places (transparent_plgannots(rewrite_stmt_class_item_ recurse selector rewriter))
+        and rewrite_stmt_class_item recurse parent_opt selector rewriter = map_places (transparent_plgannots(rewrite_stmt_class_item_ recurse parent_opt selector rewriter))
 
-        and rewrite_stmt_component_dcl_ recurse selector rewriter place = function
+        and rewrite_stmt_component_dcl_ recurse parent_opt selector rewriter place = function
         | ComponentStructure cdcl -> ComponentStructure {
             cdcl with 
-                body = List.flatten (List.map (rewrite_stmt_component_item recurse selector rewriter) cdcl.body)
+                body = List.flatten (List.map (rewrite_stmt_component_item recurse (Some cdcl.name) selector rewriter) cdcl.body)
         }
-        and rewrite_stmt_component_dcl recurse selector rewriter = map_place (rewrite_stmt_component_dcl_ recurse selector rewriter) 
+        and rewrite_stmt_component_dcl recurse parent_opt selector rewriter = map_place (rewrite_stmt_component_dcl_ recurse parent_opt selector rewriter) 
 
-        and rewrite_stmt_class_dcl recurse selector rewriter (cl:class_structure) =
+        and rewrite_stmt_class_dcl recurse parent_opt selector rewriter (cl:class_structure) =
             { cl with 
-                body = List.flatten (List.map (rewrite_stmt_class_item recurse selector rewriter) cl.body)
+                body = List.flatten (List.map (rewrite_stmt_class_item recurse parent_opt selector rewriter) cl.body)
             }
 
-        and rewrite_stmt_term_ recurse selector rewriter place t =  
+        and rewrite_stmt_term_ recurse parent_opt selector rewriter place t =  
         match t with
-        | Component cdcl -> [Component (rewrite_stmt_component_dcl recurse selector rewriter cdcl)]
-        | Class cl -> [Class (rewrite_stmt_class_dcl recurse selector rewriter cl)]
+        | Component cdcl -> [Component (rewrite_stmt_component_dcl recurse parent_opt selector rewriter cdcl)]
+        | Class cl -> [Class (rewrite_stmt_class_dcl recurse parent_opt selector rewriter cl)]
         | Function fdcl -> [Function { fdcl with
             value = {
-                fdcl.value with body = rewrite_stmt_custom_method0_body rewrite_stmt_stmt recurse selector rewriter fdcl.value.body
+                fdcl.value with body = rewrite_stmt_custom_method0_body rewrite_stmt_stmt recurse parent_opt selector rewriter fdcl.value.body
             }
         }]
-        | Stmt stmt -> List.map (function stmt -> Stmt stmt) (rewrite_stmt_stmt  recurse selector rewriter stmt)
+        | Stmt stmt -> List.map (function stmt -> Stmt stmt) (rewrite_stmt_stmt  recurse parent_opt selector rewriter stmt)
 
         (* Term without statement*)
         | EmptyTerm | Comments _ | Typealias _ | Typedef _ | Derive _ -> [t]
-        and rewrite_stmt_term recurse selector rewriter = map_places (transparent_plgannots(rewrite_stmt_term_ recurse selector rewriter))
+        and rewrite_stmt_term recurse parent_opt selector rewriter = map_places (transparent_plgannots(rewrite_stmt_term_ recurse parent_opt selector rewriter))
 
         and rewrite_stmt_program recurse selector rewriter program =
-            List.flatten (List.map (rewrite_stmt_term recurse selector rewriter) program)
+            List.flatten (List.map (rewrite_stmt_term recurse None selector rewriter) program)
 
         (********************************************************************************************)
 

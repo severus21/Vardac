@@ -53,7 +53,7 @@ module Make () = struct
         | LetStmt({value=CType{value= TFlatType TLong}}, _, {value=_, {value=CType{value= TFlatType TInt}}}) -> true
         | _ -> false
         in
-        let stmt_rewriter place = function
+        let stmt_rewriter parent_opt place = function
         | LetStmt({value=CType{value= TFlatType TLong}}as mt, x, ({place=place_e; value=_, {value=CType{value= TFlatType TInt}}} as e)) -> 
             [ LetStmt(
                 mt, x, 

@@ -700,97 +700,101 @@ let rec rewrite_expr_place rewrite_expr_value { AstUtils.place ; AstUtils.value}
     let _value = rewrite_expr_value place (fst value) in
     {AstUtils.place; AstUtils.value = _value, snd value}
 
-let rec _rewrite_expr_expr selector rewriter place (e, mt) = 
+let rec _rewrite_expr_expr parent_opt selector rewriter place (e, mt) = 
+    let rexpr = rewrite_expr_expr parent_opt selector rewriter in
+
     let e = match e with
     | e when selector e -> 
-        rewriter mt e
+        rewriter parent_opt mt e
     | (BridgeCall _ as e) | (EmptyExpr as e) | (LitExpr _ as e) | (This as e) | (Self as e) | (VarExpr _ as e) | (ImplicitVarExpr _ as e) -> e
     | ActivationAccessExpr (cname, e, mname) ->
         ActivationAccessExpr(
             cname,
-            rewrite_expr_expr selector rewriter e,
+            rexpr e,
             mname
         )
     | AccessExpr (e1, e2) -> AccessExpr (
-        rewrite_expr_expr selector rewriter e1,
-        rewrite_expr_expr selector rewriter e2
+        rexpr e1,
+        rexpr e2
     )
     | BinopExpr (e1, op, e2) -> BinopExpr (
-        rewrite_expr_expr selector rewriter e1,
+        rexpr e1,
         op,
-        rewrite_expr_expr selector rewriter e2
+        rexpr e2
     )
     | LambdaExpr (params, e) -> LambdaExpr (
         params, (* WARNIN TODO FIXME replace in type predicates *)
-        rewrite_expr_expr selector rewriter e
+        rexpr e
     )
-    | UnopExpr (op, e) -> UnopExpr (op, rewrite_expr_expr selector rewriter e)
+    | UnopExpr (op, e) -> UnopExpr (op, rexpr e)
     | CallExpr (e, es) -> CallExpr(
-        rewrite_expr_expr selector rewriter e,
-        List.map (rewrite_expr_expr selector rewriter) es
+        rexpr e,
+        List.map rexpr es
     )
     | NewExpr (e, es) -> NewExpr(
-        rewrite_expr_expr selector rewriter e,
-        List.map (rewrite_expr_expr selector rewriter) es
+        rexpr e,
+        List.map rexpr es
     )
     | Create c -> Create { c with 
-        args = List.map (rewrite_expr_expr selector rewriter) c.args;
+        args = List.map rexpr c.args;
     }
     | Spawn sp -> Spawn { sp with 
-        args = List.map (rewrite_expr_expr selector rewriter) sp.args;
-        at = Option.map (rewrite_expr_expr selector rewriter) sp.at;
-        inline_in = Option.map (rewrite_expr_expr selector rewriter) sp.inline_in
+        args = List.map rexpr sp.args;
+        at = Option.map rexpr sp.at;
+        inline_in = Option.map rexpr sp.inline_in
     }
     | BoxCExpr _ as e -> e
     | OptionExpr e_opt -> OptionExpr (
-        Option.map (rewrite_expr_expr selector rewriter) e_opt
+        Option.map rexpr e_opt
     ) 
     | ResultExpr (e1_opt, e2_opt) -> ResultExpr (
-        Option.map (rewrite_expr_expr selector rewriter) e1_opt,
-        Option.map (rewrite_expr_expr selector rewriter) e2_opt
+        Option.map rexpr e1_opt,
+        Option.map rexpr e2_opt
     ) 
     | BlockExpr(b, es) -> BlockExpr (b,
-        List.map (rewrite_expr_expr selector rewriter) es 
+        List.map rexpr es 
     )
     | Block2Expr(b, ees) -> Block2Expr (b,
         List.map (function (e1,e2) ->
-            rewrite_expr_expr selector rewriter e1,
-            rewrite_expr_expr selector rewriter e2
+            rexpr e1,
+            rexpr e2
         ) ees 
     )
     | TernaryExpr (e1, e2, e3) -> TernaryExpr(
-        rewrite_expr_expr selector rewriter e1,
-        rewrite_expr_expr selector rewriter e2,
-        rewrite_expr_expr selector rewriter e3
+        rexpr e1,
+        rexpr e2,
+        rexpr e3
     )
     | InterceptedActivationRef (e1, e2_opt) -> InterceptedActivationRef(
-        rewrite_expr_expr selector rewriter e1,
-        Option.map (rewrite_expr_expr selector rewriter) e2_opt
+        rexpr e1,
+        Option.map rexpr e2_opt
     )
     | RawExpr str -> RawExpr str
     in 
     (e, mt)
-and rewrite_expr_expr selector rewriter = map_place (_rewrite_expr_expr selector rewriter)
+and rewrite_expr_expr parent_opt selector rewriter = map_place (_rewrite_expr_expr parent_opt selector rewriter)
 
-and _rewrite_expr_stmt selector rewriter place = function 
+and _rewrite_expr_stmt parent_opt selector rewriter place = 
+    let rexpr = rewrite_expr_expr parent_opt selector rewriter in
+function 
     | EmptyStmt -> EmptyStmt
-    | AssignExpr (x, e) -> AssignExpr (x, rewrite_expr_expr selector rewriter e) 
-    | AssignThisExpr (x, e) -> AssignThisExpr (x, rewrite_expr_expr selector rewriter e)
-    | AssignSelfExpr (x, e) -> AssignSelfExpr (x, rewrite_expr_expr selector rewriter e)
+    | AssignExpr (x, e) -> AssignExpr (x, rexpr e) 
+    | AssignThisExpr (x, e) -> AssignThisExpr (x, rexpr e)
+    | AssignSelfExpr (x, e) -> AssignSelfExpr (x, rexpr e)
     | LetStmt (mt, x, e) -> (* TODO FIXME expr in type are not yet concerned *)
-        LetStmt (mt, x, rewrite_expr_expr selector rewriter e)
+        LetStmt (mt, x, rexpr e)
     | CommentsStmt c -> CommentsStmt c
     | BranchStmt {s; label; branches} -> begin 
         let rewrite_branche {branch_label; branch_s;body} =
             {   
                 branch_label; 
                 branch_s; 
-                body = rewrite_expr_stmt selector rewriter body;
+                body = rewrite_expr_stmt parent_opt selector rewriter body;
             }
         in
         BranchStmt{
-            s       = rewrite_expr_expr selector rewriter s;
-            label   = rewrite_expr_expr selector rewriter label;
+            s       = rexpr s;
+            label   = rexpr label;
             branches= List.map rewrite_branche branches
         }
     end
@@ -799,45 +803,45 @@ and _rewrite_expr_stmt selector rewriter place = function
     | ExitStmt i -> ExitStmt i
     | ForeachStmt (mt, x, e, stmt) -> (* TODO FIXME expr in type are not yet concerned *)
         ForeachStmt(mt, x, 
-            rewrite_expr_expr selector rewriter e,
-            rewrite_expr_stmt selector rewriter stmt)
+            rexpr e,
+            rewrite_expr_stmt parent_opt selector rewriter stmt)
     | IfStmt (e, stmt1, stmt2_opt) ->
         IfStmt (
-            rewrite_expr_expr selector rewriter e,
-            rewrite_expr_stmt selector rewriter stmt1,
-            Option.map (rewrite_expr_stmt selector rewriter) stmt2_opt
+            rexpr e,
+            rewrite_expr_stmt parent_opt selector rewriter stmt1,
+            Option.map (rewrite_expr_stmt parent_opt selector rewriter) stmt2_opt
         )
     | MatchStmt (e, branches) ->
         MatchStmt (
-            rewrite_expr_expr selector rewriter e,
+            rexpr e,
             List.map (function (e, stmt) ->
-                rewrite_expr_expr selector rewriter e,
-                rewrite_expr_stmt selector rewriter stmt
+                rexpr e,
+                rewrite_expr_stmt parent_opt selector rewriter stmt
             ) branches
         )
-    | ReturnStmt e -> ReturnStmt (rewrite_expr_expr selector rewriter e) 
-    | ExpressionStmt e -> ExpressionStmt (rewrite_expr_expr selector rewriter e) 
-    | BlockStmt stmts -> BlockStmt (List.map (rewrite_expr_stmt selector rewriter) stmts) 
-    | GhostStmt stmt -> GhostStmt (rewrite_expr_stmt selector rewriter stmt)
+    | ReturnStmt e -> ReturnStmt (rexpr e) 
+    | ExpressionStmt e -> ExpressionStmt (rexpr e) 
+    | BlockStmt stmts -> BlockStmt (List.map (rewrite_expr_stmt parent_opt selector rewriter) stmts) 
+    | GhostStmt stmt -> GhostStmt (rewrite_expr_stmt parent_opt selector rewriter stmt)
     | WithContextStmt (anonymous_mod, cname, e, stmts) -> WithContextStmt(
         anonymous_mod,
         cname,
-        rewrite_expr_expr selector rewriter e,
-        List.map (rewrite_expr_stmt selector rewriter) stmts
+        rexpr e,
+        List.map (rewrite_expr_stmt parent_opt selector rewriter) stmts
     )
-and rewrite_expr_stmt selector rewriter = map_place (_rewrite_expr_stmt selector rewriter)
+and rewrite_expr_stmt parent_opt selector rewriter = map_place (_rewrite_expr_stmt parent_opt selector rewriter)
                 
 (* Warning do not replace ImplictVar !!! *)
 let make x_to_replace ((replaceby_x_opt, replaceby_e_opt)as replaceby) = 
     let selector = function |VarExpr x when x = x_to_replace -> true | _ -> false in
-    let rewriter e _ = match replaceby_x_opt with | Some x -> VarExpr x | None -> Option.get replaceby_e_opt in
+    let rewriter _ e _ = match replaceby_x_opt with | Some x -> VarExpr x | None -> Option.get replaceby_e_opt in
     selector, rewriter
 let replace_expr_expr x_to_replace replaceby = 
     let selector, rewriter = make x_to_replace replaceby in
-    rewrite_expr_expr selector rewriter
+    rewrite_expr_expr None selector rewriter
 let replace_expr_stmt x_to_replace replaceby = 
     let selector, rewriter = make x_to_replace replaceby in
-    rewrite_expr_stmt selector rewriter
+    rewrite_expr_stmt None selector rewriter
 
 (*****************************************************)
 
@@ -1033,9 +1037,9 @@ and rewrite_type_aconstraint selector rewriter (headers, e_opt)=
         Option.map (rewrite_type_expr selector rewriter) e_opt
     )
 
-let rec _rewrite_stmt_stmt recurse selector rewriter place = 
+let rec _rewrite_stmt_stmt recurse parent_opt selector rewriter place = 
     let auto_place smth = {place = place; value=smth} in
-    let rewrite_stmt_stmt = rewrite_stmt_stmt recurse selector rewriter in
+    let rewrite_stmt_stmt = rewrite_stmt_stmt recurse parent_opt selector rewriter in
 
     (* TODO use it in all rewrite_XX_stmt that generates list of stmt *)
     let stmts2stmt : stmt list -> stmt = function 
@@ -1045,8 +1049,8 @@ let rec _rewrite_stmt_stmt recurse selector rewriter place =
     in
 
     function 
-    | stmt when recurse && selector stmt-> List.flatten (List.map (_rewrite_stmt_stmt recurse selector rewriter place) (rewriter place stmt)) (* recursive - try to rewrite until no more reductions *)
-    | stmt when selector stmt-> rewriter place stmt
+    | stmt when recurse && selector stmt-> List.flatten (List.map (_rewrite_stmt_stmt recurse parent_opt selector rewriter place) (rewriter parent_opt place stmt)) (* recursive - try to rewrite until no more reductions *)
+    | stmt when selector stmt-> rewriter parent_opt place stmt
     | EmptyStmt -> [EmptyStmt]
     | AssignExpr (x, e) -> [AssignExpr (x, e)]
     | AssignThisExpr (x, e) -> [AssignThisExpr (x, e)]
@@ -1076,7 +1080,7 @@ let rec _rewrite_stmt_stmt recurse selector rewriter place =
     | WithContextStmt (anonymous_mod, cname, e, stmts) -> [
         WithContextStmt(anonymous_mod, cname, e, List.flatten (List.map rewrite_stmt_stmt stmts))
     ]
-and rewrite_stmt_stmt recurse selector (rewriter:Error.place -> _stmt -> _stmt list) = map_places (_rewrite_stmt_stmt recurse selector rewriter)
+and rewrite_stmt_stmt recurse parent_opt selector (rewriter:Atom.atom option -> Error.place -> _stmt -> _stmt list) = map_places (_rewrite_stmt_stmt recurse parent_opt selector rewriter)
 
 
 (*****************************************************)

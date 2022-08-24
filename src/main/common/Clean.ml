@@ -28,7 +28,7 @@ module Make () = struct
             | _ -> false
         in
 
-        let stmt_rewriter place = function
+        let stmt_rewriter parent_opt place = function
             | ExpressionStmt {value=EmptyExpr, _} -> [EmptyStmt] 
             | ExpressionStmt {value=VarExpr _, _} -> [EmptyStmt] 
             | BlockStmt [stmt] -> [stmt.value]

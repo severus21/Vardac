@@ -348,7 +348,7 @@ module Make (Args: TArgs) = struct
             ret_type = mtype_of_ft TVoid;
             name = callback_onboard;
             args = [
-                auto_fplace (mtype_of_ft TStr, param_schema);
+                auto_fplace (mtype_of_ft TBLabel, param_schema);
                 auto_fplace (mtype_of_st interceptor_info.onboard_info.st_onboard.value, param_s)
             ];
             on_destroy = false;

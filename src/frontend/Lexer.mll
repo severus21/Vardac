@@ -114,7 +114,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "session_id", PTYPE TSessionID;
     "string", PTYPE TStr;
     "void", PTYPE TVoid;
-
+    "any", PTYPE TBottom;
 
     (* Preprocessor *)
     "use", USE;
