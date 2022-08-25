@@ -58,12 +58,12 @@ component Ping {
         }
     }
 
-    result<void, error> start_warmup(){
-        for(int i in range(0, this.warmup)){
-            session<p_pingpong> s0 = initiate_session_with(this.p_out, this.b);
-            ?pong. s1 = fire(s0, ping(i, true, time(), fresh_payload(this.payload)))?; 
-        }
-    }
+    result<void, error> start_warmup(){(* #bench *)
+        for(int i in range(0, this.warmup)){(* #bench *)
+            session<p_pingpong> s0 = initiate_session_with(this.p_out, this.b);(* #bench *)
+            ?pong. s1 = fire(s0, ping(i, true, time(), fresh_payload(this.payload)))?; (* #bench *)
+        }(* #bench *)
+    }(* #bench *)
 
     result<void, error> start(){
         for(int i in range(0, this.n)){
@@ -78,41 +78,41 @@ component Ping {
         }
     }
 
-    void sumup(){
-        long start = this.starttime;
-        long end = time();
-        long elapse = end - start;
-        string tmp = long_to_string(elapse);
-        info("Time elapse "+tmp+" ms");
-
-        dict<string, java_object> res = dict();
-        add2dict(res, "ping_size", this.ping_size);
-        add2dict(res, "pong_size", this.pong_size);
-        add2dict(res, "rtts", this.rtts);
-        tojson(res, "results.json");
-
-        info("Terminated ueyiqu8R");
-        info("JamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglog");
-    }
+    void sumup(){(* #bench *)
+        long start = this.starttime;(* #bench *)
+        long end = time();(* #bench *)
+        long elapse = end - start;(* #bench *)
+        string tmp = long_to_string(elapse);(* #bench *)
+        info("Time elapse "+tmp+" ms");(* #bench *)
+(* #bench *)
+        dict<string, java_object> res = dict();(* #bench *)
+        add2dict(res, "ping_size", this.ping_size);(* #bench *)
+        add2dict(res, "pong_size", this.pong_size);(* #bench *)
+        add2dict(res, "rtts", this.rtts);(* #bench *)
+        tojson(res, "results.json");(* #bench *)
+(* #bench *)
+        info("Terminated ueyiqu8R");(* #bench *)
+        info("JamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglog");(* #bench *)
+    }(* #bench *)
 
     result<void, error> callback(pong msg, . s){
-        if(msg._1_){
-            this.warmup_counter = this.warmup_counter + 1;
-            string x = int_to_string(this.warmup_counter);
-            debug("warmup_counter "+x);
-
-            // Last pong
-            if( this.warmup_counter == this.warmup ){
-                this.start();
-            }
-        } else {
+        if(msg._1_){(* #bench *)
+            this.warmup_counter = this.warmup_counter + 1;(* #bench *)
+            string x = int_to_string(this.warmup_counter);(* #bench *)
+            debug("warmup_counter "+x);(* #bench *)
+(* #bench *)
+            // Last pong(* #bench *)
+            if( this.warmup_counter == this.warmup ){(* #bench *)
+                this.start();(* #bench *)
+            }(* #bench *)
+        } else {(* #bench *)
             if(this.pong_size == 0){
                 this.pong_size = akka_msg_serialized_size(akka_get_current_system(this), msg);
             }
 
             this.counter = this.counter + 1;
             long endTimestamp = time();
-            debug(int_to_string(msg._0_));
+            debug(int_to_string(msg._0_));(* #debug *)
             aput(this.rtts, msg._0_, endTimestamp - msg._2_);
 
             // Last pong
@@ -120,7 +120,7 @@ component Ping {
             if( this.counter == this.n ){
                 this.sumup();
             }
-        }
+        }(* #bench *)
 
         return ok(());
     }
@@ -130,14 +130,14 @@ component Pong {
     inport p_in :: bridge<Ping, Pong, inline p_pingpong> expecting ?ping!pong. = this.callback;
 
     onstartup (bridge<Ping, Pong, inline p_pingpong> b0){
-        debug("> Starting Pong");
+        debug("> Starting Pong");(* #debug *)
         bind(this.p_in, b0);
     }
 
     result<void, error> callback (ping msg, ?pong. s0) {
-        debug("> Ping received");
+        debug("> Ping received");(* #debug *)
         . s1 = fire(s0, pong(msg._0_, msg._1_, msg._2_, msg._3_))?; 
-        debug(">> Pong fired");
+        debug(">> Pong fired");(* #debug *)
         return ok(());
     }
 
@@ -148,7 +148,7 @@ component Pong {
 }
 
 tuple<array<string>, tuple<int,int,int>> main (array<string> args){
-    print("apossiblemain");
+    print("apossiblemain");(* #debug *)
     int n = 100;
     int warmup = 100;
     int payload = 0;
@@ -179,10 +179,10 @@ tuple<array<string>, tuple<int,int,int>> main (array<string> args){
 
 component TopLevel {
     onstartup (int n, int warmup, int payload) {
-        print(">> Entering toplevel");
+        print(">> Entering toplevel");(* #debug *)
         bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
         activation_ref<Pong> c = (spawn Pong(b0));
         activation_ref<Ping> a2 = (spawn Ping(n, warmup, payload, b0, c));  
-        print(">> Ending toplevel");
+        print(">> Ending toplevel");(* #debug *)
     }
 }

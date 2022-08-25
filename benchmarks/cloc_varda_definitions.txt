@@ -923,6 +923,8 @@ Jam
     filename jamfile
     3rd_gen_scale 2.00
 Java
+    filter remove_matches ^.*#bench.*$
+    filter remove_matches ^.*#debug.*$
     filter replace_regex \\$  
     filter replace_between_regex (["'])(.*?/\*)\g1 (.*?) "xx"
     filter replace_between_regex (["'])(.*?\*/)\g1 (.*?) "xx"
@@ -2008,6 +2010,8 @@ Vala Header
     3rd_gen_scale 1.40
     end_of_line_continuation \\$
 Varda
+    filter remove_matches ^.*#bench.*$
+    filter remove_matches ^.*#debug.*$
     filter rm_comments_in_strings " /* */
     filter rm_comments_in_strings " // 
     filter rm_comments_in_strings " (* *) 
@@ -2015,6 +2019,8 @@ Varda
     extension varch 
     3rd_gen_scale 1.00
 Varda impl
+    filter remove_matches ^.*#bench.*$
+    filter remove_matches ^.*#debug.*$
     filter rm_comments_in_strings " /* */
     filter rm_comments_in_strings " // 
     filter rm_comments_in_strings " (* *) 
