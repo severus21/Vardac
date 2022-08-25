@@ -2,16 +2,20 @@
 # coding: utf-8
 
 import asyncio
+from asyncio import subprocess
 from collections import defaultdict
 import argparse
 import logging
 import coloredlogs
 import os
+import re
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "orm.settings")
 import django
 django.setup()
 
+
+from src.utils import *
 
 
 coloredlogs.install(level='DEBUG')
@@ -23,6 +27,10 @@ logging.getLogger('matplotlib').setLevel(logging.INFO)
 parser = argparse.ArgumentParser()
 
 subparsers = parser.add_subparsers(help='sub-command help', dest="cmdaction")
+parser_count = subparsers.add_parser('count', help='TODO')
+parser_count.add_argument("--count-selector", default="all",
+                        help=f"all or name1:name2:")
+parser_count.add_argument("--use_re", default=False, help=f"TODO", action='store_true')
 parser_run = subparsers.add_parser('run', help='TODO')
 parser_run.add_argument("--bench-selector", default="all",
                         help=f"all or name1:name2:")
@@ -38,16 +46,37 @@ parser_test = subparsers.add_parser('test', help='TODO')
 args = parser.parse_args()
 
 cmdactions = defaultdict(lambda *args: parser.print_help())
+cmdactions['count'] = lambda kwargs: do_count(**kwargs)
 cmdactions['run'] = lambda kwargs: do_run(**kwargs)
 cmdactions['render'] = lambda kwargs: do_render(**kwargs)
 cmdactions['test'] = lambda kwargs: do_test(**kwargs)
 
 FIGURESDIR = 'figures'
 
-def normalize_path(path):
-    for c in ' [](),':
-        path = path.replace(c, '-')
-    return path
+def apply_selector(selector, ITEMS, use_re=False):
+    if selector == "all":
+        items = ITEMS
+    else:
+        if not use_re:
+            selected_item_names = set(selector.split(":"))
+            items = [f for f in ITEMS if f.name in selected_item_names]
+        else:
+            p = re.compile(selector)
+            items = [ f for f in ITEMS if p.match(f.name)]
+    return items
+
+def do_count(count_selector, use_re=False):
+    from config.counts import COUNTS
+    from src.settings import COUNTSDIR
+    import subprocess
+
+    counts = apply_selector(count_selector, COUNTS)
+    for count in counts:
+        count.run()
+
+    path = os.getcwd()
+    subprocess.run(f'cd {COUNTSDIR}/ && make && cd {path}', shell=True)
+
 
 def do_render(save, fig_selector, use_re=False):
     from config.figures import FIGURES
@@ -76,7 +105,6 @@ def do_render(save, fig_selector, use_re=False):
                 json.dump({'stamp': get_current_stamp()}, f)
         fig.render()
 
-import re
 
 def do_run(bench_selector, use_re=False):
     from config.benchmarks import BENCHMARKS

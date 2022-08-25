@@ -1,6 +1,9 @@
 db.sqlite3
 rtts.json
+results.json
 figures/
+counts/*.tex
+counts/*.json
 __pycache__
 
 .vscode/
