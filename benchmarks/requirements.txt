@@ -5,3 +5,5 @@ jsonfield
 gitpython
 docker
 execo
+pandas
+matplotlib
