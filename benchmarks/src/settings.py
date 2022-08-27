@@ -14,7 +14,8 @@ RUN_TIMEOUT = 30 # s
 # docker info
 #DEFAULT_DOCKER_REMOTE = None
 DEFAULT_DOCKER_REMOTE = "tcp://severus@dev1.laurentprosperi.info:2376"
-DEFAULT_HOST = Host("dev1.laurentprosperi.info", user="severus", port=2221, keyfile="~/.ssh/id_rsa.pub")
+DEFAULT_HOST = Host("dev1.laurentprosperi.info", user="severus",
+                    port=2221, keyfile="~/.ssh/id_rsa.pub")
 
 DOCKER_CERT_PATH = Path("benchmarks/infra/certs")
 

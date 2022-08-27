@@ -1,7 +1,5 @@
 import logging
 
-from sympy import O
-
 from .models import *
 
 class Benchmark:

@@ -4,6 +4,7 @@ checksumdir
 jsonfield
 gitpython
 docker
+aiodocker
 execo
 pandas
 matplotlib

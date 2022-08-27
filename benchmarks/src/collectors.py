@@ -1,10 +1,13 @@
+from abc import abstractmethod
 import logging
 import os
 import subprocess
 import tempfile
 from tempfile import TemporaryDirectory
+import re
 
 from src.runners import DockerRunner
+from src.settings import *
 
 from .models import *
 
@@ -68,8 +71,12 @@ class FileCollector(AbstractCollector):
 
 class ChainCollector(AbstractCollector):
     def __init__(self, collectors) -> None:
-        super().__init__()(self)
+        super().__init__()
         self.collectors = collectors 
+
+    @abstractmethod
+    def repatriate(tmpdir, runner):
+        pass
 
     def collect(self, runner):
         with TemporaryDirectory() as tmpdir:
@@ -109,13 +116,46 @@ class RemoteCollector(ChainCollector):
         assert(res.returncode == 0) 
 
 import docker
+from execo import *
 
 class VolumeCollector(ChainCollector):
     def __init__(self, collectors) -> None:
         super().__init__(collectors)
 
     def repatriate(self, tmpdir, runner : DockerRunner):
-        client = docker.from_env()
+        if DEFAULT_DOCKER_REMOTE:
+            client = docker.DockerClient(
+                base_url=DEFAULT_DOCKER_REMOTE,
+                tls= docker.tls.TLSConfig(
+                    verify=True,
+                    ca_cert = DOCKER_CERT_PATH/"ca.pem",
+                    client_cert = (DOCKER_CERT_PATH/"cert.pem", DOCKER_CERT_PATH/"key.pem")
+                ))
+        else:
+            client = docker.from_env()
+
+        # Pre hook
+        if DEFAULT_DOCKER_REMOTE:
+            p = SshProcess(f"rm -fr {tmpdir} && mkdir -p {tmpdir} && ls /tmp", DEFAULT_HOST)
+            p.start().wait() 
+            assert(p.exit_code == 0)
+
+
+            p = SshProcess(f"id", DEFAULT_HOST)
+            p.start().wait()
+            assert(p.exit_code == 0)
+            
+            uid = int(re.match(r'uid=(\d+)', p.stdout).group(1))
+            print(uid)
+            
+        else:
+            uid = os.getuid()
+
+
+        print(tmpdir)
+        sleep(10000)
+         
+        # Blocking call
         r = client.containers.run(
             'ubuntu:latest',
             ['cp', '-av', '/data/container/', '/data/host/'],
@@ -132,7 +172,17 @@ class VolumeCollector(ChainCollector):
                     type = "bind",
                 ),
             ],
-            user = os.getuid()
+            user = uid 
         )
 
-        #print("Result:", r)
+        # Post hook
+        if DEFAULT_DOCKER_REMOTE:
+            # Get file locally
+            action.Get([DEFAULT_HOST], 
+                tmpdir,
+                tmpdir
+            ).run().wait()
+
+            # Clean remote
+            p = SshProcess(f"rm -fr {tmpdir}", DEFAULT_HOST)
+            p.start().wait()
