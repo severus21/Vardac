@@ -25,4 +25,17 @@ public class LabelEvent<T extends NoMetadata> extends Event<T> implements {% if 
     public String toString(){
         return this.value+"{|"+super.toString()+"|}";
     }
+
+    public boolean equals(Object obj){
+        if (obj == null)
+            return false;
+        else if (obj == this)
+            return true;
+        else if( !(obj instanceof LabelEvent))
+            return false;
+        else {
+            LabelEvent b = (LabelEvent) obj;
+            return this.value.equals(b.value);
+        }
+    }
 }

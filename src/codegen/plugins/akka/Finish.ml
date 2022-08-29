@@ -541,7 +541,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                                 e_this_guardian (this_actor parent_opt) fplace
                                 :: List.map (fexpr parent_opt) args
                             )
-                        )] @ [ e2_lit (T.StringLit (Atom.to_string (Atom.fresh "actor_name")))]
+                        )] @ [ e2_lit (T.StringLit (Atom.to_string (Atom.fresh ((Atom.to_string (IRMisc.schema_of c))^"_name"))))]
                     ))
                 })
             }
@@ -1313,7 +1313,10 @@ module Make (Arg: sig val target:Target.target end) = struct
             let inner_env : (S.port * S.session_type * S.session_type, T.expr) Hashtbl.t= begin 
                 try 
                     Hashtbl.find env msg_type 
-                with Not_found -> let _inner_env = Hashtbl.create 8 in Hashtbl.add env msg_type _inner_env; _inner_env
+                with Not_found -> 
+                    let _inner_env = Hashtbl.create 8 in 
+                    Hashtbl.add env msg_type _inner_env; 
+                    _inner_env
             end in
 
             let key = (p, expecting_st, remaining_st) in

@@ -23,7 +23,11 @@ let schema_of cexpr = match fst cexpr.value with
 
 let schema_to_label place schema = 
     let auto_place smth = {place; value=smth} in
-    auto_place (LitExpr (auto_place (StringLit (Atom.to_string schema))), auto_place EmptyMainType)
+    (auto_place (BLabelLit schema))
+
+let schema_to_stringlit place schema = 
+    let auto_place smth = {place; value=smth} in
+    (auto_place (StringLit (Atom.to_string schema)))
 
 (********** Session type utilities **********)
 let rec _dual place : _session_type -> _session_type  = function
@@ -96,7 +100,7 @@ let e_param_of str : Atom.atom * expr =
 let rec st_branch_of mt_st branch_label = 
     let blabel = match branch_label.value with 
         | BLabelLit l -> l
-        | _ -> raise (Error.PlacedDeadbranchError (branch_label.place, "must be session type label"))
+        | _ -> raise (Error.PlacedDeadbranchError (branch_label.place, "must be session type 'label'"))
     in
 
     match mt_st.value with 
@@ -110,6 +114,7 @@ let rec st_branch_of mt_st branch_label =
         end
         | STDual st -> (* when called before partial evaluation *)
             st_branch_of {place=st.place; value=SType st} branch_label
-    | mt -> failwith (show__session_type mt)
+        | STSelect _ -> Error.perror st.place "duality error. Should be of type STBranch not STSelect"
+        | st -> failwith (show__session_type st)
     end
     | mt -> failwith (show__main_type mt)

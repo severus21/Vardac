@@ -355,8 +355,6 @@ module Make () : Sig = struct
 
 
             let receive_id = Atom.fresh ((Atom.to_string current_method.name)^"receive_id") in
-
-            let a_intermediate_port_name = Atom.fresh ((Atom.hint current_method.name)^"_intermediate_port") in 
             let e_current_intermediate_port = e2_e(
                 CallExpr(
                     e2_e(AccessExpr(
@@ -656,12 +654,13 @@ module Make () : Sig = struct
             @return - list of intermediate_ports for this receive + ports with updated children
         *)
         let generate_intermediate_ports ports (receive_id, t_msg, st_continuation, callback) = 
-            logger#debug "generate_intermediate_port for %s and ports %d" (Atom.to_string cdcl.name) (List.length ports);
+            logger#debug "generate_intermediate_port for %s and ports %d and outports %d " (Atom.to_string cdcl.name) (List.length ports) (List.length outports);
             (* Remove ports that are already binded to receive *)
             let ports = List.filter (function p -> Bool.not (fst p.value)._is_intermediate) ports in
 
             let generate_intermediate_port_for_port portname =
                 let intermediate_port_name = Atom.fresh ((Atom.to_string receive_id)^"_intermediate_port") in
+                logger#debug "\t - generate %s" (Atom.to_string intermediate_port_name);
 
                 (* register to children *)
                 Hashtbl.add children portname (intermediate_port_name::
@@ -691,13 +690,17 @@ module Make () : Sig = struct
                 if Common.TypingUtils.is_suffix_st  (auto_fplace (STRecv(t_msg, st_continuation))) (match (fst port.value).expecting_st.value with SType st -> st) then 
                     (* p or one of its stages is concerned by the receive*)
                     generate_intermediate_port_for_port (fst port.value).name
-                else []
+                else( 
+                    logger#debug "not suffix for %s\n%s\n%s" (Atom.to_string (fst port.value).name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation)))) (show_main_type (fst port.value).expecting_st);
+                    []
+                )
             ) ports)
             @
             (* When session is initiated by an outport *)
             List.flatten (List.map (function (port:outport) ->
                 if Common.TypingUtils.is_suffix_st (auto_fplace (STRecv(t_msg, st_continuation))) (match (fst port.value).protocol.value with 
-                    | SType st -> st 
+                    | SType st -> 
+                        st 
                     | mt -> raise (Error.PlacedDeadbranchError (port.place, Printf.sprintf "Wrong outport type %s" (show__main_type mt)))
                 ) then 
                     (* p or one of its stages is concerned by the receive*)

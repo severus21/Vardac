@@ -712,7 +712,7 @@ module Make () = struct
                                         List.map (function x -> auto_fplace (VarExpr (snd x.value), fst x.value) ) base_interceptor_constructor_params
                                         @ [
                                             e2var factory;
-                                            schema_to_label fplace (schema_of  spawn.c);
+                                            e2lit (schema_to_stringlit fplace (schema_of  spawn.c));
                                             e2var p_of_a
                                         ]
                                     ))
@@ -950,7 +950,9 @@ module Make () = struct
                     ))
                 ));
                 (*TODO failed if onboard refused *)
-                auto_fplace(ExpressionStmt(
+                auto_fplace(LetStmt(
+                    mtype_of_ct (TTuple [mtype_of_ft TBool; mtype_of_st STEnd]), 
+                    Atom.fresh "unused_just_for_recvelim",
                     e2_e(CallExpr(
                         e2var (Atom.builtin "receive"),
                         [

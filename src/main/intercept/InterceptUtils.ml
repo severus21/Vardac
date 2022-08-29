@@ -87,7 +87,7 @@ let st_onboard_of intercepted_schemas =
             auto_fplace (STRecv (mtype_of_ft TBool, auto_fplace STEnd))
         )), None
     in
-    auto_fplace (STBranch ( List.map onboard_st_branch_of intercepted_schemas))
+    auto_fplace (STSelect ( List.map onboard_st_branch_of intercepted_schemas))
 
 let b_onboarf_mt_of interceptor_name intercepted_schemas st_onboard = 
     mtype_of_ct (TBridge {

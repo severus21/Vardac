@@ -33,7 +33,7 @@ component B {
 
         ?pong. s1 = fire(s0, ping())?;
         print("> Ping fired");
-        tuple<pong, !ping!ping.> res = receive(s1);
+        tuple<pong, .> res = receive(s1);
         print("pong_or_timeout");
     }
 }
@@ -60,13 +60,13 @@ component PingPong {
         with<MsgCounter> this.make_interceptor{
             activation_ref<A> a = spawn A(bridge0);
         }
-        activation_ref<B> b = spawn B(bridge0, a);
+        (*activation_ref<B> b = spawn B(bridge0, a);*)
 
-        (* Second group *) 
-        with<MsgCounter, anonymous> this.make_interceptor{
+        (* TODO Second group *) 
+        (*with<MsgCounter, anonymous> this.make_interceptor{
             activation_ref<A> aa = spawn A(bridge0);
         }
-        activation_ref<B> bb = spawn B(bridge0, aa);
+        activation_ref<B> bb = spawn B(bridge0, aa);*)
 
         (* Third group - TODO low-level api *)
     }

@@ -3,7 +3,8 @@ open IR
 
 val aid_of : Error.place -> expr -> expr
 val schema_of : component_expr -> Atom.atom
-val schema_to_label : Error.place -> Atom.atom -> expr
+val schema_to_label : Error.place -> Atom.atom -> literal 
+val schema_to_stringlit : Error.place -> Atom.atom -> literal
 
 val dual : session_type -> session_type
 val unfold_st_star : session_type -> session_type

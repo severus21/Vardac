@@ -127,7 +127,7 @@ module Make (Args: TArgs) = struct
 
     
     (** branch: if flag == "Schema" ... *)
-    let generate_main_callback_branch interceptor_info default_onboard onboard_index (e_this_b_onboard, e_this_onboarded_activations) ((param_schema, e_param_schema), (param_s, e_param_s)) schema: stmt =
+    let generate_main_callback_branch interceptor_info default_onboard onboard_index (e_this_b_onboard, e_this_onboarded_activations) ((param_schema, e_param_schema), (param_s, e_param_s)) schema: branch_stmt =
         let a_mt = mtype_of_ct (TActivationRef (mtype_of_cvar schema)) in 
         let e_onboard_A = e2_e (AccessExpr(
             e2_e This,
@@ -142,33 +142,11 @@ module Make (Args: TArgs) = struct
         let local_p, e_local_p = e_param_of "p" in
         let local_flag, e_local_flag = e_param_of "flag" in
 
-        auto_fplace (IfStmt (
-            e2_e (BinopExpr (
-                e2var param_schema,
-                Equal, 
-                schema_to_label fplace schema
-            )),
-            auto_fplace (BlockStmt [
-                (* ... local_s2 = select(param_s, label); *)
-                auto_fplace (LetStmt (
-                    mtype_of_st (STRecv ( 
-                        mtype_of_ct (TTuple [ a_mt; mtype_of_ft TPlace]),
-                        auto_fplace (STSend (mtype_of_ft TBool, auto_fplace STEnd))
-                    )),
-                    local_s2,
-                    e2_e(UnopExpr(
-                        UnpackOrPropagateResult,
-                        e2_e (CallExpr (
-                            e2var (Atom.builtin "select"),
-                            [
-                                e_param_s;
-                                e_param_schema
-                            ]
-                        ))
-                    ))
-                ));
 
-
+        {
+            branch_label = schema_to_label fplace schema;
+            branch_s = local_s2;
+            body = auto_fplace (BlockStmt [
                 auto_fplace (LetStmt (
                     mtype_of_ct (TTuple [ 
                         mtype_of_ct (TTuple [ a_mt; mtype_of_ft TPlace]);
@@ -249,9 +227,8 @@ module Make (Args: TArgs) = struct
                         ]
                     ))
                 ))
-            ]),
-            None
-        ))   
+            ])
+        }
 
     (**
         - states and port related to onboarding
@@ -305,7 +282,7 @@ module Make (Args: TArgs) = struct
         let port_onboard_def = auto_fplace (auto_plgannot(Inport (auto_fplace (
             {
                 name = port_onboard;
-                expecting_st = mtype_of_st interceptor_info.onboard_info.st_onboard.value; 
+                expecting_st = mtype_of_st (dual interceptor_info.onboard_info.st_onboard).value; 
                 callback = e2_e (AccessExpr (
                     e2_e This, 
                     e2var callback_onboard
@@ -352,12 +329,16 @@ module Make (Args: TArgs) = struct
             name = callback_onboard;
             args = [
                 auto_fplace (mtype_of_ft TBLabel, param_schema);
-                auto_fplace (mtype_of_st interceptor_info.onboard_info.st_onboard.value, param_s)
+                auto_fplace (mtype_of_st (dual interceptor_info.onboard_info.st_onboard).value, param_s)
             ];
             on_destroy = false;
             on_startup = false;
             contract_opt = None;
-            body = List.map (generate_main_callback_branch interceptor_info default_onboard onboard_index (e_this_b_onboard, e_this_onboarded_activations) ((param_schema, e_param_schema), (param_s, e_param_s))) (Atom.Set.to_list interceptor_info.intercepted_schemas)
+            body = [auto_fplace(BranchStmt {
+                s = e_param_s;
+                label = e_param_schema;
+                branches = List.map (generate_main_callback_branch interceptor_info default_onboard onboard_index (e_this_b_onboard, e_this_onboarded_activations) ((param_schema, e_param_schema), (param_s, e_param_s))) (Atom.Set.to_list interceptor_info.intercepted_schemas)
+            })]
         }))) in
 
         { interceptor_info with
