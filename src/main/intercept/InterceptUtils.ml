@@ -39,16 +39,18 @@ let mt_internals_of place intercepted_schemas =
         )
         (mtype_of_cvar (List.hd intercepted_schemas))
         (List.tl intercepted_schemas)
+
 type onboard_info = {
-    st_onboard: session_type; 
-    b_onboard_mt: main_type
-}
+    st_onboard: session_type; [@opaque] 
+    b_onboard_mt: main_type [@opaque]
+} [@@deriving show {with_path = false}]
+
 type sessions_info = {
     this_4external2internal: Atom.atom;
     this_4internal2external: Atom.atom;
     this_4external: Atom.atom;
     this_4internal: Atom.atom
-} 
+}  [@@deriving show {with_path = false}]
 
 type interceptor_info = {
     from_ctx_elim: bool; (* Source: ctx API if true else low-level API*)
@@ -72,7 +74,7 @@ type interceptor_info = {
     this_port_onboard: Atom.atom option;
     inout_statebridges_info: ((Atom.atom * Atom.atom * Atom.atom * Atom.atom * main_type) list) option; (* schema state that holds the ports and the corresponding bridges *)
     sessions_info: sessions_info option
-}
+} [@@deriving show {with_path = false}]
 
 let st_onboard_of intercepted_schemas = 
     let intercepted_schemas = (Atom.Set.to_list intercepted_schemas) in

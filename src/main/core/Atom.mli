@@ -74,8 +74,10 @@ module Set : sig
     method plus: 'z -> 'z -> 'z
   end
 *)
+  val pp : Ppx_deriving_runtime.Format.formatter -> t -> unit 
   val show: t -> string
   val print: out_channel -> t -> unit
+
 end
 
 (* Maps. *)
@@ -85,7 +87,7 @@ module VMap : sig
   val domain: 'a t -> Set.t
   val codomain: ('a -> Set.t) -> 'a t -> Set.t
 
-  val pp : ('a->'c) -> Ppx_deriving_runtime.Format.formatter -> 'b t -> unit (*Ppx_deriving_runtime.Format.formatter -> 'a t -> Ppx_deriving_runtime.unit*)
+  val pp : ('a -> 'c) -> Ppx_deriving_runtime.Format.formatter -> 'b t -> unit (*Ppx_deriving_runtime.Format.formatter -> 'a t -> Ppx_deriving_runtime.unit*)
   val show : 'a t -> Ppx_deriving_runtime.string
 
   val to_list: 'a t -> (key * 'a) list

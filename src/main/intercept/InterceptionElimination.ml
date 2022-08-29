@@ -1089,7 +1089,7 @@ module Make (Args: TArgs) = struct
 
     let generate_ingress_block interceptor_info base_interceptor : component_item list = 
         let msg_interceptors = extract_message_intercept_methods (methods_of base_interceptor) in
-        let session_interceptors = extract_message_intercept_methods (methods_of base_interceptor) in
+        let session_interceptors = extract_session_intercept_methods (methods_of base_interceptor) in
 
         auto_fplace (auto_plgannot(Term (auto_fplace (auto_plgannot(Comments
             (auto_fplace(DocComment "******************** Ingress Block ********************"))
@@ -1218,7 +1218,7 @@ module Make (Args: TArgs) = struct
 
     let generate_egress_block interceptor_info base_interceptor : component_item list = 
         let msg_interceptors = extract_message_intercept_methods (methods_of base_interceptor) in
-        let session_interceptors = extract_message_intercept_methods (methods_of base_interceptor) in
+        let session_interceptors = extract_session_intercept_methods (methods_of base_interceptor) in
 
         auto_fplace (auto_plgannot(Term (auto_fplace (auto_plgannot(Comments
             (auto_fplace(DocComment "******************** Egress Block ********************"))
@@ -1239,10 +1239,17 @@ module Make (Args: TArgs) = struct
     (*************** Interception Elimination ******************)
 
     let generate_interceptor base_interceptor interceptor_info : _term = 
+        logger#debug "0 > \n%s" (show_interceptor_info interceptor_info);
 
         let interceptor_info, onboard_block = generate_onboard_block base_interceptor interceptor_info in
+        logger#debug "1 > \n%s" (show_interceptor_info interceptor_info);
+
         let interceptor_info, inlined_onstartup_block = include_base_citems interceptor_info base_interceptor in
+        logger#debug "2 > \n%s" (show_interceptor_info interceptor_info);
+
         let interceptor_info, sessions_block = generate_sessions_block interceptor_info in
+        logger#debug "3 > \n%s" (show_interceptor_info interceptor_info);
+
         let ingress_block = generate_ingress_block interceptor_info base_interceptor in
         let egress_block = generate_egress_block interceptor_info base_interceptor in
 

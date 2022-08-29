@@ -147,6 +147,24 @@ let print_separated_sequence show sep iter xs : unit =
     end
   ) xs
 
+(* Printing *)
+let output_atom out builtin_eval (x:atom)=
+  if is_builtin x then fprintf out "%s" (builtin_eval x)
+  else
+    fprintf out "%s%d" (hint x) (identity x)
+
+let to_string (x:atom)=
+    (* For builtin, we use value and not in order not to erase trailing digits- allowed for builtin e.g.hint
+      _0 or _1 to access tuple attr
+    *)
+    if is_builtin x then value x
+    else (hint x)^(string_of_int (identity x))
+
+let p_to_string builtin_eval (x:atom)=
+  if is_builtin x then (builtin_eval x)
+  else to_string x
+
+
 (* -------------------------------------------------------------------------- *)
 
 (* Sets and maps. *)
@@ -232,6 +250,7 @@ module Set = struct
     print_separated_sequence show ", " iter xs;
     Buffer.add_string scratch "}"
 
+  let pp fmt m = Format.fprintf fmt "{%a}" (Error.pp_list ", " (fun out x-> Format.fprintf out "%s" (to_string x))) (List.of_seq (to_seq m)) 
   let show xs =
     print_to_scratch xs;
     let result = Buffer.contents scratch in
@@ -242,30 +261,12 @@ module Set = struct
     print_to_scratch xs;
     Buffer.output_buffer oc scratch;
     Buffer.reset scratch
-
 end
 
 
 
 
 
-
-(* Printing *)
-let output_atom out builtin_eval (x:atom)=
-  if is_builtin x then fprintf out "%s" (builtin_eval x)
-  else
-    fprintf out "%s%d" (hint x) (identity x)
-
-let to_string (x:atom)=
-    (* For builtin, we use value and not in order not to erase trailing digits- allowed for builtin e.g.hint
-      _0 or _1 to access tuple attr
-    *)
-    if is_builtin x then value x
-    else (hint x)^(string_of_int (identity x))
-
-let p_to_string builtin_eval (x:atom)=
-  if is_builtin x then (builtin_eval x)
-  else to_string x
 
 (* Sets and maps. *)
 

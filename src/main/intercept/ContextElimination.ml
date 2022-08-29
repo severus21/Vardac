@@ -378,7 +378,7 @@ module Make () = struct
             )) in
 
             Hashtbl.add generated_bridges b (b, b_in, b_in__let)
-        );
+        ) intercepted_bridges;
 
         (*** b_onboard ***)
         let b_onboard = Atom.fresh ("b_onboard_"^(Atom.value interceptor_name)) in 
@@ -481,8 +481,6 @@ module Make () = struct
             let res = e2_e (LambdaExpr ( [auto_fplace (mt,x)], core_factory)) in 
             make_wraper res params
         in
-
-        assert((List.of_seq (Hashtbl.to_seq_values generated_bridges)) = []);
 
         (*** Generate the let ***)
         let factory_targs_wo_p_of_i = 
