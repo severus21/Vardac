@@ -1,14 +1,14 @@
 (install
  (section (site (vardac test_dataset)))
   (files 
-    (cdcl_abstract_method.varch as cdcl_abstract_method.varch)
+    (cdcl_contract.varch as cdcl_contract.varch)
+    (cdcl_port.varch as cdcl_port.varch)
     (cdcl_method.varch as cdcl_method.varch)
+    (protocol1_with_constraints.varch as protocol1_with_constraints.varch)
     (protocol1.varch as protocol1.varch)
+    (cdcl_abstract_method.varch as cdcl_abstract_method.varch)
     (cexpr_base.varch as cexpr_base.varch)
     (cdcl_state.varch as cdcl_state.varch)
-    (cdcl_port.varch as cdcl_port.varch)
-    (protocol1_with_constraints.varch as protocol1_with_constraints.varch)
-    (cdcl_contract.varch as cdcl_contract.varch)
    
   )
 )

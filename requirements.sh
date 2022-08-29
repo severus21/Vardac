@@ -1,7 +1,7 @@
 #!/bin/bash
 
 sudo apt update
-sudo apt install --yes jc jq python3 python3-pip
+sudo apt install --yes jq python3 python3-pip
 sudo pip3 install -r requirements.txt
 
 sudo add-apt-repository --yes ppa:avsm/ppa
