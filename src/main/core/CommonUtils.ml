@@ -118,9 +118,14 @@ function
 | AssignThisExpr (x, e) | AssignSelfExpr (x, e)->
     collect_expr_expr parent_opt already_binded selector collector e
 
-| BranchStmt {s; label; branches} ->
+| BranchStmt {s; label_opt; branches} ->
     let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded selector collector s in
-    let _, collected_elts2, fvars2 = collect_expr_expr parent_opt already_binded selector collector label in
+    let _, collected_elts2, fvars2 = 
+    match label_opt with 
+        | None -> already_binded, [], []
+        | Some label ->
+            collect_expr_expr parent_opt already_binded selector collector label 
+    in
     let collected_elts3, fvars3 = List.split (List.map (function {branch_s; body} -> 
         (* branch_s is a binder *)
         let inner_binded = Atom.Set.add branch_s already_binded in
@@ -500,9 +505,12 @@ and collect_type_stmt_ flag_tcvar parent_opt already_binded selector collector p
     match stmt with
     | BreakStmt | CommentsStmt _ | ContinueStmt | ExitStmt _ | EmptyStmt -> already_binded, [], []
     | AssignExpr (_, e) | AssignThisExpr (_, e) | AssignSelfExpr (_, e) | ExpressionStmt e |  ReturnStmt e -> collect_expr e
-    | BranchStmt {s; label; branches} -> 
+    | BranchStmt {s; label_opt; branches} -> 
         let _, collected_elts1, ftvars1 = collect_expr s in
-        let _, collected_elts2, ftvars2 = collect_expr label in
+        let _, collected_elts2, ftvars2 = match label_opt with
+            | None -> already_binded, [], []
+            | Some label -> collect_expr label
+        in
         let collected_elts3, ftvars3 = List.split (List.map (function {branch_s; body} -> 
             (* branch_s is not a type binder *)
             let _, collect_elts, fvars = collect_type_stmt flag_tcvar parent_opt already_binded selector collector body in
@@ -784,7 +792,7 @@ function
     | LetStmt (mt, x, e) -> (* TODO FIXME expr in type are not yet concerned *)
         LetStmt (mt, x, rexpr e)
     | CommentsStmt c -> CommentsStmt c
-    | BranchStmt {s; label; branches} -> begin 
+    | BranchStmt {s; label_opt; branches} -> begin 
         let rewrite_branche {branch_label; branch_s;body} =
             {   
                 branch_label; 
@@ -794,7 +802,7 @@ function
         in
         BranchStmt{
             s       = rexpr s;
-            label   = rexpr label;
+            label_opt   = Option.map rexpr label_opt;
             branches= List.map rewrite_branche branches
         }
     end
@@ -994,7 +1002,7 @@ function
 | ExpressionStmt e -> ExpressionStmt (rewrite_expr e)
 | BlockStmt stmts -> BlockStmt (List.map rewrite_stmt stmts)
 | GhostStmt stmt -> GhostStmt (rewrite_stmt stmt)
-| BranchStmt {s; label; branches} -> begin 
+| BranchStmt {s; label_opt; branches} -> begin 
     let rewrite_branche {branch_label; branch_s;body} =
         {   
             branch_label; 
@@ -1004,7 +1012,7 @@ function
     in
     BranchStmt{
         s       = rewrite_expr s;
-        label   = rewrite_expr label;
+        label_opt   = Option.map rewrite_expr label_opt;
         branches= List.map rewrite_branche branches
     }
 end

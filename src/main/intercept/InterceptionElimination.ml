@@ -336,7 +336,7 @@ module Make (Args: TArgs) = struct
             contract_opt = None;
             body = [auto_fplace(BranchStmt {
                 s = e_param_s;
-                label = e_param_schema;
+                label_opt = Some e_param_schema;
                 branches = List.map (generate_main_callback_branch interceptor_info default_onboard onboard_index (e_this_b_onboard, e_this_onboarded_activations) ((param_schema, e_param_schema), (param_s, e_param_s))) (Atom.Set.to_list interceptor_info.intercepted_schemas)
             })]
         }))) in

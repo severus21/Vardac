@@ -44,7 +44,7 @@ module Make () : Sig = struct
                     e2_e ( UnopExpr(
                         UnpackOrPropagateResult,
                         e2_e (CallExpr(
-                            e2var (Atom.builtin "select"),
+                            e2var (Atom.builtin "select_local"),
                             [ 
                                 e_local_s;
                                 e_local_label 
@@ -59,7 +59,7 @@ module Make () : Sig = struct
 
 
     let rewritor _ place = function 
-    | BranchStmt {s; label; branches} -> begin
+    | BranchStmt {s; label_opt; branches} -> begin
         let mt_st = snd s.value in
 
         let local_res = Atom.fresh "res" in
@@ -79,14 +79,20 @@ module Make () : Sig = struct
 
         (*** Headers ***)
         [
-            (* tuple<blabel, ...> tmp = receive(s); *)
             LetStmt(
                 mt_local_res,
                 local_res,
-                {place = place @fplace; value=(CallExpr(
-                    e2var (Atom.builtin "receive"),
-                    [ s ]
-                )), auto_fplace EmptyMainType}
+                (match label_opt with
+                | None -> 
+                    (* tuple<blabel, ...> tmp = receive(s); *)
+                    {place = place @fplace; value=(CallExpr(
+                        e2var (Atom.builtin "receive"),
+                        [ s ]
+                    )), auto_fplace EmptyMainType}
+                | Some label ->
+                    (* tuple<blabel, ...> tmp = (label, s); *)
+                    e2_e (BlockExpr(Tuple, [label; s]))
+                )
             );
             (* blabel label = tmp._0); *)
             LetStmt(

@@ -60,6 +60,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "select_places", "label -> (place -> bool) -> place", "", t_select;
     "sleep", "int -> unit", "sleep", t_sleep;
     "select", "st -> label -> st", "select", t_select;
+    "select_local", "st -> label -> st", "select", t_select;
     "option_get", "option<'a> -> 'a", "", t_option_get;
     "session_from", "session -> activation<>", "get the initiater of the session", t_select; (*TODO*)
     "session_to_2_", "session -> activation<>", "TODO", t_session_to_2_;

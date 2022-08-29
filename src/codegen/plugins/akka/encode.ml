@@ -408,6 +408,17 @@ let encode_builtin_fct_2 parent_opt place name a b =
                 e_this_dead_sessions (this_actor parent_opt) place;
             ]
         ) 
+    | "select_local" -> 
+        T.CallExpr( 
+            e2_e (T.AccessExpr (
+                a, 
+                e2var (Atom.builtin "apply_select")
+            )),
+            [ 
+                b; 
+                e_get_context place;
+            ]
+        ) 
     | "listget" ->
         T.CallExpr(
             e2_e (T.AccessExpr (

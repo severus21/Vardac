@@ -168,7 +168,7 @@ and _stmt =
     | WithContextStmt of bool * variable * expr * stmt list
     | BranchStmt of {
         s: expr;
-        label: expr;
+        label_opt: expr option;
         branches: branch_stmt list 
     }
 

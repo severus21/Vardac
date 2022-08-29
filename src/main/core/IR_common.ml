@@ -244,7 +244,7 @@ and _stmt =
     | WithContextStmt of bool * component_variable * expr * stmt list
     | BranchStmt of {
         s: expr;
-        label: expr;
+        label_opt: expr option;
         branches: branch_stmt list 
     }
 and stmt = _stmt placed

@@ -118,7 +118,7 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
                 return p; 
             }
         }
-        throw new RuntimeException("Intermediate port not found");
+        throw new RuntimeException("Intermediate port not found at "+receive_id);
     }
 
     public void print_registered_sessions(){

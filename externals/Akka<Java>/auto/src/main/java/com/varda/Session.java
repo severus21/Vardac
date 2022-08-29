@@ -92,6 +92,36 @@ public class Session implements CborSerializable {
         return Either.right(this);
     }
 
+    public Either<Error, Session> apply_select(
+        LabelEvent label,  
+        ActorContext context 
+    ){
+        return apply_select(label.value, context);
+    }
+
+    public Either<Error, Session> apply_select(
+        String label,  
+        ActorContext context 
+    ){
+
+        assert(this.st.continuations.size() > 0);
+
+        //TODO list to map ?? (perf)
+        //search continuation
+        ASTStype.MsgT msgT = new ASTStype.MsgT(label);
+        for(Tuple3<ASTStype.MsgT, List<ASTStype.TimerHeader>, ASTStype.Base> branch : this.st.continuations){
+            if(branch._1.equals(msgT)){
+                this.st = branch._3;
+                return Either.right(this);
+            }
+        }
+
+        context.getLog().error( String.format("Can not select [%s] from [%s] to [%s] : label is unknown in ST", label, this.left.toString(), this.right.toString(), this.session_id));
+
+        this.init_stage = false;
+        return Either.left(new Error("Unknown label"));
+    }
+
     public Either<Error, Session> select(
         String label,  
         ActorContext context, 
@@ -112,21 +142,7 @@ public class Session implements CborSerializable {
 
         ASTStype.TimerHeader.apply_headers(context, contextTimers, frozen_sessions, dead_sessions, this);
 
-
-        //TODO list to map ?? (perf)
-        //search continuation
-        ASTStype.MsgT msgT = new ASTStype.MsgT(label);
-        for(Tuple3<ASTStype.MsgT, List<ASTStype.TimerHeader>, ASTStype.Base> branch : this.st.continuations){
-            if(branch._1.equals(msgT)){
-                this.st = branch._3;
-                return Either.right(this);
-            }
-        }
-
-        context.getLog().error( String.format("Can not select [%s] from [%s] to [%s] : label is unknown in ST", label, this.left.toString(), this.right.toString(), this.session_id));
-
-        this.init_stage = false;
-        return Either.left(new Error("Unknown label"));
+        return apply_select(label, context);
     }
 
     public Either<Error, Session> select(

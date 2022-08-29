@@ -799,7 +799,7 @@ module Make () = struct
         (* From the outside WithContextStmt is transparent in term of parent_opt *)
         let stmts = List.map (tannot_stmt parent_opt) stmts in
         WithContextStmt (anonymous_mod, cname, tannot_expr parent_opt e, stmts)
-    | BranchStmt {s; label; branches} -> 
+    | BranchStmt {s; label_opt; branches} -> 
         let s = tannot_expr parent_opt s in
         let mt_st = snd s.value in
 
@@ -832,7 +832,7 @@ module Make () = struct
         in
         BranchStmt {
             s;
-            label = tannot_expr parent_opt label;
+            label_opt = Option.map (tannot_expr parent_opt) label_opt;
             branches = List.map tannot_branch branches; 
         }
     and tannot_stmt parent_opt stmt =  

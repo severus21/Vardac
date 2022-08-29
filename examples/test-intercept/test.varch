@@ -60,7 +60,7 @@ component PingPong {
         with<MsgCounter> this.make_interceptor{
             activation_ref<A> a = spawn A(bridge0);
         }
-        (*activation_ref<B> b = spawn B(bridge0, a);*)
+        activation_ref<B> b = spawn B(bridge0, a);
 
         (* TODO Second group *) 
         (*with<MsgCounter, anonymous> this.make_interceptor{

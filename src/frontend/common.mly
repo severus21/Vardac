@@ -386,8 +386,10 @@ any_stmt_:
     }
 | MATCH e1=any_expr LCURLYBRACKET exprs=flexible_sequence(match_entry) RCURLYBRACKET
     { MatchStmt (e1, exprs) }
+| BBRANCH s = any_expr LCURLYBRACKET branches=flexible_sequence(branch_entry) RCURLYBRACKET
+    { BranchStmt {s; label_opt = None; branches} }
 | BBRANCH s = any_expr ON label=any_expr LCURLYBRACKET branches=flexible_sequence(branch_entry) RCURLYBRACKET
-    { BranchStmt {s; label; branches} }
+    { BranchStmt {s; label_opt = Some label; branches} }
 (* TODO for*)
 | RETURN e=any_expr SEMICOLON
     { ReturnStmt e }

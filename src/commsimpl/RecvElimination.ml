@@ -654,7 +654,7 @@ module Make () : Sig = struct
             @return - list of intermediate_ports for this receive + ports with updated children
         *)
         let generate_intermediate_ports ports (receive_id, t_msg, st_continuation, callback) = 
-            logger#debug "generate_intermediate_port for %s and ports %d and outports %d " (Atom.to_string cdcl.name) (List.length ports) (List.length outports);
+            logger#debug "generate_intermediate_port for %s <%s> and ports %d and outports %d " (Atom.to_string cdcl.name) (Atom.to_string receive_id) (List.length ports) (List.length outports);
             (* Remove ports that are already binded to receive *)
             let ports = List.filter (function p -> Bool.not (fst p.value)._is_intermediate) ports in
 
