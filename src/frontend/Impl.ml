@@ -3,9 +3,10 @@ open AstUtils
 
 (************************************* Base types ****************************)
 type variable = string list
+[@@deriving show { with_path = false }, yojson]
 
 
-and blackbox_body = 
+type blackbox_body = 
 | Text of string
 | Varda of Ast.expr 
 
@@ -54,3 +55,6 @@ and term = (_term plg_annotated) placed
 
 and program = term list
 [@@deriving show { with_path = false }]
+
+let program_to_yojson _ = failwith "not implemented"
+let program_of_yojson _ = failwith "not implemented"

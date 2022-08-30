@@ -24,6 +24,11 @@ let debug_selector () =
     else 
         Some (String.split_on_char ',' !_debug_selector)
 
+let _json = ref "" 
+(* if != "" dump ast on json format at path [json]*)
+let json () = 
+  !_json
+
 let _author = ref "author"
 
 let author = function () -> !_author

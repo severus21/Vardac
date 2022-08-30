@@ -35,6 +35,7 @@
   (ppx_hash (>= v0.14.0))
   (ppx_compare (>= v0.15.0))
   (ppx_import (>= 1.9.0))
+  (ppx_deriving_yojson (>= 3.6.1))
   (process (>= 0.2.1))
   (rresult (>= 0.6.0))
   (yaml (>= 3.0.0))

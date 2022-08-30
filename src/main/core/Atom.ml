@@ -47,7 +47,7 @@ let remove_trailing_digits (s : string) : string =
 type atom = { identity: int; hint: string; value: string ; builtin: bool} (* builtin is an builtin type, fct, keywords .., if so the correct thing is value*)
 
 and t = atom
-  [@@deriving show { with_path = false }, hash]
+  [@@deriving show { with_path = false }, hash, yojson]
 
 let identity a =
   a.identity

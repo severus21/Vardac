@@ -15,9 +15,9 @@ and _target = {
     name:string; 
     codegen: codegen_info;
     user_defined: string;
-    compiler: string Core.Collections.StringMap.t
+    compiler: string Core.Collections.StringMap.t [@to_yojson Core.SerializationUtils.stringmap_to_yojson] [@of_yojson Core.SerializationUtils.stringmap_of_yojson]
 }     
 and target = _target placed
 and targets = target list
-[@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }, yojson]
 

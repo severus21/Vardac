@@ -3,5 +3,5 @@
     (public_name vardad)
     (modes byte native)
     (modules :standard)
-    (libraries ounit2 yaml "yaml.unix" "rresult" "fileutils" vardaclib core)
+    (libraries ounit2 yaml "yaml.unix" "rresult" "fileutils" vardaclib core yojson ppx_deriving_yojson.runtime)
 )

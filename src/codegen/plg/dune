@@ -2,7 +2,7 @@
     (name plg)
     (public_name vardac.codegen.plg)
     (modules :standard)
-    (libraries dune-site ounit2 easy_logging core dynlink jingoo)
+    (libraries dune-site ounit2 easy_logging core dynlink jingoo yojson)
     (instrumentation (backend bisect_ppx)) 
 )
 

@@ -7,7 +7,7 @@ type label_node =
     | AnyRecNode of string option
     | StringNode of string
 and label = label_node list (** node1::node2::node3 -> Label(["node1", "node2", "node3"]) *)
-[@@deriving show { with_path = false }, hash, compare, equal]
+[@@deriving show { with_path = false }, yojson, hash, compare, equal]
 
 module Label =
     struct

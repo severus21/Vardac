@@ -240,3 +240,6 @@ and system =  unit
 and program = term list
 
 [@@deriving show { with_path = false }]
+
+let program_to_yojson _ = failwith "not implemented, because outputs does the job"
+let program_of_yojson _ = failwith "not implemented, because outputs does the job"

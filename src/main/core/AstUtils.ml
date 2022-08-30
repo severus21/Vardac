@@ -9,7 +9,7 @@ type 'a placed = {
   (*  printer with place annotation:
   place: Error.place;[@printer fun fmt ->let pp_pos fmt ({pos_fname=n1; pos_lnum=l1; pos_bol=b1; pos_cnum=c1}:Lexing.position) = fprintf fmt "{pos_fname=%s; pos_lnum=%d; pos_bol=%d; pos_cnum=%d}" n1 l1 b1 c1 in let pp_place fmt (pos1, pos2) = fprintf fmt "(%a,%a)" pp_pos pos1 pp_pos pos2 in fprintf fmt "%a" pp_place  ]*)
   value: 'a
-} [@@deriving show { with_path = false }, hash, compare, equal]
+} [@@deriving show { with_path = false }, yojson, hash, compare, equal]
 
 
 (* Printing a syntax tree in an intermediate language (for debugging). *)
@@ -18,19 +18,24 @@ let print_delimiter () =
   Printf.eprintf "----------------------------------------";
   Printf.eprintf "----------------------------------------\n"
 
-let dump ?(print=(Config.debug ()))(phase : string) (show : 'term -> string) (t : 'term) =
-  if print then begin
-    print_delimiter();
-    Printf.eprintf "%s:\n\n%s\n\n%!" phase (show t)
-  end;
-  t
-let dump_selected (name:string) (phase:string) (show:'term -> string) (t:'term) =
+let dump ?(print=(Config.debug ())) ?(json=(Config.json ())) (phase : string) (show : 'term -> string) (to_json : 'term -> Yojson.Safe.t) (t : 'term) =
+  if print then ( 
+        print_delimiter();
+        Printf.eprintf "%s:\n\n%s\n\n%!" phase (show t)
+    );  
+    if json <> "" then(
+        Yojson.Safe.to_file json (to_json t)
+    );
+
+    t
+
+let dump_selected (name:string) (phase:string) (show:'term -> string) (to_json : 'term -> Yojson.Safe.t) (t:'term) =
     if Config.debug () then 
         match Config.debug_selector() with
-        | None -> dump phase show t
+        | None -> dump phase show to_json t
         | Some selected_passes ->
             if List.mem name selected_passes then
-                dump phase show t
+                dump phase show to_json t
             else
                 t 
     else t
@@ -69,7 +74,7 @@ type _comments =
     | DocComment of string
     | LineComment of string
 and comments = _comments placed
-[@@deriving show { with_path = false }, hash, compare, equal]
+[@@deriving show { with_path = false }, yojson, hash, compare, equal]
 
 (** Literal types *)
 type flat_type = 
@@ -90,7 +95,7 @@ type flat_type =
     | TTimer
     | TWildcard (** e.g. ? *)
     | TBottom (** e.g. object in Java *)
-[@@deriving show { with_path = false }, hash, compare, equal]
+[@@deriving show { with_path = false }, yojson, hash, compare, equal]
 
 type unop = 
     | Not 
@@ -126,7 +131,7 @@ and block =
     | Array
 and block2 =
     | Dict
-[@@deriving show { with_path = false }, hash, compare, equal]
+[@@deriving show { with_path = false }, yojson, hash, compare, equal]
 
 
 let rec map0_place (fct:Error.place -> 'a -> 'b) ({place; value}:'a placed) : 'b  = 
@@ -152,7 +157,7 @@ and 'a plg_annotated = {
     plg_annotations: plg_annotation list;
     v: 'a;
 }
-[@@deriving show { with_path = false }, hash, compare, equal]
+[@@deriving show { with_path = false }, yojson, hash, compare, equal]
 
 
 let transparent0_plgannot f place {plg_annotations; v} =

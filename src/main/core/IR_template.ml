@@ -25,6 +25,20 @@ module type IRParams = sig
     val pp__custom_method0_body : Ppx_deriving_runtime.Format.formatter -> _custom_method0_body -> Ppx_deriving_runtime.unit
     val pp_component_headers : Ppx_deriving_runtime.Format.formatter -> component_headers -> Ppx_deriving_runtime.unit
 
+    val target_name_to_yojson :  target_name -> Yojson.Safe.t 
+    val _typealias_body_to_yojson :  _typealias_body -> Yojson.Safe.t
+    val _typedef_body_to_yojson :  _typedef_body -> Yojson.Safe.t
+    val _state_dcl_body_to_yojson :  _state_dcl_body -> Yojson.Safe.t
+    val _custom_method0_body_to_yojson : _custom_method0_body ->  Yojson.Safe.t
+    val component_headers_to_yojson : component_headers ->  Yojson.Safe.t
+
+    val target_name_of_yojson : Yojson.Safe.t -> target_name Ppx_deriving_yojson_runtime.error_or
+    val _typealias_body_of_yojson :  Yojson.Safe.t -> _typealias_body  Ppx_deriving_yojson_runtime.error_or
+    val _typedef_body_of_yojson :  Yojson.Safe.t -> _typedef_body Ppx_deriving_yojson_runtime.error_or
+    val _state_dcl_body_of_yojson :  Yojson.Safe.t -> _state_dcl_body Ppx_deriving_yojson_runtime.error_or
+    val _custom_method0_body_of_yojson : Yojson.Safe.t -> _custom_method0_body Ppx_deriving_yojson_runtime.error_or
+    val component_headers_of_yojson : Yojson.Safe.t -> component_headers Ppx_deriving_yojson_runtime.error_or
+
     val collect_type_state_dcl_body : 
     bool ->
     Atom.atom option ->
@@ -213,6 +227,20 @@ module Make (Params : IRParams) = struct
     let pp__custom_method0_body = Params.pp__custom_method0_body
     let pp_component_headers = Params.pp_component_headers
 
+    let target_name_to_yojson = Params.target_name_to_yojson
+    let _typealias_body_to_yojson = Params._typealias_body_to_yojson
+    let _typedef_body_to_yojson = Params._typedef_body_to_yojson
+    let _state_dcl_body_to_yojson = Params._state_dcl_body_to_yojson
+    let _custom_method0_body_to_yojson = Params._custom_method0_body_to_yojson
+    let component_headers_to_yojson = Params.component_headers_to_yojson
+
+    let target_name_of_yojson = Params.target_name_of_yojson
+    let _typealias_body_of_yojson = Params._typealias_body_of_yojson
+    let _typedef_body_of_yojson = Params._typedef_body_of_yojson
+    let _state_dcl_body_of_yojson = Params._state_dcl_body_of_yojson
+    let _custom_method0_body_of_yojson = Params._custom_method0_body_of_yojson
+    let component_headers_of_yojson = Params.component_headers_of_yojson
+
     let collect_type_state_dcl_body x = Params.collect_type_state_dcl_body x
     let rewrite_type_state_dcl_body x = Params.rewrite_type_state_dcl_body x 
     let rewrite_expr_state_dcl_body x = Params.rewrite_expr_state_dcl_body x 
@@ -393,7 +421,7 @@ module Make (Params : IRParams) = struct
 
     (* The following annotation requests the automatic generation of a [show_]
         function for each of the types defined above.*)
-    [@@deriving show { with_path = false }]
+    [@@deriving show { with_path = false }, yojson]
 
     type 'a sig_expr_collector = (Atom.atom option -> Atom.Set.t -> expr -> 'a list)
     

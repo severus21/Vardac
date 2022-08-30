@@ -18,11 +18,11 @@ and _target = {
     name:string; 
     codegen: codegen_info;
     user_defined: string;
-    compiler: string Collections.StringMap.t
+    compiler: string Collections.StringMap.t [@to_yojson SerializationUtils.stringmap_to_yojson] [@of_yojson SerializationUtils.stringmap_of_yojson]
 } 
 and target = _target placed
 and targets = target list
-[@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }, yojson]
 
 (** 
     @param x - component name 

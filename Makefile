@@ -80,14 +80,22 @@ ifeq (run,$(firstword $(MAKECMDGOALS)))
   $(eval $(RUN_ARGS):;@:)
 endif
 
-.PHONY: run 
+# If the first argument is "debugbox"...
+ifeq (debugbox,$(firstword $(MAKECMDGOALS)))
+  # use the rest as arguments for "debugbox"
+  DEBUGBOX_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  # ...and turn them into do-nothing targets
+  $(eval $(DEBUGBOX_ARGS):;@:)
+endif
 
+.PHONY: run 
+.PHONY: debugbox
 
 run: generatedune bin 
 	@dune exec --profile release -- vardac $(RUN_ARGS)
 
 debugbox: generatedune bin
-	@dune exec --profile release -- vardad
+	@dune exec --profile release -- vardad $(DEBUGBOX_ARGS) 
 
 
 #### Cleaning targets ########################################################

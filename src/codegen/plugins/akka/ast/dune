@@ -1,7 +1,7 @@
 (library
     (name ast)
     (public_name vardac.codegen.plugins.akka.ast)
-    (preprocess (pps ppx_deriving.show ppx_deriving.enum ppx_import ppx_fields_conv))
+    (preprocess (pps ppx_deriving.show ppx_deriving.enum ppx_import ppx_fields_conv ppx_deriving_yojson))
     (modules :standard)
     (libraries ounit2 easy_logging vardac.core jingoo)
     (instrumentation (backend bisect_ppx)) 

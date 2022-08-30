@@ -7,6 +7,7 @@ open Easy_logging
 module type Arg = sig 
     type program
     val show_program : program -> string 
+    val program_to_yojson : program -> Yojson.Safe.t 
 end
 module Make(S:Arg)(T:Arg) = struct 
     module type Pass = sig  
@@ -44,7 +45,7 @@ module Make(S:Arg)(T:Arg) = struct
                     |> precondition
                     |> apply_program
                     |> function x-> logger#sinfo displayed_pass_shortdescription;x
-                    |> (if show_ast && Config.debug () then AstUtils.dump_selected name displayed_ast_name T.show_program else Fun.id)
+                    |> (if show_ast && Config.debug () then AstUtils.dump_selected name displayed_ast_name T.show_program T.program_to_yojson else Fun.id)
                     |> postcondition
                 in
 
@@ -82,7 +83,7 @@ module Make2(S:Arg)(T:Arg)(Acc:sig type acc end) = struct
             |> function x-> logger#sinfo displayed_pass_shortdescription;x
             |> List.map (function (acc, program) -> acc, (
                     if show_ast && Config.debug () then 
-                        AstUtils.dump_selected name displayed_ast_name T.show_program 
+                        AstUtils.dump_selected name displayed_ast_name T.show_program T.program_to_yojson 
                     else Fun.id
                 ) program)
             |> List.map (function (acc, program) -> acc, postcondition program)

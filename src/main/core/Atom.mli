@@ -8,7 +8,7 @@
 type atom
 
 and t = atom
-  [@@deriving show, hash]
+  [@@deriving show, hash, yojson]
 
 val identity: atom -> int
 val hint: atom -> string
@@ -77,7 +77,6 @@ module Set : sig
   val pp : Ppx_deriving_runtime.Format.formatter -> t -> unit 
   val show: t -> string
   val print: out_channel -> t -> unit
-
 end
 
 (* Maps. *)
@@ -94,6 +93,10 @@ module VMap : sig
   val of_list: (key * 'a) list -> 'a t
 
   val hash_fold_t : 'a Ppx_hash_lib.Std.Hash.folder -> 'b t Ppx_hash_lib.Std.Hash.folder
+
+  (*val to_yojson : 'a t -> Yojson.Safe.t
+  val of_yojson : Yojson.Safe.t -> ('a t) Ppx_deriving_yojson_runtime.error_or
+  *)
 
 end
 

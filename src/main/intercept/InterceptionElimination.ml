@@ -370,8 +370,8 @@ module Make (Args: TArgs) = struct
         assert( interceptor_info.inout_statebridges_info = None);
         let interceptor_info = {interceptor_info with 
             inout_statebridges_info = Some (List.mapi ( fun i (b_intercepted, _, b_mt) -> 
-                Atom.fresh (Printf.sprintf "%s_outport__%d" (Atom.to_string b_intercepted) i),
-                Atom.fresh (Printf.sprintf "%s_inport__%d"  (Atom.to_string b_intercepted) i),
+                Atom.fresh (Printf.sprintf "%s_outport__%d_" (Atom.to_string b_intercepted) i),
+                Atom.fresh (Printf.sprintf "%s_inport__%d_"  (Atom.to_string b_intercepted) i),
                 Atom.fresh ("b_out_"^string_of_int i),
                 Atom.fresh ("b_in_"^string_of_int i),
                 b_mt
@@ -566,8 +566,8 @@ module Make (Args: TArgs) = struct
         let right_mt = tb_intercepted_bridge.out_type in
 
         let filter (m: method0) =
-            (* Well-formedness of msginterceptor should have been checked during typechecking *)
-            let [_; param_from; param_b_inner; _; param_continuation_in; param_continuation_out; param_msg] = m.value.args in
+            (* Well-formedness of sessioninterceptor should have been checked during typechecking *)
+            let [onboarded_activations; param_from; param_b_inner; _; param_msg] = m.value.args in
 
             let mt_A = fst param_from.value in
             (* Loss of precesion compare to non anonymous case 
@@ -576,7 +576,7 @@ module Make (Args: TArgs) = struct
             let mt_Bs = match (fst param_b_inner.value).value with
                 | CType{ value = TBridge tb } -> tb.in_type (* see whitepaper *)
             in
-            let st3 = match fst param_continuation_in.value with | {value=SType st} -> st in (* type of continuation_in*)
+            let st3 = st_continuation in
             let tmsg3 = fst param_msg.value in 
 
             paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_Bs, st3, tmsg3)
@@ -593,11 +593,11 @@ module Make (Args: TArgs) = struct
 
         let filter (m: method0) =
             (* Well-formedness of msginterceptor should have been checked during typechecking *)
-            let [_; param_from; _; param_to; param_continuation_in; param_continuation_out; param_msg] = m.value.args in
+            let [onboarded_activations; param_from; param_b_inner; param_to; param_msg] = m.value.args in
 
             let mt_A = fst param_from.value in
             let mt_B = fst param_to.value in
-            let st3 = match fst param_continuation_in.value with | {value=SType st} -> st in (* type of continuation_in*)
+            let st3 = st_continuation in
             let tmsg3 = fst param_msg.value in 
 
             paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_B, st3, tmsg3)
@@ -738,21 +738,21 @@ module Make (Args: TArgs) = struct
         let local_s_out, e_local_s_out = e_param_of "s_out" in
 
 
-        let e_session_interceptor_by_schema = e2_e (AccessExpr ( 
+        let interceptor_by_schema = get_sessioninterceptor_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation) in 
+        let interceptor_by_activation = get_sessioninterceptor_not_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation) in
+
+        let e_session_interceptor = e2_e (AccessExpr ( 
             e2_e This, 
-            match (get_sessioninterceptor_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation)) with
-            | Some x_to -> e2var x_to
-            | None -> Error.perror interceptor_info.base_interceptor_place "No @sessioninterceptor(true, ...) for bridge type %s" (show_tbridge tb_intercepted)
-        )) in
-        let e_session_interceptor_by_activation = e2_e (AccessExpr ( 
-            e2_e This, 
-            match (get_sessioninterceptor_not_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation)) with
-            | Some x_to -> e2var x_to
-            | None -> 
+            match (interceptor_by_schema, interceptor_by_activation) with
+            | None, None -> 
                 (* Case there is no user defined function *)
+                logger#warning "No @sessioninterceptor(true, ...) for bridge type %s" (show_tbridge tb_intercepted);
                 logger#warning "No @sessioninterceptor(false, ...) for bridge type %s" (show_tbridge tb_intercepted);
                 e2_e (CallExpr ( e2var (Atom.builtin "option_get"), [ e_local_to_opt ])) (* by default, use the requested to *)
+            | Some x_to, None | None, Some x_to -> e2var x_to
+            | Some _, Some _ -> Error.perror interceptor_info.base_interceptor_place  "Two sessioninterceptor are defined for bridge type %s : one with the anonymous modifier, one without" (show_tbridge tb_intercepted);
         )) in
+
         let e_this_onboarded_activations = e2_e (AccessExpr ( e2_e This, e2var (Option.get interceptor_info.this_onboarded_activations))) in
 
         let left_mt = tb_intercepted.in_type in
@@ -786,7 +786,7 @@ module Make (Args: TArgs) = struct
                     mtype_of_ct (TOption (mtype_of_ct (TActivationRef right_mt))),
                     local_to_opt,
                     e2_e (CallExpr(
-                        e_session_interceptor_by_activation,
+                        e_session_interceptor,
                         [
                             e_this_onboarded_activations;
                             e_local_from;

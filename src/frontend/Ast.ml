@@ -78,7 +78,7 @@ and applied_constraint = (constraint_header list) * constraints option
 and vplace = { 
     name:           variable;
     nbr_instances:  expr;
-    features:     (string, string) Hashtbl.t;[@opaque]
+    features:     (string, string) Hashtbl.t;[@opaque][@hash.ignore][@compare.ignore][@equal.ignore] [@to_yojson SerializationUtils.htbl_to_yojson] [@of_yojson SerializationUtils.htbl_of_yojson]
     children:      vplace list
 }
 
@@ -338,7 +338,7 @@ and _term =
 and term = _term placed
 
 and program = term list
-[@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }, yojson]
 
 (* let make_vplace name nbr_instances features children = ()*)
 let make_vplace _ _ _ _ = ()

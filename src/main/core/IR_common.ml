@@ -13,7 +13,6 @@ type test = int Atom.VMap.t
 
 let logger = Utils.make_log_of "IR_common" 
 
-
 (* TODO clean AST *)
 
 type expr_variable = Atom.t
@@ -81,10 +80,12 @@ and _session_type =
     | STDual of session_type 
 and session_type = _session_type placed
 
+and main_type_atom_map = main_type Atom.VMap.t [@to_yojson SerializationUtils.map_to_yojson] [@of_yojson SerializationUtils.map_of_yojson]
+
 (* NB component or class type *)
 and _struct_type =
     | CompTUid of component_variable 
-    | TStruct of component_variable * main_type Atom.VMap.t (** types of states, methods, ports, ... and subcomponents *)
+    | TStruct of component_variable * main_type_atom_map (** types of states, methods, ports, ... and subcomponents *)
     (* Polymorphsim*)
     | TPolyCVar of component_variable
     | CompTBottom
@@ -121,7 +122,7 @@ and place = _place placed
 and vplace = { 
     name:           component_variable;
     nbr_instances:  expr;
-    features:     (string, string) Hashtbl.t;[@opaque][@hash.ignore][@compare.ignore][@equal.ignore]
+    features:     (string, string) Hashtbl.t;[@opaque][@hash.ignore][@compare.ignore][@equal.ignore] [@to_yojson SerializationUtils.htbl_to_yojson] [@of_yojson SerializationUtils.htbl_of_yojson]
     children:       vplace list
 }
 
@@ -318,5 +319,4 @@ and component_expr = (_component_expr * main_type) placed
 
 (* The following annotation requests the automatic generation of a [show_]
 function for each of the types defined above.*)
-[@@deriving show { with_path = false }, hash, compare, equal]
-
+[@@deriving show { with_path = false }, yojson, hash, compare, equal]

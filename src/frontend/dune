@@ -34,7 +34,7 @@
 (library
     (name frontend)
     (public_name vardac.frontend)
-    (preprocess (pps ppx_deriving.show ppx_import ppx_fields_conv))
+    (preprocess (pps ppx_deriving.show ppx_import ppx_fields_conv ppx_deriving_yojson))
     (modules :standard)
     (libraries fieldslib ounit2 yaml "yaml.unix" "rresult" "fileutils" process main core builtin common)
     (instrumentation (backend bisect_ppx))

@@ -2,10 +2,14 @@ open Lexing
 
 type loc = position * position
 
-type place = loc list               
+type place = loc list 
+
 
 let forge_place filename startpos endpos : place=
   [ {pos_fname=filename; pos_lnum=1; pos_bol=0; pos_cnum=startpos}, {pos_fname=filename; pos_lnum=1; pos_bol=0; pos_cnum=endpos} ]
+
+let place_to_yojson _ = [%to_yojson: string] "no_place"
+let place_of_yojson _ = Ppx_deriving_yojson_runtime.Result.Ok (forge_place "place_of_yo_json" 0 0)
 
 let place lexbuf : place =
   [ lexbuf.lex_start_p, lexbuf.lex_curr_p ] 

@@ -9,6 +9,7 @@ type loc = position * position
               abstract -> fname is just a description (e.g. a compilation pass)
 *)
 type place = loc list
+[@@deriving yojson]
 
 
 (* Exceptions *)

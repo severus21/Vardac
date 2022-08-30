@@ -39,3 +39,6 @@ and term = (_term plg_annotated) placed
 
 and program = term list
 [@@deriving show { with_path = false }]
+
+let program_to_yojson _ = failwith "not implemented"
+let program_of_yojson _ = failwith "not implemented"

@@ -23,6 +23,7 @@ let set_provenance x =
 let common_options = 
 [
     "--debug", Arg.Set Core.Config._debug, " Enable debugging output";
+    "--json", Arg.Set_string Core.Config._json, "Format dumped AST in JSON at param path";
     "--debug-selector", Arg.Set_string Core.Config._debug_selector, "Print debug for selected pass e.g. pass name1:pass name2";
     "--places", Arg.Set_string places_file, "Load a YAML file describing the places"; 
     "--targets", Arg.Set_string targets_file, "Load a YAML file describing the targets";

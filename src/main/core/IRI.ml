@@ -30,7 +30,7 @@ and iri_typealias_body =
 | BBTypealias of blackbox_term 
 and iri_typedef_body = blackbox_term option 
 and iri_component_headers = string list
-[@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }, yojson]
 
 
 
@@ -151,7 +151,7 @@ module Params : (
     and _typealias_body = iri_typealias_body
     and _typedef_body = iri_typedef_body
     and component_headers = iri_component_headers
-    [@@deriving show { with_path = false }]
+    [@@deriving show { with_path = false }, yojson]
 
     let collect_type_state_dcl_body 
         flag_tcvar parent_opt already_binded selector collector 

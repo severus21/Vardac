@@ -17,7 +17,7 @@ and ir_custom_method0_body = stmt list
 and ir_typealias_body = main_type option
 and ir_typedef_body = unit
 and ir_component_headers = unit
-[@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }, yojson]
 
 
 module Params : (
@@ -36,7 +36,7 @@ module Params : (
     and _typealias_body = ir_typealias_body
     and _typedef_body = ir_typedef_body
     and component_headers = ir_component_headers
-    [@@deriving show { with_path = false }]
+    [@@deriving show { with_path = false }, yojson]
 
     let collect_type_state_dcl_body 
         flaf_tcvar parent_opt already_binded selector collector 
