@@ -48,13 +48,14 @@ async def display_time(stop_display_time, start_time, last_elapse=0):
         await display_time(stop_display_time, start_time, last_elapse)
 
 class Runner(ABC):
-    def __init__(self, name) -> None:
-        self.name = name
+    def __init__(self) -> None:
+        self.name = None # MUST be set by the benchmark holding it 
 
         self._run_stdout = ""
         self._run_stderr = ""
 
     def __enter__(self):
+        assert(self.name != None)
         logging.debug(f"Entering runner {self.name}")
         return self
 
@@ -98,10 +99,15 @@ class Runner(ABC):
         return result
 
 class OrderedMultiShellRunner(Runner):
-    def __init__(self, name, runners, config):
-        super().__init__(name)
+    def __init__(self, runners, config):
+        super().__init__()
         self.runners = runners
         self.config = config
+
+    def __enter__(self):
+        for runner in self.runners:
+            runner = self.name
+        return super().__enter__()
 
 
     @property
@@ -144,8 +150,8 @@ class OrderedMultiShellRunner(Runner):
         return results
 
 class BaseRunner(Runner):
-    def __init__(self, name, stdout_termination_token, error_token, config, set_stop_event) -> None:
-        super().__init__(name)
+    def __init__(self, stdout_termination_token, error_token, config, set_stop_event) -> None:
+        super().__init__()
         self.stdout_termination_token = stdout_termination_token
         self.error_token = error_token
         self.config = config
@@ -245,8 +251,8 @@ class BaseRunner(Runner):
                 return False
 
 class ShellRunner(BaseRunner):
-    def __init__(self, name, run_cmd, run_cwd, stdout_termination_token, error_token, config, set_stop_event) -> None:
-        super().__init__(name, stdout_termination_token, error_token, config, set_stop_event)
+    def __init__(self, run_cmd, run_cwd, stdout_termination_token, error_token, config, set_stop_event) -> None:
+        super().__init__(stdout_termination_token, error_token, config, set_stop_event)
         self.run_cmd = run_cmd
         self.run_cwd = run_cwd
 
@@ -274,8 +280,8 @@ class ShellRunner(BaseRunner):
 
 class DockerRunner(BaseRunner):
     #TODO create img with correct stamp
-    def __init__(self, name, image, run_cmd, stdout_termination_token, error_token, config, set_stop_event, remote=DEFAULT_DOCKER_REMOTE) -> None:
-        super().__init__(name, stdout_termination_token, error_token, config, set_stop_event)
+    def __init__(self, image, run_cmd, stdout_termination_token, error_token, config, set_stop_event, remote=DEFAULT_DOCKER_REMOTE) -> None:
+        super().__init__(stdout_termination_token, error_token, config, set_stop_event)
         self.image = image
         self.run_cmd = run_cmd
 

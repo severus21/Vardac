@@ -13,7 +13,9 @@ class Benchmark:
         self.bench                  = None
 
     def __enter__(self):
-        pass
+        if self.builder:
+            self.builder.name = self.name
+            self.builder = self.builder.__enter__()
 
     def __exit__(self, type, value, traceback):
         if self.builder:

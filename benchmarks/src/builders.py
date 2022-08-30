@@ -14,8 +14,8 @@ from src.models import *
 from src.settings import * 
 
 class AbstractBuilder(ABC):
-    def __init__(self, name, project_dir=None) -> None:
-        self.name= name
+    def __init__(self, project_dir=None) -> None:
+        self.name = None # MUST be set by the benchmark holding it 
         self.project_dir = project_dir
 
         self._build_stdout           = ""
@@ -24,6 +24,7 @@ class AbstractBuilder(ABC):
         self._is_build = False
 
     def __enter__(self):
+        assert(self.name != None)
         return self
 
     def __exit__(self, type, value, traceback):
@@ -82,13 +83,21 @@ class AbstractBuilder(ABC):
             logging.info(f"Bench {self.name}> Already built ({cl_name})!")
             return True, self.get_bench_model()[0]
 
+from jinja2 import Environment, PackageLoader, select_autoescape
+
 class ShellBuilder(AbstractBuilder):
-    def __init__(self, name, project_dir=None, build_dir=None, build_cmd=None, build_cwd=None) -> None:
-        super().__init__(name, project_dir)
+    def __init__(self, project_dir=None, build_dir=None, build_cmd=None, build_cwd=None) -> None:
+        super().__init__(project_dir)
         self.build_dir = build_dir
 
-        self.build_cmd = build_cmd
+        self._build_cmd = build_cmd
         self.build_cwd = build_cwd
+
+    @property
+    def build_cmd(self):
+        env = Environment()
+        template = env.from_string(self._build_cmd)
+        return template.render(build_dir=self.build_dir)
 
     def _get_bench_model(self):
         return Bench.objects.get_or_create(
@@ -134,12 +143,12 @@ class ShellBuilder(AbstractBuilder):
         return res.returncode == 0
 
 class VardaBuilder(ShellBuilder):
-    def __init__(self, name, project_dir, build_cmd, build_cwd, build_dir=Path(os.getcwd())/"compiler-build") -> None:
-        super().__init__(name, project_dir, build_dir, build_cmd, build_cwd)
+    def __init__(self, project_dir, build_cmd, build_cwd, build_dir=Path(os.getcwd())/"compiler-build") -> None:
+        super().__init__(project_dir, build_dir, build_cmd, build_cwd)
 
 class AkkaBuilder(ShellBuilder):
-    def __init__(self, name, project_dir, build_cmd, build_cwd, build_dir=Path(os.getcwd())/"compiler-build") -> None:
-        super().__init__(name, project_dir, build_dir, build_cmd, build_cwd)
+    def __init__(self, project_dir, build_cmd, build_cwd, build_dir=Path(os.getcwd())/"compiler-build") -> None:
+        super().__init__(project_dir, build_dir, build_cmd, build_cwd)
 
 from tempfile import NamedTemporaryFile
 import aiodocker
@@ -148,7 +157,7 @@ import base64
 
 class ChainBuilder(AbstractBuilder):
     def __init__(self, builders, stamp_strategy, exposed_builder):
-        super().__init__(None, None)
+        super().__init__(None)
 
         self.builders = builders
         self.stamp_strategy = stamp_strategy
@@ -167,6 +176,7 @@ class ChainBuilder(AbstractBuilder):
 
     def __enter__(self):
         for k in range(self.builders):
+            self.builders[k].name = self.name
             self.builders[k] = self.builders[k].__enter__()
         return super().__enter__()
 
@@ -196,8 +206,8 @@ class ChainBuilder(AbstractBuilder):
 
 
 class DockerBuilder(AbstractBuilder):
-    def __init__(self, name, project_dir=None, remote=DEFAULT_DOCKER_REMOTE) -> None:
-        super().__init__(name, project_dir)
+    def __init__(self, project_dir=None, remote=DEFAULT_DOCKER_REMOTE) -> None:
+        super().__init__(project_dir)
         self.docker = aiodocker.Docker(remote) if remote else aiodocker.Docker()
 
         self._image_name = None
