@@ -18,19 +18,19 @@ impl component KVServer {
         import redis.clients.jedis.JedisPooled;
     =}
 
+    impl raw java:{=
+        Map<String, Integer> inner_state = new HashMap<String, Integer>();
+    =}
+
     (* binding for the get method *)
     impl method _get java:{=
-        // Open a socket to the local redis backend
-        JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%port(current_place())%}});
         // Perform the GET request on key [k]
-        return Integer.parseInt(jedis.get({{%k._0_%}}));
+        return this.inner_state.get({{%k._0_%}});
     =}
 
     impl method put java:{=
-        // Open a socket to the local redis backend
-        JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%port(current_place())%}});
-        // Perform the PUT request on key [k]
-        return jedis.sadd({{%k._0_%}}, {{%v._0_%}}.toString()) == 0;
+        this.inner_state.put({{%k._0_%}}, {{%v._0_%}});
+        return true;
     =}
 }
 

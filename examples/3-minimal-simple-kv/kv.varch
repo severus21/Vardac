@@ -28,14 +28,13 @@ component KVServer {
             | l_get => s_i -> { 
                 print("l_get");
                 tuple<key, !value.> tmp = receive(s_i);
-                fire(tmp._1, value(42))?;
-                (* jedis fire(tmp._1, this.get(tmp._0))?;*)
+                fire(tmp._1, this.get(tmp._0))?;
             }
             | l_put => s_i -> {
                 print("l_put");
                 tuple<tuple<key,value>, !bool.> tmp = receive(s_i);
                 tuple<key, value> res = tmp._0; 
-                (* jedis this.put(res._0, res._1);*)
+                this.put(res._0, res._1);
                 fire(tmp._1, true)?;
             }
         }

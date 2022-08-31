@@ -1,0 +1,47 @@
+target akka;
+
+impl headers java:{=
+=}
+impl dependencies gradle:{=
+    implementation group: 'redis.clients', name: 'jedis', version: '4.2.1'
+=}
+
+impl component Client {
+    impl state kv java:{=
+        null
+    =}
+}
+
+impl component KVServer {
+
+    impl headers java:{=
+        import redis.clients.jedis.JedisPooled;
+    =}
+
+    impl raw java:{=
+        JedisPooled _jedis;
+        JedisPooled getJedis (){
+            if(this._jedis == null){
+                // Open a socket with the redis backend
+                String addr = System.getenv("REDIS_ADDR");;
+                int port = Integer.parseInt(System.getenv("REDIS_PORT"));
+                this._jedis = new JedisPooled(addr, port);
+            }
+            return this._jedis;
+        }       
+
+    =}
+
+    (* binding for the get method *)
+    impl method _get java:{=
+        // Perform the GET request on key [k]
+        return Integer.parseInt(this.getJedis().get({{%k._0_%}}));
+    =}
+
+    impl method put java:{=
+        // Perform the PUT request on key [k]
+        return this.getJedis().set({{%k._0_%}}, {{%v._0_%}}.toString()) == "OK";
+    =}
+}
+
+impl component TopLevel {}
