@@ -115,7 +115,7 @@ module Make () : Sig = struct
         ]
         (*** Compile away each branch ***)
         @ [ 
-            match (List.fold_left (elim_branch mt_st e_local_label e_local_s) None branches) with
+            match (List.fold_left (elim_branch mt_st e_local_label e_local_s) None (List.rev branches)) with
             | Some {value} -> value
             | None -> raise (Error.DeadbranchError "elim_branch always returns a value of matching <Some ...> ")
         ]

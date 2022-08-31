@@ -13,6 +13,8 @@ let receive_collector msg parent_opt env e =
     let parent = match parent_opt with | None -> "Toplevel" | Some p -> Atom.to_string p in
     Error.perror e.place "%s. Parent = %s" msg parent
 
+let show_receive_entries = [%derive.show: (Atom.atom * main_type * session_type * expr) list]
+
 (*
     input [x_1; ... ; x_n]
     return [x_1; ..; x_n-1], x_n
@@ -307,6 +309,7 @@ module Make () : Sig = struct
                 @ m2.body; 
             } in
 
+
             (*** Add footer m1 - Registering the session in order to be able to do dynamic routing ***)
             let m1 = { m1 with body = m1.body @ [ 
                 register (match s1_opt with
@@ -518,7 +521,7 @@ module Make () : Sig = struct
                     end
                     else stmt2_opt, [], [], []
                 in
-               
+
                 let stmt = auto_fplace (IfStmt(e, stmt1, stmt2_opt)) in
 
                 (* Sanity check *)
@@ -634,6 +637,8 @@ module Make () : Sig = struct
         let body = List.flatten body in
         let receive_entries  = List.flatten receive_entries in
 
+        logger#debug "receive_entries -\n %s" (show_receive_entries receive_entries);
+               
         (*  Creation of intermediate ports 
             For each port and receive (t_msg,st_msg, intermediate_callback) generates an intermediate ports 
                 if ?t_msg st_msg is included in port.expecting_st   
@@ -691,7 +696,7 @@ module Make () : Sig = struct
                     (* p or one of its stages is concerned by the receive*)
                     generate_intermediate_port_for_port (fst port.value).name
                 else( 
-                    logger#debug "not suffix for %s\n%s\n%s" (Atom.to_string (fst port.value).name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation)))) (show_main_type (fst port.value).expecting_st);
+                    logger#debug "not suffix for %s\n%s\n\t\tVS\n%s" (Atom.to_string (fst port.value).name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation)))) (show_main_type (fst port.value).expecting_st);
                     []
                 )
             ) ports)

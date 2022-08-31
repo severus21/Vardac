@@ -7,8 +7,8 @@ protocol p_kv = §{
 };
 
 (* TODO 
-1) add grpc + consol
-2) add redis support
+1) add redis support
+2) add grpc + consol
 3) multi jvm
 4) sharding
 *)
@@ -27,15 +27,16 @@ component KVServer {
         branch s on msg {
             | l_get => s_i -> { 
                 print("l_get");
-                (*tuple<key, ?value.> tmp = receive(s_i);
-                fire(tmp._1, this.get(tmp._0))?;*)
+                tuple<key, !value.> tmp = receive(s_i);
+                fire(tmp._1, value(42))?;
+                (* jedis fire(tmp._1, this.get(tmp._0))?;*)
             }
             | l_put => s_i -> {
                 print("l_put");
-                (*tuple<tuple<key,value>, ?bool.> tmp = receive(s_i);
+                tuple<tuple<key,value>, !bool.> tmp = receive(s_i);
                 tuple<key, value> res = tmp._0; 
-                this.put(res._0, res._1);
-                fire(tmp._1, true)?;*)
+                (* jedis this.put(res._0, res._1);*)
+                fire(tmp._1, true)?;
             }
         }
 
@@ -61,7 +62,7 @@ component Client {
         this.kv = kv;
         
         this.put(key("Key1"), value(10));
-        (*this.get(key("Key1"));*)
+        this.get(key("Key1"));
     }
 
     result<void, error> get(key k){
@@ -72,8 +73,9 @@ component Client {
 
         (* We need this intermediate let since there is no unification yet for universal type and receive is universally quantified *)
         (* TODO maybe use polyapp *)
-        tuple<int, .> tmp = receive(s);
-        int ret = tmp._0;
+        tuple<value, .> tmp = receive(s);
+        value tmp_ret = tmp._0;
+        int ret = tmp_ret._0_;
         
         (* TODO print(f">> get success {{ret}}");*)
         print(">> get success");
