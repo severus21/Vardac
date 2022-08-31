@@ -29,7 +29,6 @@ and function_impl = {
         body: blackbox_term;
     }
 and state_impl = {
-        (*type0: Ast.main_type;*)
         name: variable;
         body: blackbox_term;
     }

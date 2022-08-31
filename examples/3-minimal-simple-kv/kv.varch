@@ -1,11 +1,17 @@
 event key of string;
 event value of int;
 
-protocol p_kv = &{
+protocol p_kv = §{
     l_get: !key?value.;
     l_put: !tuple<key,value>?bool.;
 };
 
+(* TODO 
+1) add grpc + consol
+2) add redis support
+3) multi jvm
+4) sharding
+*)
 
 component KVServer {
     onstartup (bridge<Client, KVServer, p_kv> b){
@@ -15,23 +21,25 @@ component KVServer {
 
     inport p_in :: bridge<Client, KVServer, p_kv> expecting (dual p_kv) = this.callback;
 
-    result<void, error> callback (blabel msg, p_kv s) {
+    result<void, error> callback (blabel msg, (dual p_kv) s) {
         print("callback");
 
         branch s on msg {
-            | l_get => s -> { 
-                tuple<key, ?value.> tmp = receive(s);
-                fire(tmp._1, this.get(tmp._0))?;
+            | l_get => s_i -> { 
+                print("l_get");
+                (*tuple<key, ?value.> tmp = receive(s_i);
+                fire(tmp._1, this.get(tmp._0))?;*)
             }
-            | l_get => s -> {
-                tuple<tuple<key,value>, ?bool.> tmp = receive(s);
+            | l_put => s_i -> {
+                print("l_put");
+                (*tuple<tuple<key,value>, ?bool.> tmp = receive(s_i);
                 tuple<key, value> res = tmp._0; 
                 this.put(res._0, res._1);
-                fire(tmp._1, true)?;
+                fire(tmp._1, true)?;*)
             }
         }
 
-        return ();
+        return ok(());
     }
 
     (*** Impl of get and put out of the scope of the glu, i.e., defined as abstract methods ***)
@@ -40,19 +48,12 @@ component KVServer {
     }
     int _get(key k);
     bool put(key k, value v); 
-
-    @expose 
-    int api_get(string key);
-
-    @expose 
-    bool api_put(string key, int value);
 }
 
 component Client {
-    bridge<Client, KVServer, p_kv> b;
     activation_ref<KVServer> kv;
 
-    outport p_out :: bridge<Client, KVServer, p_kv>;
+    outport p_out expecting p_kv;
 
     onstartup (bridge<Client, KVServer, p_kv> b, activation_ref<KVServer> kv){
         print(">>> Starting a Client instance");
@@ -82,10 +83,12 @@ component Client {
     }
 
     result<void, error> put(key k, value v){
+        print(">> start put");
         session<p_kv> s = initiate_session_with(this.p_out, this.kv);
 
-        !tuple<key, value>?bool. s = select(s, l_get)?;
+        !tuple<key, value>?bool. s = select(s, l_put)?;
         ?bool. s = fire(s, (k, v))?;
+        print(">> end put");
 
         (*assert(receive(s, this.b)._0);*) //TODO assert do not exit
     }
@@ -96,7 +99,6 @@ component TopLevel {
         bridge<Client, KVServer, p_kv> b = bridge(p_kv);
 
         activation_ref<KVServer> kv_a = spawn KVServer(b);
-        activation_ref<KVServer> kv_b = spawn KVServer(b);
         activation_ref<Client> c = spawn Client(b, kv_a);
         print(">> Ending toplevel");
     }

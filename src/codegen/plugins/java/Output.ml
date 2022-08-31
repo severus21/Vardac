@@ -108,6 +108,7 @@ module Make () = struct
         | VarExpr x -> output_var out x             
         | RawExpr str -> pp_print_string out str
         | TernaryExpr (e1, e2, e3) -> fprintf out "%a ? %a : %a" oexpr e1 oexpr e2 oexpr e3 
+        | BBExpr bb -> obbterm out bb
     and oexpr out : expr -> unit = function e ->
         match Config.provenance_lvl () with
         | Config.None | Config.Medium -> output_expr out e.value

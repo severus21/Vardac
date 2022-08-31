@@ -7,35 +7,30 @@ impl dependencies gradle:{=
 =}
 
 impl component Client {
+    impl state kv java:{=
+        null
+    =}
 }
 
 impl component KVServer {
 
-    headers java:{=
+    impl headers java:{=
         import redis.clients.jedis.JedisPooled;
     =}
 
     (* binding for the get method *)
-    void _get () java:{=
+    impl method _get java:{=
         // Open a socket to the local redis backend
         JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%port(current_place())%}});
         // Perform the GET request on key [k]
         return Integer.parseInt(jedis.get({{%k._0_%}}));
     =}
 
-    void put () java:{=
+    impl method put java:{=
         // Open a socket to the local redis backend
         JedisPooled jedis = new JedisPooled({{%ip(current_place())%}}, {{%port(current_place())%}});
         // Perform the PUT request on key [k]
         return jedis.sadd({{%k._0_%}}, {{%v._0_%}}.toString()) == 0;
-    =}
-
-    int api_get () java:{=
-        return 1;
-    =}
-
-    bool api_put () java:{=
-        return true;
     =}
 }
 

@@ -597,7 +597,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         S.ret_type = auto_place (S.Atomic "void");
                         name = Atom.builtin (String.capitalize_ascii (Atom.hint mdef.entrypoint));
                         body = AbstractImpl [];
-                        args = [auto_place (S.Atomic "String[]"), Atom.builtin "args"];
+                        args = [auto_place (S.Atomic "ArrayList<String>"), Atom.builtin "args"];
                         throws          = [];
                         is_constructor = false; 
                     }

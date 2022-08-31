@@ -11,7 +11,6 @@ and method_impl = {
         body: blackbox_term option; (* None => juste adding plg_annotations to the method *)
     }
 and state_impl = {
-        type0: Ast.main_type;
         name: variable;
         body: blackbox_term;
     }

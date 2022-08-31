@@ -901,6 +901,8 @@ module Make(Arg:ArgSig) = struct
                 let _env, e = cexpr env e in
                 new_env << [env1; _env], Some e
         in
+
+        Hashtbl.add sealed_envs y env;
         
         ret_env, {
                     ghost   = sdcl.ghost; 

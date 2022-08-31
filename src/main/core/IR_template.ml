@@ -1861,6 +1861,20 @@ module Make (Params : IRParams) = struct
                         List.flatten (List.map rewrite_exprstmts_stmt stmts)
                     ))
                 ]
+            | BranchStmt {s; label_opt; branches} ->
+                let stmts1, s = rewrite_exprstmts_expr s in
+                let stmts2, label_opt = match label_opt with
+                    | None -> [], label_opt
+                    | Some label -> 
+                        let stmts, e = rewrite_exprstmts_expr label in
+                        stmts, Some e
+                in
+                let branches = List.map (function {branch_label; branch_s; body} ->
+                    {branch_label; branch_s; body = 
+                        auto_fplace (BlockStmt (rewrite_exprstmts_stmt body))
+                    }) branches in
+
+                stmts1@stmts2@[auto_place (BranchStmt {s; label_opt; branches})]
 
         and rewrite_exprstmts_stmt parent_opt exclude_stmt selector rewriter = map0_place (rewrite_exprstmts_stmt_ parent_opt exclude_stmt selector rewriter)
 

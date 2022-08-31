@@ -134,6 +134,7 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
         | VarExpr x -> VarExpr x
         | RawExpr s -> RawExpr s
         | TernaryExpr (e1, e2, e3) -> TernaryExpr(cexpr e1, cexpr e2, cexpr e3)
+        | BBExpr bbterm -> BBExpr bbterm
     ), jtype
     and cexpr e = map_place clean_expr e 
 

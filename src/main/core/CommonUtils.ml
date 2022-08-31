@@ -1088,6 +1088,13 @@ let rec _rewrite_stmt_stmt recurse parent_opt selector rewriter place =
     | WithContextStmt (anonymous_mod, cname, e, stmts) -> [
         WithContextStmt(anonymous_mod, cname, e, List.flatten (List.map rewrite_stmt_stmt stmts))
     ]
+    | BranchStmt {s; label_opt; branches} ->
+        [ BranchStmt {s; label_opt; branches = 
+            List.map 
+                (function {branch_label; branch_s; body} ->
+                    {branch_label; branch_s; body = auto_place (BlockStmt (rewrite_stmt_stmt body))}     
+                ) 
+                branches} ]
 and rewrite_stmt_stmt recurse parent_opt selector (rewriter:Atom.atom option -> Error.place -> _stmt -> _stmt list) = map_places (_rewrite_stmt_stmt recurse parent_opt selector rewriter)
 
 

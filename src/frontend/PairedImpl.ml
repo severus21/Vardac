@@ -196,10 +196,14 @@ module Make (Arg: ArgSig) = struct
             [], { ghost; type0; name; body=NoInit}
     end
     | { ghost; type0; name; body=Some body} -> begin
+        let key = List.rev ((Atom.hint name)::parents) in
+        mark_state key;
+        let plg_annots = match Hashtbl.find_opt plgannotations key with | None -> [] |Some l -> l in
+
         try 
-            let bb_impl = Hashtbl.find state_impls (List.rev ((Atom.hint name)::parents))  in
+            let bb_impl = Hashtbl.find state_impls key  in
             Error.perror (place@bb_impl.place) "State has two implementations : one abstract and one blackbox"
-        with Not_found -> [], { ghost; type0; name; body= T.InitExpr body } 
+        with Not_found -> plg_annots, { ghost; type0; name; body= T.InitExpr body } 
     end
     and ustate parents : IR.state -> plg_annotation list * T.state = map2_place (paired_state parents)
 

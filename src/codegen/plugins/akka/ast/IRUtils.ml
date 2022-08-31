@@ -142,6 +142,7 @@ and _apply_rename_expr rename_binders (renaming : Atom.atom -> Atom.atom) place 
             apply_rename_expr rename_binders renaming e2,
             apply_rename_expr rename_binders renaming e3
     )
+    | BBExpr bbterm -> BBExpr bbterm
 ), apply_rename_ctype renaming mt
 and apply_rename_expr rename_binders renaming e = apply_rename_place (_apply_rename_expr rename_binders renaming) e
 

@@ -28,11 +28,11 @@ module Make () : Sig = struct
     let logger = make_log_of "BanchElimination"
     (***************************************************)
 
-    let elim_branch mt_st e_local_label e_local_s {branch_label; branch_s; body} = 
+    let elim_branch mt_st e_local_label e_local_s acc {branch_label; branch_s; body} = 
         let st_branch = st_branch_of mt_st branch_label in
 
         (* if label == branch_label => then use this branch *)
-        IfStmt(
+        Some(auto_fplace( IfStmt(
             e2_e (BinopExpr(e_local_label, Equal, e2lit branch_label)),
             auto_fplace (BlockStmt ([
 
@@ -54,8 +54,8 @@ module Make () : Sig = struct
                 ));
             ] @ [ body ])
             ),
-            None
-        )
+            acc 
+        )))
 
 
     let rewritor _ place = function 
@@ -114,7 +114,11 @@ module Make () : Sig = struct
             );
         ]
         (*** Compile away each branch ***)
-        @ (List.map (elim_branch mt_st e_local_label e_local_s) branches) 
+        @ [ 
+            match (List.fold_left (elim_branch mt_st e_local_label e_local_s) None branches) with
+            | Some {value} -> value
+            | None -> raise (Error.DeadbranchError "elim_branch always returns a value of matching <Some ...> ")
+        ]
     end
     | _ -> raise (Error.DeadbranchError "selector prevents accessing this branch")
 

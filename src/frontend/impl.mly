@@ -79,8 +79,8 @@ any_core_method_impl_:
     {t}
 
 any_state_impl_:
-| type0=any_type name=any_var body = any_blackbox_term 
-{ StateImpl {type0; name; body}}
+| IMPL STATE name=any_var body = any_blackbox_term 
+{ StateImpl {name; body}}
 %inline any_state_impl:
   t = placed(any_state_impl_)
     {t}
@@ -90,7 +90,7 @@ _any_component_item_impl:
     { {place = [$loc]@m.place; value = { plg_annotations = []; v = m.value }} }
 | s = any_state_impl
     { {place = [$loc]@s.place; value = { plg_annotations = []; v = s.value }} }
-| HEADERS body = any_blackbox_term
+| IMPL HEADERS body = any_blackbox_term
     { {place=[$loc]; value={ plg_annotations = []; v =ComponentHeadersImpl body }}}
 
 any_component_item_impl:

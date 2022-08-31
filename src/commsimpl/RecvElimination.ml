@@ -481,7 +481,7 @@ module Make () : Sig = struct
                     in
 
                     (* Warning. stmt_branch is in a nested scope 
-                        but since cook introduce unique name we do not need to preserve it a separate BlockStmt
+                        but since cook introduce unique name we do not need to preserve it as a separate BlockStmt
                     *)
                     let branch_stmts = stmt_branch :: (duplicate_stmts stmts) in
 
