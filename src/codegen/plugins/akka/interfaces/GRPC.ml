@@ -775,7 +775,7 @@ end) = struct
                     auto_fplace {
                         T.annotations = [];
                         decorators = [];
-                        v = T.RawTerm (auto_fplace {
+                        v = T.BBTerm (auto_fplace {
                             T.language = None;
                             body = [
                                 T.Template ({|
@@ -1146,7 +1146,7 @@ end) = struct
                     auto_fplace {
                         T.annotations = [];
                         decorators = [];
-                        v = T.RawTerm (auto_fplace {
+                        v = T.BBTerm (auto_fplace {
                             T.language = None;
                             body = [
                                 T.Template ({|

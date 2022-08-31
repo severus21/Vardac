@@ -225,7 +225,7 @@ and _term =
 } 
 | MethodDeclaration of method0
 | RawClass of variable * blackbox_term 
-| RawTerm of blackbox_term
+| BBTerm of blackbox_term
 | Stmt of stmt 
 
 (** Akka structure *)

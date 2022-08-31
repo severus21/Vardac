@@ -31,6 +31,7 @@ module Make () = struct
         body = mstate.body;
     }
     | S.ComponentHeadersImpl body -> env, T.ComponentHeadersImpl body
+    | S.CItemRawImpl body -> env, T.CItemRawImpl body
     and citem_impl env :  S.component_item_impl -> env * T.component_item_impl = map2_place (transparent2_plgannot (cook_item_impl env))
 
     and cook_component_impl place env (cimpl:S.component_impl) :  env * T.component_impl = 

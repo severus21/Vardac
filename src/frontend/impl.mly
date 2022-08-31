@@ -92,6 +92,8 @@ _any_component_item_impl:
     { {place = [$loc]@s.place; value = { plg_annotations = []; v = s.value }} }
 | IMPL HEADERS body = any_blackbox_term
     { {place=[$loc]; value={ plg_annotations = []; v =ComponentHeadersImpl body }}}
+| IMPL RAW body = any_blackbox_term
+    { {place=[$loc]; value={ plg_annotations = []; v =CItemRawImpl body }}}
 
 any_component_item_impl:
 | annots=list(PLG_ANNOT) item=_any_component_item_impl(* replace UID *) 

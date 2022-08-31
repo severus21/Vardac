@@ -1895,7 +1895,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                     }
                 }
             }
-            | RawTerm bbterm -> T.BBItem (fbbterm [] bbterm)  
+            | BBTerm bbterm -> T.BBItem (fbbterm [] bbterm)  
         and fterm ?(is_cl_toplevel=false) t : T.str_items = map_place (finish_term is_cl_toplevel) t
 
         let finish_program (program:Akka.Ast.program) : ((string * Fpath.t) * Java.Ast.program) list = 

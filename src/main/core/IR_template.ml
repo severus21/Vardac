@@ -12,18 +12,21 @@ module type IRParams = sig
     type _typealias_body
     type _typedef_body
     type component_headers
+    type raw_term 
     val show_target_name :  target_name -> Ppx_deriving_runtime.string
     val show__typealias_body :  _typealias_body -> Ppx_deriving_runtime.string
     val show__typedef_body :  _typedef_body -> Ppx_deriving_runtime.string
     val show__state_dcl_body :  _state_dcl_body -> Ppx_deriving_runtime.string
     val show__custom_method0_body : _custom_method0_body ->  Ppx_deriving_runtime.string
     val show_component_headers : component_headers ->  Ppx_deriving_runtime.string
+    val show_raw_term : raw_term ->  Ppx_deriving_runtime.string
     val pp_target_name : Ppx_deriving_runtime.Format.formatter -> target_name -> Ppx_deriving_runtime.unit
     val pp__typealias_body : Ppx_deriving_runtime.Format.formatter -> _typealias_body -> Ppx_deriving_runtime.unit
     val pp__typedef_body : Ppx_deriving_runtime.Format.formatter -> _typedef_body -> Ppx_deriving_runtime.unit
     val pp__state_dcl_body : Ppx_deriving_runtime.Format.formatter -> _state_dcl_body -> Ppx_deriving_runtime.unit
     val pp__custom_method0_body : Ppx_deriving_runtime.Format.formatter -> _custom_method0_body -> Ppx_deriving_runtime.unit
     val pp_component_headers : Ppx_deriving_runtime.Format.formatter -> component_headers -> Ppx_deriving_runtime.unit
+    val pp_raw_term : Ppx_deriving_runtime.Format.formatter -> raw_term -> Ppx_deriving_runtime.unit
 
     val target_name_to_yojson :  target_name -> Yojson.Safe.t 
     val _typealias_body_to_yojson :  _typealias_body -> Yojson.Safe.t
@@ -31,6 +34,7 @@ module type IRParams = sig
     val _state_dcl_body_to_yojson :  _state_dcl_body -> Yojson.Safe.t
     val _custom_method0_body_to_yojson : _custom_method0_body ->  Yojson.Safe.t
     val component_headers_to_yojson : component_headers ->  Yojson.Safe.t
+    val raw_term_to_yojson : raw_term ->  Yojson.Safe.t
 
     val target_name_of_yojson : Yojson.Safe.t -> target_name Ppx_deriving_yojson_runtime.error_or
     val _typealias_body_of_yojson :  Yojson.Safe.t -> _typealias_body  Ppx_deriving_yojson_runtime.error_or
@@ -38,6 +42,7 @@ module type IRParams = sig
     val _state_dcl_body_of_yojson :  Yojson.Safe.t -> _state_dcl_body Ppx_deriving_yojson_runtime.error_or
     val _custom_method0_body_of_yojson : Yojson.Safe.t -> _custom_method0_body Ppx_deriving_yojson_runtime.error_or
     val component_headers_of_yojson : Yojson.Safe.t -> component_headers Ppx_deriving_yojson_runtime.error_or
+    val raw_term_of_yojson : Yojson.Safe.t -> raw_term Ppx_deriving_yojson_runtime.error_or
 
     val collect_type_state_dcl_body : 
     bool ->
@@ -208,65 +213,11 @@ module type IRParams = sig
 end
 
 module Make (Params : IRParams) = struct
-    type target_name = Params.target_name
-    type _state_dcl_body = Params._state_dcl_body
-    type _custom_method0_body = Params._custom_method0_body
-    type _typealias_body = Params._typealias_body
-    type _typedef_body = Params._typedef_body
-    type component_headers = Params.component_headers
-    let show_target_name = Params.show_target_name
-    let show__typealias_body = Params.show__typealias_body
-    let show__typedef_body = Params.show__typedef_body
-    let show__state_dcl_body = Params.show__state_dcl_body
-    let show__custom_method0_body = Params.show__custom_method0_body
-    let show_component_headers = Params.show_component_headers
-    let pp_target_name = Params.pp_target_name
-    let pp__typealias_body = Params.pp__typealias_body
-    let pp__typedef_body = Params.pp__typedef_body
-    let pp__state_dcl_body = Params.pp__state_dcl_body
-    let pp__custom_method0_body = Params.pp__custom_method0_body
-    let pp_component_headers = Params.pp_component_headers
-
-    let target_name_to_yojson = Params.target_name_to_yojson
-    let _typealias_body_to_yojson = Params._typealias_body_to_yojson
-    let _typedef_body_to_yojson = Params._typedef_body_to_yojson
-    let _state_dcl_body_to_yojson = Params._state_dcl_body_to_yojson
-    let _custom_method0_body_to_yojson = Params._custom_method0_body_to_yojson
-    let component_headers_to_yojson = Params.component_headers_to_yojson
-
-    let target_name_of_yojson = Params.target_name_of_yojson
-    let _typealias_body_of_yojson = Params._typealias_body_of_yojson
-    let _typedef_body_of_yojson = Params._typedef_body_of_yojson
-    let _state_dcl_body_of_yojson = Params._state_dcl_body_of_yojson
-    let _custom_method0_body_of_yojson = Params._custom_method0_body_of_yojson
-    let component_headers_of_yojson = Params.component_headers_of_yojson
-
-    let collect_type_state_dcl_body x = Params.collect_type_state_dcl_body x
-    let rewrite_type_state_dcl_body x = Params.rewrite_type_state_dcl_body x 
-    let rewrite_expr_state_dcl_body x = Params.rewrite_expr_state_dcl_body x 
-
-    let collect_expr_state_dcl_body x = Params.collect_expr_state_dcl_body x 
-
-    let collect_cexpr_state_dcl_body x = Params.collect_cexpr_state_dcl_body x 
-
-    let collect_type_custom_method0_body x = Params.collect_type_custom_method0_body x
-    let rewrite_type_custom_method0_body x = Params.rewrite_type_custom_method0_body x
-    let rewrite_stmt_custom_method0_body rewrite_stmt_stmt = Params.rewrite_stmt_custom_method0_body rewrite_stmt_stmt
-    let rewrite_expr_custom_method0_body x = Params.rewrite_expr_custom_method0_body x 
-    let collect_expr_custom_method0_body x  = Params.collect_expr_custom_method0_body x 
-    let rewrite_exprstmts_custom_method0_body rewrite_exprstmts_stmt  = Params.rewrite_exprstmts_custom_method0_body rewrite_exprstmts_stmt
-
-    let collect_cexpr_custom_method0_body x = Params.collect_cexpr_custom_method0_body x 
-    let collect_stmt_custom_method0_body x = Params.collect_stmt_custom_method0_body x 
+    include Params
 
     let rename_state_dcl_body ?(flag_rename_attribute=false) = Params.rename_state_dcl_body flag_rename_attribute true
     let rename_custom_method0_body ?(flag_rename_attribute=false) = Params.rename_custom_method0_body flag_rename_attribute true
     let rename_typealias_body ?(flag_rename_attribute=false) = Params.rename_typealias_body flag_rename_attribute true 
-
-    let collect_type_typedef_body = Params.collect_type_typedef_body
-    let rewrite_type_typedef_body collect_type_expr = Params.rewrite_type_typedef_body collect_type_expr
-    let collect_type_typealias_body collect_type_expr collect_type_mtype = Params.collect_type_typealias_body collect_type_expr collect_type_mtype
-    let rewrite_type_typealias_body rewrite_type_expr rewrite_type_mtype = Params.rewrite_type_typealias_body rewrite_type_expr rewrite_type_mtype
 
     (************************************ Component *****************************)
     include AstUtils
@@ -400,6 +351,7 @@ module Make (Params : IRParams) = struct
 
     and _term =
         | EmptyTerm
+        | BBTerm of raw_term
         | Comments of comments
 
         (* Dynamic part*)
@@ -803,7 +755,7 @@ module Make (Params : IRParams) = struct
 
         and collect_expr_term_ parent_opt (already_binded:Atom.Set.t) selector (collector: 'a sig_expr_collector) place = 
         function 
-            | EmptyTerm | Comments _ -> already_binded, [], []
+            | EmptyTerm | Comments _ | BBTerm _ -> already_binded, [], []
             | Stmt stmt -> collect_expr_stmt parent_opt already_binded selector collector stmt
             | Component cdcl -> collect_expr_component_dcl parent_opt already_binded selector collector cdcl
             | Class cl -> collect_expr_class_dcl parent_opt already_binded selector collector cl
@@ -1540,6 +1492,7 @@ module Make (Params : IRParams) = struct
         and rewrite_expr_term_ parent_opt selector rewriter place = function 
         | EmptyTerm -> EmptyTerm 
         | Comments c -> Comments c
+        | BBTerm r -> BBTerm r
         | Stmt stmt -> Stmt (rewrite_expr_stmt parent_opt selector rewriter stmt)
         | Component cdcl -> Component (rewrite_expr_component_dcl parent_opt selector rewriter cdcl)
         | Class cl -> Class (rewrite_expr_class_dcl parent_opt selector rewriter cl)
@@ -1930,7 +1883,7 @@ module Make (Params : IRParams) = struct
         | Stmt stmt -> List.map (function stmt -> Stmt stmt) (rewrite_exprstmts_stmt parent_opt  exclude_stmt selector rewriter stmt)
 
         (* Term without statement*)
-        | EmptyTerm | Comments _ | Typealias _ | Typedef _ | Derive _ -> [t]
+        | EmptyTerm | Comments _ | Typealias _ | Typedef _ | Derive _ | BBTerm _ -> [t]
         and rewrite_exprstmts_term parent_opt exclude_stmt selector rewriter = map_places (transparent_plgannots(rewrite_exprstmts_term_  parent_opt exclude_stmt selector rewriter))
 
         and rewrite_exprstmts_program exclude_stmt selector rewriter program =

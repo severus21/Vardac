@@ -43,6 +43,7 @@ let mark_state key =
 let state_impls : (string list, S1.state_impl  AstUtils.placed) Hashtbl.t = Hashtbl.create 256
 
 let componentheaders_impls : (string list, S1.blackbox_term) Hashtbl.t = Hashtbl.create 256
+let componenitemraw_impls : (string list, S1.blackbox_term) Hashtbl.t = Hashtbl.create 256
 let types_seen = ref SeenSet.empty
 let mark_type key = 
     types_seen := SeenSet.add key !types_seen
@@ -109,6 +110,9 @@ module Make (Arg: ArgSig) = struct
         | S1.ComponentHeadersImpl s -> 
             assert(plg_annotations = []);
             Hashtbl.add componentheaders_impls parents s
+        | S1.CItemRawImpl s -> 
+            assert(plg_annotations = []);
+            Hashtbl.add componenitemraw_impls parents s
 
     and scan_term parents ({place; value = {plg_annotations; v}} : S1.term) = 
         match v with
@@ -297,7 +301,11 @@ module Make (Arg: ArgSig) = struct
             target_name; 
             annotations; 
             name; 
-            body; 
+            body = ( 
+                match Hashtbl.find_opt componenitemraw_impls (List.rev ((Atom.hint name)::parents)) with
+                | None -> body
+                | Some bbterm -> auto_fplace (auto_plgannot(T.Term (auto_fplace (auto_plgannot(T.BBTerm (cook_bb_term name bbterm)))))) :: body 
+            ); 
             headers =  
                 match Hashtbl.find_opt componentheaders_impls (List.rev ((Atom.hint name)::parents)) with
                 | None -> []

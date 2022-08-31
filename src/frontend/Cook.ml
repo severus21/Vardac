@@ -1097,6 +1097,8 @@ module Make(Arg:ArgSig) = struct
             }
         } in
 
+        Hashtbl.add sealed_envs name new_env;
+
         let this_entry = match Env.find_opt cdcl.name env.current.this.rec_inner with
         | Some e -> e.value
         | None -> raise (Error.PlacedDeadbranchError (place, Printf.sprintf "Iota entry not found for %s" cdcl.name))

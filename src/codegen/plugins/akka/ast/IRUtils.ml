@@ -261,7 +261,7 @@ and _apply_rename_term rename_binders (renaming : Atom.atom -> Atom.atom ) place
         | Import s -> Import s 
         | MethodDeclaration m0 -> MethodDeclaration (apply_rename_method0 rename_binders renaming m0)
         | RawClass (x,raw) -> RawClass (renaming x, raw)
-        | RawTerm raw -> RawTerm raw
+        | BBTerm raw -> BBTerm raw
         | Stmt stmt -> Stmt (apply_rename_stmt rename_binders renaming stmt)
 }
 and apply_rename_term rename_binders renaming t = apply_rename_place (_apply_rename_term rename_binders renaming) t 

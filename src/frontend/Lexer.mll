@@ -131,6 +131,7 @@ let () = List.iter (fun (s,t) -> Hashtbl.add keywords s t)
     "impl", IMPL;
     "headers", HEADERS;
     "dependencies", DEPENDENCIES;
+    "raw", RAW;
     "target", TARGET;
     "where", WHERE;
 ]

@@ -201,7 +201,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 if Atom.is_builtin x then 
                     Encode.encode_builtin_type place (Atom.value x)
                 else  T.TVar x
-            | Some bb -> T.TBB (fbbterm parent_opt parent_opt bb) 
+            | Some bb -> T.TBB (fbbterm parent_opt bb) 
         end
         | S.TFlatType ft -> begin match ft with  
             (* When using Tuyple, Map, ... we need object so for ease we box atomic type in objects everywhere *)
@@ -781,7 +781,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 name, 
                 Some {
                     place = bb_term.place;
-                    value = T.BBExpr (fbbterm parent_opt parent_opt bb_term), auto_place T.TUnknown
+                    value = T.BBExpr (fbbterm parent_opt bb_term), auto_place T.TUnknown
                 })
         | { ghost; type0; name; body = S.NoInit} ->
             T.LetStmt (fmtype parent_opt type0, name, None)
@@ -975,7 +975,7 @@ module Make (Arg: sig val target:Target.target end) = struct
 
         let body = match m0.body with
             | S.AbstractImpl stmts -> T.AbstractImpl (List.map (fstmt parent_opt) stmts)
-            | S.BBImpl body -> T.BBImpl (fbbterm parent_opt parent_opt body)
+            | S.BBImpl body -> T.BBImpl (fbbterm parent_opt body)
         in
 
         let new_method : T.method0 = {
@@ -1009,7 +1009,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             | S.Varda e -> T.Varda (fexpr parent_opt e)
         ) body
     }
-    and fbbterm parent_opt parent_opt bbterm: T.blackbox_term = map_place (finish_bbterm parent_opt) bbterm
+    and fbbterm parent_opt bbterm: T.blackbox_term = map_place (finish_bbterm parent_opt) bbterm
 
     and finish_plgannot_component  a plg_annotations =
         let a, res = List.fold_left_map (fun (a:T.actor) -> map0_place (function place -> function
@@ -1073,6 +1073,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             match x.value.v with
             | S.Typedef _ -> ()
             | S.Comments _ -> () (* TODO needs to get ride of grp_items to support comments at the right place *)
+            | S.BBTerm _ -> ()
             | _ -> raise (Error.PlacedDeadbranchError (x.place, "Non static term in others"));
         ) grp_items.others;
 
@@ -1856,6 +1857,16 @@ module Make (Arg: sig val target:Target.target end) = struct
             v = T.Comments c.value
         }
     }]
+    | S.BBTerm bbterm -> 
+        assert(plg_annotations = []);
+        [{
+        place;
+        value= {
+            T.annotations = [];
+            decorators = [];
+            v = T.BBTerm (fbbterm parent_opt bbterm) 
+        }
+    }]
     | S.Component cdcl ->
         List.map (function a -> 
             let a, annotations, decorators = finish_plgannot_component a plg_annotations in
@@ -2123,7 +2134,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 v = T.ClassOrInterfaceDeclaration {
                     headers = [];
                     isInterface = false;
-                    extends = Some (auto_place (T.TBB (fbbterm parent_opt parent_opt body)));
+                    extends = Some (auto_place (T.TBB (fbbterm parent_opt body)));
                     implemented_types = [];
                     name = v;
                     body = [] 
