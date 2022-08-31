@@ -14,6 +14,7 @@ and _ctype =
     | TActivationRef of ctype
     | TFunction of ctype * ctype
     | TArray of ctype 
+    | TFuture of ctype 
     | TList of ctype 
     | TMap of ctype * ctype (*Map<String, String> map = new HashMap<String, String>();*)
     | TOption of ctype (*https://www.touilleur-express.fr/2014/11/07/optional-en-java-8/*)

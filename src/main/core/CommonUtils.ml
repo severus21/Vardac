@@ -263,7 +263,7 @@ let rec collect_type_ctype_ flag_tcvar parent_opt already_binded selector collec
     
 function
 | TFlatType _ -> already_binded, [], []
-| TActivationRef mt | TArray mt | TList mt | TOption mt | TSet mt | TVPlace mt | TInport mt | TEport mt | TOutport mt -> collect_mtype  mt
+| TActivationRef mt | TArray mt | TFuture mt | TList mt | TOption mt | TSet mt | TVPlace mt | TInport mt | TEport mt | TOutport mt -> collect_mtype  mt
 | TArrow (mt1, mt2) | TDict (mt1, mt2) | TResult (mt1, mt2) | TUnion (mt1, mt2) -> 
     let _, collected_elts1, ftvars1 = collect_mtype mt1 in
     let _, collected_elts2, ftvars2 = collect_mtype mt2 in
@@ -862,6 +862,7 @@ function
     | TObject x -> TObject x
     | TFlatType ft -> TFlatType ft 
     | TArray mt -> TArray (rewrite_mtype mt) 
+    | TFuture mt -> TFuture (rewrite_mtype mt) 
     | TDict (mt1, mt2) -> TDict (rewrite_mtype mt1, rewrite_mtype mt2) 
     | TList mt -> TList (rewrite_mtype mt) 
     | TOption mt -> TOption (rewrite_mtype mt) 

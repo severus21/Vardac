@@ -39,6 +39,7 @@ and _composed_type =
 
     | TArray of main_type 
     | TDict of main_type * main_type
+    | TFuture of main_type
     | TList of main_type 
     | TOption of main_type
     | TResult of main_type * main_type

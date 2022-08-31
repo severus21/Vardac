@@ -621,3 +621,26 @@ let t_pick () =
         mtype_of_ct(TDict (mtype_of_ft TWildcard, mtype_of_ft TWildcard)),
         mtype_of_ft TWildcard
     ))
+
+let t_future () =
+    mtype_of_ct(TArrow(
+        mtype_of_ft TUnit,
+        mtype_of_ct(TFuture(mtype_of_ft TWildcard))
+    ))
+let t_complete_future () =
+    mtype_of_ct(TArrow(
+        mtype_of_ct(TFuture(mtype_of_ft TWildcard)),
+        mtype_of_ct(TArrow(
+            mtype_of_ft TWildcard,
+            mtype_of_ft TVoid
+        ))
+    ))
+
+let t_wait_future () =
+    mtype_of_ct(TArrow(
+        mtype_of_ct(TFuture(mtype_of_ft TWildcard)),
+        mtype_of_ct(TArrow(
+            mtype_of_ft TInt,
+            mtype_of_ft TWildcard
+        ))
+    ))

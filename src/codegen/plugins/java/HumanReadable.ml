@@ -251,14 +251,14 @@ end) = struct
             let ctx, e      = hr_expr ctx e in
             let ctx, stmt   = hr_stmt ctx stmt in 
             ctx, ForeachStmt (jt, x, e, stmt)
-        | NamedExpr (jt, x, e_opt) ->
+        | LetStmt (jt, x, e_opt) ->
             let ctx, jt     = hr_jt ctx jt in
             let ctx, x      = hr_atom_binder ctx x in
             let ctx, e_opt  = match e_opt with 
                 | None -> ctx, None
                 | Some e -> let ctx, e      = hr_expr ctx e in ctx, Some e 
             in
-            ctx, NamedExpr (jt, x, e_opt)
+            ctx, LetStmt (jt, x, e_opt)
         | ReturnStmt e -> 
             let ctx, e = hr_expr ctx e in
             ctx, ReturnStmt e
@@ -320,7 +320,7 @@ end) = struct
                 logger#debug "sscan %s" (Atom.to_string f.name);
                 let ctx, name = hr_atom_binder ctx f.name in
                 ctx
-            | Stmt{ value=NamedExpr (_, name, _)} -> (* attribute definition *)
+            | Stmt{ value=LetStmt (_, name, _)} -> (* attribute definition *)
                 let ctx, name = hr_atom_binder ctx name in
                 ctx
             | _-> ctx

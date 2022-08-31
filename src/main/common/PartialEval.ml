@@ -82,6 +82,9 @@ module Make () = struct
     | TArray mt ->
         let _, mt = pe_mtype env mt in 
         env, TArray mt 
+    | TFuture mt -> 
+        let _, mt = pe_mtype env mt in 
+        env, TFuture mt 
     | TList mt ->
         let _, mt = pe_mtype env mt in 
         env, TList mt 

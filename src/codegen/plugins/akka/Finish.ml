@@ -222,6 +222,7 @@ module Make (Arg: sig val target:Target.target end) = struct
             | AstUtils.TUnit -> T.Atomic "void"
         end
         | S.TArray mt -> T.TArray (fmtype parent_opt mt)
+        | S.TFuture mt -> T.TFuture (fmtype parent_opt mt)
         | S.TDict (m1, m2) -> T.TMap (fmtype parent_opt m1, fmtype parent_opt m2)
         | S.TList mt -> T.TList (fmtype parent_opt mt)
         | S.TOption mt -> T.TOption (fmtype parent_opt mt)

@@ -40,6 +40,7 @@ module Make () : Sig = struct
     let fplace = (Error.forge_place "RecvElimination" 0 0) 
     let auto_fplace smth = {place = fplace; value=smth}
     include AstUtils2.Mtype.Make(struct let fplace = fplace end)
+
     (***************************************************)
     (*
         Architecture remains unchanged - rewriting architecture is done in an other module (to be written)
@@ -325,7 +326,7 @@ module Make () : Sig = struct
             [intermediate_state], m1, m2
 
 
-    let rec split_body a_registered_sessions (main_name, main_annotations) acc_stmts (next_method:_method0) : stmt list -> state list * (Atom.atom * main_type * session_type * expr) list * _method0 list =
+    let rec split_body a_registered_sessions a_intermediate_futures  (main_name, main_annotations) acc_stmts (next_method:_method0) : stmt list -> state list * (Atom.atom * main_type * session_type * expr) list * _method0 list =
         let fplace = (Error.forge_place "Core.Rewrite.split_body" 0 0) in
         let auto_fplace smth = {place = fplace; value=smth} in
 
@@ -396,7 +397,7 @@ module Make () : Sig = struct
             let intermediate_methods = [current_method] in 
 
 
-            let intermediate_states2, receive_entries2, intermediate_methods2 = split_body a_registered_sessions (main_name, main_annotations) [] next_method stmts in           
+            let intermediate_states2, receive_entries2, intermediate_methods2 = split_body a_registered_sessions a_intermediate_futures  (main_name, main_annotations) [] next_method stmts in           
 
             intermediate_states@intermediate_states2,
             receive_entries@receive_entries2,
@@ -491,7 +492,7 @@ module Make () : Sig = struct
                     let next_method_branch = fresh_next_method main_name main_annotations t_msg_cont in
                     let intermediate_states_branch, receive_entries_branch, intermediate_methods_branch =
                         let intermediate_states_branch, receive_entries_branch, intermediate_methods_branch = 
-                            split_body a_registered_sessions (main_name, main_annotations) [] next_method_branch branch_stmts in
+                            split_body a_registered_sessions a_intermediate_futures  (main_name, main_annotations) [] next_method_branch branch_stmts in
                         intermediate_states_branch, receive_entries_branch, intermediate_methods_branch
                     in
 
@@ -539,7 +540,7 @@ module Make () : Sig = struct
             end
             else
                 (* If has no receive inside *)
-                split_body a_registered_sessions (main_name, main_annotations) (stmt::acc_stmts) next_method stmts
+                split_body a_registered_sessions a_intermediate_futures  (main_name, main_annotations) (stmt::acc_stmts) next_method stmts
         | ({value = BlockStmt stmts1} as stmt)::stmts2 ->
             let flag = List.map (collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> [true])) stmts1 in
             let flag = List.flatten (List.map (function (_, elts, _) -> elts) flag) in
@@ -560,32 +561,174 @@ module Make () : Sig = struct
                     grouping both stmt list avoid us to painfully interconnect their splits
                 *)
                 let full_stmts = stmts1@stmts2 in
-                split_body a_registered_sessions (main_name, main_annotations) acc_stmts next_method full_stmts
+                split_body a_registered_sessions a_intermediate_futures  (main_name, main_annotations) acc_stmts next_method full_stmts
             end
-            else split_body a_registered_sessions (main_name, main_annotations) (stmt::acc_stmts) next_method stmts2
+            else split_body a_registered_sessions a_intermediate_futures  (main_name, main_annotations) (stmt::acc_stmts) next_method stmts2
 
             
         (* TODO for others stmt that can host nested let*)
-        | stmt::stmts -> split_body a_registered_sessions (main_name, main_annotations) (stmt::acc_stmts) next_method stmts
+        | stmt::stmts -> split_body a_registered_sessions a_intermediate_futures  (main_name, main_annotations) (stmt::acc_stmts) next_method stmts
 
 
 
+    let methods_with_continuations = Hashtbl.create 16
 
-
-    let rec rewrite_method0 a_registered_sessions place (m:_method0) = 
+    let rec rewrite_method0 a_registered_sessions a_intermediate_futures place (m:_method0) = 
         let fplace = (Error.forge_place "Core.Rewrite.rewrite_method0" 0 0) in
         let auto_fplace smth = {place = fplace; value=smth} in
 
         let stmts = List.flatten (List.map (function stmt -> to_X_form stmt.place stmt.value) m.body) in
 
-        let intermediate_states, receive_entries, intermediate_methods = split_body a_registered_sessions (m.name, m.annotations) [] {m with body = []} stmts in
+        let intermediate_states, receive_entries, intermediate_methods = split_body a_registered_sessions a_intermediate_futures (m.name, m.annotations) [] {m with body = []} stmts in
         let intermediate_methods = List.map auto_fplace intermediate_methods in
 
+        let intermediate_methods = match intermediate_methods with
+        | [] -> raise (Error.DeadbranchError "Can not be empty")
+        | [_] -> 
+            (* No receive in m *)
+            intermediate_methods
+        | top_method::methods ->
+            (* Will be set to true if there is returns inside intermediate methods*)
+            let has_delayed_returns = ref false in
+
+
+            (* Find return stmts in methods and rewrite then by
+                this.intermediate_futures[s_id].complete(return_value);   
+            *)
+            let return_selector = function | ReturnStmt _ -> true | _ -> false in
+            let return_rewritor param_s parent_opt place = function
+                | ReturnStmt e -> 
+                    has_delayed_returns := true;
+                    [
+                        ExpressionStmt(
+                            e2_e(CallExpr(
+                                e2var (Atom.builtin "complete_future"),
+                                [
+                                    (* The future *)
+                                    e2_e(CallExpr(
+                                        e2var (Atom.builtin "get2dict"),
+                                        [
+                                            e2_e(AccessExpr(
+                                                e2_e This,
+                                                e2var a_intermediate_futures
+                                            ));
+                                            e2_e (CallExpr( e2var (Atom.builtin "sessionid"), [e2var param_s]));
+                                        ]
+                                    ));
+                                    (* The value*)
+                                    e
+                                ]
+                            ))
+                        )
+                    ]
+            in
+
+            let methods = List.map (function (m:method0) -> 
+                let param_s = match m.value.args with
+                    | [_;{value=_,param_s}] -> param_s
+                    | _ -> raise (Error.DeadbranchError "wrong intermediate method signature")
+                in
+                { m with value = {
+                    m.value with body = List.flatten (
+                        List.map (rewrite_stmt_stmt true None return_selector (return_rewritor param_s)) m.value.body) }}     
+            ) methods in
+
+            (* Add at the end of top_method
+                Future<m.ret_type> f = new CompletableFuture();
+                this.intermediate_futures[s_id] = f;
+                return f;
+            *)
+            let top_method = if !has_delayed_returns then (
+
+                let mt_ok, mt_err = match m.ret_type.value with
+                    | CType {value=TResult(mt_ok, mt_err)} -> mt_ok, mt_err
+                    | _ -> raise (Error.PlacedDeadbranchError (place, "wrong return type"))
+                in
+
+                let generate_footer s = 
+                    let f = Atom.fresh "ret_future" in
+
+                    [
+                        (* create the future *)
+                        auto_fplace(LetStmt(
+                            mtype_of_ct (TFuture mt_ok),
+                            f,
+                            e2_e (CallExpr( e2var (Atom.builtin "future"), []))
+                        ));
+                        (* register the future *)
+                        auto_fplace(ExpressionStmt (
+                            e2_e(CallExpr(
+                                e2var (Atom.builtin "add2dict"),
+                                [
+                                    e2_e(AccessExpr(
+                                        e2_e This,
+                                        e2var a_intermediate_futures
+                                    ));
+                                    e2_e (CallExpr( e2var (Atom.builtin "sessionid"), [e2var s]));
+                                    e2var f
+                                ]
+                            ))
+                        ));
+                        (* return the future *)
+                        auto_fplace(ReturnStmt (e2_e(ResultExpr(
+                            Some (e2var f), None))));
+                    
+                    ] 
+                in
+                
+                let split_last =
+                    let rec aux acc = function
+                    | [] -> failwith "empty list"
+                    | [y] -> List.rev acc, y
+                    | y::ys -> aux (y::acc) ys
+                    in
+                    aux []
+                in
+
+                let rec add_footer_to stmts = 
+                    let core_stmts, last_stmt = split_last stmts in
+                    core_stmts @ (
+                        match last_stmt.value with
+                        | ExpressionStmt {value=CallExpr (_, [_;{value=CallExpr (_, [{value=VarExpr s, _}]), _};_]), _} as stmt -> 
+                            last_stmt :: (generate_footer s)
+                        | IfStmt (e, stmt1, None) -> 
+                            [ auto_fplace (IfStmt(e, auto_fplace (BlockStmt (add_footer_to [stmt1])), None)) ]
+                        | IfStmt (e, stmt1, Some stmt2) ->
+                            let stmt1 = auto_fplace (BlockStmt (add_footer_to [stmt1])) in
+                            let stmt2 = auto_fplace (BlockStmt (add_footer_to [stmt2])) in
+                            
+                            [ auto_fplace (IfStmt(e, stmt1, Some stmt2)) ]
+                        | BlockStmt stmts -> [ auto_fplace (BlockStmt (add_footer_to stmts)) ]
+                        | e -> 
+                            raise (Error.DeadbranchError "see rewrite_methodint")
+                    )
+                in
+
+                { top_method with value = { top_method.value with 
+                    ret_type = mtype_of_ct (TResult(
+                        mtype_of_ct (TFuture mt_ok),
+                        mt_err
+                    ));
+                    body = add_footer_to top_method.value.body 
+                }}
+            ) else top_method in
+
+            (* Register m.name in order to rewrite all m call such that
+                m_call(....) becomes
+
+                Future<m.ret_type> f = m_call(...);
+                f().get(timeout_custom, TimeUnit.MILLISECONDS);
+            *)
+            Hashtbl.add methods_with_continuations m.name m.ret_type;
+
+            top_method::methods
+        in
+
         receive_entries, intermediate_states, intermediate_methods
-    and rmethod0 a_registered_sessions = map0_place (rewrite_method0 a_registered_sessions)
+    and rmethod0 a_registered_sessions a_intermediate_futures = map0_place (rewrite_method0 a_registered_sessions a_intermediate_futures)
 
     (* return name of intermediate states * citems *)
-    and rewrite_component_item a_registered_sessions place = 
+    and rewrite_component_item a_registered_sessions a_intermediate_futures place = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
     let auto_place smth = {place = place; value=smth} in
     let auto_fplace smth = {place = fplace; value=smth} in
@@ -595,7 +738,7 @@ module Make () : Sig = struct
     | Contract _ as citem -> 
         ([], []), [auto_place (auto_plgannot citem)] 
     | Method m as citem -> 
-        let receive_entries, intermediate_states, intermediate_methods = rmethod0 a_registered_sessions m in
+        let receive_entries, intermediate_states, intermediate_methods = rmethod0 a_registered_sessions a_intermediate_futures m in
 
         (
             List.map (function (s : state) -> s.value.name) intermediate_states,
@@ -608,7 +751,7 @@ module Make () : Sig = struct
         ([], []), [auto_place (auto_plgannot(Term (rterm t)))]
     | Include _ as citem -> 
         ([], []), [auto_place (auto_plgannot citem)]
-    and rcitem a_registered_sessions = map0_place (transparent0_plgannot(rewrite_component_item a_registered_sessions))
+    and rcitem a_registered_sessions a_intermediate_futures = map0_place (transparent0_plgannot(rewrite_component_item a_registered_sessions a_intermediate_futures))
 
     and rewrite_component_dcl place : _component_dcl -> _component_dcl = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
@@ -625,13 +768,20 @@ module Make () : Sig = struct
             | Some {value={v=State {value={name}}}} -> name (* exactly once per component *)
             | None -> Atom.fresh "registered_session" 
         in
+        let a_intermediate_futures = 
+            match 
+                List.find_opt (function | {value={v=State {value={name}}}} -> Atom.hint name = "intermediate_futures" | _-> false) cdcl.body 
+            with
+            | Some {value={v=State {value={name}}}} -> name (* exactly once per component *)
+            | None -> Atom.fresh "intermediate_futures" 
+        in
 
 
 
         let body = cdcl.body in
 
         (* Elimination of sync receiv *)
-        let tmp, body = List.split(List.map (rcitem a_registered_sessions) body) in
+        let tmp, body = List.split(List.map (rcitem a_registered_sessions a_intermediate_futures) body) in
         let intermediate_state_names, receive_entries = List.split tmp in
         let intermediate_state_names = List.flatten(intermediate_state_names) in
         let body = List.flatten body in
@@ -785,8 +935,21 @@ module Make () : Sig = struct
                     name = a_registered_sessions;
                     body = Some (e2_e(Block2Expr(Dict, [])))
                 })))) in
+                
+                (* Intermediate_futures stores futures holding results of non void methods using receive
+                *)
+                let intermediate_futures = auto_place(auto_plgannot(State( auto_place({ 
+                    ghost = false;
+                    type0 = mtype_of_ct (TDict(
+                        mtype_of_ft TUUID, 
+                        mtype_of_ct (TFuture (mtype_of_ft TBottom)) 
+                    ));
+                    name = a_intermediate_futures;
+                    body = Some (e2_e(Block2Expr(Dict, [])))
+                })))) in
 
-                body @ [intermediate_states_index; registerd_sessions]
+
+                body @ [intermediate_states_index; registerd_sessions; intermediate_futures]
             end
             else body
         in
@@ -808,8 +971,35 @@ module Make () : Sig = struct
     | Derive _ as t -> t
     and rterm term = map_place (transparent_plgannot rewrite_term) term
 
+    and rewrite_program_call_with_continuation = 
+        (* rewrite all call of methods registered methods_with_continuations in such that
+            m_call(....) becomes
+
+            Future<m.ret_type> f = m_call(...);
+            f().get(timeout_custom, TimeUnit.MILLISECONDS);
+        *)
+        let callsite_selector = function
+            | CallExpr ({value=AccessExpr({value=This, _}, {value=VarExpr x, _}), _}, _) ->
+                Hashtbl.find_opt methods_with_continuations x <> None 
+            | _ -> false
+        in
+
+        let callsite_rewriter _ mt = function 
+            | CallExpr _ as e->  
+                CallExpr(
+                    e2var (Atom.builtin "wait_future"),
+                    [
+                        auto_fplace (e, mt);
+                        e2_lit (IntLit 30000) (* timeout in milliseconds, TODO load it from config file *)
+                    ]
+                )
+        in
+
+        rewrite_expr_program callsite_selector callsite_rewriter
     and rewrite_program program = 
-        List.map rterm program
+        program
+        |> List.map rterm
+        |> rewrite_program_call_with_continuation
     
     (*****************************************************)
     let name = pass_name 

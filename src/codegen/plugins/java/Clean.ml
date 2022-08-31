@@ -156,7 +156,7 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
         cexpr e,
         cstmt stmt
     )
-    | NamedExpr (t, x, e_opt) -> NamedExpr (t, x, Option.map cexpr e_opt)
+    | LetStmt (t, x, e_opt) -> LetStmt (t, x, Option.map cexpr e_opt)
     | ReturnStmt e -> ReturnStmt (cexpr e) 
     | RawStmt s -> RawStmt s 
     | TemplateStmt (str, models) -> TemplateStmt (str, models)
@@ -213,13 +213,43 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                     ]
                 )
             | Some {value=ClassOrInterfaceType({value=TAtomic "Either"}, [t_left; {value=TAtomic "Void"}])} ->
-
                 if ends_by_return m0.body then
                     m0.body
                 else ( 
                     m0.body @ [
                         auto_fplace (ReturnStmt (
                             auto_fplace (RawExpr "Either.right(null)", auto_fplace TUnknown)
+                        ))
+                    ]
+                )
+            | Some {value=ClassOrInterfaceType({value=TAtomic "Either"}, [t_left; {value=ClassOrInterfaceType({value=TAtomic "CompletableFuture"}, [{value=TAtomic x}])}])} when x = "Void" || x = "void" ->
+                if ends_by_return m0.body then
+                    m0.body
+                else ( 
+                    let f = Atom.fresh "ret_future" in
+
+                    m0.body @ [
+                        (* create the future *)
+                        auto_fplace(LetStmt(
+                            auto_fplace (TAtomic "CompletableFuture<Void>"),
+                            f,
+                            Some (auto_fplace( RawExpr "new CompletableFuture()", auto_fplace TUnknown))
+                        ));
+                        (* Complete future *)
+                        auto_fplace (ExpressionStmt(
+                            auto_fplace(AppExpr(
+                                auto_fplace (VarExpr (Atom.builtin "complete_future"), auto_fplace TUnknown),
+                                [
+                                    auto_fplace(VarExpr f, auto_fplace TUnknown);
+                                    auto_fplace (RawExpr "null", auto_fplace TUnknown) 
+                                ]
+                            ), auto_fplace TUnknown)
+                        ));
+                        auto_fplace (ReturnStmt (
+                            auto_fplace (AppExpr(
+                                auto_fplace (RawExpr "Either.right", auto_fplace TUnknown),
+                                [ auto_fplace(VarExpr f, auto_fplace TUnknown) ]
+                            ), auto_fplace TUnknown)
                         ))
                     ]
                 )

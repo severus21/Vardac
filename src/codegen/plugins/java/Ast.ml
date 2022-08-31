@@ -102,7 +102,7 @@ and _stmt =
     | EmptyStmt 
     | IfStmt of expr * stmt * stmt option              
     | ForeachStmt of jtype * variable * expr * stmt
-    | NamedExpr of jtype * variable * expr option 
+    | LetStmt of jtype * variable * expr option 
     | ReturnStmt of expr
     | RawStmt of string
     | TemplateStmt of (string * (string * Jingoo.Jg_types.tvalue) list)

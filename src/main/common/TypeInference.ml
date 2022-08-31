@@ -352,6 +352,7 @@ module Make () = struct
     | TVar x -> TVar x
     | TObject x -> TObject x
     | TFlatType ft -> TFlatType ft
+    | TFuture mt -> TFuture (tannot_main_type parent_opt mt)
     | TArray mt -> TArray (tannot_main_type parent_opt mt)
     | TDict (mt1, mt2) -> TDict (
         tannot_main_type parent_opt mt1,

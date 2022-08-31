@@ -92,6 +92,8 @@ let encode_builtin_fct_0 parent_opt place name =
         fst (Misc.e_get_self_activation place (Misc.e_get_context place)).value
     | "forge_activation_ref" ->
         T.RawExpr "new ActivationRef()"
+    | "future" -> 
+        T.RawExpr "new CompletableFuture()"
     | _ -> Error.perror place "%s takes zero argument" name
 
 let encode_builtin_fct_1 parent_opt place name a =
@@ -476,6 +478,19 @@ let encode_builtin_fct_2 parent_opt place name a b =
         T.NewExpr(
             e2_e (T.RawExpr "ActivationRef"),
             [a; b]
+        )
+    | "complete_future" ->
+        T.CallExpr(
+            e2_e (T.AccessExpr(a, e2_e(T.RawExpr "complete"))),
+            [ b]
+        )
+    | "wait_future" -> 
+        T.CallExpr(
+            e2_e (T.AccessExpr(a, e2_e(T.RawExpr "get"))),
+            [
+                b;
+                e2_e (T.RawExpr "TimeUnit.MILLISECONDS")
+            ]
         )
     | _ -> Error.perror place "%s takes two arguments" name
 

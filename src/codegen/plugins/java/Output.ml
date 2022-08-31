@@ -140,10 +140,10 @@ module Make () = struct
         | ForeachStmt (jt, x, e, stmt) -> 
             assert(jt.value <> TUnknown);
             fprintf out "for(@[<hv 3>%a %a : %a @]){@;@[<v 3>@;%a@]@;}" ojtype jt output_var x oexpr e ostmt stmt
-        | NamedExpr (jt, x, Some e) -> 
+        | LetStmt (jt, x, Some e) -> 
             assert(jt.value <> TUnknown);
             fprintf out "%a %a = @[<hv>%a@];" ojtype jt output_var x oexpr e
-        | NamedExpr (jt, x, None) -> 
+        | LetStmt (jt, x, None) -> 
             assert(jt.value <> TUnknown);
             fprintf out "%a %a;" ojtype jt output_var x 
         | ReturnStmt e -> fprintf out "return %a;" oexpr e
@@ -316,6 +316,7 @@ module Make () = struct
 
             (* Java error handling *)
             JModule (mock_placed(ImportDirective "java.util.concurrent.ExecutionException"));
+            JModule (mock_placed(ImportDirective "java.util.concurrent.TimeUnit"));
 
             (* Jackson (serialization) *)
             JModule (mock_placed(ImportDirective "com.fasterxml.jackson.annotation.JsonProperty"));

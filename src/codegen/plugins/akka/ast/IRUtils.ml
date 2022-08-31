@@ -34,6 +34,9 @@ let rec _apply_rename_ctype (renaming : Atom.atom -> Atom.atom) place : _ctype -
     | TArray ct -> TArray (
         apply_rename_ctype renaming ct
     )
+    | TFuture ct -> TFuture (
+        apply_rename_ctype renaming ct
+    )
     | TList ct -> TList (
         apply_rename_ctype renaming ct
     )

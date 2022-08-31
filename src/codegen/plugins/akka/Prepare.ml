@@ -195,6 +195,36 @@ module Make () = struct
         |> rewrite_term_program select_class rewrite_class
         |> rewrite_expr_program select_instantiation rewrite_instantiation
 
+
+    let correct_type_intermediate_futures program = 
+        let selector = function
+            | CallExpr(
+                {value=VarExpr x, _},
+                [
+                    {value = AccessExpr(
+                        {value = This, _},
+                        {value = VarExpr y, _}
+                    ),_};
+                    e2;
+                    f
+                ]
+            ) when Atom.hint x = "add2dict" &&  Atom.hint y = "intermediate_futures" -> true 
+            | _ -> false
+        in 
+
+        let rewritor parent_opt mt = function
+        | CallExpr(e1, [e2; e3; f]) -> 
+            CallExpr (e1,
+                [ e2; e3;
+                    e2_e(AccessExpr(
+                        f,
+                        e2_e (RawExpr "thenApply(x -> (Object) x)")
+                    ))
+                ]
+            )
+        in
+
+        rewrite_expr_program selector rewritor program
     
     
     (*****************************************************)
@@ -231,4 +261,5 @@ module Make () = struct
         program
         |> elim_unpack_or_propagate 
         |> elim_self_this
+        |> correct_type_intermediate_futures
 end

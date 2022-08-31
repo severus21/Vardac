@@ -999,6 +999,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             | S.TActivationRef ct -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActivationRef"), [fctype ct]) 
             | S.TFunction (t1, t2) -> T.ClassOrInterfaceType  ( auto_place (T.TAtomic "Function"), [fctype t1; fctype t2]) 
             | S.TArray t1 -> T.ClassOrInterfaceType  (auto_place (T.TArray (fctype t1)), [])
+            | S.TFuture t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "CompletableFuture"), [fctype t1])
             | S.TList t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "List"), [fctype t1])
             | S.TMap (t1, t2) -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "HashMap"), [fctype t1; fctype t2])
             | S.TOption t1 -> T.ClassOrInterfaceType  (auto_place(T.TAtomic "Optional"), [fctype t1]) 
@@ -1223,8 +1224,8 @@ module Make (Arg: Plugin.CgArgSig) = struct
             | S.IfStmt (e, stmt1, stmt2_opt) -> T.IfStmt (fexpr e, fstmt stmt1, Option.map fstmt stmt2_opt)              
             | S.ForeachStmt (mt, x, e, stmt) -> T.ForeachStmt(fctype mt, x, fexpr e, fstmt stmt)
             | S.LetStmt (ct, x, None) -> 
-                T.NamedExpr (fctype ct, x, None) (* TODO FIXME maybe not the semantic that we want, we need to add this to the doc*)  
-            | S.LetStmt (ct, x, Some e) -> T.NamedExpr (fctype ct, x, Some (fexpr e))
+                T.LetStmt (fctype ct, x, None) (* TODO FIXME maybe not the semantic that we want, we need to add this to the doc*)  
+            | S.LetStmt (ct, x, Some e) -> T.LetStmt (fctype ct, x, Some (fexpr e))
             | S.ReturnStmt e -> T.ReturnStmt (fexpr e)
             | S.TryStmt (stmt, branches) -> T.TryStmt (
                 fstmt stmt,
