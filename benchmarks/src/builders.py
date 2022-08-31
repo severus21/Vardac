@@ -83,7 +83,7 @@ class AbstractBuilder(ABC):
             logging.info(f"Bench {self.name}> Already built ({cl_name})!")
             return True, self.get_bench_model()[0]
 
-from jinja2 import Environment, PackageLoader, select_autoescape
+from jinja2 import Environment, BaseLoader, select_autoescape
 
 class ShellBuilder(AbstractBuilder):
     def __init__(self, project_dir=None, build_dir=None, build_cmd=None, build_cwd=None) -> None:
@@ -95,9 +95,9 @@ class ShellBuilder(AbstractBuilder):
 
     @property
     def build_cmd(self):
-        env = Environment()
+        env = Environment(loader=BaseLoader())
         template = env.from_string(self._build_cmd)
-        return template.render(build_dir=self.build_dir)
+        return template.render(build_dir=self.build_dir, project_dir=self.project_dir)
 
     def _get_bench_model(self):
         return Bench.objects.get_or_create(

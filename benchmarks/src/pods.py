@@ -79,7 +79,7 @@ class ProcessPod(Pod):
 
     async def terminate(self):
         try:
-            await self.elmt.terminate()
+            self.elmt.terminate()
             os.killpg(os.getpgid(self.elmt.pid), signal.SIGTERM)
             await self.elmt.wait()
             await asyncio.sleep(1)  # Needed to be able to bind ports afterwards

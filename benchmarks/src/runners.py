@@ -1,3 +1,4 @@
+from inspect import trace
 import shlex
 import subprocess
 from threading import TIMEOUT_MAX
@@ -47,20 +48,21 @@ async def display_time(stop_display_time, start_time, last_elapse=0):
         await asyncio.sleep(0.1)  # at least
         await display_time(stop_display_time, start_time, last_elapse)
 
+from traceback import print_tb
+
 class Runner(ABC):
-    def __init__(self) -> None:
-        self.name = None # MUST be set by the benchmark holding it 
+    def __init__(self, name) -> None:
+        self.name = name
 
         self._run_stdout = ""
         self._run_stderr = ""
 
     def __enter__(self):
-        assert(self.name != None)
         logging.debug(f"Entering runner {self.name}")
         return self
 
     def __exit__(self, type, value, traceback):
-        logging.debug(f"Exiting runner {self.name}")
+        logging.debug(f"Exiting runner {self.name}\n- {type}\n- {value}\n- {print_tb(traceback)}")
 
     @property
     def run_stdout(self):
@@ -84,10 +86,12 @@ class Runner(ABC):
 
     async def run_async_with_displaytime(self):
         stop_display_time = asyncio.Event()
-        return await asyncio.gather(
+        tmp = await asyncio.gather(
             self.run_async(None, stop_display_time),
             display_time(stop_display_time, time.time()),
             return_exceptions=True)
+        print(tmp)
+        return tmp
 
     def run(self):
         loop = asyncio.get_event_loop()
@@ -99,15 +103,20 @@ class Runner(ABC):
         return result
 
 class OrderedMultiShellRunner(Runner):
-    def __init__(self, runners, config):
-        super().__init__()
+    def __init__(self, name, runners, config):
+        super().__init__(name)
         self.runners = runners
         self.config = config
 
     def __enter__(self):
         for runner in self.runners:
-            runner = self.name
+            runner.__enter__()
         return super().__enter__()
+
+    def __exit__(self, type, value, traceback):
+        for runner in self.runners:
+            runner.__exit__(type, value, traceback)
+        return super().__exit__(type, value, traceback)
 
 
     @property
@@ -124,49 +133,59 @@ class OrderedMultiShellRunner(Runner):
     def has_failed(self, buffer):
         return not False in [runner.has_failed(buffer) for runner in self.runners]
 
-    def terminate(self, results):
-        for res in results:
-            os.killpg(os.getpgid(res.pid), signal.SIGTERM)
-        for res in results:
-            res.wait()
-        time.sleep(1)
+    async def run_async(self, stop_event, stop_display_time):
+        if not stop_event:
+            stop_event = asyncio.Event()
 
-    async def _run_async(self, stop_event, stop_display_time):
-        return await asyncio.gather(
+        results = await asyncio.gather(
             *[runner.run_async(stop_event, stop_display_time)
               for runner in self.runners],
-            display_time(stop_display_time, time.time()),
             return_exceptions=True
         )
 
-    def run_async(self):
-        stop_event = asyncio.Event()
-        stop_display_time = asyncio.Event()
+        for res in results:
+            res = await res
+            if res != True:
+                if res == False:
+                    results = False
+                else:
+                    raise res
 
-        results = asyncio.run(self._run_async(stop_event, stop_display_time))
-        if results:
-            results = False not in results[:-1]
+        _ = await asyncio.wait(
+            [runner.terminate() for runner in self.runners], 
+            timeout = RUN_TIMEOUT, return_when=asyncio.ALL_COMPLETED)
+        logging.info(f"End terminate {self.name}")
 
         return results
 
 class BaseRunner(Runner):
-    def __init__(self, stdout_termination_token, error_token, config, set_stop_event) -> None:
-        super().__init__()
+    def __init__(self, name, stdout_termination_token, error_token, config, set_stop_event) -> None:
+        super().__init__(name)
         self.stdout_termination_token = stdout_termination_token
         self.error_token = error_token
         self.config = config
         self.set_stop_event = set_stop_event
 
+        self.register_terminate = None 
+
     def is_terminated(self, buffer):
         return self.stdout_termination_token and self.stdout_termination_token in buffer
 
-    async def terminate(self, pod, stop_event, stop_display_time):
-        print(f"Try terminate {self.name}")
+    async def terminate(self,):
+        if not self.register_terminate:
+            return 
+
+        pod, stop_event, stop_display_time = self.register_terminate
+
+        logging.info(f"Try terminate {self.name}")
         stop_display_time.set()
         if stop_event != None and self.set_stop_event:
             stop_event.set()
+        print(pod)
         await pod.terminate()
-        print(f"End terminate {self.name}")
+        logging.info(f"End terminate {self.name}")
+
+        self.register_terminate = None
 
     def has_failed(self, buffer):
         return self.error_token and self.error_token in buffer
@@ -174,13 +193,14 @@ class BaseRunner(Runner):
     async def run_async_skeleton(self, pod, stop_event, stop_display_time):
         self._run_stdout = ""
         self._run_stderr = ""
-        print("run_async_skeleton")
+
+        self.register_terminate = pod, stop_event, stop_display_time
 
         while True:
             # Parent event
             if stop_event != None and stop_event.is_set():
                 logging.debug(f"{self.name}> Cancelled from parent!")
-                await self.terminate(pod, stop_event, stop_display_time)
+                await self.terminate()
 
                 # stdout_termination_token == None => this task never terminates by itself
                 return self.stdout_termination_token == None or self.is_terminated(self._run_stdout)
@@ -211,11 +231,12 @@ class BaseRunner(Runner):
                 if statuscode != None:
                     if statuscode == 0:
                         logging.debug(f"{self.name}> Is terminated")
-                        await self.terminate(pod, stop_event, stop_display_time)
+                        await self.terminate()
                         return True
                     else:
                         logging.error(f"{self.name}> Has crash")
                         self._run_stderr = await pod.stderr()
+                        await self.terminate()
                         print(self._run_stdout)
                         print(self.run_stderr)
                         return False
@@ -225,34 +246,43 @@ class BaseRunner(Runner):
 
                 for line in lines:
                     if not line:  # EOF
-                        logging.debug(f"{self.name}> EOF")
-                        await self.terminate(pod, stop_event, stop_display_time)
-                        return True
+                        self._run_stderr = await pod.stderr()
+                        if self._run_stderr:
+                            logging.error(f"{self.name}> Has failed\n{self.run_stderr}")
+                            await self.terminate()
+                            return False 
+                        else:
+                            logging.debug(f"{self.name}> EOF\n{self.run_stderr}")
+                            await self.terminate()
+                            return True
                     elif self.is_terminated(line):
+                        self._run_stderr = await pod.stderr()
                         logging.debug(f"{self.name}> Is terminated")
-                        await self.terminate(pod, stop_event, stop_display_time)
+                        await self.terminate()
                         return True
                     elif self.has_failed(line):
-                        logging.error(f"{self.name}> Has failed")
                         self._run_stderr = await pod.stderr()
+                        logging.error(f"{self.name}> Has failed\n{self.run_stderr}")
                         print(self._run_stdout)
                         print(self.run_stderr)
-                        await self.terminate(pod, stop_event, stop_display_time)
+                        await self.terminate()
                         return False
 
             except asyncio.TimeoutError:
+                self._run_stderr = await pod.stderr()
                 logging.error(f"{self.name}> Timeout !")
                 print(self._run_stdout)
-                await self.terminate(pod, stop_event, stop_display_time)
+                await self.terminate()
                 return False
             except asyncio.CancelledError:
+                self._run_stderr = await pod.stderr()
                 logging.error(f"{self.name}> Cancelled !")
-                await self.terminate(pod, stop_event, stop_display_time)
+                await self.terminate()
                 return False
 
 class ShellRunner(BaseRunner):
-    def __init__(self, run_cmd, run_cwd, stdout_termination_token, error_token, config, set_stop_event) -> None:
-        super().__init__(stdout_termination_token, error_token, config, set_stop_event)
+    def __init__(self, name, run_cmd, run_cwd, stdout_termination_token, error_token, config, set_stop_event) -> None:
+        super().__init__(name, stdout_termination_token, error_token, config, set_stop_event)
         self.run_cmd = run_cmd
         self.run_cwd = run_cwd
 
@@ -272,16 +302,16 @@ class ShellRunner(BaseRunner):
             shell=True,
             preexec_fn=os.setpgrp
         )
-
-        return await self.run_async_skeleton(ProcessPod(process), stop_event, stop_display_time)
+        tmp = await self.run_async_skeleton(ProcessPod(process), stop_event, stop_display_time)
+        return tmp
 
 
 
 
 class DockerRunner(BaseRunner):
     #TODO create img with correct stamp
-    def __init__(self, image, run_cmd, stdout_termination_token, error_token, config, set_stop_event, remote=DEFAULT_DOCKER_REMOTE) -> None:
-        super().__init__(stdout_termination_token, error_token, config, set_stop_event)
+    def __init__(self, name, image, run_cmd, stdout_termination_token, error_token, config, set_stop_event, remote=DEFAULT_DOCKER_REMOTE) -> None:
+        super().__init__(name, stdout_termination_token, error_token, config, set_stop_event)
         self.image = image
         self.run_cmd = run_cmd
 

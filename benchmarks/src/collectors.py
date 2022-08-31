@@ -150,10 +150,6 @@ class VolumeCollector(ChainCollector):
             
         else:
             uid = os.getuid()
-
-
-        print(tmpdir)
-        sleep(10000)
          
         # Blocking call
         r = client.containers.run(

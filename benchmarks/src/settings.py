@@ -15,8 +15,8 @@ RUN_TIMEOUT = 30 # s
 # docker info
 DEFAULT_DOCKER_REMOTE = None
 #DEFAULT_DOCKER_REMOTE = "tcp://severus@dev.laurentprosperi.info:2376"
-#DEFAULT_HOST = Host("dev.laurentprosperi.info", user="severus",
-#                    port=22, keyfile="~/.ssh/id_rsa.pub")
+DEFAULT_HOST = Host("dev.laurentprosperi.info", user="severus",
+                    port=22, keyfile="~/.ssh/id_rsa.pub")
 #DEFAULT_DOCKER_REMOTE = "tcp://severus@dev1.laurentprosperi.info:2376"
 #DEFAULT_HOST = Host("dev1.laurentprosperi.info", user="severus",
 #                    port=2221, keyfile="~/.ssh/id_rsa.pub")
