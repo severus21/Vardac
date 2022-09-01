@@ -440,6 +440,14 @@ module Make (Params : IRParams) = struct
             expr ->
             Atom.Set.t * 'a list *
             (main_type * expr_variable) list
+        val collect_expr_component_item : Atom.atom option -> 
+            Atom.Set.t ->
+            (_expr -> bool) ->
+            (Atom.atom option ->
+            Atom.Set.t -> expr -> 'a list) ->
+            component_item ->
+            Atom.Set.t * 'a list *
+            (main_type * expr_variable) list
         val collect_expr_component_dcl : Atom.atom option -> 
             Atom.Set.t ->
             (_expr -> bool) ->

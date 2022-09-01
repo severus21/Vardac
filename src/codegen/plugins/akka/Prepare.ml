@@ -7,11 +7,11 @@ open Misc
 open IRI
 
 module Make () = struct
-    let plg_name = "Akka.PrepareIRI"
-    let logger = make_log_of plg_name
+    let pass_name = "Akka.PrepareIRI"
+    let logger = make_log_of pass_name
 
 
-    let fplace = (Error.forge_place ("plg."^plg_name^".PrepareIRI") 0 0) 
+    let fplace = (Error.forge_place pass_name 0 0) 
     let auto_fplace smth = {place = fplace; value=smth}
 
     include AstUtils2.Mtype.Make(struct let fplace = fplace end)

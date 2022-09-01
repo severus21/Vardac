@@ -992,7 +992,7 @@ module Make () : Sig = struct
         in
 
         let callsite_rewriter _ mt = function 
-            | CallExpr _ as e->  
+            | CallExpr _ as e ->  
                 CallExpr(
                     e2var (Atom.builtin "wait_future"),
                     [
