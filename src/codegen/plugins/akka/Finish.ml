@@ -706,11 +706,15 @@ module Make (Arg: sig val target:Target.target end) = struct
         | S.ForeachStmt (mt,x,e,stmt) -> T.ForeachStmt(fmtype parent_opt mt, x, fexpr parent_opt e, fstmt parent_opt stmt)
         | S.IfStmt (e, s1, s2_opt) -> T.IfStmt (fexpr parent_opt e, fstmt parent_opt s1, Option.map (fstmt parent_opt) s2_opt)
         | S.MatchStmt (_,_) -> Core.Error.perror place "Match is not yet supported"
-        | S.ReturnStmt e -> T.ReturnStmt (fexpr parent_opt e) 
 
         (*S.*type name, type definition*)
-        | S.ExpressionStmt {value=S.CallExpr({value=S.VarExpr x, _}, args), _} when Atom.is_builtin x && Encode.is_stmt_builtin (Atom.hint x) -> 
-            Encode.encode_builtin_fct_as_stmt place (Atom.value x) (List.map (fexpr parent_opt) args)
+        | S.ExpressionStmt {value=S.CallExpr({value=S.VarExpr x, _}, args), _} 
+        when Atom.is_builtin x && Encode.is_stmt_builtin (Atom.hint x) -> 
+            Encode.encode_builtin_fct_as_stmt false place (Atom.value x) (List.map (fexpr parent_opt) args)
+        | S.ReturnStmt {value=S.CallExpr({value=S.VarExpr x, _}, args), _}
+        when Atom.is_builtin x && Encode.is_stmt_builtin (Atom.hint x) -> 
+            Encode.encode_builtin_fct_as_stmt true place (Atom.value x) (List.map (fexpr parent_opt) args)
+        | S.ReturnStmt e -> T.ReturnStmt (fexpr parent_opt e) 
         | S.ExpressionStmt e -> T.ExpressionStmt (fexpr parent_opt e) 
         | S.BlockStmt stmts -> T.BlockStmt (List.map (fstmt parent_opt) stmts)
         

@@ -192,7 +192,7 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                     | {value=BBStmt _} ::_ -> true (* External to Varda reach *)
                     | {value=ReturnStmt _} :: _ -> true
                     | {value=CommentsStmt _} :: stmts -> aux stmts 
-                    | {value=IfStmt (_, stmt1, None)}::_ ->  ends_by_return [stmt1]
+                    | {value=IfStmt (_, stmt1, None)}::_ -> false 
                     | {value=IfStmt (_, stmt1, Some stmt2)}::_ ->  (ends_by_return [stmt1]) && (ends_by_return [stmt2])
                     | {value=BlockStmt stmts} :: _ -> ends_by_return stmts
                     | _ -> false
@@ -222,7 +222,7 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                         ))
                     ]
                 )
-            | Some {value=ClassOrInterfaceType({value=TAtomic "Either"}, [t_left; {value=ClassOrInterfaceType({value=TAtomic "CompletableFuture"}, [{value=TAtomic x}])}])} when x = "Void" || x = "void" ->
+            | Some {value=ClassOrInterfaceType({value=TAtomic "Either"}, [_; {value=ClassOrInterfaceType({value=TAtomic "CompletableFuture"}, [{value=_}])}])}->
                 if ends_by_return m0.body then
                     m0.body
                 else ( 
@@ -231,16 +231,18 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                     m0.body @ [
                         (* create the future *)
                         auto_fplace(LetStmt(
-                            auto_fplace (TAtomic "CompletableFuture<Void>"),
+                            auto_fplace (TAtomic "CompletableFuture<Either<com.varda.Error, Void>>"),
                             f,
                             Some (auto_fplace( RawExpr "new CompletableFuture()", auto_fplace TUnknown))
                         ));
                         (* Complete future *)
                         auto_fplace (ExpressionStmt(
                             auto_fplace(AppExpr(
-                                auto_fplace (VarExpr (Atom.builtin "complete_future"), auto_fplace TUnknown),
+                                auto_fplace(AccessExpr(
+                                    auto_fplace(VarExpr f, auto_fplace TUnknown),
+                                    auto_fplace (RawExpr "complete", auto_fplace TUnknown)
+                                ), auto_fplace TUnknown),
                                 [
-                                    auto_fplace(VarExpr f, auto_fplace TUnknown);
                                     auto_fplace (RawExpr "null", auto_fplace TUnknown) 
                                 ]
                             ), auto_fplace TUnknown)

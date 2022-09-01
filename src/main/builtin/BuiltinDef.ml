@@ -119,7 +119,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
 
     "future", "() -> future<*>", "TODO", t_future;
     "complete_future", "future<T> -> T -> ()", "TODO", t_complete_future;
-    "wait_future", "future<T> -> int -> T", "timeout after [int] milliseconds", t_wait_future
+    "wait_future", "future<T> -> int -> result<T, error>", "timeout after [int] milliseconds", t_wait_future
 ]
 
 let builtin_derivations = [

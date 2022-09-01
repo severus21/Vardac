@@ -651,7 +651,7 @@ module Make () : Sig = struct
                     [
                         (* create the future *)
                         auto_fplace(LetStmt(
-                            mtype_of_ct (TFuture mt_ok),
+                            mtype_of_ct (TFuture m.ret_type),
                             f,
                             e2_e (CallExpr( e2var (Atom.builtin "future"), []))
                         ));
@@ -706,7 +706,7 @@ module Make () : Sig = struct
 
                 { top_method with value = { top_method.value with 
                     ret_type = mtype_of_ct (TResult(
-                        mtype_of_ct (TFuture mt_ok),
+                        mtype_of_ct (TFuture m.ret_type),
                         mt_err
                     ));
                     body = add_footer_to top_method.value.body 
@@ -978,9 +978,16 @@ module Make () : Sig = struct
             Future<m.ret_type> f = m_call(...);
             f().get(timeout_custom, TimeUnit.MILLISECONDS);
         *)
+        let exclude_next = ref false in
         let callsite_selector = function
+            | CallExpr ({value=VarExpr f, _}, _) when Atom.hint f = "wait_future" && Atom.is_builtin f -> (* already rewritten *)
+                exclude_next := true;
+                false
             | CallExpr ({value=AccessExpr({value=This, _}, {value=VarExpr x, _}), _}, _) ->
-                Hashtbl.find_opt methods_with_continuations x <> None 
+                if !exclude_next then (  
+                    exclude_next := false;
+                    false
+                ) else Hashtbl.find_opt methods_with_continuations x <> None 
             | _ -> false
         in
 
@@ -989,7 +996,8 @@ module Make () : Sig = struct
                 CallExpr(
                     e2var (Atom.builtin "wait_future"),
                     [
-                        auto_fplace (e, mt);
+                        e2_e(UnopExpr (UnpackOrPropagateResult,
+                        auto_fplace (e, mt)));
                         e2_lit (IntLit 30000) (* timeout in milliseconds, TODO load it from config file *)
                     ]
                 )

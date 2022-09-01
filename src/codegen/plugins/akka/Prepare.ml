@@ -23,7 +23,7 @@ module Make () = struct
 
     let selector_unpack_or_propagate = function 
         | UnopExpr (UnpackOrPropagateResult, e) -> true 
-        |_ ->false
+        |_ -> false
     let elim_unpack_or_propagate program = 
         let rewriter parent_opt mt_op (UnopExpr (UnpackOrPropagateResult, e)) =
             let mt_ok = match (snd e.value).value with
@@ -90,7 +90,10 @@ module Make () = struct
             in
             [store; propagate_or_nothing], unpacked_e
         in
-        IRUtils.rewrite_exprstmts_program (function _ -> false) selector_unpack_or_propagate rewriter program
+
+        (* FIXME recruse does not works as expected since we must rewrite also the generated stmts *)
+        program
+        |> IRUtils.rewrite_exprstmts_program ~recurse:true (function _ -> false) selector_unpack_or_propagate rewriter
 
    
     (* 
@@ -249,12 +252,12 @@ module Make () = struct
             |_ ->false
         in
 
-        IRUtils.collect_expr_program Atom.Set.empty propagate_in_lambda_selector (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrPropagateResult"))) program; 
+        IRUtils.collect_expr_program Atom.Set.empty propagate_in_lambda_selector (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrResult  operation (e?) can not be performed inside a lambda!!"))) program; 
         program
 
     let postcondition program = 
         (* Ensure that they are no UnpackOrPropagateResult anymore *)
-        IRUtils.collect_expr_program Atom.Set.empty selector_unpack_or_propagate (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrPropagateResult"))) program;
+        IRUtils.collect_expr_program Atom.Set.empty selector_unpack_or_propagate (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrPropagateResult remains after Akka.prepare"))) program;
         program
 
     let apply_program program =

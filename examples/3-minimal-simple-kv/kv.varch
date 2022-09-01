@@ -7,7 +7,6 @@ protocol p_kv = §{
 };
 
 (* TODO 
-1) add redis support
 2) add grpc + consol
 3) multi jvm
 4) sharding
@@ -59,12 +58,15 @@ component Client {
         print(">>> Starting a Client instance");
         bind(this.p_out, b);
         this.kv = kv;
-        
+        this.run(); 
+    }
+
+    result<void, error> run(){
         this.put(key("Key1"), value(10));
         this.get(key("Key1"));
     }
 
-    result<void, error> get(key k){
+    result<value, error> get(key k){
         session<p_kv> s = initiate_session_with(this.p_out, this.kv);
 
         !key?value. s = select(s, l_get)?;
@@ -80,7 +82,7 @@ component Client {
         print(">> get success");
         print(int_to_string(ret));
         print("");
-        return ();//TODO current recv-elim can not return :')
+        return ok(tmp_ret);//TODO current recv-elim can not return :')
     }
 
     result<void, error> put(key k, value v){
@@ -92,6 +94,30 @@ component Client {
         print(">> end put");
 
         (*assert(receive(s, this.b)._0);*) //TODO assert do not exit
+    }
+
+    result<void, error> _api_put(string k, int v){
+        return this.put(key(k), value(v));
+    }
+
+    bool api_put(string k, int v){
+        this._api_put(k, v);
+        return true;
+    }
+
+
+    result<value, error> _api_get(string k){
+        return this.get(key(k));
+    }
+
+    string api_get(string k){
+        result<value, error> res = this._api_get(k);
+        if(is_ok(res)){
+            value v = get_ok(res);
+            return int_to_string(v._0_);
+        } else {
+            return "Error";
+        }
     }
 }
 component TopLevel {

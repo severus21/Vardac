@@ -495,7 +495,9 @@ module Make (Params : IRParams) = struct
             (Atom.atom option -> Error.place -> _stmt -> _stmt list) ->
             term list -> term list
 
-        val rewrite_exprstmts_stmt : component_variable option ->
+        val rewrite_exprstmts_stmt : 
+            ?recurse:bool ->
+            component_variable option ->
             (_stmt -> bool) ->
             (_expr -> bool) ->
             (component_variable option ->
@@ -503,7 +505,9 @@ module Make (Params : IRParams) = struct
             _expr ->
             stmt list * (_expr * main_type)) ->
             stmt -> stmt list
-        val rewrite_exprstmts_program : (_stmt -> bool) ->
+        val rewrite_exprstmts_program : 
+            ?recurse:bool ->
+            (_stmt -> bool) ->
             (_expr -> bool) ->
             (component_variable option ->
             main_type ->
@@ -1636,10 +1640,19 @@ module Make (Params : IRParams) = struct
         expr -> stmts before * new_expr
         can only be applied in expression that are inside a statement
         *)
-        let rec rewrite_exprstmts_expr_ parent_opt selector rewriter place (e, mt_e) : stmt list * (_expr * main_type) = 
-            let rewrite_exprstmts_expr = rewrite_exprstmts_expr parent_opt selector rewriter in
+        exception Remains 
+        let rec rewrite_exprstmts_expr_ ?(recurse=false) parent_opt selector rewriter place (e, mt_e) : stmt list * (_expr * main_type) = 
+            let rewrite_exprstmts_expr = rewrite_exprstmts_expr  ~recurse:recurse parent_opt selector rewriter in
             match e with  
-            | _ when selector e -> rewriter parent_opt mt_e e
+            | _ when recurse && selector e -> 
+                let stmts1, e = rewriter parent_opt mt_e e in
+                let stmts2, e = rewrite_exprstmts_expr (auto_fplace e) in
+
+                let stmts1 = List.flatten (List.map (rewrite_exprstmts_stmt ~recurse:recurse parent_opt (function _ -> false) selector rewriter) stmts1) in
+                
+                stmts1@stmts2, e.value
+            | _ when selector e -> 
+                rewriter parent_opt mt_e e
             | EmptyExpr | VarExpr _ | RawExpr _ -> [], (e,mt_e)
             | ActivationAccessExpr (cname, e, mname) ->
                 let stmts, e = rewrite_exprstmts_expr e in
@@ -1728,15 +1741,15 @@ module Make (Params : IRParams) = struct
                 let stmts_n = List.flatten (List.map (function (a,b) -> fst a @ fst b) stmtses) in
                 let ees_n = List.map  (function (a,b) -> snd a, snd b) stmtses in
                 stmts_n, (Block2Expr (b, ees_n), mt_e)
-        and rewrite_exprstmts_expr parent_opt (selector:_expr -> bool) rewriter : expr -> stmt list * expr = map2_place (rewrite_exprstmts_expr_ parent_opt selector rewriter)
+        and rewrite_exprstmts_expr ?(recurse=false) parent_opt (selector:_expr -> bool) rewriter : expr -> stmt list * expr = map2_place (rewrite_exprstmts_expr_  ~recurse:recurse parent_opt selector rewriter)
 
-        and rewrite_exprstmts_stmt_ parent_opt exclude_stmt selector rewriter place : _stmt -> stmt list =
+        and rewrite_exprstmts_stmt_ ?(recurse=false) parent_opt exclude_stmt selector rewriter place : _stmt -> stmt list =
             let fplace = (Error.forge_place "rewrite_exprstmts_stmt" 0 0) in
             let auto_place smth = {place = place; value=smth} in
             let auto_fplace smth = {place = fplace; value=smth} in
 
-            let rewrite_exprstmts_expr = rewrite_exprstmts_expr parent_opt selector rewriter in
-            let rewrite_exprstmts_stmt = rewrite_exprstmts_stmt parent_opt exclude_stmt selector rewriter in
+            let rewrite_exprstmts_expr = rewrite_exprstmts_expr  ~recurse:recurse parent_opt selector rewriter in
+            let rewrite_exprstmts_stmt = rewrite_exprstmts_stmt  ~recurse:recurse parent_opt exclude_stmt selector rewriter in
 
             function
             (* Do not process excluded statement *)
@@ -1829,65 +1842,65 @@ module Make (Params : IRParams) = struct
 
                 stmts1@stmts2@[auto_place (BranchStmt {s; label_opt; branches})]
 
-        and rewrite_exprstmts_stmt parent_opt exclude_stmt selector rewriter = map0_place (rewrite_exprstmts_stmt_ parent_opt exclude_stmt selector rewriter)
+        and rewrite_exprstmts_stmt ?(recurse=false) parent_opt exclude_stmt selector rewriter = map0_place (rewrite_exprstmts_stmt_  ~recurse:recurse parent_opt exclude_stmt selector rewriter)
 
-        and rewrite_exprstmts_component_item_ parent_opt exclude_stmt selector rewriter place citem = 
+        and rewrite_exprstmts_component_item_ ?(recurse=false) parent_opt exclude_stmt selector rewriter place citem = 
         match citem with
         | Method m ->[Method { m with
         value = {
-            m.value with body = rewrite_exprstmts_custom_method0_body rewrite_exprstmts_stmt parent_opt exclude_stmt selector rewriter m.value.body
+            m.value with body = rewrite_exprstmts_custom_method0_body (rewrite_exprstmts_stmt  ~recurse:recurse) parent_opt exclude_stmt selector rewriter m.value.body
         }
         }]
-        | Term t -> List.map (function t -> Term t) (rewrite_exprstmts_term parent_opt exclude_stmt selector rewriter t)
+        | Term t -> List.map (function t -> Term t) (rewrite_exprstmts_term  ~recurse:recurse parent_opt exclude_stmt selector rewriter t)
         (* citem without statement *)
         | Contract _ | Include _ | Inport _ | Eport _ | Outport _ | State _ -> [citem]
-        and rewrite_exprstmts_component_item parent_opt exclude_stmt selector rewriter = map_places (transparent_plgannots(rewrite_exprstmts_component_item_ parent_opt exclude_stmt selector rewriter)) 
+        and rewrite_exprstmts_component_item ?(recurse=false) parent_opt exclude_stmt selector rewriter = map_places (transparent_plgannots(rewrite_exprstmts_component_item_  ~recurse:recurse parent_opt exclude_stmt selector rewriter)) 
 
-        and rewrite_exprstmts_class_item_ parent_opt exclude_stmt selector rewriter place citem = 
+        and rewrite_exprstmts_class_item_ ?(recurse=false) parent_opt exclude_stmt selector rewriter place citem = 
         match citem with
         | CLMethod m ->[CLMethod { m with
         value = {
-            m.value with body = rewrite_exprstmts_custom_method0_body rewrite_exprstmts_stmt parent_opt exclude_stmt selector rewriter m.value.body
+            m.value with body = rewrite_exprstmts_custom_method0_body (rewrite_exprstmts_stmt  ~recurse:recurse) parent_opt exclude_stmt selector rewriter m.value.body
         }
         }]
         (* citem without statement *)
         | CLState _ -> [citem]
-        and rewrite_exprstmts_class_item parent_opt exclude_stmt selector rewriter = map_places (transparent_plgannots(rewrite_exprstmts_class_item_ parent_opt exclude_stmt selector rewriter)) 
+        and rewrite_exprstmts_class_item ?(recurse=false) parent_opt exclude_stmt selector rewriter = map_places (transparent_plgannots(rewrite_exprstmts_class_item_ ~recurse:recurse parent_opt exclude_stmt selector rewriter)) 
 
 
-        and rewrite_exprstmts_component_dcl_ parent_opt  exclude_stmt selector rewriter place = function
+        and rewrite_exprstmts_component_dcl_ ?(recurse=false) parent_opt  exclude_stmt selector rewriter place = function
         | ComponentStructure cdcl -> 
             let parent_opt = Some cdcl.name in
             ComponentStructure {
             cdcl with 
-                body = List.flatten (List.map (rewrite_exprstmts_component_item parent_opt exclude_stmt selector rewriter) cdcl.body)
+                body = List.flatten (List.map (rewrite_exprstmts_component_item  ~recurse:recurse parent_opt exclude_stmt selector rewriter) cdcl.body)
         }
-        and rewrite_exprstmts_component_dcl parent_opt  exclude_stmt selector rewriter = map_place (rewrite_exprstmts_component_dcl_ parent_opt  exclude_stmt selector rewriter)
+        and rewrite_exprstmts_component_dcl ?(recurse=false)parent_opt  exclude_stmt selector rewriter = map_place (rewrite_exprstmts_component_dcl_  ~recurse:recurse parent_opt  exclude_stmt selector rewriter)
 
-        and rewrite_exprstmts_class_dcl parent_opt  exclude_stmt selector rewriter (cl:class_structure) =
+        and rewrite_exprstmts_class_dcl ?(recurse=false) parent_opt  exclude_stmt selector rewriter (cl:class_structure) =
             let parent_opt = Some cl.name in
             {
                 cl with 
-                    body = List.flatten (List.map (rewrite_exprstmts_class_item parent_opt exclude_stmt selector rewriter) cl.body)
+                    body = List.flatten (List.map (rewrite_exprstmts_class_item  ~recurse:recurse parent_opt exclude_stmt selector rewriter) cl.body)
             }
 
-        and rewrite_exprstmts_term_ (parent_opt:component_variable option) exclude_stmt selector rewriter place t =  
+        and rewrite_exprstmts_term_ ?(recurse=false) (parent_opt:component_variable option) exclude_stmt selector rewriter place t =  
         match t with
-        | Component cdcl -> [Component (rewrite_exprstmts_component_dcl parent_opt exclude_stmt selector rewriter cdcl)]
-        | Class cl -> [Class (rewrite_exprstmts_class_dcl parent_opt exclude_stmt selector rewriter cl)]
+        | Component cdcl -> [Component (rewrite_exprstmts_component_dcl ~recurse:recurse parent_opt exclude_stmt selector rewriter cdcl)]
+        | Class cl -> [Class (rewrite_exprstmts_class_dcl parent_opt exclude_stmt  ~recurse:recurse selector rewriter cl)]
         | Function fdcl -> [Function { fdcl with
             value = {
-                fdcl.value with body = rewrite_exprstmts_custom_method0_body rewrite_exprstmts_stmt parent_opt  exclude_stmt selector rewriter fdcl.value.body
+                fdcl.value with body = rewrite_exprstmts_custom_method0_body (rewrite_exprstmts_stmt  ~recurse:recurse) parent_opt  exclude_stmt selector rewriter fdcl.value.body
             }
         }]
-        | Stmt stmt -> List.map (function stmt -> Stmt stmt) (rewrite_exprstmts_stmt parent_opt  exclude_stmt selector rewriter stmt)
+        | Stmt stmt -> List.map (function stmt -> Stmt stmt) (rewrite_exprstmts_stmt  ~recurse:recurse parent_opt  exclude_stmt selector rewriter stmt)
 
         (* Term without statement*)
         | EmptyTerm | Comments _ | Typealias _ | Typedef _ | Derive _ | BBTerm _ -> [t]
-        and rewrite_exprstmts_term parent_opt exclude_stmt selector rewriter = map_places (transparent_plgannots(rewrite_exprstmts_term_  parent_opt exclude_stmt selector rewriter))
+        and rewrite_exprstmts_term ?(recurse=false) parent_opt exclude_stmt selector rewriter = map_places (transparent_plgannots(rewrite_exprstmts_term_  ~recurse:recurse parent_opt exclude_stmt selector rewriter))
 
-        and rewrite_exprstmts_program exclude_stmt selector rewriter program =
-            List.flatten (List.map (rewrite_exprstmts_term None exclude_stmt selector rewriter) program)
+        and rewrite_exprstmts_program ?(recurse=false) exclude_stmt selector rewriter program =
+            List.flatten (List.map (rewrite_exprstmts_term ~recurse:recurse None exclude_stmt selector rewriter) program)
 
         (**********************************************************************)
 

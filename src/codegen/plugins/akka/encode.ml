@@ -484,14 +484,6 @@ let encode_builtin_fct_2 parent_opt place name a b =
             e2_e (T.AccessExpr(a, e2_e(T.RawExpr "complete"))),
             [ b]
         )
-    | "wait_future" -> 
-        T.CallExpr(
-            e2_e (T.AccessExpr(a, e2_e(T.RawExpr "get"))),
-            [
-                b;
-                e2_e (T.RawExpr "TimeUnit.MILLISECONDS")
-            ]
-        )
     | _ -> Error.perror place "%s takes two arguments" name
 
 let encode_builtin_fct_3 parent_opt place name a b c =
@@ -562,6 +554,7 @@ let encode_builtin_fct_3 parent_opt place name a b c =
 let is_stmt_builtin = function
 | "sleep" -> true
 | "exit" -> true
+| "wait_future" -> true
 | _ -> false
 
 let encode_builtin_fct parent_opt place name (args:T.expr list) =
@@ -569,7 +562,7 @@ let encode_builtin_fct parent_opt place name (args:T.expr list) =
     let auto_place t = {place; value=t} in 
     match name with
     (* TODO Remove string and used typed constructor in order to ensure that this file is uptodate with the Builtin.builtin_fcts*)
-    | name when is_stmt_builtin name-> Error.perror place "In Akka, sleep must be convertible to a statement"
+    | name when is_stmt_builtin name-> Error.perror place "In Akka, %s must be convertible to a statement" name
     | _ -> begin
         match args with
         | [] -> encode_builtin_fct_0 parent_opt place name 
@@ -580,7 +573,7 @@ let encode_builtin_fct parent_opt place name (args:T.expr list) =
     end
 
 
-let encode_builtin_fct_as_stmt place name (args:T.expr list) =
+let encode_builtin_fct_as_stmt with_return place name (args:T.expr list) =
     assert(Builtin.is_builtin_expr name);
     let auto_place t = {place; value=t} in 
     match name with
@@ -623,6 +616,46 @@ let encode_builtin_fct_as_stmt place name (args:T.expr list) =
                 ]
             )
         | _ -> Error.perror place "print must take one argument" 
+    end
+    | "wait_future" -> begin
+        match args with
+        | [ f; timeout ] -> 
+
+            let e = Atom.fresh "e" in
+            let inner = e2_e ( T.CallExpr(
+                        e2_e (T.AccessExpr(f, e2_e(T.RawExpr "get"))),
+                        [
+                            timeout;
+                            e2_e (T.RawExpr "TimeUnit.MILLISECONDS")
+                        ]
+                    )) in
+            let core = T.TryStmt(
+                (
+                    if with_return then 
+                        auto_fplace (T.ReturnStmt inner)
+                    else
+                        auto_place(T.ExpressionStmt inner)
+                ),
+                [
+                    (
+                        auto_place(T.Atomic "Exception"), 
+                        e, 
+                        auto_place(T.ExpressionStmt(e2_e (
+                            T.CallExpr(
+                                e2_e (T.RawExpr "System.out.println"),
+                                [e2var e]
+                            ))))
+                    );
+                ]
+            ) in
+
+            if with_return then
+                T.BlockStmt [
+                    auto_fplace core;
+                    auto_fplace (T.ReturnStmt (e2_e (T.RawExpr "null")));
+                ]
+            else core
+        | _ -> Error.perror place "wait_future must take two arguments" 
     end
 let encode_list place es = 
     let auto_place smth = {place; value=smth} in

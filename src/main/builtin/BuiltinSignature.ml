@@ -641,6 +641,9 @@ let t_wait_future () =
         mtype_of_ct(TFuture(mtype_of_ft TWildcard)),
         mtype_of_ct(TArrow(
             mtype_of_ft TInt,
-            mtype_of_ft TWildcard
+            mtype_of_ct (TResult (
+                mtype_of_st STWildcard,
+                builtin_mt_error
+            ))
         ))
     ))

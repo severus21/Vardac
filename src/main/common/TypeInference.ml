@@ -131,7 +131,8 @@ module Make () = struct
     | UnpackOrPropagateResult, CType{value=TResult (ok,err)} -> ok
     (* TODO what if TForall TForall ... TForall TResult .. ??*)
     | UnpackOrPropagateResult, CType{value=TForall (x, {value=CType {value=TResult (ok, err)};})} -> ok 
-    | UnpackOrPropagateResult, t -> Error.perror mt_e.place "this expression is not a result, it can not be unpacked or propagated %s" (show__main_type t)
+    | UnpackOrPropagateResult, t -> 
+        Error.perror mt_e.place "this expression is not a result, it can not be unpacked or propagated %s" (show__main_type t)
 
     let typeof_binop place op mt_e1 mt_e2 = 
         let fplace = (Error.forge_place "TypeInference.typeof_literal" 0 0) in
@@ -155,7 +156,7 @@ module Make () = struct
         match op with
         | Plus -> of_tflat TStr
     end
-    | binop, _, _ -> Error.perror place "%s" (show_binop binop)
+    | binop, _, _ -> Error.perror place "unknown type for binop: %s" (show_binop binop)
 
 
     let typeof_block b (mts:main_type list) = 
@@ -595,6 +596,7 @@ module Make () = struct
             | LitExpr l -> LitExpr l, typeof_literal l.value
             | UnopExpr (op, e) -> 
                 let e = tannot_expr parent_opt e in
+                logger#error "%s" (show_expr e);
                 UnopExpr (op, e), typeof_unop op (snd e.value) 
             | CallExpr (e, es) -> 
                 let e = tannot_expr parent_opt e in
