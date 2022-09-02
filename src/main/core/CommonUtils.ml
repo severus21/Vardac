@@ -906,6 +906,8 @@ function
     | STInline x -> STInline x 
     | STPolyVar x -> STPolyVar x 
     | STDual st -> STDual (rewrite_stype st)
+    | STBottom -> STBottom
+    | STWildcard -> STWildcard
 and rewrite_type_stype selector rewriter = map_place (_rewrite_type_stype selector rewriter)
 
 and _rewrite_type_structtype selector rewriter place = function
@@ -968,6 +970,7 @@ and _rewrite_type_expr selector rewriter place (e, mt) =
                 rewrite_expr e1, rewrite_expr e2    
             ) ees
         )
+        | RawExpr _ as e -> e
     in
     e, rewrite_mtype mt
 and rewrite_type_expr selector rewriter = map_place (_rewrite_type_expr selector rewriter)

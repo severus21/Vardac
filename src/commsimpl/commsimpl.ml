@@ -1,8 +1,11 @@
+module Utils = Utils
+
 open Core
 open AstUtils
 open IR
 open Easy_logging
- 
+
+
 module Make () = struct
     let logger = Core.Utils.make_log_of "CommSimpl"
     (***************************************************)

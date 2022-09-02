@@ -1927,7 +1927,6 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
     (*****************************************************)
     module RtPrepare = Core.IRICompilationPass.Make(Rt.Prepare.Make())
-    module RtFutureElim = Core.IRICompilationPass.Make(Rt.FutureElim.Make())
 
 
     type plgstate = Rt.Finish.collected_state
@@ -1974,7 +1973,6 @@ module Make (Arg: Plugin.CgArgSig) = struct
 
         let program = ir_program
             |> RtPrepare.apply
-            |> RtFuture.apply
             |> RtFinish.apply
         in
         let program = program @ interface_program in

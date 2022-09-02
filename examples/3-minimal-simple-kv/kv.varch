@@ -96,7 +96,7 @@ component Client {
         (*assert(receive(s, this.b)._0);*) //TODO assert do not exit
     }
 
-    result<void, error> _api_put(string k, int v){
+    (*result<void, error> _api_put(string k, int v){
         return this.put(key(k), value(v));
     }
 
@@ -104,7 +104,6 @@ component Client {
         this._api_put(k, v);
         return true;
     }
-
 
     result<value, error> _api_get(string k){
         return this.get(key(k));
@@ -118,7 +117,7 @@ component Client {
         } else {
             return "Error";
         }
-    }
+    }*)
 }
 component TopLevel {
     onstartup () {

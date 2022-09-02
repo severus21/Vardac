@@ -180,7 +180,7 @@ module Make () = struct
         | Inport _ -> true
         | _ -> false
         in
-        let inport_rewritor _ = function
+        let inport_rewritor _ _ = function
         | Inport p as t -> 
             logger#debug "inport auto-boxing %s" (Atom.to_string (fst p.value).name);
             let t_msg, st_continuation = IRMisc.msgcont_of_st (match (fst p.value).expecting_st.value with | SType st -> st) in

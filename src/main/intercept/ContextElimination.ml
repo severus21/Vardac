@@ -997,7 +997,7 @@ module Make () = struct
             | Method m -> Hashtbl.mem to_specialized_defined_policy m.value.name
             | _ -> false
         in
-        let policy_rewriter place = function
+        let policy_rewriter _ place = function
             | Method m -> begin
                 let specialized_ms = List.map 
                     (function (interceptor_name, specialized_policy_name) ->

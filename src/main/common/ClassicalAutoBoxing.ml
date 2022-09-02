@@ -32,7 +32,7 @@ module Make () = struct
             body    = Some {value=_, {value=CType{value= TFlatType TInt}}}}} -> true
         | _ -> false
         in
-        let citem_rewriter place = function
+        let citem_rewriter _ place = function
         | State ({value={
             type0   = {value=CType {value = TFlatType TLong}};
             body    = Some ({value=_, {value=CType{value= TFlatType TInt}}} as e)}} as s) ->

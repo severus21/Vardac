@@ -212,6 +212,14 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                         auto_fplace (ReturnStmt (auto_fplace(RawExpr "null", auto_fplace (TAtomic "null"))))
                     ]
                 )
+            | Some {value=ClassOrInterfaceType({value=TAtomic "Either"}, [t_left; {value=TAtomic "UUID"}])} ->
+                if ends_by_return m0.body then
+                    m0.body
+                else ( 
+                    m0.body @ [
+                        auto_fplace (ReturnStmt (auto_fplace(RawExpr "null", auto_fplace (TAtomic "null"))))
+                    ]
+                )
             | Some {value=ClassOrInterfaceType({value=TAtomic "Either"}, [t_left; {value=TAtomic "Void"}])} ->
                 if ends_by_return m0.body then
                     m0.body

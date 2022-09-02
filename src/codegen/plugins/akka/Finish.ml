@@ -53,6 +53,8 @@ module Make (Arg: sig val target:Target.target end) = struct
     let logger = make_log_of plg_name
 
     module GuardTransform = GuardTransform.Make()
+    module FutureElim0 = FutureElim.Make()
+    module FutureElim = Core.IRICompilationPass.Make(FutureElim0)
 
     (* Use to remove type alias introduced by *.impl. Varda type aliasing have been compiled away during UntypedCleansing pass *)
     let typealias = Hashtbl.create 32
@@ -1596,6 +1598,43 @@ module Make (Arg: sig val target:Target.target end) = struct
                 []
             ), auto_place T.TUnknown} in
 
+
+            let add_on_result_received acc intermediate_futures = 
+                T_A2.e2_e (T.AccessExpr(
+                    acc, 
+                    T_A2.e2_e (T.CallExpr (
+                        T_A2.e2var (Atom.builtin "onMessage"),
+                        [
+
+                            {place; value=T.ClassOf (auto_place (T.TVar (Atom.builtin "ResolvedResult"))), auto_place T.TUnknown};
+                            e2_e (T.LambdaExpr (
+                                [
+                                    auto_place T.TUnknown, l_event_name 
+                                ],
+                                auto_place(T.BlockStmt [
+                                    auto_place(T.ExpressionStmt(e2_e(T.CallExpr(
+                                        e2var (Atom.builtin "onResolvedResult"),
+                                        [
+                                            e_get_context fplace;
+                                            e2_e(T.AccessExpr (
+                                                e2_e T.This, 
+                                                e2var intermediate_futures
+                                            ));
+                                            l_event
+                                        ]
+                                    ))));
+                                    auto_place(T.ReturnStmt(
+                                        e_behaviors_same fplace
+                                    ))
+                                ])
+                            ))
+
+                        ]
+                    ))
+                ))
+            in
+
+
             let add_timer_case acc (event_name, handler) =
                 {place; value=T.AccessExpr(
                     acc, 
@@ -1629,12 +1668,18 @@ module Make (Arg: sig val target:Target.target end) = struct
                     ), auto_place T.TUnknown}
                 ), auto_place T.TUnknown}
             in
+
             let init_receiver_expr = List.fold_left add_timer_case init_receiver_expr [
                 "HBSessionTimer", "Handlers.onHBTimer";
                 "LBSessionTimer", "Handlers.onLBTimer";
                 "SessionIsDead", "Handlers.onSessionIsDead";
                 "AckDeadSession", "Handlers.onAckDeadSession";
             ] in
+            let init_receiver_expr = 
+                match Hashtbl.find_opt FutureElim0.intermediate_futures_tbl name with
+                | Some intermediate_futures -> add_on_result_received init_receiver_expr intermediate_futures
+                | _ -> init_receiver_expr
+            in
 
             let add_external_case event_name (port:S.eport) (acc, acc_methods) =
                 let _m_name = Atom.fresh "external_event_dispatcher" in
@@ -2185,6 +2230,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         let terms =     
             program
             |> GuardTransform.gtransform_program
+            |> FutureElim.apply
             |> function terms -> List.flatten (List.rev(List.map (fterm (None,None)) terms))
         in
         

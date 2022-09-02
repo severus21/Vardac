@@ -523,8 +523,9 @@ module Make (Params : IRParams) = struct
             stmt list * (_expr * main_type)) ->
             term list -> term list
 
-        val rewrite_citem_program : (_component_item -> bool) ->
-            (Error.place ->
+        val rewrite_citem_program : 
+            (_component_item -> bool) ->
+            (Atom.atom option -> Error.place ->
             _component_item -> _component_item list) ->
             term list -> term list
 
@@ -1417,6 +1418,7 @@ module Make (Params : IRParams) = struct
             ) 
 
         | Derive derive -> Derive { derive with eargs = List.map (rewrite_type_expr selector rewriter) derive.eargs}
+        | BBTerm _ as t -> t
         and rewrite_type_term selector rewriter = map_place (transparent_plgannot(rewrite_type_term_ selector rewriter)) 
         and rewrite_type_program selector rewriter (program : program) : program = List.map (rewrite_type_term selector rewriter) program
 
@@ -1584,23 +1586,23 @@ module Make (Params : IRParams) = struct
         and rewrite_term_program ?(nested_rewrite=true) (selector : _term -> bool) (rewriter : Atom.atom option -> Error.place -> _term -> _term list) program = List.flatten (List.map (rewrite_term_term ~nested_rewrite:nested_rewrite None selector rewriter) program )
 
         (******************************************)
-        let rec rewrite_citem_component_item_  selector rewriter place = function 
-        | t when selector t -> rewriter place t
-        | Term t -> List.map (function x -> Term x) (rewrite_citem_term selector rewriter t)
+        let rec rewrite_citem_component_item_ parent_opt selector rewriter place = function 
+        | t when selector t -> rewriter parent_opt place t
+        | Term t -> List.map (function x -> Term x) (rewrite_citem_term parent_opt selector rewriter t)
         | citem -> [citem]
-        and rewrite_citem_component_item selector rewriter = map_places (transparent_plgannots(rewrite_citem_component_item_ selector rewriter))
+        and rewrite_citem_component_item parent_opt selector rewriter = map_places (transparent_plgannots(rewrite_citem_component_item_ parent_opt selector rewriter))
 
-        and rewrite_citem_component_dcl_  selector rewriter place = function 
-        | ComponentStructure cdcl -> ComponentStructure { cdcl with body = List.flatten (List.map (rewrite_citem_component_item selector rewriter) cdcl.body)}
+        and rewrite_citem_component_dcl_ parent_opt selector rewriter place = function 
+        | ComponentStructure cdcl -> ComponentStructure { cdcl with body = List.flatten (List.map (rewrite_citem_component_item (Some cdcl.name) selector rewriter) cdcl.body)}
         | x -> x
-        and rewrite_citem_component_dcl selector rewriter = map_place (rewrite_citem_component_dcl_ selector rewriter) 
+        and rewrite_citem_component_dcl parent_opt selector rewriter = map_place (rewrite_citem_component_dcl_ parent_opt selector rewriter) 
 
-        and rewrite_citem_term_ selector rewriter place = function 
-        | Component cdcl -> [Component (rewrite_citem_component_dcl selector rewriter cdcl)]
+        and rewrite_citem_term_ parent_opt selector rewriter place = function 
+        | Component cdcl -> [Component (rewrite_citem_component_dcl parent_opt selector rewriter cdcl)]
         | t -> [ t ]
-        and rewrite_citem_term selector rewriter = map_places (transparent_plgannots(rewrite_citem_term_ selector rewriter))
+        and rewrite_citem_term parent_opt selector rewriter = map_places (transparent_plgannots(rewrite_citem_term_ parent_opt selector rewriter))
 
-        and rewrite_citem_program (selector : _component_item -> bool) (rewriter : Error.place -> _component_item -> _component_item list) program = List.flatten (List.map (rewrite_citem_term selector rewriter) program )
+        and rewrite_citem_program (selector : _component_item -> bool) (rewriter : Atom.atom option -> Error.place -> _component_item -> _component_item list) program = List.flatten (List.map (rewrite_citem_term None selector rewriter) program )
 
         let rewrite_component_program (selector : component_structure -> bool) (rewriter : Atom.atom option -> Error.place -> component_structure -> component_structure list) program : term list = 
             let selector_t = function
@@ -1962,7 +1964,8 @@ module Make (Params : IRParams) = struct
         | Stmt stmt -> List.map (function stmt -> Stmt stmt) (rewrite_stmt_stmt  recurse parent_opt selector rewriter stmt)
 
         (* Term without statement*)
-        | EmptyTerm | Comments _ | Typealias _ | Typedef _ | Derive _ -> [t]
+        | EmptyTerm | Comments _ | Typealias _ | Typedef _ | Derive _ | BBTerm _-> [t]
+        | x -> failwith (show__term x) 
         and rewrite_stmt_term recurse parent_opt selector rewriter = map_places (transparent_plgannots(rewrite_stmt_term_ recurse parent_opt selector rewriter))
 
         and rewrite_stmt_program recurse selector rewriter program =
