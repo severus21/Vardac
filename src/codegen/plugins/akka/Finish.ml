@@ -488,6 +488,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         | S.AccessExpr (e1, {value=S.VarExpr x, _}) when Atom.is_builtin x -> Encode.encode_builtin_access place (fexpr parent_opt e1) (Atom.value x)
         | S.AccessExpr (e1, e2) -> T.AccessExpr (fexpr parent_opt e1, fexpr parent_opt e2)
         | S.BinopExpr (t1, op, t2) -> T.BinopExpr (fexpr parent_opt t1, fbinop op, fexpr parent_opt t2)
+        | S.CastExpr (mt, e) -> T.CastExpr (fmtype parent_opt mt, fexpr parent_opt e)
         | S.LambdaExpr (params, e) -> 
             T.LambdaExpr (
                 List.map (map0_place (fun _ (mt, x) -> fmtype parent_opt mt, x)) params,
@@ -1613,7 +1614,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                                 ],
                                 auto_place(T.BlockStmt [
                                     auto_place(T.ExpressionStmt(e2_e(T.CallExpr(
-                                        e2var (Atom.builtin "onResolvedResult"),
+                                        e2var (Atom.builtin "ResolvedResult.onResolvedResult"),
                                         [
                                             e_get_context fplace;
                                             e2_e(T.AccessExpr (

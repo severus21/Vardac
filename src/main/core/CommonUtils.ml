@@ -27,6 +27,10 @@ let rec collect_expr_expr_ parent_opt (already_binded:Atom.Set.t) selector colle
         let _, collected_elts2, fvars2 = collect_expr_expr parent_opt inner_already_binded selector collector e in
 
         already_binded, collected_elts0@collected_elts1@collected_elts2, fvars1@fvars2
+    | CastExpr (mt, e) -> 
+        let _, collected_elts1, fvars1 = collect_expr_mtype parent_opt already_binded selector collector mt in
+        let _, collected_elts2, fvars2 = collect_expr_expr parent_opt already_binded selector collector e in
+        already_binded, collected_elts0@collected_elts1@collected_elts2, fvars1@fvars2
     | (VarExpr x) | (ImplicitVarExpr x) when Atom.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, [] 
     | (VarExpr x) | (ImplicitVarExpr x) when Atom.is_builtin x -> already_binded, collected_elts0, [] 
     | (VarExpr x) | (ImplicitVarExpr x)-> already_binded, collected_elts0, [mt, x]
@@ -940,6 +944,7 @@ and _rewrite_type_expr selector rewriter place (e, mt) =
         | (VarExpr _ as e) | (ImplicitVarExpr _ as e) | (LitExpr _ as e) | (This as e) | (Self as e) | (BridgeCall _ as e) -> e
         | ActivationAccessExpr (x, e, y) -> ActivationAccessExpr (x, e, y)
         | AccessExpr (e1, e2) -> AccessExpr (rewrite_expr e1, rewrite_expr e2)
+        | CastExpr  (mt, e) -> CastExpr(rewrite_mtype mt, rewrite_expr e)
         | BinopExpr (e1, op, e2) -> BinopExpr (rewrite_expr e1, op, rewrite_expr e2)
         | TernaryExpr (e1, e2, e3) -> TernaryExpr (rewrite_expr e1,  rewrite_expr e2, rewrite_expr e3)
         | LambdaExpr (params, e) -> 

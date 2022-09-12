@@ -1,0 +1,68 @@
+event value of int;
+
+(*** Test 1 ***)
+protocol p = !value?value.;
+component Mock {
+    outport p_out expecting (inline p);
+
+    onstartup (bridge<Mock, Dummy, inline p> _b, activation_ref<Dummy> d){
+        debug("Test1> Start Mock");
+        bind(this.p_out, _b);
+
+        this.run(d);
+    }
+
+    result<void, error> run(activation_ref<Dummy> d){
+        int k = 40;
+        result<int,error> tt = this.aux(d); (* FIXME NB can use propagate with async .... *)
+        int i = get_ok(tt);
+        int j = i + k;
+        print("return i");
+    }
+
+
+    (* TODO 
+    contract aux 
+    returns is_ok *)
+
+    result<int, error> aux(activation_ref<Dummy> d){
+        session<p> s0 = initiate_session_with(this.p_out, d);
+
+        debug("Test1> Send 1");
+        ?value. s1 = fire(s0, value(1))?;
+        tuple<int, .> tmp = receive(s1);
+
+        return ok(1);
+    }
+}
+
+(* TODO test non determinism *)
+
+component Dummy {
+
+    onstartup (bridge<Mock, Dummy, inline p> _b){
+        debug("Test1> Start Dummy");
+        bind(this.p_in, _b);
+    }
+
+    inport p_in :: bridge<Mock, Dummy, inline p> expecting ?value!value. = this.callback;
+
+    result<void, error> callback(value x, !value. s){
+        debug("Test1> Receive 1");
+        fire(s, value(2));
+    }
+
+}
+
+
+component TopLevel {
+    onstartup () {
+        print(">> Entering toplevel");
+
+        bridge<Mock, Dummy, inline p> b0 = bridge(p);
+        activation_ref<Dummy> a = spawn Dummy(b0);
+        activation_ref<Mock> b = spawn Mock(b0, a);  
+
+        print(">> Ending toplevel");
+    }
+}

@@ -107,8 +107,4 @@ public class Handlers {
 
         return true;
     }
-
-    public static void onResolvedResult(ActorContext context, Map<UUID, Function<?, Void>> intermediate_futures, ResolvedResult rres){
-        intermediate_futures.get(rres.id).apply(rres.value);
-    }
 }

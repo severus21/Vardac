@@ -1671,6 +1671,9 @@ module Make (Params : IRParams) = struct
                 let stmts1, e1 = rewrite_exprstmts_expr e1 in
                 let stmts2, e2 = rewrite_exprstmts_expr e2 in
                 stmts1@stmts2, (AccessExpr (e1, e2), mt_e)
+            | CastExpr (mt, e) ->
+                let stmts, e = rewrite_exprstmts_expr e in
+                stmts, (CastExpr (mt, e), mt_e)
             | BinopExpr (e1, op, e2) ->
                 let stmts1, e1 = rewrite_exprstmts_expr e1 in
                 let stmts2, e2 = rewrite_exprstmts_expr e2 in

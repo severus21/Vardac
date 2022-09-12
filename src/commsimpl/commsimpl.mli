@@ -10,6 +10,5 @@ module Make : functor () -> sig
     include IRCompilationPass.Pass
 end
 
-module Utils : sig  
-    val compute_intermediate_args : stmt list -> Atom.atom option -> (main_type * Atom.atom) list
-end
+val compute_intermediate_args : stmt list -> Atom.atom option -> (main_type * Atom.atom) list
+val to_X_form : string -> Error.place -> _stmt -> stmt list

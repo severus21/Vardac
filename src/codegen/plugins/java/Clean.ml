@@ -234,7 +234,7 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                 if ends_by_return m0.body then
                     m0.body
                 else ( 
-                    let f = Atom.fresh "ret_future" in
+                    let f = Atom.fresh "ret_ffuture" in
 
                     m0.body @ [
                         (* create the future *)

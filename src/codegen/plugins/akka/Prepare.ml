@@ -43,7 +43,7 @@ module Make () = struct
                 e': Either.get tmp
 
             *)
-            let tmp = Atom.fresh "tmp" in
+            let tmp = Atom.fresh "tmp_porpagate" in
             let store = auto_fplace (LetStmt(
                 snd e.value,
                 tmp,
@@ -68,7 +68,7 @@ module Make () = struct
                             Some ( 
                                 e2_e (CallExpr(
                                     e2_e (AccessExpr(
-                                        e2var tmp,
+                                        {place=e.place@fplace; value = (VarExpr tmp, mt_op)},
                                         e2var (Atom.builtin "getLeft")
                                     )),
                                     [ ]
@@ -82,7 +82,7 @@ module Make () = struct
             let unpacked_e = 
                 (CallExpr(
                     e2_e(AccessExpr(
-                        e2var tmp,
+                        {place=e.place@fplace; value = (VarExpr tmp, mt_op)},
                         e2var (Atom.builtin "get")
                     )),
                     [ ]
@@ -260,7 +260,7 @@ module Make () = struct
         IRUtils.collect_expr_program Atom.Set.empty selector_unpack_or_propagate (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrPropagateResult remains after Akka.prepare"))) program;
         program
 
-    let apply_program program =
+    let apply_program program : program =
         program
         |> elim_unpack_or_propagate 
         |> elim_self_this

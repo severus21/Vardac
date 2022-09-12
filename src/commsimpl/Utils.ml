@@ -5,6 +5,51 @@ open Utils
 open AstUtils
 open IRMisc
 
+(* rcev -> toplevel let or toplevel expression statement (return etc ...) or nested let .. =recv in block (if, ..)*)
+    let rec to_X_form token place stmt : stmt list =
+        let fplace = (Error.forge_place "Core.Rewrite.to_X_form" 0 0) in
+        let auto_place smth = {place = place; value=smth} in
+        let auto_fplace smth = {place = fplace; value=smth} in
+
+        (* 
+            extract_recv "f(s.recv(...))"
+            =>
+            [ "fresh_name = s.recv(...)"], "f(fresh_name)"
+        *)
+        let recv_selector = function
+            | (CallExpr ({value=(VarExpr x, _)}, _)) when Atom.is_builtin x && Atom.hint x = token -> true
+            | _ -> false
+        in
+        let recv_rewriter parent_opt mt_e = function
+            | (CallExpr ({value=(VarExpr x, _)}, _) as e) when Atom.is_builtin x && Atom.hint x = token ->
+                begin
+                    match mt_e.value with
+                    | CType {value=TTuple [_; {value=SType _}]} -> ()
+                    | _ -> raise (Error.PlacedDeadbranchError (mt_e.place, Printf.sprintf "to_X_form: type of the %s() is incorrect\n%s\n it should match the following pattern\nCType {value=TTuple [_; {value=SType _}]}" token (show_main_type mt_e)))
+                end;
+
+                logger#warning ">>>> extract_%s -> detect %s %s" token token (Error.show place);
+                let tmp = Atom.fresh (Printf.sprintf "tmp_%s" token) in
+                let recv = auto_place (e, mt_e) in 
+                [
+                    auto_fplace (LetStmt (
+                        mt_e,
+                        tmp, 
+                        recv)
+                    );
+                ], (VarExpr tmp, mt_e )
+        in
+
+        let stmt_exclude = function
+        | LetStmt (_, _, {value=(CallExpr ({value=(VarExpr x, _)}, _),_) as e}) as stmt  when Atom.is_builtin x && Atom.hint x = token ->
+            logger#warning ">>>> to_X_form -> detect %s" token;
+            true 
+        | _ -> false 
+        in
+
+        rewrite_exprstmts_stmt ~recurse:true None stmt_exclude recv_selector recv_rewriter {place; value=stmt}
+
+
 (*@param where res - name let res = receive*)
 let compute_intermediate_args remaining_stmts res_opt = 
     let _, intermediate_args = List.fold_left_map free_vars_stmt Atom.Set.empty remaining_stmts in

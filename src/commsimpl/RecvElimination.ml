@@ -74,49 +74,7 @@ module Make () : Sig = struct
         }
 
     (*******************************************************)
-    (* rcev -> toplevel let or toplevel expression statement (return etc ...) or nested let .. =recv in block (if, ..)*)
-    let rec to_X_form place stmt : stmt list =
-        let fplace = (Error.forge_place "Core.Rewrite.to_X_form" 0 0) in
-        let auto_place smth = {place = place; value=smth} in
-        let auto_fplace smth = {place = fplace; value=smth} in
-
-        (* 
-            extract_recv "f(s.recv(...))"
-            =>
-            [ "fresh_name = s.recv(...)"], "f(fresh_name)"
-        *)
-        let recv_selector = function
-        | (CallExpr ({value=(VarExpr x, _)}, [s])as e) when Atom.is_builtin x && Atom.hint x = "receive" -> true
-        | _ -> false
-        in
-        let recv_rewriter parent_opt mt_e = function
-        | (CallExpr ({value=(VarExpr x, _)}, [s]) as e) when Atom.is_builtin x && Atom.hint x = "receive" ->
-            begin
-                match mt_e.value with
-                | CType {value=TTuple [_; {value=SType _}]} -> ()
-                | _ -> raise (Error.PlacedDeadbranchError (mt_e.place, Printf.sprintf "to_X_form: type of the receive() is incorrect\n%s\n it should match the following pattern\nCType {value=TTuple [_; {value=SType _}]}" (show_main_type mt_e)))
-            end;
-
-            logger#warning ">>>> extract_recvs -> detect receive %s"(Error.show place);
-            let tmp = Atom.fresh "tmp_receive" in
-            let recv = auto_place (e, mt_e) in 
-            [
-                auto_fplace (LetStmt (
-                    mt_e,
-                    tmp, 
-                    recv)
-                );
-            ], (VarExpr tmp, mt_e )
-        in
-
-        let stmt_exclude = function
-        | LetStmt (_, _, {value=(CallExpr ({value=(VarExpr x, _)}, [s]),_) as e}) as stmt  when Atom.is_builtin x && Atom.hint x = "receive" ->
-            logger#warning ">>>> to_X_form -> detect receive";
-            true 
-        | _ -> false 
-        in
-
-        rewrite_exprstmts_stmt None stmt_exclude recv_selector recv_rewriter {place; value=stmt}
+    
 
     type method_info = ((expr_variable * main_type * main_type) option * expr option * _method0)
 
@@ -553,7 +511,7 @@ module Make () : Sig = struct
         let fplace = (Error.forge_place "Core.Rewrite.rewrite_method0" 0 0) in
         let auto_fplace smth = {place = fplace; value=smth} in
 
-        let stmts = List.flatten (List.map (function stmt -> to_X_form stmt.place stmt.value) m.body) in
+        let stmts = List.flatten (List.map (function stmt -> to_X_form "receive" stmt.place stmt.value) m.body) in
 
         let intermediate_states, receive_entries, intermediate_methods = split_body a_registered_sessions a_intermediate_futures (m.name, m.annotations) [] {m with body = []} stmts in
         let intermediate_methods = List.map auto_fplace intermediate_methods in

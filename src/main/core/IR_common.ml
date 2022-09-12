@@ -178,6 +178,7 @@ and _expr =
     | ActivationAccessExpr of component_variable * expr * expr_variable (* cname, e, x*)
     | AccessExpr of expr * expr (*e1.e2*)
     | BinopExpr of expr * binop * expr 
+    | CastExpr of main_type * expr
     | LambdaExpr of param list * expr 
     | LitExpr of literal
     | UnopExpr of unop * expr 
