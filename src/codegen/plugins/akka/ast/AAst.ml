@@ -12,7 +12,7 @@ and _ctype =
     | Atomic of string (*void, Void, int, float, ?, ..*)           
     | ActorRef of ctype
     | TActivationRef of ctype
-    | TFunction of ctype * ctype
+    | TArrow of ctype * ctype
     | TArray of ctype 
     | TFuture of ctype 
     | TList of ctype 

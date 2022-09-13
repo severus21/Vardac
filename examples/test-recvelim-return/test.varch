@@ -19,10 +19,6 @@ component Mock {
     }
 
 
-    (* TODO 
-    contract aux 
-    returns is_ok *)
-
     result<int, error> aux(activation_ref<Dummy> d){
         session<p> s0 = initiate_session_with(this.p_out, d);
 
@@ -32,6 +28,11 @@ component Mock {
 
         return ok(tmp._0);
     }
+
+    contract aux 
+    with int x=42
+    ensures is_ok(ok(1)) 
+    returns (res : result<int, error> -> (x == 42) && is_ok(res))
 }
 
 (* TODO test non determinism *)

@@ -585,6 +585,8 @@ module Make () = struct
                 let e1 = tannot_expr parent_opt e1 in
                 let e2_opt = Option.map (tannot_expr parent_opt) e2_opt in
                 InterceptedActivationRef(e1, e2_opt), snd e1.value 
+            | CastExpr (mt, e) -> 
+                CastExpr(mt, tannot_expr parent_opt e), mt
             | LambdaExpr (params, e) -> 
                 logger#debug "lambda registration";
                 List.iter (map0_place (fun place (mt, x) -> register_expr_type x mt)) params;
@@ -909,8 +911,11 @@ module Make () = struct
             value = _p, mt_outport 
         }
 
+    (* Warning FIXME ERROR -> returns is annotated once more after eliminating receive -> change result type to void, however the contract type should remain the same .... -> TODO compile or erase contract before Akka passe *)
     and _tannot_contract parent_opt ret_type place (p:_contract) = 
-        List.iter (fun (mt, x, _) -> register_expr_type x mt) p.pre_binders;
+        List.iter (fun (mt, x, _) -> 
+            logger#error "contract with %s" (Atom.to_string x);
+            register_expr_type x mt) p.pre_binders;
 
         {
             method_name = p.method_name;

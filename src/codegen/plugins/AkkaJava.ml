@@ -997,7 +997,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             | S.ActorRef ct -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActorRef"), [fctype ct]) 
             | S.TActivationRef {value=S.TVar x} -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActivationRef"), [fctype (Rt.Misc.t_command_of_actor place x)])  
             | S.TActivationRef ct -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActivationRef"), [fctype ct]) 
-            | S.TFunction (t1, t2) -> T.ClassOrInterfaceType  ( auto_place (T.TAtomic "Function"), [fctype t1; fctype t2]) 
+            | S.TArrow (t1, t2) -> T.ClassOrInterfaceType  ( auto_place (T.TAtomic "Function"), [fctype t1; fctype t2]) 
             | S.TArray t1 -> T.ClassOrInterfaceType  (auto_place (T.TArray (fctype t1)), [])
             | S.TFuture t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "CompletableFuture"), [fctype t1])
             | S.TList t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "List"), [fctype t1])
@@ -1169,7 +1169,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                 *)
                 let t = Atom.fresh "t" in
 
-                let sign = fctype (auto_place (S.TFunction(
+                let sign = fctype (auto_place (S.TArrow(
                     snd e.value,
                     ct
                 ))) in

@@ -14,7 +14,7 @@ let receive_collector msg parent_opt env e =
     let parent = match parent_opt with | None -> "Toplevel" | Some p -> Atom.to_string p in
     Error.perror e.place "%s. Parent = %s" msg parent
 
-let show_receive_entries = [%derive.show: (Atom.atom * main_type * session_type * expr) list]
+let show_receive_entries = [%derive.show: (Atom.atom * main_type * session_type * expr * expr) list]
 
 (*
     input [x_1; ... ; x_n]
@@ -260,7 +260,7 @@ module Make () : Sig = struct
             [intermediate_state], m1, m2
 
 
-    let rec split_body a_registered_sessions a_intermediate_futures  (main_name, main_annotations) acc_stmts (next_method:_method0) : stmt list -> state list * (Atom.atom * main_type * session_type * expr) list * _method0 list =
+    let rec split_body a_registered_sessions a_intermediate_futures  (main_name, main_annotations) acc_stmts (next_method:_method0) : stmt list -> state list * (Atom.atom * main_type * session_type * expr * expr) list * _method0 list =
         let fplace = (Error.forge_place "Core.Rewrite.split_body" 0 0) in
         let auto_fplace smth = {place = fplace; value=smth} in
 
@@ -308,7 +308,7 @@ module Make () : Sig = struct
             let intermediate_states, current_method, next_method = rewrite_methodint a_registered_sessions current_method next_method (Some s) e_current_intermediate_port intermediate_args (let_x, t_msg, st_continuation) in
 
             (*** Creation of the intermediate ports ***)
-            let receive_entries = [(receive_id, t_msg, st_continuation, e2var next_method.name)] in
+            let receive_entries = [(receive_id, t_msg, st_continuation, e2var next_method.name, s)] in
 
 
             (*** Since we introduce intermediate let (even for same variable) we need to attribute fresh identities ***)
@@ -506,7 +506,7 @@ module Make () : Sig = struct
 
     let methods_with_continuations = Hashtbl.create 16
 
-    let rec rewrite_method0 a_registered_sessions a_intermediate_futures place (m:_method0) = 
+    let rec rewrite_method0 a_registered_sessions a_intermediate_futures a_intermediate_prebinders place (m:_method0) = 
         let fplace = (Error.forge_place "Core.Rewrite.rewrite_method0" 0 0) in
         let auto_fplace smth = {place = fplace; value=smth} in
 
@@ -664,10 +664,97 @@ module Make () : Sig = struct
             match top_method.value.contract_opt with
             | None -> top_method::methods
             | Some contract -> begin
-                if (contract.value.pre_binders <> []) then
-                    Error.perror contract.place "pre_binders are not yet supported with receive!";
 
                 let last_method::core_methods = List.rev methods in
+
+                let top_method, last_pre_binders, last_pre_binders_renaming = 
+                    if (contract.value.pre_binders <> [] && contract.value.returns <> None) then (
+                        (* Store pre_binders
+                        At the end of the top_method -> after session creation
+                        *)
+                        let s_top = match receive_entries with
+                            | [(_,_,_,_, s)] -> s
+                            | _ -> raise (Error.DeadbranchError "at least one receive entry")
+                        in
+                        let top_store_prebinders = e2_e(CallExpr(
+                            e2var (Atom.builtin "add2dict"),
+                            [ 
+                                e2_e(AccessExpr(
+                                    e2_e This,
+                                    e2var a_intermediate_prebinders
+                                ));
+                                e2_e (CallExpr( e2var (Atom.builtin "sessionid"), [s_top]));
+                                e2_e (BlockExpr(
+                                    List, 
+                                    List.map (function (_,_, e) -> 
+                                        e2_e (CastExpr(
+                                            mtype_of_ft TBottom,
+                                            e
+                                        ))    
+                                    ) contract.value.pre_binders
+                                ))
+                            ]
+                        )) in
+                        let top_method = {top_method with 
+                            value = { top_method.value with
+                                body = insert_in_stmts [stmt2e top_store_prebinders] top_method.value.body
+                        }} in
+
+                        let s_last = match last_method.value.args with
+                            | [_; {value=(_,s_last)}] -> s_last
+                            | _ -> raise (Error.DeadbranchError "wrong args for last_method")
+                        in
+
+                        (* Load pre_binders inside last_method contract 
+                            and garbage collect at the same time
+
+                            N.B rename binders since their ids are already used inside the top_method contract
+                        *)
+                        let renaming = 
+                            let to_rename = Atom.Set.of_list (List.map (function (_,x,_) -> x) contract.value.pre_binders) in
+                            let state = Hashtbl.create 16 in
+                        function x -> 
+                            match Atom.Set.find_opt x to_rename with
+                            | None -> x
+                            | Some _ -> begin
+                                match Hashtbl.find_opt state x with
+                                | Some y -> y
+                                | None -> 
+                                    let y = Atom.fresh (Atom.hint x) in
+                                    Hashtbl.add state x  y;
+                                    y
+                            end
+                        in
+
+                        let last_pre_binders  = 
+                            List.mapi (fun i (mt, x, _) ->
+                                let e = 
+                                    e2_e(CastExpr(
+                                        mt,
+                                        e2_e(CallExpr(
+                                            e2var (Atom.builtin "listget"),
+                                            [ 
+                                                e2_e(CallExpr(
+                                                    e2var (Atom.builtin "remove2dict"),
+                                                    [ 
+                                                        e2_e(AccessExpr(
+                                                            e2_e This,
+                                                            e2var a_intermediate_prebinders
+                                                        ));
+                                                        e2_e (CallExpr( e2var (Atom.builtin "sessionid"), [e2var s_last]));
+                                                    ]
+                                                ));
+                                                e2_lit (IntLit i)
+                                            ]
+                                        ))
+                                    ))
+                                in
+                                (mt, renaming x, e)
+                            ) contract.value.pre_binders in
+                        top_method, last_pre_binders, renaming 
+                    ) else
+                        top_method, [], Fun.id
+                in
 
                 let top_contract = match contract.value.ensures with
                 | None -> None 
@@ -689,9 +776,9 @@ module Make () : Sig = struct
                         place = fplace@contract.place;
                         value = {
                             method_name = last_method.value.name;
-                            pre_binders = []; (* TODO we need to propagate correctly the pre-binders using some component sate *)
+                            pre_binders = last_pre_binders;
                             ensures = None; 
-                            returns = Some predicate;
+                            returns = Some (rename_expr true last_pre_binders_renaming predicate);
                         }
                     }
                 in
@@ -704,10 +791,10 @@ module Make () : Sig = struct
         in
 
         receive_entries, intermediate_states, intermediate_methods
-    and rmethod0 a_registered_sessions a_intermediate_futures = map0_place (rewrite_method0 a_registered_sessions a_intermediate_futures)
+    and rmethod0 a_registered_sessions a_intermediate_futures a_intermediate_prebinders = map0_place (rewrite_method0 a_registered_sessions a_intermediate_futures a_intermediate_prebinders)
 
     (* return name of intermediate states * citems *)
-    and rewrite_component_item a_registered_sessions a_intermediate_futures place = 
+    and rewrite_component_item a_registered_sessions a_intermediate_futures a_intermediate_prebinders place = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
     let auto_place smth = {place = place; value=smth} in
     let auto_fplace smth = {place = fplace; value=smth} in
@@ -717,7 +804,7 @@ module Make () : Sig = struct
     | Contract _ as citem -> 
         ([], []), [auto_place (auto_plgannot citem)] 
     | Method m as citem -> 
-        let receive_entries, intermediate_states, intermediate_methods = rmethod0 a_registered_sessions a_intermediate_futures m in
+        let receive_entries, intermediate_states, intermediate_methods = rmethod0 a_registered_sessions a_intermediate_futures a_intermediate_prebinders m in
 
         (
             List.map (function (s : state) -> s.value.name) intermediate_states,
@@ -730,7 +817,7 @@ module Make () : Sig = struct
         ([], []), [auto_place (auto_plgannot(Term (rterm t)))]
     | Include _ as citem -> 
         ([], []), [auto_place (auto_plgannot citem)]
-    and rcitem a_registered_sessions a_intermediate_futures = map0_place (transparent0_plgannot(rewrite_component_item a_registered_sessions a_intermediate_futures))
+    and rcitem a_registered_sessions a_intermediate_futures a_intermediate_prebinders = map0_place (transparent0_plgannot(rewrite_component_item a_registered_sessions a_intermediate_futures a_intermediate_prebinders))
 
     and rewrite_component_dcl place : _component_dcl -> _component_dcl = 
     let fplace = (Error.forge_place "Core.Rewrite" 0 0) in
@@ -754,13 +841,20 @@ module Make () : Sig = struct
             | Some {value={v=State {value={name}}}} -> name (* exactly once per component *)
             | None -> Atom.fresh "intermediate_futures" 
         in
+        let a_intermediate_prebinders = 
+            match 
+                List.find_opt (function | {value={v=State {value={name}}}} -> Atom.hint name = "intermediate_prebinders" | _-> false) cdcl.body 
+            with
+            | Some {value={v=State {value={name}}}} -> name (* exactly once per component *)
+            | None -> Atom.fresh "intermediate_prebinders" 
+        in
 
 
 
         let body = cdcl.body in
 
         (* Elimination of sync receiv *)
-        let tmp, body = List.split(List.map (rcitem a_registered_sessions a_intermediate_futures) body) in
+        let tmp, body = List.split(List.map (rcitem a_registered_sessions a_intermediate_futures a_intermediate_prebinders) body) in
         let intermediate_state_names, receive_entries = List.split tmp in
         let intermediate_state_names = List.flatten(intermediate_state_names) in
         let body = List.flatten body in
@@ -787,7 +881,7 @@ module Make () : Sig = struct
             @param ports - list of input ports of the component
             @return - list of intermediate_ports for this receive + ports with updated children
         *)
-        let generate_intermediate_ports ports (receive_id, t_msg, st_continuation, callback) = 
+        let generate_intermediate_ports ports (receive_id, t_msg, st_continuation, callback, _) = 
             logger#debug "generate_intermediate_port for %s <%s> and ports %d and outports %d " (Atom.to_string cdcl.name) (Atom.to_string receive_id) (List.length ports) (List.length outports);
             (* Remove ports that are already binded to receive *)
             let ports = List.filter (function p -> Bool.not (fst p.value)._is_intermediate) ports in
@@ -931,8 +1025,20 @@ module Make () : Sig = struct
                     body = Some (e2_e(Block2Expr(Dict, [])))
                 })))) in
 
+                (* Intermediate_prebinders stores prebinders for post-conditions delayed by a receive
+                *)
+                let intermediate_prebinders = auto_place(auto_plgannot(State( auto_place({ 
+                    ghost = false;
+                    type0 = mtype_of_ct (TDict(
+                        mtype_of_ft TUUID, 
+                        mtype_of_ct (TList (mtype_of_ft TBottom)) 
+                    ));
+                    name = a_intermediate_prebinders;
+                    body = Some (e2_e(Block2Expr(Dict, [])))
+                })))) in
 
-                body @ [intermediate_states_index; registerd_sessions; intermediate_futures]
+
+                body @ [intermediate_states_index; registerd_sessions; intermediate_futures; intermediate_prebinders]
             end
             else body
         in

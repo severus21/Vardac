@@ -48,7 +48,7 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                             auto_place(AccessExpr(
                                 auto_place(CastExpr(
                                     auto_place(ClassOrInterfaceType  ( auto_place (TAtomic "Function"), [t1; t_ret])),
-                                    e
+                                    cexpr e
                                 ), snd (e.value)),
                                 auto_place (RawExpr "apply", auto_place TUnknown)
                             ), auto_place TUnknown),
@@ -77,7 +77,7 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                             auto_place(AccessExpr(
                                 auto_place(CastExpr(
                                     auto_place(ClassOrInterfaceType  ( auto_place (TAtomic "BiFunction"), [t1; t2; t_ret])),
-                                    e
+                                    cexpr e
                                 ), snd (e.value)),
                                 auto_place (RawExpr "apply", auto_place TUnknown)
                             ), auto_place TUnknown),
@@ -87,7 +87,7 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                     | VarExpr x when Atom.Set.find_opt x Arg.toplevel_functions = None -> 
                         AppExpr(
                             auto_place(AccessExpr(
-                                e,
+                                cexpr e,
                                 auto_place (RawExpr "apply", auto_place TUnknown)
                             ), auto_place TUnknown),
                             es
@@ -293,7 +293,7 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
     (*****************************************************)
 
     let displayed_pass_shortdescription = Printf.sprintf "Cleaned Lg AST for file %s" Arg.filename
-    let displayed_ast_name = "IR recvelim"
+    let displayed_ast_name = "cleaned Java AST"
     let show_ast = true
     let global_at_most_once_apply = false
 

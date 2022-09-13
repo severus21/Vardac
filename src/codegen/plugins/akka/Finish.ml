@@ -191,7 +191,7 @@ module Make (Arg: sig val target:Target.target end) = struct
         | S.TActivationRef mt -> T.TActivationRef (fmtype parent_opt mt) 
         | S.TObject x when Atom.is_builtin x -> Encode.encode_builtin_type place (Atom.value x)
         | S.TObject x -> T.TVar x 
-        | S.TArrow (m1, m2) -> T.TFunction (
+        | S.TArrow (m1, m2) -> T.TArrow (
             fmtype parent_opt m1,
             fmtype parent_opt m2
         )
@@ -869,7 +869,8 @@ module Make (Arg: sig val target:Target.target end) = struct
 
         (* Post-condition *)
         let returns_methods, returns_stmts = match contract.returns with
-        | None -> [], [
+        | None -> 
+            [], [
             {place; value = T.ReturnStmt ( 
                 {place; value = T.CallExpr (
                     {place; value=T.VarExpr inner_name, auto_place T.TUnknown},
@@ -891,11 +892,45 @@ module Make (Arg: sig val target:Target.target end) = struct
                         ret_type        = { place = returns_expr.place; value=T.Atomic "boolean"};
                         name            = returns_name;
                         body            = T.AbstractImpl ([
-                            {place = returns_expr.place; value= T.ReturnStmt (
-                                {place = returns_expr.place; value=T.CallExpr(
+                            {place = fplace; value= T.ReturnStmt (
+                                {place = fplace; value=T.CallExpr(
                                     fexpr parent_opt returns_expr,
-                                    [{place = returns_expr.place; value=T.VarExpr (snd ret_type_param), auto_place T.TUnknown}]
-                                    ), auto_place T.TUnknown
+                                    [
+                                        begin    
+                                            let x = Atom.fresh "x" in
+                                            match method0.value.v.ret_type.value with   
+                                            | T.TRaw "ResolvedResult" -> 
+                                                e2_e (T.CallExpr(
+                                                    e2_e (T.AccessExpr (
+                                                        T_A2.e2_e (T.AccessExpr(
+                                                            {place = returns_expr.place; value=T.VarExpr (snd ret_type_param), auto_place T.TUnknown},
+                                                            T_A2.e2_e (T.RawExpr "getValue()")
+                                                        )),
+                                                        e2_e (T.RawExpr "map")
+                                                    )),
+                                                    [
+                                                        e2_e (T.LambdaExpr (
+                                                            [ (auto_place (T.Atomic "Object"), x) ],
+                                                            auto_place(T.ReturnStmt(
+                                                                e2_e (T.CastExpr (
+                                                                    (match fst returns_expr.value with 
+                                                                    | S.LambdaExpr( {value=({value=S.CType {value=S.TResult (mt1, _)}},_)}::_, _) -> 
+                                                                        fmtype parent_opt mt1
+                                                                    | _ -> 
+                                                                        raise (Error.DeadbranchError "wrong post-condition type") 
+                                                                    ),
+                                                                    e2var x 
+                                                                ))
+                                                            ))
+                                                        ))
+                                                    ]
+                                                ))
+
+
+                                            | _ -> 
+                                                {place = returns_expr.place; value=T.VarExpr (snd ret_type_param), auto_place T.TUnknown}
+                                        end
+                                    ]), auto_place T.TUnknown
                                 })
                             }
                         ]);

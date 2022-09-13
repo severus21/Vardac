@@ -438,6 +438,10 @@ and collect_type_expr_ flag_tcvar parent_opt already_binded selector collector p
         let _, collected_elts1, ftvars1 = collect_expr actor_ref in
         let _, collected_elts2, ftvars2 = collect_expropt interceptec_actor_ref in
         collected_elts1@collected_elts2, ftvars1@ftvars2
+    | CastExpr (mt, e) ->
+        let _, collected_elts, ftvars = collect_expr e in
+        let _, collected_elts1, ftvars1 =  collect_mtype mt in
+        collected_elts@collected_elts1, ftvars@ftvars1
     | LambdaExpr (params, e) ->
         let collected_elts1, ftvars1 =  
         List.fold_left (fun (collected_elts0, ftvars0) {value=mt, _} -> 
@@ -734,6 +738,10 @@ let rec _rewrite_expr_expr parent_opt selector rewriter place (e, mt) =
         op,
         rexpr e2
     )
+    | CastExpr(mt, e) -> CastExpr(
+        mt, (* WARNING TODO FIXME*)
+        rexpr e
+    )
     | LambdaExpr (params, e) -> LambdaExpr (
         params, (* WARNIN TODO FIXME replace in type predicates *)
         rexpr e
@@ -933,6 +941,7 @@ and _rewrite_type_mtype (selector : _main_type -> bool) rewriter place = functio
     rewrite_type_mtype selector rewriter mt,
     rewrite_type_aconstraint selector rewriter ac
 )
+| TRaw x -> TRaw x
 and rewrite_type_mtype selector rewriter = map_place (_rewrite_type_mtype selector rewriter)
 
 and _rewrite_type_expr selector rewriter place (e, mt) = 

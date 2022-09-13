@@ -44,6 +44,10 @@ public class ResolvedResult extends BaseEvent {
         this.value = value;
     }
 
+    public Either<Error, Object> getValue(){
+        return this.value;
+    }
+
     public static void onResolvedResult(ActorContext context, Map<UUID, Function<Either<Error, Object>, Either<Error, Void>>> intermediate_futures, ResolvedResult rres){
         assert(context != null);
         assert(intermediate_futures != null);

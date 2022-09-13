@@ -63,27 +63,75 @@ module Make () = struct
     | _ -> [ EmptyStmt ]
 
 
-    let select_complete_future= function
-    | CallExpr ({value=VarExpr x, _}, _) -> Atom.is_builtin x && Atom.hint x = "complete_future"
-    | _ -> false
 
-    let rewrite_complete_future  parent_opt mt = function
-        (*
-            complete_future(get2dict(..., id), value)
+    let warp_complete_future_method parent_opt place = function 
+    | Method ({value={body=AbstractImpl body}} as m) -> begin
+        let contains_complete_future = ref false in
+        let select_complete_future = function
+            | ExpressionStmt {value=CallExpr ({value=VarExpr x, _}, _),_} | ReturnStmt {value=CallExpr ({value=VarExpr x, _}, _), _} -> Atom.is_builtin x && Atom.hint x = "complete_future"
+            | _ -> false
+        in
 
-            becomes ! ResolvedResult(id, value)
+        let rewrite_complete_future parent_opt place = function
+            (*
+                complete_future(get2dict(..., id), value)
+
+                becomes ! ResolvedResult(id, value)
+            *)
+            | ExpressionStmt {value=CallExpr (_, [{value=CallExpr (_, [this_intermediate_futures; id]), _}; value]), _} | ReturnStmt {value=CallExpr (_, [{value=CallExpr (_, [this_intermediate_futures; id]), _}; value]), _} ->
+                contains_complete_future := true;
+                [ ReturnStmt(
+                    e2_e(CallExpr(
+                        e2_e(RawExpr "new ResolvedResult"),
+                        [id; value]
+                    ))
+                ) ]
+        in
+
+        let body = List.map (rewrite_stmt_stmt false parent_opt select_complete_future rewrite_complete_future) body in
+        let body = List.flatten body in
+
+        (* if m  contains complete_fture 
+            create an innner m which returns a resolved result 
+            and m beomes the wrapper that send it and return the write type
+            therefore -> elim future is nearly transparent for contract rewritting
         *)
-    | CallExpr (_, [{value=CallExpr (_, [this_intermediate_futures; id]), _}; value]) ->
-        CallExpr(
-            e2_e( RawExpr "getContext().getSelf().tell"),
-            [
-                e2_e(CallExpr(
-                    e2_e(RawExpr "new ResolvedResult"),
-                    [id; value]
-                ))
+        if !contains_complete_future then (
+            let inner_name = Atom.fresh ((Atom.hint m.value.name)^"_inner") in
+            let inner_method = auto_fplace{m.value with 
+                    contract_opt = m.value.contract_opt;
+                    name = inner_name; 
+                    ret_type = mtype_of_raw "ResolvedResult";
+                    body = AbstractImpl body;
+                }
+            in
 
-            ] 
+            let m = {
+                place = m.place@fplace;
+                value = { m.value with
+                    contract_opt = None;
+                    body = AbstractImpl [
+                        stmt2_e (CallExpr(
+                            e2_e( RawExpr "getContext().getSelf().tell"),
+                            [
+                                e2_e(CallExpr(
+                                    e2_e (AccessExpr(e2_e This, e2var inner_name)),
+                                    List.map (function {value=_,x} -> e2var x) m.value.args 
+                                ))
+
+                            ] 
+                        ));
+                        auto_fplace (ReturnStmt (e2_e (ResultExpr (Some (e2_lit VoidLit), None))))
+                    ] 
+                } 
+            } in
+
+            [ Method m; Method inner_method]
+        ) else (
+            [ Method m ]
         )
+    end
+    | citem -> [citem]
 
 
     let select_wait_future = function
@@ -294,7 +342,7 @@ module Make () = struct
         program
         |> rewrite_component_program (function _ -> true) rewrite_global_component (* hydrate shared state *)
         |> rewrite_stmt_program false select_new_future rewrite_new_future (* NB can not use recurse:true with the ref selected trick in side select_new_future *) 
-        |> rewrite_expr_program select_complete_future rewrite_complete_future
+        |> rewrite_citem_program (function _ -> true) warp_complete_future_method
         |> rewrite_citem_program select_wait_future rewrite_wait_future 
         |> rewrite_type_program select_ct_future rewrite_ct_future
 end

@@ -559,7 +559,8 @@ module Make (Params : IRParams) = struct
             (Atom.atom -> Atom.atom) ->
             class_item ->
             class_item
-
+            
+        val insert_in_stmts : stmt list -> stmt list -> stmt list
         val find_lca_program : Atom.Set.t -> program -> Atom.atom option
         val insert_in_terms : term list -> term list -> term list
         val insert_terms_into_lca : (Atom.atom option) list -> term list -> program -> program
@@ -588,13 +589,13 @@ module Make (Params : IRParams) = struct
             let _, collected_elts2, fvars2 = 
             match _contract.ensures with
             | None -> already_binded, [], []
-            | Some ensures -> collect_expr_expr parent_opt already_binded selector collector ensures 
+            | Some ensures -> collect_expr_expr parent_opt inner_already_binded selector collector ensures 
             in
 
             let _, collected_elts3, fvars3 = 
             match _contract.returns with
             | None -> already_binded, [], []
-            | Some returns -> collect_expr_expr parent_opt already_binded selector collector returns 
+            | Some returns -> collect_expr_expr parent_opt inner_already_binded selector collector returns 
             in
 
             already_binded, collected_elts1@collected_elts2@collected_elts3, fvars1@fvars2@fvars3
@@ -1023,9 +1024,7 @@ module Make (Params : IRParams) = struct
 
 
         let rec collect_type_contract_ flag_tcvar parent_opt (already_binded:Atom.Set.t) selector collector place _contract = 
-            let inner_already_binded = List.fold_left (fun already_binded (mt, x, e) ->
-                Atom.Set.add x already_binded
-            ) already_binded _contract.pre_binders in
+            (* NB contract does not introduce type binders *)
             let res = List.map (function (_, _, e) -> collect_type_expr flag_tcvar parent_opt already_binded selector collector e) _contract.pre_binders in
             let collected_elts1 = List.flatten (List.map (function (_,x,_) -> x) res) in
             let fvars1 = List.flatten (List.map (function (_,_,x) -> x) res) in
@@ -2103,6 +2102,44 @@ module Make (Params : IRParams) = struct
         and rename_term ?(flag_rename_attribute=false) renaming = map_place (transparent_plgannot(_rename_term flag_rename_attribute (protect_renaming renaming)))
 
         let rename_program renaming = List.map (rename_term renaming)
+        (********************************************************************************************)
+
+        (* Where add stmt in a list of stmts such that every variable is correctly binded
+            Just after the point where there is no more free vars in new_stmts
+            than in stms
+        *)
+
+        let insert_in_stmts new_stmts stmts = 
+            let aux_list1 f = List.fold_left (fun vars stmt -> 
+               Atom.Set.of_list (List.map snd (snd (f vars stmt)))
+            ) in 
+            let aux_list2 f = List.fold_left (fun vars stmt -> 
+               Atom.Set.of_list (snd (f vars stmt))
+            ) in 
+            let fvars0 = aux_list1 free_vars_stmt Atom.Set.empty stmts in
+            let ftvars0 = aux_list2 free_tvars_stmt Atom.Set.empty stmts in
+            
+            (* 
+                acc::t::ts 
+                try to add it between acc and t
+            *)
+            let insert_depth = ref 0 in
+            let rec insert_new_stmts acc = function
+            | [] -> new_stmts
+            | t::ts -> 
+                let current_stmts = acc@new_stmts in 
+                let _fvars = aux_list1 free_vars_stmt Atom.Set.empty current_stmts in
+                let _ftvars = aux_list2 free_tvars_stmt Atom.Set.empty current_stmts in
+
+                if Atom.Set.subset _fvars  fvars0  && Atom.Set.subset _ftvars ftvars0 then(
+                    logger#debug "insert_in_stmts insert depth %d" !insert_depth;
+                    new_stmts@(t::ts)
+                )else
+                    t::(insert_new_stmts (acc@[t]) ts) (* FIXME O(n²) *)
+            in
+
+            (* New stmts do not depend of binders in stmts *)
+            insert_new_stmts [] stmts
 
         (********************************************************************************************)
 

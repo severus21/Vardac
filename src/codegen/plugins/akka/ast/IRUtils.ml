@@ -27,7 +27,7 @@ let rec _apply_rename_ctype (renaming : Atom.atom -> Atom.atom) place : _ctype -
     | Atomic s -> Atomic s
     | ActorRef ct -> ActorRef (apply_rename_ctype renaming ct)
     | TActivationRef ct -> TActivationRef (apply_rename_ctype renaming ct)
-    | TFunction (ct1, ct2) -> TFunction (
+    | TArrow (ct1, ct2) -> TArrow (
         apply_rename_ctype renaming ct1,
         apply_rename_ctype renaming ct2
     )

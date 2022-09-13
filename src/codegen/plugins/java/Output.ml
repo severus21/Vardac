@@ -9,7 +9,7 @@ module Make () = struct
     let logger = Core.Utils.make_log_of "Java.Output" 
 
 
-    let failwith s = failwith "[Plg=Java] %s" s
+    let failwith s = failwith (Printf.sprintf "[Plg=Java] %s" s)
     (** FIXME Factorise into a OCaml module since OutputMl will do the smae too *)
     let builtin_translation = List.to_seq []
     module BuiltinMap = Map.Make(String)                     
@@ -58,6 +58,7 @@ module Make () = struct
     and output_binop out = function
         | Akka.Ast.And -> pp_print_string out "&&"
         | Akka.Ast.Equal -> pp_print_string out "=="
+        | Akka.Ast.Divide -> pp_print_string out "/"
         | Akka.Ast.GreaterThan -> pp_print_string out ">" 
         | Akka.Ast.GreaterThanEqual -> pp_print_string out ">="
         | Akka.Ast.LessThan -> pp_print_string out "<"
@@ -65,8 +66,9 @@ module Make () = struct
         | Akka.Ast.Plus -> pp_print_string out "+"
         | Akka.Ast.Minus -> pp_print_string out "-"
         | Akka.Ast.Mult -> pp_print_string out "*"
-        | Akka.Ast.Divide -> pp_print_string out "/"
+        | Akka.Ast.NotEqual -> pp_print_string out "!="
         | Akka.Ast.Or -> pp_print_string out "||"
+        | Akka.Ast.StructuralEqual | Akka.Ast.NotStructuralEqual -> raise (Error.DeadbranchError "StructuralEqual/NotStructuralEqual should have been removed by the Java/Clean pass!") 
     and output_assignop out : assign_operator -> unit = function
         | AssignOp -> pp_print_string out "="
     and output_literal out : _literal -> unit = function
