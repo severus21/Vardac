@@ -25,6 +25,54 @@ module Make () = struct
         | UnopExpr (UnpackOrPropagateResult, e) -> true 
         |_ -> false
     let elim_unpack_or_propagate program = 
+        (* Rewrite LambdaExpr first since the classical can not be used, can not store return *)
+        let rewrite_lambda_expr parent_opt place = function 
+            | LambdaExpr (params, e) -> 
+
+                let _, elts, _ = IRUtils.collect_expr_expr 
+                    None Atom.Set.empty selector_unpack_or_propagate (fun _ _ -> function |{value=UnopExpr (UnpackOrPropagateResult, e),_} -> [e]) e in  
+
+                match elts with
+                | [] -> LambdaExpr(params, e)
+                | [result] ->
+                    let x = Atom.fresh "x" in
+                    let body = 
+                        e2_e (LambdaExpr( 
+                            [auto_fplace (snd result.value,x)],
+                            e2_e (TernaryExpr(
+                                e2var (Atom.builtin "is_ok"),
+                                e2_e(CallExpr(
+                                    rewrite_expr_expr parent_opt selector_unpack_or_propagate (fun _ _ _ -> VarExpr x) e,
+                                    [
+                                        {
+                                            place = fplace;
+                                            value= (
+                                                CallExpr( e2_e (RawExpr "get"), [e2var x]), 
+                                                match (snd result.value).value with
+                                                | CType{value=TResult(mt_ok,_)} -> mt_ok
+                                                | _ -> raise (Error.DeadbranchError "should be a result type")
+                                            )
+                                        } 
+                                    ]
+                                )),
+                                e2var x
+                            ))
+                        ))
+                    in
+                    LambdaExpr(params,
+                        e2_e (CallExpr(
+                            body,
+                            [ result ]
+                        ))
+                    )
+                | _ ->  Error.error "%s" "UnpackOrPropagateResult remains after Akka.prepare"
+        in
+        let program = rewrite_expr_program (function | LambdaExpr _ -> true |_ -> false) rewrite_lambda_expr program in
+
+
+
+
+
         let rewriter parent_opt mt_op (UnopExpr (UnpackOrPropagateResult, e)) =
             let mt_ok = match (snd e.value).value with
                 | CType{value=TResult (mt_ok, _)} -> mt_ok
@@ -238,21 +286,6 @@ module Make () = struct
     let global_at_most_once_apply = true 
 
     let precondition (program:IRI.program) = 
-        (* Check that there is no UnpackOrPropagate into a lambda, since Varda language do not have the capacity to express the elimination (without using a stmt and lambda body is an expression) *)
-        let propagate_in_lambda_selector = function 
-            | LambdaExpr (_, e) -> 
-                let _, elts, _ = IRUtils.collect_expr_expr 
-                    None 
-                    Atom.Set.empty 
-                    selector_unpack_or_propagate 
-                    (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrResult  operation (e?) can not be performed inside a lambda!!"))) 
-                    e
-                in
-            elts <> [] 
-            |_ ->false
-        in
-
-        IRUtils.collect_expr_program Atom.Set.empty propagate_in_lambda_selector (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "UnpackOrResult  operation (e?) can not be performed inside a lambda!!"))) program; 
         program
 
     let postcondition program = 
