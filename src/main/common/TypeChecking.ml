@@ -429,7 +429,7 @@ module Make () = struct
     (**********************************************************)
     let name = "TypeChecking"
     let displayed_pass_shortdescription = "IR has been typed checked successfully"
-    let displayed_ast_name = "annotated IR (with types)"
+    let displayed_ast_name = "type-checked IR"
     let show_ast = true
     let global_at_most_once_apply = false
 

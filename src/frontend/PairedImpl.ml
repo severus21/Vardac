@@ -117,7 +117,6 @@ module Make (Arg: ArgSig) = struct
     and scan_term parents ({place; value = {plg_annotations; v}} : S1.term) = 
         match v with
         | S1.ComponentImpl c -> 
-            logger#error "fjdhfdsghfkqsgfhjqsdgfjqshgfkjqshgfkjqshgfkjqsgfqskjdhgfkjqsgf";
             Hashtbl.add plgannotations (parents@c.name) plg_annotations;
             Hashtbl.add component2target (parents@c.name) c.target;
             List.iter (scan_component_item_impl (parents@c.name)) c.body

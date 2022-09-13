@@ -106,8 +106,7 @@ module Make() = struct
             |> Clean.apply
 
 
-            |> EventAutoBoxing.apply
-            |> TypeInference5.apply (*Needed since we introduce new constructions *)
+            |> EventAutoBoxing.apply (* Type inference inside *)
             |> CommSimpl.apply (* Transform receive to async + ports *) 
 
 
