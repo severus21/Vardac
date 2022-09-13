@@ -3,4 +3,6 @@
 *)
 module Make : functor () -> sig
     val cook_program: Ast_impl.program -> Impl.program
+
+    include Ast2ImplCompilationPass.Pass
 end

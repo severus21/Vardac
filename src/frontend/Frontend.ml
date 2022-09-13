@@ -11,7 +11,7 @@ module Make () = struct
     let logger = Core.Utils.make_log_of "Frontend" 
 
     module CookTarget = CookTarget.Make()
-    module CookImpl = CookImpl.Make()
+    module CookImpl = Ast2ImplCompilationPass.Make(CookImpl.Make())
     module PairedAnnotation = PairedAnnotation.Make()
     let process_target ir (filename:string) =
     filename
@@ -74,7 +74,7 @@ module Make () = struct
         (List.flatten(List.map ParseImpl.read (List.rev filenames))) 
         |> function ast -> logger#sinfo "Main impl file has been read"; ast 
         |> dump_selected "ParseImpl" "ParseImpl" Ast_impl.show_program Ast_impl.program_to_yojson
-        |> CookImpl.cook_program
+        |> CookImpl.apply
         |> function ast -> logger#sinfo "Impl AST is built"; ast 
         |> dump_selected "Impl" "Impl" Impl.show_program Impl.program_to_yojson
         |> PairedImpl.paired_program targets program

@@ -939,19 +939,19 @@ module Make(Arg:ArgSig) = struct
     
         (* Goal: invariant should be added to ensures and to returns *)
         let env1, invariant = match contract.invariant with
-            | None -> fresh_env !iota_entry_toplevel, None 
+            | None -> env, None 
             | Some invariant -> 
                 let env1, invariant = cexpr inner_env invariant in
                 env1, Some invariant
         in
         let env2, ensures = match contract.ensures with
-            | None -> fresh_env !iota_entry_toplevel, None 
+            | None -> env, None 
             | Some ensures -> 
                 let env2, ensures = cexpr inner_env ensures in
                 env2, Some ensures
         in
         let env3, returns = match contract.returns with
-            | None -> fresh_env !iota_entry_toplevel, None 
+            | None -> env, None 
             | Some returns -> 
                 let env3, returns = cexpr inner_env returns in
                 env3, Some returns

@@ -654,7 +654,53 @@ module Make () : Sig = struct
             *)
             Hashtbl.add methods_with_continuations m.name m.ret_type;
 
-            top_method::methods
+
+            (* Handles contract
+                Ensures should bind with top_method
+                Returns should be bind with last_method
+                Pre_binders should be shared using some => TODO
+            *)
+
+            match top_method.value.contract_opt with
+            | None -> top_method::methods
+            | Some contract -> begin
+                if (contract.value.pre_binders <> []) then
+                    Error.perror contract.place "pre_binders are not yet supported with receive!";
+
+                let last_method::core_methods = List.rev methods in
+
+                let top_contract = match contract.value.ensures with
+                | None -> None 
+                | Some predicate -> 
+                    Some {
+                        place = fplace@contract.place;
+                        value = {
+                            method_name = top_method.value.name;
+                            pre_binders = contract.value.pre_binders;
+                            ensures = Some predicate; 
+                            returns = None;
+                        }
+                    }
+                in
+                let last_contract = match contract.value.returns with
+                | None -> None
+                | Some predicate -> 
+                    Some {
+                        place = fplace@contract.place;
+                        value = {
+                            method_name = last_method.value.name;
+                            pre_binders = []; (* TODO we need to propagate correctly the pre-binders using some component sate *)
+                            ensures = None; 
+                            returns = Some predicate;
+                        }
+                    }
+                in
+
+                let top_method = {top_method with value = {top_method.value with contract_opt = top_contract}} in
+                let last_method = {last_method with value = {last_method.value with contract_opt = last_contract}} in
+
+                top_method :: (List.rev (last_method::core_methods))
+            end
         in
 
         receive_entries, intermediate_states, intermediate_methods

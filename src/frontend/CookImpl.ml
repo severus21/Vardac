@@ -84,4 +84,17 @@ module Make () = struct
         terms
 
         (* TODO post condition no more CurrentDefaultTarget in program*)
-    end
+
+    (**********************************************************)
+    let name = "CookImpl"
+    let displayed_pass_shortdescription = "Impl AST is cooked, IMPL has been generated"
+    let displayed_ast_name = "IMPL"
+    let global_at_most_once_apply = false
+
+
+    let show_ast = true 
+    let precondition program = program
+    let postcondition program = program
+    let apply_program = cook_program
+
+end

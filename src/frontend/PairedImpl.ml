@@ -117,6 +117,7 @@ module Make (Arg: ArgSig) = struct
     and scan_term parents ({place; value = {plg_annotations; v}} : S1.term) = 
         match v with
         | S1.ComponentImpl c -> 
+            logger#error "fjdhfdsghfkqsgfhjqsdgfjqshgfkjqshgfkjqshgfkjqsgfqskjdhgfkjqsgf";
             Hashtbl.add plgannotations (parents@c.name) plg_annotations;
             Hashtbl.add component2target (parents@c.name) c.target;
             List.iter (scan_component_item_impl (parents@c.name)) c.body
@@ -291,6 +292,7 @@ module Make (Arg: ArgSig) = struct
         in
 
         let target_name = 
+            show_htblimpls component2target (fun out x -> Printf.fprintf out "%s" x);
             match Hashtbl.find_opt component2target key with
             | None ->
                 raise (Error.PlacedDeadbranchError (place, Printf.sprintf "A target should have been assign to component [%s]." (List.fold_left (fun x y -> if x <> "" then x^"::"^y else y) "" key)))
