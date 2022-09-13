@@ -1,7 +1,5 @@
-event value of int;
-
 (*** Test 1 ***)
-protocol p = !value?value.;
+protocol p = !int?int.;
 component Mock {
     outport p_out expecting (inline p);
 
@@ -17,7 +15,7 @@ component Mock {
         result<int,error> tt = this.aux(d); (* FIXME NB can use propagate with async .... *)
         int i = get_ok(tt);
         int j = i + k;
-        print("return i");
+        print("return " + (int_to_string(j)));
     }
 
 
@@ -29,10 +27,10 @@ component Mock {
         session<p> s0 = initiate_session_with(this.p_out, d);
 
         debug("Test1> Send 1");
-        ?value. s1 = fire(s0, value(1))?;
+        ?int. s1 = fire(s0, 1)?;
         tuple<int, .> tmp = receive(s1);
 
-        return ok(1);
+        return ok(tmp._0);
     }
 }
 
@@ -45,11 +43,11 @@ component Dummy {
         bind(this.p_in, _b);
     }
 
-    inport p_in :: bridge<Mock, Dummy, inline p> expecting ?value!value. = this.callback;
+    inport p_in :: bridge<Mock, Dummy, inline p> expecting (dual p) = this.callback;
 
-    result<void, error> callback(value x, !value. s){
+    result<void, error> callback(int x, !int. s){
         debug("Test1> Receive 1");
-        fire(s, value(2));
+        fire(s, 2);
     }
 
 }

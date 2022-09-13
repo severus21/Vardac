@@ -291,7 +291,6 @@ module Make () : Sig = struct
 
             logger#debug "split: \n\tlet_x: %s\n\t args:%s" (Atom.to_string let_x) (Atom.show_list "," (List.map snd intermediate_args));
 
-
             let receive_id = Atom.fresh ((Atom.to_string current_method.name)^"receive_id") in
             let e_current_intermediate_port = e2_e(
                 CallExpr(
@@ -780,8 +779,7 @@ module Make () : Sig = struct
                     (* p or one of its stages is concerned by the receive*)
                     generate_intermediate_port_for_port (fst port.value).name
                 else( 
-                    logger#debug "not suffix for %s\n%s\n\t\tVS\n%s" (Atom.to_string (fst port.value).name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation)))) (show_main_type (fst port.value).expecting_st);
-                    []
+                    Error.error "not suffix for %s\n%s\n\t\tVS\n%s" (Atom.to_string (fst port.value).name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation)))) (show_main_type (fst port.value).expecting_st)
                 )
             ) ports)
             @
@@ -794,13 +792,18 @@ module Make () : Sig = struct
                 ) then 
                     (* p or one of its stages is concerned by the receive*)
                     generate_intermediate_port_for_port (fst port.value).name
-                else []
+                else( 
+                    Error.error "not suffix for %s\n%s\n\t\tVS\n%s" (Atom.to_string (fst port.value).name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation)))) (show_main_type (fst port.value).protocol)
+                    []
+                )
             ) outports)
         in
 
         (* generated ports must be add before user defined ports,
            since they are children of user-defined ports *)
+        let nports = List.length ports in
         let ports = (List.flatten (List.map (generate_intermediate_ports ports) receive_entries)) @ ports in
+        logger#debug "number of added intermediate_ports %d" ((List.length ports) - nports);
 
         (* Update main ports *)
         let ports = List.map (function (port:port) -> 

@@ -596,7 +596,6 @@ module Make () = struct
             | LitExpr l -> LitExpr l, typeof_literal l.value
             | UnopExpr (op, e) -> 
                 let e = tannot_expr parent_opt e in
-                logger#error "%s" (show_expr e);
                 UnopExpr (op, e), typeof_unop op (snd e.value) 
             | CallExpr (e, es) -> 
                 let e = tannot_expr parent_opt e in

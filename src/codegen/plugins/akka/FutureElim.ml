@@ -42,7 +42,6 @@ module Make () = struct
         selected := 2;
         Atom.is_builtin x && Atom.hint x = "future"
     | _ when !selected > 0 -> 
-        logger#error "ggglglglglglgl";
         decr selected;
         true
     | _ -> false
@@ -50,16 +49,16 @@ module Make () = struct
     let rewrite_new_future parent_opt place = function
         (*
             LetStmt(..., f, future());
-            add2dict(..., ..., f);
+            add2dict(..., f_id, f);
             return f;
 
             becomes [ return new_id ]
 
 
         *)
-    | ReturnStmt _ -> 
+    | ExpressionStmt {value=CallExpr (_, [_; id; _]),_} -> 
         [ ReturnStmt (e2_e (ResultExpr(
-            Some (e2_e (RawExpr "UUID.randomUUID()")), None
+            Some id, None
             ))) ]
     | _ -> [ EmptyStmt ]
 
@@ -129,7 +128,7 @@ module Make () = struct
             *)
             | [] -> [], AbstractImpl (List.rev acc_stmts)
             | {value=LetStmt(mt_x, let_x, ({value=CallExpr ({value=VarExpr x, _}, [continuation_id; _]), _}))}::stmts when Atom.is_builtin x && Atom.hint x = "wait_future" ->
-                logger#error "wait_future in %s" (Atom.to_string parent);
+                logger#debug "wait_future in %s" (Atom.to_string parent);
 
                 let intermediate_futures = 
                     match Hashtbl.find_opt intermediate_futures_tbl  parent with
