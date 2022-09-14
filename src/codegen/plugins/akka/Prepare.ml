@@ -27,46 +27,81 @@ module Make () = struct
     let elim_unpack_or_propagate program = 
         (* Rewrite LambdaExpr first since the classical can not be used, can not store return *)
         let rewrite_lambda_expr parent_opt place = function 
-            | LambdaExpr (params, e) -> 
-
+            | LambdaExpr (params, e) -> begin 
                 let _, elts, _ = IRUtils.collect_expr_expr 
                     None Atom.Set.empty selector_unpack_or_propagate (fun _ _ -> function |{value=UnopExpr (UnpackOrPropagateResult, e),_} -> [e]) e in  
 
                 match elts with
                 | [] -> LambdaExpr(params, e)
-                | [result] ->
+                | [result] -> begin
+                    (* Cleaning type *)
+                    let mt_result, mt_ok =
+                        match (snd result.value).value with
+                        | CType{value=TResult(mt_ok,_)} -> snd result.value, mt_ok
+                        | CType{value=TForall(x, {value=CType{value=TResult({value=CType{value=TVar y}},mt_err)}})} when Atom.compare x y = 0 -> 
+                            (* TODO FIXME forall should have been removed at this point *) 
+                            mtype_of_ct (TResult (mtype_of_ft TWildcard, mt_err)), mtype_of_ft TWildcard
+                        | CType{value=TForall(_, {value=CType{value=TResult(mt_ok,_)}})} -> 
+                            (* TODO FIXME forall should have been removed at this point *) 
+                            mtype_of_ct (TResult (mt_ok, mtype_of_var (Atom.builtin "error"))), mt_ok
+                        | _ -> 
+                            failwith (show_main_type (snd result.value));
+                            raise (Error.DeadbranchError "should be a result type")
+                    in
+
                     let x = Atom.fresh "x" in
-                    let body_params = [auto_fplace (snd result.value,x)] in
-                    let body = 
+                    let body n_e mt_result= 
+                        let body_params = [auto_fplace (mt_result,x)] in
                         auto_fplace (LambdaExpr( 
                             body_params,
                             auto_fplace (TernaryExpr(
-                                e2var (Atom.builtin "is_ok"),
-                                auto_fplace(CallExpr(
-                                    rewrite_expr_expr parent_opt selector_unpack_or_propagate (fun _ _ _ -> VarExpr x) e,
-                                    [
-                                        {
-                                            place = fplace;
-                                            value= (
-                                                CallExpr( e2_e (RawExpr "get"), [e2var x]), 
-                                                match (snd result.value).value with
-                                                | CType{value=TResult(mt_ok,_)} -> mt_ok
-                                                | _ -> raise (Error.DeadbranchError "should be a result type")
-                                            )
-                                        } 
-                                    ]
-                                ), snd e.value),
+                                e2_e (CallExpr(
+                                    e2var (Atom.builtin "is_ok"),
+                                    [e2var x]
+                                )),
+                                n_e,
                                 e2var x
-                            ), snd e.value)
-                        ), mtype_of_fun body_params (snd e.value))
+                            ), mt_result)
+                        ), mtype_of_fun body_params mt_result)
                     in
-                    LambdaExpr(params,
-                        auto_fplace (CallExpr(
-                            body,
-                            [ result ]
-                        ), snd e.value)
-                    )
+
+                    match fst e.value with
+                    | UnopExpr (UnpackOrPropagateResult, _) -> 
+                        (* e as type mt_ok but the external lambda should now have type result<mt_ok, error> *)
+                        let mt_result = (mtype_of_ct (TResult(mt_ok, mtype_of_var (Atom.builtin "error")))) in
+
+                        let n_e = {
+                            place = fplace;
+                            value= VarExpr x, mt_result
+                        } in
+                        
+
+                        LambdaExpr(params,
+                            auto_fplace (CallExpr(
+                                body n_e mt_result,
+                                [ result ]
+                            ), mt_result)
+                        )
+                    | n_e ->
+                        let n_e = 
+                            e2_e (ResultExpr( 
+                                ( 
+                                    Some (rewrite_expr_expr parent_opt selector_unpack_or_propagate (fun _ _ _ -> 
+                                        CallExpr( e2var (Atom.builtin "get_ok"), [e2var x])
+                                    ) e),
+                                    None
+                                )
+                        )) in
+
+                        LambdaExpr(params,
+                            auto_fplace (CallExpr(
+                                body n_e mt_result,
+                                [ result ]
+                            ), mt_result)
+                        )
+                    end
                 | _ ->  Error.error "%s" "UnpackOrPropagateResult remains after Akka.prepare"
+            end
         in
         let program = rewrite_expr_program (function | LambdaExpr _ -> true |_ -> false) rewrite_lambda_expr program in
 

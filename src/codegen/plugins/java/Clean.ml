@@ -40,9 +40,11 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
             match fst e.value with
             | LambdaExpr ([(t1, _)] as params, stmt_lambda) ->
                 let t_ret = match (snd e.value).value with
+                    (* Should be the only case if TypeInference is orrectly applied 
                     | ClassOrInterfaceType  ({value=TAtomic "Function"}, targs) ->
                         List.nth targs (List.length targs - 1)
-                    | TUnknown -> begin
+                    *)
+                     | ClassOrInterfaceType  ({value=TAtomic "Function"}, _) | TUnknown -> begin
                         (* TODO Infer it here (hack), we should port the TypeInference path both on IR and IRI and run it after prepare and future elim in Akka plg *)
                         let rec find_return_ place = function
                         | ReturnStmt e -> [e]
@@ -54,7 +56,6 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                         | ClassOrInterfaceType  ({value=TAtomic "Function"}, targs) ->
                         List.nth targs (List.length targs - 1)
                     end
-
                 in
 
                 AppExpr(
