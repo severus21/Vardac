@@ -1,9 +1,0 @@
-target akka;
-
-impl component Ping {
-}
-
-impl component Pong {
-}
-
-impl component TopLevel {}

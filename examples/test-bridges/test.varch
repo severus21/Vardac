@@ -15,7 +15,7 @@ component TestA {
             set<activation_ref<A|B>> tmp = leftactivations(bridgeof(this.p_out))?;
             string n = int_to_string(setlength(tmp));
 
-            debug("TestA> leftactivations "+n);
+            debug("TestA> leftactivations "+n); (* expect 1 *)
 
             sleep(1000); (* wait for other activations to start *)
             set<activation_ref<A|B>> activations = rightactivations(bridgeof(this.p_out))?;
@@ -40,14 +40,14 @@ component TestA {
             set<activation_ref<A|B>> tmp = rightactivations(bridgeof(this.p_in))?;
             string n = int_to_string(setlength(tmp));
 
-            debug("TestA> rightactivations "+n);
+            debug("TestA> rightactivations "+n); (* expect 2 *)
         }
 
         inport p_in :: bridge<A, B, inline ptest> expecting (dual ptest) = this.callback;
 
         result<void, error> callback(int x, . s){
             string s = int_to_string(x);
-            debug("TestA> Receive int "+s);
+            debug("TestA> Receive int "+s); (*expect 1 receive by two activations *)
         }
     }
 

@@ -57,10 +57,6 @@ make distclean # Same as clean, but also removes library checking files.
 ```
 ### Usage (without installing) 
 
-* message-passing with simple varda (only port and continuation) 
-```bash
-make run -- compile --places examples/00-ping-pong-simpl-varda/places.yml --targets examples/00-ping-pong-simpl-varda/targets.yml --filename examples/00-ping-pong-simpl-varda/pingpong.varch --impl examples/00-ping-pong-simpl-varda/pingpong.vimpl --provenance 0
-```
 * message-passing encoding
 ```bash
 make run -- compile --places examples/0-ping-pong/places.yml --targets examples/0-ping-pong/targets.yml --filename examples/0-ping-pong/pingpong.varch --impl examples/0-ping-pong/pingpong.vimpl --provenance 0

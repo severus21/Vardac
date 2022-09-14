@@ -1,5 +1,5 @@
 Scenario
-    * Case A: Pingpong with an interceptor couting msg 
+    * Case A: Pingpong with an interceptor counting msg 
 
 1. Generate code
     ```bash

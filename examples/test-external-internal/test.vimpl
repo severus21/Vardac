@@ -10,7 +10,7 @@ impl dependencies gradle:{=
 
 impl component Dummy {
 
-    headers java:{=
+    impl headers java:{=
         import redis.clients.jedis.JedisPooled;
     =}
 

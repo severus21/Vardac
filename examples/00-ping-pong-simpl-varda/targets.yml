@@ -1,9 +1,0 @@
-- target: akka 
-  codegen: 
-    language: Java
-    runtime: Akka
-    interface: gRPC
-    mains: 
-      local:
-        bootstrap: TopLevel 
-        entrypoint: main 

@@ -1,5 +1,10 @@
 (* Working example of error propagation *)
 
+(*
+    Success
+    Log should not contains "Unseen" and should contains "Seen" twice
+*)
+
 component Dummy {
     result<int, error> f1(){
         return err(());
@@ -12,7 +17,6 @@ component Dummy {
     result<int, error> f3(){
         int i = this.f2()? + 3;
         debug("> Seen");
-        debug("> i ");
         int j = this.f1()?;
         debug("> Unseen");
         return ok(2);
