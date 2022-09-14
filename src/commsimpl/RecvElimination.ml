@@ -515,12 +515,15 @@ module Make () : Sig = struct
         let intermediate_states, receive_entries, intermediate_methods = split_body a_registered_sessions a_intermediate_futures (m.name, m.annotations) [] {m with body = []} stmts in
         let intermediate_methods = List.map auto_fplace intermediate_methods in
 
-        let intermediate_methods = match intermediate_methods with
-        | [] -> raise (Error.DeadbranchError "Can not be empty")
-        | [_] -> 
+        let intermediate_methods = match m.ret_type.value, intermediate_methods with
+        | _, [] -> raise (Error.DeadbranchError "Can not be empty")
+        | _, [_] -> 
             (* No receive in m *)
             intermediate_methods
-        | top_method::methods ->
+        | CType{value=TFlatType TVoid}, ms |   CType{value=TResult ({value=CType{value=TFlatType TVoid}}, _)}, ms  -> 
+            (* No values to propagate *)
+            ms  
+        | _, top_method::methods ->
             (* Will be set to true if there is returns inside intermediate methods*)
             let has_delayed_returns = ref false in
 

@@ -189,15 +189,15 @@ component TestA {
         dict<session_id, int> counters = dict();
 
         result<void, error> callback_wo_receive(int x, ?int. s){
-            debug("Test3> wo Receive int 1");
+            debug("Test3> wo Receive int " + int_to_string(x));
             add2dict(this.counters, sessionid(s), x);
         }
 
         result<void, error> callback_wo_receive_next(int x, . s){
-            debug("Test3> wo Receive int 2");
+            debug("Test3> wo Receive int "+int_to_string(x));
             int c = get2dict(this.counters, sessionid(s));
             int d = c + x;
-            debug("Test3> wo Result "+int_to_string(c)); (* sould be 12 *)
+            debug("Test3> wo Result "+int_to_string(d)); (* sould be 12 *)
         }
     }
 
