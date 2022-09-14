@@ -37,53 +37,77 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
         | AccessExpr (e1, e2) -> AccessExpr (cexpr e1, cexpr e2)
         | AccessMethod (e, x) -> AccessMethod (cexpr e, x)
         | AppExpr (e, es) as e0 -> begin 
-            match (snd e.value).value with
+            match fst e.value with
+            | LambdaExpr ([(t1, _)] as params, stmt_lambda) ->
+                let t_ret = match (snd e.value).value with
+                    | ClassOrInterfaceType  ({value=TAtomic "Function"}, targs) ->
+                        List.nth targs (List.length targs - 1)
+                    | TUnknown -> begin
+                        (* TODO Infer it here (hack), we should port the TypeInference path both on IR and IRI and run it after prepare and future elim in Akka plg *)
+                        let rec find_return_ place = function
+                        | ReturnStmt e -> [e]
+                        | BlockStmt stmts -> List.flatten(List.map find_return stmts)
+                        and find_return stmt = map0_place find_return_ stmt in
+                        let e_lambda = List.hd (find_return stmt_lambda) in
+
+                        match (JavaUtils.jtype_of_lambda params e_lambda).value with 
+                        | ClassOrInterfaceType  ({value=TAtomic "Function"}, targs) ->
+                        List.nth targs (List.length targs - 1)
+                    end
+
+                in
+
+                AppExpr(
+                    auto_place(AccessExpr(
+                        auto_place(CastExpr(
+                            auto_place(ClassOrInterfaceType  ( auto_place (TAtomic "Function"), [t1; t_ret])),
+                            cexpr e
+                        ), snd (e.value)),
+                        auto_place (RawExpr "apply", auto_place TUnknown)
+                    ), auto_place TUnknown),
+                    es
+                )
+            | LambdaExpr ([(t1, _); (t2,_)], _) ->
+
+                (* t_ret must be rewritten to erase t2 since we group in BiFunction 
+                because, in Java, 
+                    type a -> b -> c is not the same than a-> (b -> c)
+                    and Varda is working with curryfied types for now
+                    however we can not curryfied appexpr since there is no partial function/method in Java .....
+
+                    Our transformation encoding works for lambda with one or two args only
+                *)
+
+                let t_ret = match (snd e.value).value with
+                    | ClassOrInterfaceType  ({value=TAtomic "Function"}, targs) ->
+                        List.nth targs (List.length targs - 1)
+                in
+                let t_ret = match t_ret.value with
+                    | ClassOrInterfaceType  ({value=TAtomic "Function"}, _::[t]) -> t
+                    | ClassOrInterfaceType  ({place; value=TAtomic "Function"}, _::targs) -> 
+                        {
+                            place= t_ret.place; value=ClassOrInterfaceType  ({place; value=TAtomic "Function"}, targs)
+                        }
+                in
+
+                AppExpr(
+                    auto_place(AccessExpr(
+                        auto_place(CastExpr(
+                            auto_place(ClassOrInterfaceType  ( auto_place (TAtomic "BiFunction"), [t1; t2; t_ret])),
+                            cexpr e
+                        ), snd (e.value)),
+                        auto_place (RawExpr "apply", auto_place TUnknown)
+                    ), auto_place TUnknown),
+                    es
+                )
+            | LambdaExpr _ -> failwith "LambdaExpr with more than two args are not yet supported (Akka Plg)"
+            | VarExpr x when Atom.Set.find_opt x Arg.toplevel_functions = None -> begin 
+                match (snd e.value).value with
                 | ClassOrInterfaceType  ({value=TAtomic "Function"}, targs) -> begin
                     assert(List.length targs > 0);
                     let t_ret = List.nth targs (List.length targs - 1) in
 
                     match fst e.value with
-                    | LambdaExpr ([(t1, _)], _) ->
-                        AppExpr(
-                            auto_place(AccessExpr(
-                                auto_place(CastExpr(
-                                    auto_place(ClassOrInterfaceType  ( auto_place (TAtomic "Function"), [t1; t_ret])),
-                                    cexpr e
-                                ), snd (e.value)),
-                                auto_place (RawExpr "apply", auto_place TUnknown)
-                            ), auto_place TUnknown),
-                            es
-                        )
-                    | LambdaExpr ([(t1, _); (t2,_)], _) ->
-
-                        (* t_ret must be rewritten to erase t2 since we group in BiFunction 
-                        because, in Java, 
-                            type a -> b -> c is not the same than a-> (b -> c)
-                            and Varda is working with curryfied types for now
-                            however we can not curryfied appexpr since there is no partial function/method in Java .....
-
-                            Our transformation encoding works for lambda with one or two args only
-                        *)
-
-                        let t_ret = match t_ret.value with
-                            | ClassOrInterfaceType  ({value=TAtomic "Function"}, _::[t]) -> t
-                            | ClassOrInterfaceType  ({place; value=TAtomic "Function"}, _::targs) -> 
-                                {
-                                    place= t_ret.place; value=ClassOrInterfaceType  ({place; value=TAtomic "Function"}, targs)
-                                }
-                        in
-
-                        AppExpr(
-                            auto_place(AccessExpr(
-                                auto_place(CastExpr(
-                                    auto_place(ClassOrInterfaceType  ( auto_place (TAtomic "BiFunction"), [t1; t2; t_ret])),
-                                    cexpr e
-                                ), snd (e.value)),
-                                auto_place (RawExpr "apply", auto_place TUnknown)
-                            ), auto_place TUnknown),
-                            es
-                        )
-                    | LambdaExpr _ -> failwith "LambdaExpr with more than two args are not yet supported (Akka Plg)"
                     | VarExpr x when Atom.Set.find_opt x Arg.toplevel_functions = None -> 
                         AppExpr(
                             auto_place(AccessExpr(
@@ -95,6 +119,8 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                     | _ -> AppExpr (cexpr e, List.map cexpr es)
                 end
                 | _ -> AppExpr (cexpr e, List.map cexpr es)
+            end
+            | _ -> AppExpr (cexpr e, List.map cexpr es)
         end
         | AssertExpr e -> AssertExpr (cexpr e)
         | AssignExpr (e1, op, e2) -> AssignExpr (cexpr e1, op, cexpr e2)

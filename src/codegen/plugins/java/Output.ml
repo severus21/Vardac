@@ -91,8 +91,18 @@ module Make () = struct
         | AssertExpr e -> fprintf out "assert(%a)" oexpr e                   
         | AssignExpr (e1, op, e2) -> fprintf out "%a %a %a" oexpr e1 output_assignop op oexpr e2
         | BinaryExpr (e1, op, e2) -> fprintf out "(%a) %a (%a)" oexpr e1 output_binop op oexpr e2
-        | CastExpr (ct, ({value=LambdaExpr _,_} as lambda)) -> (* Otherwise Java error "error: lambda expression not expected here"*)
-            fprintf out "( (%a) %a )" ojtype ct oexpr lambda 
+        (* TODO should be case for lambda expr if TypeInf is run after Prepare/ElimFuture | CastExpr (ct, ({value=LambdaExpr _,_} as lambda)) -> (* Otherwise Java error "error: lambda expression not expected here"*)
+            fprintf out "( ((%a)) %a )" ojtype ct oexpr lambda *)
+        | CastExpr (ct, ({value=LambdaExpr (params, stmt),_} as e)) -> 
+            (* TODO Infer it here (hack), we should port the TypeInference path both on IR and IRI and run it after prepare and future elim in Akka plg *)
+            let rec find_return_ place = function
+            | ReturnStmt e -> [e]
+            | BlockStmt stmts -> List.flatten(List.map find_return stmts)
+            and find_return stmt = Core.AstUtils.map0_place find_return_ stmt in
+            let e_lambda = List.hd (find_return stmt) in
+
+            let ct = (JavaUtils.jtype_of_lambda params e_lambda) in
+            fprintf out "((%a) %a)" ojtype ct oexpr e
         | CastExpr (ct, e) -> fprintf out "((%a) %a)" ojtype ct oexpr e
         | LiteralExpr lit -> oliteral out lit
         | LambdaExpr (params, stmt) -> 

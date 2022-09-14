@@ -9,6 +9,7 @@ open Fieldslib
 open Misc
 open IRI
 
+
 module Make () = struct
 
     let pass_name = "Akka.FutureElim"
@@ -195,6 +196,8 @@ module Make () = struct
                 in
                 (* rename remaining stmts*)
                 let stmts = List.map (rename_stmt false renaming) stmts in 
+                (* Remove garbage stmt (i.e. x; ) : no side effect and not use as a value *)
+                let stmts = List.filter (function | {value=ExpressionStmt{value=VarExpr _,_}} -> false | _ -> true) stmts in
 
                 logger#debug "split: \n\tlet_x: %s\n\t args:%s" (Atom.to_string let_x) (Atom.show_list "," (List.map snd intermediate_args));
 
@@ -316,6 +319,90 @@ module Make () = struct
     | _ -> (mtype_of_ft TUUID).value
 
 
+    let select_call_wait_future = function
+    | CallExpr ({value=VarExpr x, _},  _)  -> Atom.is_builtin x && Atom.hint x = "wait_future" 
+    | _ -> false 
+
+    let select_lambda_wait_future = function
+    | LambdaExpr(_, e) ->
+        let _, elts, _ = 
+            IRUtils.collect_expr_expr 
+                ~exclude_expr:(function |LambdaExpr _-> true |_->false) (* search for minimal lambda containing wait_future, exclude intermediate nested lambdas *)
+                None 
+                Atom.Set.empty 
+                select_call_wait_future
+                (fun _ _ _ -> [true]) 
+                e 
+        in  
+        elts <> []
+    | _ -> false
+
+    let rewrite_lambda_wait_future parent_opt place = function
+    | LambdaExpr(params, e) -> 
+        let _, elts, _ = IRUtils.collect_expr_expr 
+                    None Atom.Set.empty select_call_wait_future (fun _ _ -> function  | {value=CallExpr (_, [continuation_id; _]), mt_res} -> [continuation_id, mt_res]) e in  
+
+        let n_e = match elts with
+            | [] -> LambdaExpr(params, e)
+            | [continuation_id, mt_res] -> begin
+                let parent =
+                    match parent_opt with
+                    | Some x -> x
+                    | None -> raise (Error.DeadbranchError "parent = None in rewriter")
+                in 
+
+                let intermediate_futures = 
+                    match Hashtbl.find_opt intermediate_futures_tbl  parent with
+                    | Some x -> x
+                    | None -> raise (Error.DeadbranchError (Printf.sprintf "wait_future in %s, without intermediate_futures" (Atom.to_string parent)))
+                in
+
+                let x = Atom.fresh "y" in
+                let continuation_params = [auto_fplace(mt_res, x)] in
+                let mt_ret_continuation = snd e.value in
+                let continuation = auto_fplace(LambdaExpr(
+                    continuation_params,
+                    rewrite_expr_expr parent_opt select_call_wait_future (fun _ _ _ -> VarExpr x) e
+                ), mtype_of_fun continuation_params mt_ret_continuation) in
+
+                let footer_x = Atom.fresh "x" in
+                let footer_params = [ auto_fplace(mtype_of_ct(TResult (mtype_of_ft TBottom, mtype_of_var (Atom.builtin "error"))), footer_x) ] in
+                LambdaExpr(
+                    params,
+                    auto_fplace (CallExpr(
+                        e2var (Atom.builtin "add2dict"),
+                        [
+                            e2_e (AccessExpr( e2_e This, e2var (intermediate_futures)));
+                            continuation_id;
+                            auto_fplace(LambdaExpr (
+                            footer_params,
+                                e2_e(CallExpr(
+                                    continuation,
+                                    [ e2var footer_x ]
+                                ))
+                            ), mtype_of_fun footer_params mt_ret_continuation)
+                        ]
+                    ), mtype_of_ft TVoid)
+
+                )
+                end
+            in
+
+            (* begin sanity check *)
+            let _, elts, _ = 
+                IRUtils.collect_expr_expr 
+                    None 
+                    Atom.Set.empty 
+                    select_call_wait_future
+                    (fun _ _ _ -> [true]) 
+                    (e2_e n_e)
+            in  
+            assert(elts = []);
+
+            n_e
+        | _ ->  Error.error "%s" "Vardac does not support more than one wait_future in lambda"
+
+
     (*****************************************************)
     let name = pass_name 
     let displayed_pass_shortdescription = Printf.sprintf "Codegen: Eliminate future" 
@@ -343,6 +430,7 @@ module Make () = struct
         |> rewrite_component_program (function _ -> true) rewrite_global_component (* hydrate shared state *)
         |> rewrite_stmt_program false select_new_future rewrite_new_future (* NB can not use recurse:true with the ref selected trick in side select_new_future *) 
         |> rewrite_citem_program (function _ -> true) warp_complete_future_method
+        |> rewrite_expr_program select_lambda_wait_future rewrite_lambda_wait_future
         |> rewrite_citem_program select_wait_future rewrite_wait_future 
         |> rewrite_type_program select_ct_future rewrite_ct_future
 end

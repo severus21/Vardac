@@ -36,12 +36,13 @@ module Make () = struct
                 | [] -> LambdaExpr(params, e)
                 | [result] ->
                     let x = Atom.fresh "x" in
+                    let body_params = [auto_fplace (snd result.value,x)] in
                     let body = 
-                        e2_e (LambdaExpr( 
-                            [auto_fplace (snd result.value,x)],
-                            e2_e (TernaryExpr(
+                        auto_fplace (LambdaExpr( 
+                            body_params,
+                            auto_fplace (TernaryExpr(
                                 e2var (Atom.builtin "is_ok"),
-                                e2_e(CallExpr(
+                                auto_fplace(CallExpr(
                                     rewrite_expr_expr parent_opt selector_unpack_or_propagate (fun _ _ _ -> VarExpr x) e,
                                     [
                                         {
@@ -54,16 +55,16 @@ module Make () = struct
                                             )
                                         } 
                                     ]
-                                )),
+                                ), snd e.value),
                                 e2var x
-                            ))
-                        ))
+                            ), snd e.value)
+                        ), mtype_of_fun body_params (snd e.value))
                     in
                     LambdaExpr(params,
-                        e2_e (CallExpr(
+                        auto_fplace (CallExpr(
                             body,
                             [ result ]
-                        ))
+                        ), snd e.value)
                     )
                 | _ ->  Error.error "%s" "UnpackOrPropagateResult remains after Akka.prepare"
         in

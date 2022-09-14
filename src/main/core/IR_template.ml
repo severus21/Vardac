@@ -433,7 +433,9 @@ module Make (Params : IRParams) = struct
             (_main_type -> _main_type) ->
             program -> program
 
-        val collect_expr_expr : Atom.atom option ->
+        val collect_expr_expr : 
+            ?exclude_expr:(_expr -> bool) ->
+            Atom.atom option ->
             Atom.Set.t ->
             (_expr -> bool) ->
             'a sig_expr_collector ->
@@ -1491,7 +1493,7 @@ module Make (Params : IRParams) = struct
 
         and rewrite_expr_component_dcl_ parent_opt selector rewriter place = function 
         | ComponentStructure cdcl -> 
-            ComponentStructure { cdcl with body = List.map (rewrite_expr_component_item parent_opt selector rewriter) cdcl.body}
+            ComponentStructure { cdcl with body = List.map (rewrite_expr_component_item (Some cdcl.name) selector rewriter) cdcl.body}
         and rewrite_expr_component_dcl parent_opt selector rewriter = map_place (rewrite_expr_component_dcl_ parent_opt selector rewriter) 
 
         and rewrite_expr_class_item_ parent_opt selector rewriter place = function 
@@ -1650,14 +1652,14 @@ module Make (Params : IRParams) = struct
         can only be applied in expression that are inside a statement
         *)
         exception Remains 
-        let rec rewrite_exprstmts_expr_ ?(recurse=false) parent_opt selector rewriter place (e, mt_e) : stmt list * (_expr * main_type) = 
-            let rewrite_exprstmts_expr = rewrite_exprstmts_expr  ~recurse:recurse parent_opt selector rewriter in
+        let rec rewrite_exprstmts_expr_ ?(recurse=false) parent_opt exclude_stmt selector rewriter place (e, mt_e) : stmt list * (_expr * main_type) = 
+            let rewrite_exprstmts_expr = rewrite_exprstmts_expr  ~recurse:recurse parent_opt exclude_stmt selector rewriter in
             match e with  
             | _ when recurse && selector e -> 
                 let stmts1, e = rewriter parent_opt mt_e e in
                 let stmts2, e = rewrite_exprstmts_expr (auto_fplace e) in
 
-                let stmts1 = List.flatten (List.map (rewrite_exprstmts_stmt ~recurse:recurse parent_opt (function _ -> false) selector rewriter) stmts1) in
+                let stmts1 = List.flatten (List.map (rewrite_exprstmts_stmt ~recurse:recurse parent_opt exclude_stmt selector rewriter) stmts1) in
                 
                 stmts1@stmts2, e.value
             | _ when selector e -> 
@@ -1753,14 +1755,14 @@ module Make (Params : IRParams) = struct
                 let stmts_n = List.flatten (List.map (function (a,b) -> fst a @ fst b) stmtses) in
                 let ees_n = List.map  (function (a,b) -> snd a, snd b) stmtses in
                 stmts_n, (Block2Expr (b, ees_n), mt_e)
-        and rewrite_exprstmts_expr ?(recurse=false) parent_opt (selector:_expr -> bool) rewriter : expr -> stmt list * expr = map2_place (rewrite_exprstmts_expr_  ~recurse:recurse parent_opt selector rewriter)
+        and rewrite_exprstmts_expr ?(recurse=false) parent_opt exclude_stmt (selector:_expr -> bool) rewriter : expr -> stmt list * expr = map2_place (rewrite_exprstmts_expr_  ~recurse:recurse parent_opt exclude_stmt selector rewriter)
 
         and rewrite_exprstmts_stmt_ ?(recurse=false) parent_opt exclude_stmt selector rewriter place : _stmt -> stmt list =
             let fplace = (Error.forge_place "rewrite_exprstmts_stmt" 0 0) in
             let auto_place smth = {place = place; value=smth} in
             let auto_fplace smth = {place = fplace; value=smth} in
 
-            let rewrite_exprstmts_expr = rewrite_exprstmts_expr  ~recurse:recurse parent_opt selector rewriter in
+            let rewrite_exprstmts_expr = rewrite_exprstmts_expr  ~recurse:recurse parent_opt exclude_stmt selector rewriter in
             let rewrite_exprstmts_stmt = rewrite_exprstmts_stmt  ~recurse:recurse parent_opt exclude_stmt selector rewriter in
 
             function
