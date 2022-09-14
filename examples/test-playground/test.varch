@@ -1,0 +1,17 @@
+protocol p = ?int?int.;
+component Mock {
+    inport p :: bridge<Mock, Mock, inline p> expecting p = this.toto;
+
+    result<void, error> toto(int msg, ?int. s){
+        result<int, error> j = (i : int -> (ok(1))?)(1);
+        return ok(());
+    }
+
+    onstartup () {}
+} 
+
+component TopLevel {
+    onstartup () {
+        activation_ref<Mock> b = spawn Mock();  
+    }
+}
