@@ -27,7 +27,10 @@
     ```
     1. Connect the console to the gRPC server
     ```bash
-    3>connect 127.0.0.1 8090
+    3> connect 127.0.0.1 8090
+    3> api_a
+    3> api_b "key"
+    3> api_c "key" 5 #expected 8
     ```
     where 127.0.0.1 is the ip of the server and 8090 its port
 

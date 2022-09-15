@@ -44,8 +44,9 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
         // register to receptionist to allow reflexivity : componentsat place -> actoref list
         PlaceDiscovery.register(
             context, 
+            this.getClass(),
             cluster.selfMember().address(),
-            new ActivationRef(this.schema, context.getSelf(), false, Optional.empty())
+            new ActivationRef(this.schema, context.getSelf(), false, SerializableOptional.empty())
             );
     }
 
@@ -83,7 +84,7 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     }
 
     public ActivationRef activation_ref(){
-        return new ActivationRef(this.schema, getContext().getSelf(), false, Optional.empty());
+        return new ActivationRef(this.schema, getContext().getSelf(), false, SerializableOptional.empty());
     }
 
     public Void bind_out(OutPort port, Bridge bridge, ActivationRef current) {

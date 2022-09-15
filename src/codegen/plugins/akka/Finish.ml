@@ -647,11 +647,11 @@ module Make (Arg: sig val target:Target.target end) = struct
         | S.BoxCExpr _ -> failwith "finish_expr BoxCexpr is not yet supported"
                 
         | S.OptionExpr None -> T.CallExpr (
-            e2var (Atom.builtin "Optional.empty"),
+            e2var (Atom.builtin "SerializableOptional.empty"),
             []
         )  
         | S.OptionExpr (Some e) -> T.CallExpr (
-            e2var (Atom.builtin "Optional.of"),
+            e2var (Atom.builtin "SerializableOptional.of"),
             [fexpr parent_opt e]
         )  
         | S.ResultExpr (None, Some err) ->  T.CallExpr (
@@ -1213,7 +1213,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                 let _p : S._port = fst p.value in
                 let t_msg, t_cont, t_ret = match snd _p.callback.value with
                     | {value=S.CType {value=S.TArrow (t_msg, {value=S.CType{value=S.TArrow (t_cont, t_ret)}})}} -> t_msg, t_cont, t_ret 
-                    | mt -> raise (Error.PlacedDeadbranchError ( _p.callback.place, (Printf.sprintf "Callback is ill-typed %s" (S.show_main_type mt))))
+                    | mt -> raise (Error.PlacedDeadbranchError ( _p.callback.place, (Printf.sprintf "Callback of port %s is ill-typed %s" (Atom.to_string _p.name) (S.show_main_type mt))))
                 in
 
                 auto_place {   
@@ -1250,7 +1250,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                         )
                     ))]
                 }
-            ) grp_items.ports
+            )  (List.filter (function (p:S.port) -> Bool.not ((fst p.value)._disable_session)) grp_items.ports)
             @ states 
         in
 
@@ -1275,7 +1275,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                         ]
                     ))
                 ))
-            ) grp_items.ports
+            ) (List.filter (function (p:S.port) -> Bool.not (fst p.value)._disable_session) grp_items.ports)
         in
 
         (*** Eports 

@@ -15,7 +15,7 @@ public class Event<T extends NoMetadata> implements CborSerializable {
     // Mandatory metadata
     public ASTStype.Base st;
     public Boolean init_stage;
-    public Optional<ActivationRef> hidden_right; //e.g. non anonymous redirection
+    public SerializableOptional<ActivationRef> hidden_right; //e.g. non anonymous redirection
 
     public NoMetadata metadata;
     
@@ -27,7 +27,7 @@ public class Event<T extends NoMetadata> implements CborSerializable {
         ActivationRef<CborSerializable> replyTo, 
         ASTStype.Base st, 
         Boolean init_stage,
-        Optional<ActivationRef> hidden_right,
+        SerializableOptional<ActivationRef> hidden_right,
         NoMetadata metadata
     ) {
         assert(bridge_id != null);

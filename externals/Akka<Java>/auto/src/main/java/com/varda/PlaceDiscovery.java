@@ -1,5 +1,6 @@
 package com.varda;
 
+import akka.actor.typed.ActorSystem;
 import akka.actor.Address;
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
@@ -12,6 +13,7 @@ import akka.cluster.typed.Join;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.AskPattern;
 
+import java.rmi.activation.ActivationGroup;
 import java.security.AccessControlContext;
 import java.time.Duration;
 import java.util.*;
@@ -22,6 +24,10 @@ import akka.cluster.ddata.ORMultiMapKey;
 import akka.cluster.typed.ClusterSingleton;
 import akka.cluster.typed.ClusterSingletonSettings;
 import akka.cluster.typed.SingletonActor;
+
+import akka.cluster.Member;
+import akka.cluster.MemberStatus;
+import akka.cluster.typed.Cluster;
 
 
 import javax.sound.sampled.spi.AudioFileReader;
@@ -34,20 +40,29 @@ import com.bmartin.SpawnProtocol;
 
 public class PlaceDiscovery {
 
+    // Service key only for System (i.e JVM registration)
     public static ServiceKey<SpawnProtocol.Command> serviceKeyOf(Place place) {
         return serviceKeyOf(place.address);
     }
 
     public static ServiceKey<SpawnProtocol.Command> serviceKeyOf(Address addr) {
-        return ServiceKey.create(SpawnProtocol.Command.class, AbstractSystem.NAME);// +"_"+addr.toString());
+        return ServiceKey.create(SpawnProtocol.Command.class, activationsServiceKeyOf(addr));
     }
 
+    // For activation registration
     public static String activationsServiceKeyOf(Place place) {
         return activationsServiceKeyOf(place.address);
+    }
+    public static String activationsTypedServiceKeyOf(Class cl, Place place) {
+        return activationsTypedServiceKeyOf(cl, place.address);
     }
 
     public static String activationsServiceKeyOf(Address addr) {
         return AbstractSystem.NAME + "_activations_" + addr.toString();
+    }
+
+    public static String activationsTypedServiceKeyOf(Class cl, Address addr) {
+        return AbstractSystem.NAME + "_" + cl +"_activations_" + addr.toString();
     }
 
     public static <_T> ActorRef<_T> spawnAt(ActorContext context, ActorRef<SpawnProtocol.Command> guardian,
@@ -90,12 +105,16 @@ public class PlaceDiscovery {
         return null;
     }
 
-    public static Either<Error, Boolean> register(ActorContext context, Place at, ActivationRef a){
-        return register(context, at.address, a);
+    public static Either<Error, Boolean> register(ActorContext context, Class cl, Place at, ActivationRef a){
+        return register(context, cl, at.address, a);
     }
-    public static Either<Error, Boolean> register(ActorContext context, Address addr, ActivationRef a){
-        ActorRef<ReplactedReceptionist.Command> receptionist = ReplactedReceptionist.getReceptionist(context); 
-        receptionist.tell(new ReplactedReceptionist.Register(activationsServiceKeyOf(addr), a));
+    public static Either<Error, Boolean> register(ActorContext context, Class cl, Address addr, ActivationRef a){
+        ActorRef<ReplacedReceptionist.Command> receptionist = ReplacedReceptionist.getReceptionist(context); 
+
+        context.getLog().debug("PlaceDiscovery.register <"+activationsServiceKeyOf(addr)+">");
+        context.getLog().debug("PlaceDiscovery.register <"+activationsTypedServiceKeyOf(cl, addr)+">");
+        receptionist.tell(new ReplacedReceptionist.Register(activationsServiceKeyOf(addr), a));
+        receptionist.tell(new ReplacedReceptionist.Register(activationsTypedServiceKeyOf(cl, addr), a));
 
         //Wait that for visible registered activation
         for(int i = 0; i < 10; i++){ //10 retry max
@@ -120,22 +139,60 @@ public class PlaceDiscovery {
         return activationsAt(context, at.address);
     }
     public static Set<ActivationRef> activationsAt(ActorContext context, Address addr) {
-        assert (context != null);
-        ActorRef<ReplactedReceptionist.Command> receptionist = ReplactedReceptionist.getReceptionist(context);
+       return activationsAt(context.getSystem(), addr);
+    }
+
+    public static Set<ActivationRef> activationsAt(ActorSystem sys, Address addr) {
+        assert (sys != null);
+        ActorRef<ReplacedReceptionist.Command> receptionist = ReplacedReceptionist.getReceptionist(sys);
 
         CompletionStage<Set<ActivationRef>> ask = AskPattern.ask(
                 receptionist,
-                replyTo -> new ReplactedReceptionist.GetValue(activationsServiceKeyOf(addr), replyTo),
+                replyTo -> new ReplacedReceptionist.GetValue(activationsServiceKeyOf(addr), replyTo),
                 Duration.ofSeconds(10),
-                context.getSystem().scheduler());
+                sys.scheduler());
 
         try {
             // blocking call
             Set<ActivationRef> tmp = ask.toCompletableFuture().get();
             return tmp;
         } catch (Exception e) {
-            context.getLog().error(e.toString());
+            sys.log().error(e.toString());
             return new HashSet<>();
         }
+    }
+
+    public static Set<ActivationRef> activationsAt(ActorSystem sys, Class cl, Address addr) {
+        assert (sys != null);
+
+        sys.log().debug("search activation of type "+cl.toString()+ " at "+addr.toString()+"\n\t<"+activationsTypedServiceKeyOf(cl, addr)+">");
+        ActorRef<ReplacedReceptionist.Command> receptionist = ReplacedReceptionist.getReceptionist(sys);
+
+        CompletionStage<Set<ActivationRef>> ask = AskPattern.ask(
+                receptionist,
+                replyTo -> new ReplacedReceptionist.GetValue(activationsTypedServiceKeyOf(cl, addr), replyTo),
+                Duration.ofSeconds(10),
+                sys.scheduler());
+
+        try {
+            // blocking call
+            Set<ActivationRef> tmp = ask.toCompletableFuture().get();
+            return tmp;
+        } catch (Exception e) {
+            sys.log().error(e.toString());
+            return new HashSet<>();
+        }
+    }
+
+    public static Set<ActivationRef> activationsAt(ActorSystem sys, Class cl){
+        Iterable<Member> members = Cluster.get(sys).state().getMembers();
+
+        Set<ActivationRef> res = new HashSet<>();
+        for(Member member : members){
+            Set<ActivationRef> tmp = activationsAt(sys, cl, member.address());
+            res.addAll(tmp);
+        }
+
+        return res;
     }
 }

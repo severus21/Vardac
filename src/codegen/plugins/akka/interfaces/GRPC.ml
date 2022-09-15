@@ -479,11 +479,12 @@ end) = struct
                         auto_fplace(auto_plgannot (S.Method callback)), auto_fplace (auto_plgannot(S.Inport (auto_fplace ({
                             S.name = Atom.fresh ("port_service2actor_"^(Atom.value e1.value.name));
                             _disable_session = true;
-                            expecting_st = S_A2.mtype_of_st (S.STRecv (S_A2.mtype_of_ct (S.TVar e1.value.name), auto_fplace (S.STSend (S_A2.mtype_of_ct (S.TVar e2.value.name), auto_fplace S.STEnd))));
-                            callback = S_A2.e2_e (S.AccessExpr(
+                            (*expecting_st = S_A2.mtype_of_st (S.STRecv (S_A2.mtype_of_ct (S.TVar e1.value.name), auto_fplace (S.STSend (S_A2.mtype_of_ct (S.TVar e2.value.name), auto_fplace S.STEnd))));*)
+                            expecting_st = S_A2.mtype_of_st (S.STRecv (S_A2.mtype_of_ct (S.TVar e1.value.name), auto_fplace S.STEnd));
+                            callback = auto_fplace (S.AccessExpr(
                                 S_A2.e2_e S.This,
                                 S_A2.e2var callback.value.name
-                            )); 
+                            ), S_A2.mtype_of_fun callback.value.args callback.value.ret_type); 
                             _children = [];
                             _is_intermediate = false;
                             _receive_id = None;
@@ -580,20 +581,11 @@ end) = struct
         long DEFAULT_RETRY_TIMEOUT = 500;   // in ms
         Duration DEFAULT_TIMEOUT = Duration.ofSeconds(3);
 
-        Cluster cluster = Cluster.get({{actorSystem}});
-        assert (null != cluster);
-        ServiceKey key = PlaceDiscovery.activationsServiceKeyOf(cluster.selfMember().address());
-        CompletionStage<Receptionist.Listing> result =
-                AskPattern.ask({{actorSystem}}.receptionist(),
-                        (ActorRef<Receptionist.Listing> replyTo) -> Receptionist.find(key, replyTo),
-                        DEFAULT_TIMEOUT,
-                        {{actorSystem}}.scheduler());
-
         ActorRef actor = null;
 
         try {
             // blocking call
-            Set<ActorRef<{{componentName}}.Command>> listing = result.toCompletableFuture().get().getServiceInstances(key);
+            Set<ActivationRef> listing = PlaceDiscovery.activationsAt({{actorSystem}}, {{componentName}}.class);
             if (listing.isEmpty()) {
                 if (++{{retry}} < DEFAULT_MAX_RETRY + 1) {
                     final long timeout = DEFAULT_RETRY_TIMEOUT * {{retry}};
@@ -605,13 +597,10 @@ end) = struct
                     throw new RuntimeException("Could not find {{system_name}} after " + DEFAULT_MAX_RETRY + " retries.");
                 }
             } else {
-                actor = listing.iterator().next();    // TODO: if more than 1 result, use closest
+                actor = listing.iterator().next().actorRef;    // TODO: if more than 1 result, use closest
                 {{actorSystem}}.log().info("{{implName}}::getActor(): found {{componentName}} " + actor +
                         " out of " + listing.size());
             }
-        } catch (java.util.concurrent.ExecutionException e) {
-            assert(false);
-            //TODO
         } catch (java.lang.InterruptedException e) {
             assert(false);
             //TODO
@@ -620,6 +609,7 @@ end) = struct
         return actor;
                                                     |}, 
                                                     [
+                                                        "system_name", Jg_types.Tstr Misc.system_name;
                                                         "actorSystem", Jg_types.Tstr (Atom.to_string local_arg_system);
                                                         "componentName", Jg_types.Tstr (Atom.to_string service.component_name);
                                                         "implName", Jg_types.Tstr (Atom.to_string service.impl_name);

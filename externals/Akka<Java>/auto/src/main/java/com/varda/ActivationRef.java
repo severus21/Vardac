@@ -30,13 +30,13 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
             this.interceptedActivationRef_opt.isEmpty() && !this.isInterceptor
     */
     @JsonProperty("interceptedActorRef")
-    public Optional<ActivationRef<Command>> interceptedActivationRef_opt;
+    public SerializableOptional<ActivationRef<Command>> interceptedActivationRef_opt;
 
     @JsonProperty("isInterceptor")
     public Boolean isInterceptor; 
 
     @JsonCreator 
-    public ActivationRef (String componentSchema, ActorRef<Command> actorRef, Boolean isInterceptor, Optional<ActivationRef<Command>> interceptedActivationRef_opt, UUID mocked_uuid){
+    public ActivationRef (String componentSchema, ActorRef<Command> actorRef, Boolean isInterceptor, SerializableOptional<ActivationRef<Command>> interceptedActivationRef_opt, UUID mocked_uuid){
         this.actorRef = actorRef;
         this.componentSchema = componentSchema;
         this.interceptedActivationRef_opt = interceptedActivationRef_opt;
@@ -44,14 +44,14 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
         this.mocked_uuid = mocked_uuid;
     }
 
-    public ActivationRef (String componentSchema, ActorRef<Command> actorRef, Boolean isInterceptor, Optional<ActivationRef<Command>> interceptedActivationRef_opt){
+    public ActivationRef (String componentSchema, ActorRef<Command> actorRef, Boolean isInterceptor, SerializableOptional<ActivationRef<Command>> interceptedActivationRef_opt){
         this.actorRef = actorRef;
         this.componentSchema = componentSchema;
         this.interceptedActivationRef_opt = interceptedActivationRef_opt;
         this.isInterceptor = isInterceptor; 
     }
 
-    public ActivationRef(ActivationRef<Command> a_ref, Optional<ActivationRef<Command>> interceptedActivationRef_opt){
+    public ActivationRef(ActivationRef<Command> a_ref, SerializableOptional<ActivationRef<Command>> interceptedActivationRef_opt){
         this.actorRef = a_ref.actorRef;
         this.componentSchema = a_ref.componentSchema;
         this.interceptedActivationRef_opt = interceptedActivationRef_opt;

@@ -25,7 +25,7 @@ public final class OutPort extends AbstractPort {
     public Session initiate_session_with(
         ActivationRef from, 
         ActivationRef to,
-        Optional<ActivationRef> hidden_to
+        SerializableOptional<ActivationRef> hidden_to
     ){
         assert(from != null);
         assert(to != null);

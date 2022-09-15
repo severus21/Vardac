@@ -25,7 +25,7 @@ public class Session implements CborSerializable {
     public ASTStype.Base st;
 
     public Boolean init_stage;
-    public Optional<ActivationRef> hidden_right; //e.g. non anonymous redirection
+    public SerializableOptional<ActivationRef> hidden_right; //e.g. non anonymous redirection
     
     public AbstractPort init_port;
 
@@ -35,7 +35,7 @@ public class Session implements CborSerializable {
         ActivationRef right,
         ASTStype.Base st,
         Boolean init_stage,
-        Optional<ActivationRef> hidden_right,
+        SerializableOptional<ActivationRef> hidden_right,
         AbstractPort init_port //used for RecvElim for now 
         ) {
 

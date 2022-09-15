@@ -136,7 +136,7 @@ public class ConsoleClient {
                     if (pl.words().size() == 3) {
                         String key = pl.words().get(1);
                         Integer i = Integer.parseInt(pl.words().get(2));
-                        terminal.writer().println("api_a: "+currentState.grpcClient.api_c(key,i));
+                        terminal.writer().println("api_c: "+currentState.grpcClient.api_c(key,i));
                     } else {
                         terminal.writer().println("Usage: put <key> <value>");
                     }

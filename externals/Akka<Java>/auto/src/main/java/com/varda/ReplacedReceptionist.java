@@ -1,6 +1,7 @@
 package com.varda;
 
 import akka.actor.typed.ActorRef;
+import akka.actor.typed.ActorSystem;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
@@ -23,13 +24,20 @@ import scala.collection.JavaConverters;
 import java.util.Set;
 import java.util.Map;
 
-public class ReplactedReceptionist extends AbstractBehavior<ReplactedReceptionist.Command> {
-    public static ActorRef<ReplactedReceptionist.Command> getReceptionist(ActorContext context){
-        ClusterSingleton singleton = ClusterSingleton.get(context.getSystem());
-        return singleton.init(SingletonActor.of(ReplactedReceptionist.create(new ORMultiMapKey("bridge")), "replacted_receptionist"));
+import com.bmartin.*;
+
+public class ReplacedReceptionist extends AbstractBehavior<ReplacedReceptionist.Command> {
+    public static ActorRef<ReplacedReceptionist.Command> getReceptionist(ActorContext context){
+        return getReceptionist(context.getSystem());
     }
 
-    interface Command {}
+    public static ActorRef<ReplacedReceptionist.Command> getReceptionist(ActorSystem sys){
+        ClusterSingleton singleton = ClusterSingleton.get(sys);
+        return singleton.init(SingletonActor.of(ReplacedReceptionist.create(new ORMultiMapKey("bridge")), "replacted_receptionist"));
+    }
+
+    interface Command extends CborSerializable {}
+
     public static class Register implements Command {
         public final ActivationRef a;
         public final String key;
@@ -99,7 +107,7 @@ public class ReplactedReceptionist extends AbstractBehavior<ReplactedReceptionis
             ctx ->
                 DistributedData.withReplicatorMessageAdapter(
                     (ReplicatorMessageAdapter<Command, ORMultiMap<String, ActivationRef>> replicatorAdapter) ->
-                        new ReplactedReceptionist(ctx, replicatorAdapter, key)));
+                        new ReplacedReceptionist(ctx, replicatorAdapter, key)));
     }
 
     // adapter that turns the response messages from the replicator into our own protocol
@@ -109,7 +117,7 @@ public class ReplactedReceptionist extends AbstractBehavior<ReplactedReceptionis
 
     private java.util.Map<String, java.util.Set<ActivationRef>>	cachedValue;
 
-    private ReplactedReceptionist(
+    private ReplacedReceptionist(
         ActorContext<Command> context,
         ReplicatorMessageAdapter<Command, ORMultiMap<String, ActivationRef>> replicatorAdapter,
         Key<ORMultiMap<String, ActivationRef>> key) {

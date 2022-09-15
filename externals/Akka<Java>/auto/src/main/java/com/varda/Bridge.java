@@ -92,8 +92,8 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
     } 
 
     private Either<Error, Boolean> register(ActorContext context, ActorRef<SpawnProtocol.Command> guardian, ActivationRef a, boolean left){
-        ActorRef<ReplactedReceptionist.Command> receptionist = ReplactedReceptionist.getReceptionist(context); 
-        receptionist.tell(new ReplactedReceptionist.Register(left ? this.leftServiceKey() : this.rightServiceKey(), a));
+        ActorRef<ReplacedReceptionist.Command> receptionist = ReplacedReceptionist.getReceptionist(context); 
+        receptionist.tell(new ReplacedReceptionist.Register(left ? this.leftServiceKey() : this.rightServiceKey(), a));
 
         //Wait that for visible registered activation
         for(int i = 0; i < 10; i++){ //10 retry max
@@ -136,11 +136,11 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
 
     public Either<Error, Set<ActivationRef>> activationsAt(ActorContext context, boolean left){
         assert( context != null);
-        ActorRef<ReplactedReceptionist.Command> receptionist = ReplactedReceptionist.getReceptionist(context); 
+        ActorRef<ReplacedReceptionist.Command> receptionist = ReplacedReceptionist.getReceptionist(context); 
 
         CompletionStage<Set<ActivationRef>> ask = AskPattern.ask(
             receptionist,
-            replyTo -> new ReplactedReceptionist.GetValue(left ? this.leftServiceKey() : this.rightServiceKey(), replyTo),
+            replyTo -> new ReplacedReceptionist.GetValue(left ? this.leftServiceKey() : this.rightServiceKey(), replyTo),
             Duration.ofSeconds(10),
             context.getSystem().scheduler());
 
