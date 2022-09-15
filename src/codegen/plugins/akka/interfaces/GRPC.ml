@@ -1154,15 +1154,15 @@ end) = struct
     let finish_program program =  
         hydrate_grpc program;
         if Hashtbl.length grpc_services > 0 then
-        begin
-            proto_models := Some (generate_protobuf_interfaces_env build_dir program);
-            let iri_program, res = generate_services_implementation program in
-            let events, akka_terms = List.split res in 
-            let events = List.flatten events in
-            let target, server_program = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
-            let client_program = generate_gRPC_client (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
-            [ (target, iri_program), events@akka_terms@[server_program;client_program] ]
-        end
+            begin
+                proto_models := Some (generate_protobuf_interfaces_env build_dir program);
+                let iri_program, res = generate_services_implementation program in
+                let events, akka_terms = List.split res in 
+                let events = List.flatten events in
+                let target, server_program = generate_gRPC_server (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
+                let client_program = generate_gRPC_client (List.of_seq (Hashtbl.to_seq_values grpc_services)) in
+                [ (target, iri_program), events@akka_terms@[server_program;client_program] ]
+            end
         else  
         begin
             proto_models := Some [];

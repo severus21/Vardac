@@ -8,6 +8,7 @@ let fplace = (Error.forge_place "Plg=Java.HumanReadable" 0 0)
 (* Atom.value -> already binded in the scope *)
 module StrSet = Set.Make(String)
 type ctx = {
+    filename: string;
     local: StrSet.t;
 }
 
@@ -16,6 +17,7 @@ let renaming : (int, Atom.atom) Hashtbl.t = Hashtbl.create 256
 let filename2ctx = Hashtbl.create 16
 let get_ctx filename = 
     let fresh_ctx () : ctx = {
+        filename    = filename;
         local       = StrSet.empty;
     } in    
     match Hashtbl.find_opt filename2ctx filename with
@@ -27,6 +29,22 @@ let store_ctx filename ctx =
     | None -> Hashtbl.add filename2ctx filename ctx
     | _ ->  ()
     (* debug failwith (Printf.sprintf "ctx already exists for filename [%s]" filename) *)
+
+let exclude_from_renaming x = 
+    let exclude = [
+        Str.regexp {|.*Actor2Service.*|}; 
+        Str.regexp {|.*Service2Actor.*|};
+    ] in
+
+    let flag = try
+        List.fold_left (fun acc re -> 
+            if Bool.not acc then Str.string_match re (Atom.to_string x) 0
+            else raise Not_found
+        ) false exclude 
+        with Not_found -> true 
+    in
+
+    flag
 
 module Make(Arg: sig 
     val filename:string 
@@ -46,8 +64,10 @@ end) = struct
 
     let hr_atom_no_binder ctx x = 
         logger#debug "hr_atom_no_binder: %s" (Atom.to_string x);
-        if Atom.is_builtin x then ctx, x
-        else 
+        if Atom.is_builtin x  || exclude_from_renaming x then( 
+            logger#debug "disable renaming for %s since builtin" (Atom.to_string x);
+            ctx, x
+        )else 
             let tokens = String.split_on_char '.' (Atom.to_string x) in
 
             (* if x = author.project_name.XXX.YY *)
@@ -71,32 +91,41 @@ end) = struct
                 in
                 let z = (Atom.craft cls_id cls_hint cls_hint false) in
 
-                if cl_filename = cls || external_filename = (Config.project_name ()) then ctx, x
-                else if Atom.Set.find_opt z Arg.component_names <> None then 
+                if cl_filename = cls || external_filename = (Config.project_name ()) then( 
+                    logger#debug "disable renaming for %s since TODO" (Atom.to_string x);
+                    ctx, x
+                )
+                else if Atom.Set.find_opt z Arg.component_names <> None then ( 
                     (* Component name should not be renamed since they are filename too *)
+                    logger#debug "disable renaming for %s since can not find suffix in component names" (Atom.to_string x);
                     ctx, x 
+                )
                 else
                     let external_ctx = get_ctx external_filename in
                     match Hashtbl.find_opt renaming (Atom.identity z) with
                     | None -> 
                         (* Not in stage order therefore we can not rename *)
-                        logger#debug "[external %s] Not in stage order (HR) %s %s" external_filename (Atom.show z) (Atom.to_string x);
+                        logger#debug "[external %s] Not in stage order (HR) %s %s\n\t- current: %s" external_filename (Atom.show z) (Atom.to_string x) cl_filename;
                         Hashtbl.add renaming (Atom.identity z) z;
                         let external_ctx = {
+                            filename = external_filename;
                             local = StrSet.add (Atom.hint z) external_ctx.local;
                         } in
                         store_ctx external_filename external_ctx;
                         ctx, x
                     | Some cls -> 
-                        logger#debug "In stage order (HR) %s %s" (Atom.to_string x) (Atom.to_string cls);
+                        logger#debug "In stage order (HR) %s %s\n\t- current: %s" (Atom.to_string x) (Atom.to_string cls) cl_filename;
                         ctx, Atom.builtin (package^"."^(Atom.to_string cls))
             else
-                if cl_filename = Atom.to_string x then ctx, x
-                else
+                if cl_filename = Atom.to_string x then( 
+                    logger#debug "disable renaming for %s since it is the current class name" (Atom.to_string x);
+                    ctx, x
+                )else
                     match Hashtbl.find_opt renaming (Atom.identity x) with
                     | None -> 
                         logger#debug "disable renaming for %s" (Atom.to_string x);
                         let ctx = {
+                            filename = cl_filename;
                             local = StrSet.add (Atom.hint x) ctx.local;
                         } in
                         ctx, x
@@ -106,7 +135,7 @@ end) = struct
                         logger#debug "set %s -> %s" (Atom.to_string x) (Atom.to_string y);
                         ctx, y 
     let hr_atom_binder ctx x = 
-        if Atom.is_builtin x then ctx, x
+        if Atom.is_builtin x || exclude_from_renaming x then ctx, x
         else if Atom.hint x = "main" then( (* reserved *)
             Hashtbl.add renaming (Atom.identity x) x;
             ctx, x
@@ -121,6 +150,7 @@ end) = struct
                     logger#debug "[%s] let %s %s" cl_filename (Atom.to_string x) (Atom.to_string y);
                     Hashtbl.add renaming (Atom.identity x) y;
                     let ctx = {
+                        filename = cl_filename;
                         local = StrSet.add (Atom.hint x) ctx.local;
                     } in
                     ctx, y 
@@ -202,6 +232,7 @@ end) = struct
             let ctx, bbterm = hr_bbterm ctx bbterm in
             ctx, BBExpr bbterm
         | LambdaExpr (args, stmt) -> 
+
             let ctx, args = List.fold_left_map (
                 fun ctx (jt, x) ->
                     let ctx, jt = hr_jt ctx jt in
