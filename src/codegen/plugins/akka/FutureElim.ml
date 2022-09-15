@@ -39,9 +39,9 @@ module Make () = struct
 
     let selected = ref 0 
     let select_new_future = function
-    | LetStmt (_, _, {value=CallExpr ({value=VarExpr x,_}, []), _}) ->
+    | LetStmt (_, _, {value=CallExpr ({value=VarExpr x,_}, []), _}) when Atom.is_builtin x && Atom.hint x = "future" ->
         selected := 2;
-        Atom.is_builtin x && Atom.hint x = "future"
+        true
     | _ when !selected > 0 -> 
         decr selected;
         true

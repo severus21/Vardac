@@ -78,7 +78,6 @@ component Ping {
         if(msg._1_){
             this.warmup_counter = this.warmup_counter + 1;
             string x = int_to_string(this.warmup_counter);
-            print("warmup_counter "+x);
 
             // Last pong
             if( this.warmup_counter == this.warmup ){
@@ -87,11 +86,9 @@ component Ping {
         } else {
             this.counter = this.counter + 1;
             long endTimestamp = time();
-            print(int_to_string(msg._0_));
             aput(this.rtts, msg._0_, endTimestamp - msg._2_);
 
             // Last pong
-            (* TODO multiple stmts in an if => unable to parse *)
             if( this.counter == this.n ){
                 this.sumup();
             }
