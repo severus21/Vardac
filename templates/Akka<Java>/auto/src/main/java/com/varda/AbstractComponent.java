@@ -112,7 +112,7 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
         getContext().getLog().debug(str);
     }
 
-    public InPort get_intermediate_port(Session s, Optional<String> receive_id){
+    public InPort get_intermediate_port(Session s, SerializableOptional<String> receive_id){
         //TODO could optimize by building indexes
         for (InPort p : this.reflexivity_inports()){
             if(p.is_intermediate && p.expecting_st.equals(s.st) && p.receive_id.equals(receive_id) && s.bridge_id.equals(p.bridge.id)){

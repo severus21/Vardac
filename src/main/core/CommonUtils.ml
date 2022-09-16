@@ -1367,6 +1367,7 @@ rewrite_type_aconstraint
             | Block2Expr (b, ees) -> Block2Expr (b,
                 List.map (function (e1, e2) -> (re e1, re e2)) ees
             )
+            | RawExpr x -> RawExpr x
             in
             (e, rmt mt_e)
         and rename_expr ?(flag_rename_attribute=false) flag_rename_type renaming : expr -> expr = map_place (_rename_expr flag_rename_attribute flag_rename_type (protect_renaming renaming))

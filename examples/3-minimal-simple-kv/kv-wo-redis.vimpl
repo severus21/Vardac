@@ -1,11 +1,5 @@
 target akka;
 
-impl headers java:{=
-=}
-impl dependencies gradle:{=
-    implementation group: 'redis.clients', name: 'jedis', version: '4.2.1'
-=}
-
 impl component Client {
     impl state kv java:{=
         null
@@ -13,11 +7,6 @@ impl component Client {
 }
 
 impl component KVServer {
-
-    impl headers java:{=
-        import redis.clients.jedis.JedisPooled;
-    =}
-
     impl raw java:{=
         Map<String, Integer> inner_state = new HashMap<String, Integer>();
     =}
@@ -25,7 +14,11 @@ impl component KVServer {
     (* binding for the get method *)
     impl method _get java:{=
         // Perform the GET request on key [k]
-        return this.inner_state.get({{%k._0_%}});
+        Integer i = this.inner_state.get({{%k._0_%}});
+        if( i== null)
+            return -1;
+        else
+            return i;
     =}
 
     impl method put java:{=

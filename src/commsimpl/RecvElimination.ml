@@ -53,7 +53,15 @@ module Make () : Sig = struct
     (************** Utils *****************)
     let fresh_next_method main_name main_annotations t_msg_cont =
         {
-            annotations = main_annotations;
+            annotations =
+                List.filter_map 
+                    (function
+                        | Expose -> None 
+                        | MsgInterceptor _ -> None
+                        | SessionInterceptor _ -> None
+                        | Onboard _ -> None
+                    ) 
+                    main_annotations;
             ghost = false;
             (* result<void, error> to support error propagation *)
             ret_type = mtype_of_ct (TResult(mtype_of_ft TVoid, Builtin.builtin_mt_error)); 

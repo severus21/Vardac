@@ -112,7 +112,6 @@ end) = struct
         List.iter (function (component_name, exported_methods) ->
 
             let rpcs = List.map (function (m: S.method0) ->
-
                 (** Generates messages and store them in grpc_messages *)
 
                 let rec _gendef place = function
@@ -132,7 +131,14 @@ end) = struct
                     | S.CType {value=S.TList mt} ->
                         let ct, proto = gendef mt in
                         auto_fplace (T.TList ct), "ListValue"
-                    | _ -> Error.perror place "Type unsupported for interface, should be a simple atomic type."
+                    | S.CType {value=S.TResult ({value=S.CType {value=S.TFuture {value=S.CType {value=S.TResult (mt, _)}}}}, _)} ->
+                        (* Async function containing receive *)
+                        gendef mt
+                    | mt -> 
+                        Error.perror 
+                            place 
+                            "Type unsupported for interface, should be a simple atomic type.\n%s" 
+                            (S.show__main_type mt)
                 and gendef x = map0_place _gendef x in
 
                 let to_field i ({value=mt,x}) : msg_field = 
@@ -433,47 +439,83 @@ end) = struct
                             res = this.custom_callback(e.getX1(), ..., getXn()) X_i fields of Protobuf msg    
                             e.replyTo.tell(.tell(TrucMsg(res), getSelf())
                         *)
+
                         let lambda_e = Atom.fresh "e" in
+                        let typed_lambda_e = auto_fplace (S.VarExpr lambda_e, S_A2.mtype_of_var e1.value.name) in
+
+                        let e_res = match m.value.ret_type.value with
+                            | S.CType {value=S.TResult ({value=S.CType {value=S.TFuture ({value=S.CType {value=S.TResult (mt, _)}} as mt_future_result)}}, _)} ->
+                                S_A2.e2_e(S.CallExpr(
+                                    S_A2.e2var (Atom.builtin "get_ok"),
+                                    [
+                                        auto_fplace (S.CallExpr(
+                                            S_A2.e2var (Atom.builtin "wait_future"),
+                                            [
+                                                S_A2.e2_e(S.UnopExpr (UnpackOrPropagateResult,
+                                                    auto_fplace(S.CallExpr(
+                                                        S_A2.e2_e (S.AccessExpr( 
+                                                            S_A2.e2_e S.This, 
+                                                            S_A2.e2var m.value.name
+                                                        )),
+                                                        List.map (function (f:msg_field) -> 
+                                                                S_A2.e2_e (S.AccessExpr( 
+                                                                    typed_lambda_e,
+                                                                    S_A2.e2var f.name
+                                                                ))
+                                                            ) proto_msg1.fields
+                                                    ), S_A2.mtype_of_ct(S.TResult(S_A2.mtype_of_ft TUUID, S_A2.mtype_of_var (Atom.builtin "error"))))
+                                                ));
+                                                S_A2.e2_lit (S.IntLit 30000); (*cf.Timeout RecvElimination*)
+                                            ]
+                                        ), mt_future_result)
+                                    ]
+                                ))
+                            | _ -> 
+                                S_A2.e2_e(S.CallExpr(
+                                    S_A2.e2_e (S.AccessExpr( 
+                                        S_A2.e2_e S.This, 
+                                        S_A2.e2var m.value.name
+                                    )),
+                                    List.map (function (f:msg_field) -> 
+                                            S_A2.e2_e (S.AccessExpr( 
+                                                typed_lambda_e,
+                                                S_A2.e2var f.name
+                                            ))
+                                        ) proto_msg1.fields
+                                ))
+                        in
+
+
                         let callback = auto_fplace ({
                             S.annotations = [];
                             ghost = false;
-                            ret_type = S_A2.mtype_of_ft Core.AstUtils.TVoid;
-                            name = Atom.fresh "callback";
+                            ret_type =
+                                S_A2.mtype_of_ct (S.TResult(S_A2.mtype_of_ft Core.AstUtils.TVoid, S_A2.mtype_of_var (Atom.builtin "error")));
+                            name = Atom.fresh "grpc_callback";
                             args = [ auto_fplace(S_A2.mtype_of_var e1.value.name, lambda_e) ];
                             contract_opt = None;
                             on_destroy = false;
                             on_startup = false;
-                            body = S.AbstractImpl [ auto_fplace (S.ExpressionStmt (
-                                S_A2.e2_e (S.CallExpr(
-                                    S_A2.e2_e (S.AccessExpr(
+                            body = S.AbstractImpl [ 
+                                auto_fplace (S.ExpressionStmt (
+                                    S_A2.e2_e (S.CallExpr(
                                         S_A2.e2_e (S.AccessExpr(
-                                            S_A2.e2var lambda_e,
-                                            S_A2.e2var (snd (try (List.nth e1.value.args (List.length e1.value.args -1)) with Not_found -> raise (Error.DeadbranchError "Service2Actor has at least one reply to field")))
+                                            S_A2.e2_e (S.AccessExpr(
+                                                typed_lambda_e,
+                                                S_A2.e2var (snd (try (List.nth e1.value.args (List.length e1.value.args -1)) with Not_found -> raise (Error.DeadbranchError "Service2Actor has at least one reply to field")))
+                                            )),
+                                            S_A2.e2_e (S.RawExpr ("tell"))
                                         )),
-                                        S_A2.e2_e (S.RawExpr ("tell"))
-                                    )),
-                                    [
-                                        S_A2.e2_e (S.NewExpr(
-                                            S_A2.e2var e2.value.name,
-                                            [
-                                                S_A2.e2_e (S.CallExpr(
-                                                    S_A2.e2_e (S.AccessExpr( 
-                                                        S_A2.e2_e S.This, 
-                                                        S_A2.e2var m.value.name
-                                                    )),
-                                                    List.map (function (f:msg_field) -> 
-                                                        S_A2.e2_e (S.AccessExpr( 
-                                                            S_A2.e2var lambda_e,
-                                                            S_A2.e2var f.name
-                                                        ))
-                                                    ) proto_msg1.fields
-                                                ))
-                                            ]
-                                            @ [ S_A2.e2_e (S.RawExpr ("getContext().getSelf()")) ]
-                                        ));
-                                    ]
+                                        [
+                                            S_A2.e2_e (S.NewExpr(
+                                                S_A2.e2var e2.value.name,
+                                                [ e_res ]
+                                                @ [ S_A2.e2_e (S.RawExpr ("getContext().getSelf()")) ]
+                                            ));
+                                        ]
+                                    ))
                                 ))
-                            ))];
+                            ];
                         }) in
 
                         auto_fplace(auto_plgannot (S.Method callback)), auto_fplace (auto_plgannot(S.Inport (auto_fplace ({

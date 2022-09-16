@@ -7,3 +7,19 @@
       local:
         bootstrap: TopLevel 
         entrypoint: no_main 
+  user_defined: |
+    task jarConsole(type: ShadowJar) {
+      archiveBaseName.set('console')
+      archiveClassifier.set('')
+      archiveVersion.set('')
+      configurations = [project.configurations.compileClasspath]
+      manifest {
+          attributes('Main-Class': '{{author}}.{{project_name}}.ConsoleClient')
+      }
+      transform(AppendingTransformer) {
+          resource = 'reference.conf'
+      }
+      with jar
+    }
+  compiler: 
+    loglevel: INFO 

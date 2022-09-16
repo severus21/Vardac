@@ -177,7 +177,8 @@ module Make () = struct
             *)
             | [] -> [], AbstractImpl (List.rev acc_stmts)
             | {value=LetStmt(mt_x, let_x, ({value=CallExpr ({value=VarExpr x, _}, [continuation_id; _]), _}))}::stmts when Atom.is_builtin x && Atom.hint x = "wait_future" ->
-                logger#debug "wait_future in %s" (Atom.to_string parent);
+                logger#debug "wait_future in %s:%s::%s" (Atom.to_string parent) (Atom.to_string m.value.name) (Atom.to_string let_x);
+                assert(mt_x.value <> EmptyMainType);
 
                 let intermediate_futures = 
                     match Hashtbl.find_opt intermediate_futures_tbl  parent with

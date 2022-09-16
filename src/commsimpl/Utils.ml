@@ -31,6 +31,7 @@ open IRMisc
         let recv_rewriter parent_opt mt_e = function
             | (CallExpr ({value=(VarExpr x, _)}, _) as e) when Atom.is_builtin x && Atom.hint x = token ->
                 logger#warning ">>>> extract_%s -> detect %s %s" token token (Error.show place);
+                assert(mt_e.value <> EmptyMainType);
                 let tmp = Atom.fresh (Printf.sprintf "tmp_%s" token) in
                 let recv = auto_place (e, mt_e) in 
 

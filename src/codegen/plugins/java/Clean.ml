@@ -216,13 +216,15 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
             | stmts -> begin
                 let rec aux = function
                     | [] -> false
-                    | {value=BBStmt _} ::_ -> true (* External to Varda reach *)
+                    | {value=BBStmt _} ::_ | {value=RawStmt _}::_ | {value=TemplateStmt _}::_ -> true (* External to Varda reach *)
                     | {value=ReturnStmt _} :: _ -> true
-                    | {value=CommentsStmt _} :: stmts -> aux stmts 
-                    | {value=IfStmt (_, stmt1, None)}::_ -> false 
-                    | {value=IfStmt (_, stmt1, Some stmt2)}::_ ->  (ends_by_return [stmt1]) && (ends_by_return [stmt2])
+                    | {value=ExpressionStmt _ }::stmts | {value=LetStmt _}::stmts | {value=CommentsStmt _} :: stmts | {value=BreakStmt} :: stmts | {value=EmptyStmt} :: stmts | {value=ContinueStmt} :: stmts -> aux stmts 
+                    | {value=IfStmt (_, stmt1, None)}::stmts -> ends_by_return stmts 
+                    | {value=IfStmt (_, stmt1, Some stmt2)}:: stmts ->  ((ends_by_return [stmt1]) && (ends_by_return [stmt2])) || (ends_by_return stmts)
                     | {value=BlockStmt stmts} :: _ -> ends_by_return stmts
-                    | _ -> false
+                    | {value=TryStmt (stmt, branches)}::stmts ->
+                    (ends_by_return [stmt] && (List.fold_left (fun flag (_,_,stmt) -> flag && ends_by_return [stmt]) true branches)) || (ends_by_return stmts)
+                    | stmt::_-> failwith (show_stmt stmt)
                 in
                 aux (List.rev stmts)
             end
@@ -291,7 +293,9 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                     ]
                 )
             | Some ret_type when Bool.not (ends_by_return m0.body) -> 
-                raise (Error.PlacedDeadbranchError (place, Printf.sprintf "Method has no return : %s \n %s" (Atom.to_string m0.name) (show_jtype ret_type)))
+                (*(dump ~print:true "" show__body (function _ -> failwith "") (MethodDeclaration m0);
+                (raise (Error.PlacedDeadbranchError (place, Printf.sprintf "Method has no return : %s \n %s" (Atom.to_string m0.name) (show_jtype ret_type)))*)
+                m0.body
             | _ -> m0.body
         in
         let body = List.map cstmt body in
