@@ -55,11 +55,15 @@ class LoCCounter(Counter):
             capture_output=True, 
             encoding='utf-8',
             shell=True)
-
+        print(f"cloc {self.target} --vcs=git --json --read-lang-def={CLOC_DEFINITIONS}")
 
         if res.returncode != 0:
             print(res.stdout)
-        assert(res.returncode == 0);
+            print(res.stderr)
+        assert(res.returncode == 0)
+
+        print(res.stdout)
+        print(res.stderr)
 
         self.data = json.loads(res.stdout)
 
