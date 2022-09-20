@@ -882,7 +882,6 @@ end) = struct
                                     List.map spawn_service services
                                     @ [spawn_service_handlers services ]
                                     @ [
-                                        (* Http.get(sys) .newServerAt("127.0.0.1", 8090) .bind(serviceHandlers) *)
                                         auto_fplace (T.ReturnStmt (
                                             T_A2.e2_e (T.CallExpr(
                                                 T_A2.e2_e (T.AccessExpr(
@@ -891,7 +890,7 @@ end) = struct
                                                             T_A2.e2_e (T.RawExpr "Http.get"),
                                                             [ T_A2.e2var att_system ]
                                                         )),
-                                                        T_A2.e2_e (T.RawExpr "newServerAt(\"127.0.0.1\", 8090)")
+                                                        T_A2.e2_e (T.RawExpr "newServerAt(\"0.0.0.0\", 8090)")
                                                     )),
                                                     T_A2.e2_e (T.RawExpr "bind")
                                                 )),

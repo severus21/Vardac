@@ -9,6 +9,7 @@ import logging
 import coloredlogs
 import os
 import re
+import itertools
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "orm.settings")
 import django
@@ -89,7 +90,9 @@ def do_render(save, fig_selector, use_re=False):
             figures = [f for f in FIGURES if f.title in selected_fig_names]
         else:
             p = re.compile(fig_selector)
-            figures = [ f for f in FIGURES if p.match(f.name)]
+            figures = [ f for f in FIGURES if p.match(f.title)]
+
+    figures = list(itertools.chain.from_iterable([ f.compare() for f in figures]))
 
     if not figures:
         print("No selected figures!")

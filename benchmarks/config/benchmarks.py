@@ -39,7 +39,7 @@ BENCHMARKS = [
             "dune exec --profile release -- vardac compile --places {{project_dir}}/places.yml --targets {{project_dir}}/targets.yml --impl benchmarks/libbench.vimpl  --filename {{project_dir}}/bench.varch --impl {{project_dir}}/bench.vimpl --provenance 0 && cd compiler-build/akka && make",
             Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
-            f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB",
+            f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB {{rconfig}}",
             Path(os.getcwd())/"compiler-build"/"akka",
             "Terminated ueyiqu8R"
         ),
@@ -64,7 +64,7 @@ BENCHMARKS = [
             Path(os.getcwd()).absolute()
         ),
         ShellRunnerFactory(
-            f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB",
+            f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB {{rconfig}}",
             Path(os.getcwd())/"compiler-build"/"akka",
             "Terminated ueyiqu8R"
         ),
@@ -88,7 +88,7 @@ BENCHMARKS = [
             Path(os.getcwd()).absolute()
         ),
         ShellRunnerFactory(
-            f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/main.jar",
+            f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/main.jar {{rconfig}}",
             BENCHMARKS_DIR/"bench-mpp"/"akka",
             "Terminated ueyiqu8R"
         ),
@@ -116,7 +116,7 @@ BENCHMARKS = [
         MultiShellRunnerFactory(
             [
                 ShellRunnerFactory(
-                    f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/pongService.jar -ip 127.0.0.1 -p 25520 -s akka://systemAkkaBench@127.0.0.1:25520",
+                    f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/pongService.jar -ip 127.0.0.1 -p 25520 -s akka://systemAkkaBench@127.0.0.1:25520 {{rconfig}}",
                     BENCHMARKS_DIR/"bench-mpp"/"akka",
                     None,
                     config_adaptor=lambda config: remove_dict(
@@ -124,7 +124,7 @@ BENCHMARKS = [
                     name = "pong-service"
                 ),
                 ShellRunnerFactory(
-                    f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/pingService.jar -ip 127.0.0.1 -p 25521 -s akka://systemAkkaBench@127.0.0.1:25520",
+                    f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/pingService.jar -ip 127.0.0.1 -p 25521 -s akka://systemAkkaBench@127.0.0.1:25520 {{rconfig}}",
                     BENCHMARKS_DIR/"bench-mpp"/"akka",
                     "Terminated ueyiqu8R",
                     set_stop_event=True,
@@ -151,7 +151,7 @@ BENCHMARKS = [
             "dune exec --profile release -- vardac compile --places {{project_dir}}/places.yml --targets {{project_dir}}/targets.yml --filename {{project_dir}}/bench.varch --impl benchmarks/libbench.vimpl --impl {{project_dir}}/bench.vimpl --provenance 0 && cd compiler-build/akka && make",
             Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
-            f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB",
+            f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB {{rconfig}}",
             Path(os.getcwd())/"compiler-build"/"akka",
             "Terminated ueyiqu8R"
         ),
@@ -173,7 +173,7 @@ BENCHMARKS = [
             "cd {{project_dir}} && make",
             Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
-            f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/main.jar",
+            f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/main.jar {{rconfig}}",
             BENCHMARKS_DIR/"bench-ms"/"akka",
             "Terminated ueyiqu8R"
         ),
@@ -236,5 +236,37 @@ BENCHMARKS = [
             "warmup": 0,
             "vs": range(3, 6).__iter__(),
         }), DEFAULT_RUNS)
+    ),
+    Benchmark(
+        "ycsb-kvs-varda",
+        NoBuilder(None),
+        ShellRunnerFactory(
+            f"java -classpath build/libs/YCSBClient.jar:$YCSB/conf:$YCSB/lib/HdrHistogram-2.1.4.jar:$YCSB/lib/core-0.17.0.jar:$YCSB/lib/htrace-core4-4.1.0-incubating.jar:$YCSB/lib/jackson-core-asl-1.9.4.jar:$YCSB/lib/jackson-mapper-asl-1.9.4.jar:$YCSB/redis-binding/lib/commons-pool2-2.4.2.jar:$YCSB/redis-binding/lib/jedis-2.9.0.jar:$YCSB/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db author.project_name.YCSBClient -s -P $YCSB/workloads/workloada > /tmp/ycsb-results",
+            Path(os.getcwd())/"compiler-build"/"akka",
+            "Terminated ueyiqu8R"
+        ),
+        [
+            FileCollector("/tmp/ycsb-results", get_ycsb_result),
+        ],
+        Generator(RangeIterator({
+            "threads": range(1, 2).__iter__(),
+            "workload": ["workloada"].__iter__(),
+        }), 3)
+    ),
+    Benchmark(
+        "ycsb-redis",
+        NoBuilder(None),
+        ShellRunnerFactory(
+            f'$YCSB/bin/ycsb.sh run redis -s -P $YCSB/workloads/workloada -p "redis.host=127.0.0.1" -p "redis.port=6379" > /tmp/ycsb-results',
+            "/tmp",
+            "Terminated ueyiqu8R"
+        ),
+        [
+            FileCollector("/tmp/ycsb-results", get_ycsb_result),
+        ],
+        Generator(RangeIterator({
+            "threads": range(1, 2).__iter__(),
+            "workload": ["workloada"].__iter__(),
+        }), 3)
     ),
 ]

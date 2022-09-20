@@ -1,5 +1,9 @@
 target akka;
 
+impl dependencies gradle:{=
+    implementation group: 'site.ycsb', name: 'core', version: '0.17.0'
+=}
+
 impl component Client {
     impl state kv java:{=
         null
@@ -8,21 +12,26 @@ impl component Client {
 
 impl component KVServer {
     impl raw java:{=
-        Map<String, Integer> inner_state = new HashMap<String, Integer>();
+        Map<String, String> inner_state = new HashMap<String, Integer>();
     =}
 
     (* binding for the get method *)
     impl method _get java:{=
         // Perform the GET request on key [k]
-        Integer i = this.inner_state.get({{%k._0_%}});
-        if( i== null)
-            return -1;
+        String tmp = this.inner_state.get({{%k._0_%}});
+        if( tmp == null)
+            return "Error";
         else
-            return i;
+            return tmp;
     =}
 
     impl method put java:{=
         this.inner_state.put({{%k._0_%}}, {{%v._0_%}});
+        return true;
+    =}
+
+    impl method delete java:{=
+        this.inner_state.remove{{%k._0_%}});
         return true;
     =}
 }

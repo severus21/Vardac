@@ -4,6 +4,7 @@ impl headers java:{=
 =}
 impl dependencies gradle:{=
     implementation group: 'redis.clients', name: 'jedis', version: '4.2.1'
+    implementation group: 'site.ycsb', name: 'core', version: '0.17.0'
 =}
 
 impl component Client {
@@ -35,12 +36,20 @@ impl component KVServer {
     (* binding for the get method *)
     impl method _get java:{=
         // Perform the GET request on key [k]
-        return Integer.parseInt(this.getJedis().get({{%k._0_%}}));
+        String tmp = this.getJedis().get({{%k._0_%}});
+        if( tmp == null)
+            return "Error";
+        else
+            return tmp;
     =}
 
     impl method put java:{=
         // Perform the PUT request on key [k]
-        return this.getJedis().set({{%k._0_%}}, {{%v._0_%}}.toString()) == "OK";
+        return this.getJedis().set({{%k._0_%}}, {{%v._0_%}}) == "OK";
+    =}
+
+    impl method delete java:{=
+        return this.getJedis().del({{%k._0_%}}) == 0;
     =}
 }
 

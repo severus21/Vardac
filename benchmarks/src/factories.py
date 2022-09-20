@@ -8,7 +8,7 @@ class RunnerFactory(ABC):
         self.name = name
 
     @abstractmethod
-    def make(self, name, builder, config):
+    def make(self, name, builder, config, i_run):
         pass
 
 
@@ -21,10 +21,10 @@ class ShellRunnerFactory(RunnerFactory):
         self.error_token = error_token
         self.set_stop_event = set_stop_event
 
-    def make(self, name, builder, config):
+    def make(self, name, builder, config, i_run):
         if self.name:
             name = self.name # user-defined has higher priority
-        return ShellRunner(name, self.run_cmd, self.run_cwd, self.stdout_termination_token, self.error_token, self.config_adaptor(config), self.set_stop_event)
+        return ShellRunner(name, i_run, self.run_cmd, self.run_cwd, self.stdout_termination_token, self.error_token, self.config_adaptor(config), self.set_stop_event)
 
 class DockerRunnerFactory(RunnerFactory):
     def __init__(self, run_cmd, stdout_termination_token=None, error_token="[ERROR]", config_adaptor=lambda x: x, set_stop_event=False, name=None) -> None:
@@ -34,10 +34,10 @@ class DockerRunnerFactory(RunnerFactory):
         self.error_token = error_token
         self.set_stop_event = set_stop_event
 
-    def make(self, name, builder, config):
+    def make(self, name, builder, config, i_run):
         if self.name:
             name = self.name # user-defined has higher priority
-        return DockerRunner(name, builder.image_name, self.run_cmd, self.stdout_termination_token, self.error_token, self.config_adaptor(config), self.set_stop_event)
+        return DockerRunner(name, i_run, builder.image_name, self.run_cmd, self.stdout_termination_token, self.error_token, self.config_adaptor(config), self.set_stop_event)
 
 class MultiShellRunnerFactory(RunnerFactory):
     # factories order by start order
@@ -45,9 +45,9 @@ class MultiShellRunnerFactory(RunnerFactory):
         super().__init__(config_adaptor, name=name)
         self.factories = factories
 
-    def make(self, name, builder, config):
+    def make(self, name, builder, config, i_run):
         if self.name:
             name = self.name # user-defined has higher priority
         config = self.config_adaptor(config)
-        runners = [factory.make(name, builder, config) for factory in self.factories]
-        return OrderedMultiShellRunner(name, runners, config)
+        runners = [factory.make(name, builder, config, i_run) for factory in self.factories]
+        return OrderedMultiShellRunner(name, i_run, runners, config)

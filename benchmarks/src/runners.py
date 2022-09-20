@@ -11,6 +11,7 @@ import asyncio
 import logging
 import uuid
 import aiodocker
+from jinja2 import Environment, BaseLoader, select_autoescape
 
 from .models import *
 from .settings import *
@@ -51,8 +52,9 @@ async def display_time(stop_display_time, start_time, last_elapse=0):
 from traceback import print_tb
 
 class Runner(ABC):
-    def __init__(self, name) -> None:
+    def __init__(self, name, i_run) -> None:
         self.name = name
+        self.i_run = i_run
 
         self._run_stdout = ""
         self._run_stderr = ""
@@ -103,8 +105,8 @@ class Runner(ABC):
         return result
 
 class OrderedMultiShellRunner(Runner):
-    def __init__(self, name, runners, config):
-        super().__init__(name)
+    def __init__(self, name, i_run, runners, config):
+        super().__init__(name, i_run)
         self.runners = runners
         self.config = config
 
@@ -159,8 +161,8 @@ class OrderedMultiShellRunner(Runner):
         return results
 
 class BaseRunner(Runner):
-    def __init__(self, name, stdout_termination_token, error_token, config, set_stop_event) -> None:
-        super().__init__(name)
+    def __init__(self, name, i_run, stdout_termination_token, error_token, config, set_stop_event) -> None:
+        super().__init__(name, i_run)
         self.stdout_termination_token = stdout_termination_token
         self.error_token = error_token
         self.config = config
@@ -281,9 +283,9 @@ class BaseRunner(Runner):
                 return False
 
 class ShellRunner(BaseRunner):
-    def __init__(self, name, run_cmd, run_cwd, stdout_termination_token, error_token, config, set_stop_event) -> None:
-        super().__init__(name, stdout_termination_token, error_token, config, set_stop_event)
-        self.run_cmd = run_cmd
+    def __init__(self, name, i_run, run_cmd, run_cwd, stdout_termination_token, error_token, config, set_stop_event) -> None:
+        super().__init__(name, i_run, stdout_termination_token, error_token, config, set_stop_event)
+        self._run_cmd = run_cmd
         self.run_cwd = run_cwd
 
         self.config = config
@@ -292,10 +294,16 @@ class ShellRunner(BaseRunner):
     def render(self, snapshot):
         return " ".join([f"-{k} {shlex.quote(str(v))}" for k, v in snapshot.items()])
 
+    @property
+    def run_cmd(self):
+        env = Environment(loader=BaseLoader())
+        template = env.from_string(self._run_cmd)
+        return template.render(name=self.name, i=self.i_run, config=self.config, rconfig=self.render(self.config))
+
     async def run_async(self, stop_event, stop_display_time):
         # Start child process
         process = await asyncio.create_subprocess_shell(
-            self.run_cmd+" "+self.render(self.config),
+            self.run_cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=self.run_cwd,
@@ -310,7 +318,7 @@ class ShellRunner(BaseRunner):
 
 class DockerRunner(BaseRunner):
     #TODO create img with correct stamp
-    def __init__(self, name, image, run_cmd, stdout_termination_token, error_token, config, set_stop_event, remote=DEFAULT_DOCKER_REMOTE) -> None:
+    def __init__(self, name, i_run, image, run_cmd, stdout_termination_token, error_token, config, set_stop_event, remote=DEFAULT_DOCKER_REMOTE) -> None:
         super().__init__(name, stdout_termination_token, error_token, config, set_stop_event)
         self.image = image
         self.run_cmd = run_cmd

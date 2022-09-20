@@ -13,6 +13,12 @@ def get_rtts(filename):
         data = json.load(fp)
         return {"rtt": {"unit": "ms", "value":data['rtts']}}
 
+from src.ycsb_utils import *
+def get_ycsb_result(filename):
+    with open(filename) as fp:
+        data = extractYcsbParams(filename)
+        return data
+
 def get_pp_size(filename):
     '''ping+pong size'''
     with open(filename) as fp:

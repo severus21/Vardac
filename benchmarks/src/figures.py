@@ -40,12 +40,17 @@ class Curve:
     def render(self, ax):
         # Center the error if needed
         q = 2 if self.descriptive_statistics_dispersion in ['stdev', 'variance'] else 1
-        
-        xs = np.array(list(self.data.keys()))
-        print(">>>",self.data.keys())
-        ys = np.array(list(map(lambda v: getattr(v, self.descriptive_statistics_center), self.data.values())))
+
+        if(type(self.data) == dict): 
+            xs = np.array(list(self.data.keys()))
+            ys = np.array(list(map(lambda v: getattr(v, self.descriptive_statistics_center), self.data.values())))
+        else:
+            xs, ys = self.data
+            xs = np.array(xs)
+            ys = np.array(ys)
+
         if self.descriptive_statistics_dispersion == None:
-            ax.plot(xs, ys, fmt='o', label=self.name)
+            ax.plot(xs, ys, marker='o', label=self.name)
         else:
             ye = np.array(list(map(lambda v: getattr(v, self.descriptive_statistics_dispersion)/q, self.data.values())))
-            ax.errorbar(xs, ys, yerr=ye, fmt='o', label=self.name)
+            ax.errorbar(xs, ys, yerr=ye, marker='o', label=self.name)

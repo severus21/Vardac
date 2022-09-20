@@ -1,8 +1,9 @@
 event key of string;
-event value of int;
+event value of string;
 
 protocol p_kv = §{
     l_get: !key?value.;
+    l_delete: !key?bool.;
     l_put: !tuple<key,value>?bool.;
 };
 
@@ -29,6 +30,11 @@ component KVServer {
                 tuple<key, !value.> tmp = receive(s_i);
                 fire(tmp._1, this.get(tmp._0))?;
             }
+            | l_delete => s_i -> {
+                print("l_delete");
+                tuple<key, !bool.> tmp = receive(s_i);
+                fire(tmp._1, this.delete(tmp._0))?;
+            }
             | l_put => s_i -> {
                 print("l_put");
                 tuple<tuple<key,value>, !bool.> tmp = receive(s_i);
@@ -45,7 +51,8 @@ component KVServer {
     value get(key k){
         return value(this._get(k));
     }
-    int _get(key k);
+    string _get(key k);
+    bool delete(key k); 
     bool put(key k, value v); 
 }
 
@@ -62,13 +69,26 @@ component Client {
     }
 
     @expose
-    result<bool, error> api_put(string k, int v){
+    result<bool, error> api_put(string k, string v){
         print(">> start put");
         session<p_kv> s = initiate_session_with(this.p_out, this.kv);
 
         !tuple<key, value>?bool. s = select(s, l_put)?;
         ?bool. s = fire(s, (key(k), value(v)))?;
         print(">> end put");
+
+        tuple<bool, .> res = receive(s);
+        return ok(res._0);
+    }
+
+    @expose
+    result<bool, error> api_delete(string k){
+        print(">> start delete");
+        session<p_kv> s = initiate_session_with(this.p_out, this.kv);
+
+        !key?bool. s = select(s, l_delete)?;
+        ?bool. s = fire(s, key(k))?;
+        print(">> end delete");
 
         tuple<bool, .> res = receive(s);
         return ok(res._0);
@@ -85,13 +105,13 @@ component Client {
         (* TODO maybe use polyapp *)
         tuple<value, .> tmp = receive(s);
         value tmp_ret = tmp._0;
-        int ret = tmp_ret._0_;
+        string ret = tmp_ret._0_;
         
         (* TODO print(f">> get success {{ret}}");*)
         print(">> get success");
-        print(int_to_string(ret));
+        print(ret);
         print("");
-        return ok(int_to_string(ret));
+        return ok(ret);
     }
 
     (*@expose

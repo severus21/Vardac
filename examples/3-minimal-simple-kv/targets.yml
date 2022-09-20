@@ -21,5 +21,18 @@
       }
       with jar
     }
+    task jarYCSBClient(type: ShadowJar) {
+      archiveBaseName.set('YCSBClient')
+      archiveClassifier.set('')
+      archiveVersion.set('')
+      configurations = [project.configurations.compileClasspath]
+      manifest {
+          attributes('Main-Class': '{{author}}.{{project_name}}.YCSBClient')
+      }
+      transform(AppendingTransformer) {
+          resource = 'reference.conf'
+      }
+      with jar
+    }
   compiler: 
     loglevel: INFO 

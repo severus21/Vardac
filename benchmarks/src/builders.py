@@ -83,6 +83,28 @@ class AbstractBuilder(ABC):
             logging.info(f"Bench {self.name}> Already built ({cl_name})!")
             return True, self.get_bench_model()[0]
 
+class NoBuilder(AbstractBuilder):
+    """Build nothing, the project have already been built externally"""
+    def __init__(self, project_dir=None) -> None:
+        super().__init__(project_dir)
+
+    def _get_bench_model(self):
+        return Bench.objects.get_or_create(
+            name = self.name,
+            host_spec = HostSpec.objects.get_or_create(name = HostSpec.get_hostname())[0],    
+            soft_spec = SoftSpec.objects.get_or_create(
+                os_version = SoftSpec.get_os_version(),
+                docker_version = SoftSpec.get_docker_version(),
+                varda_version = SoftSpec.get_varda_version(),
+                )[0],    
+        )
+
+    def aux_is_build(self):
+        return True 
+
+    def _build(self) -> bool:
+        return True 
+
 from jinja2 import Environment, BaseLoader, select_autoescape
 
 class ShellBuilder(AbstractBuilder):

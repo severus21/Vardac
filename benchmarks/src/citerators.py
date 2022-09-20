@@ -27,7 +27,10 @@ class RangeIterator:
         return { list(self.defs.keys())[i]: v for i, v in enumerate(snapshot)}
 
     def __iter__(self):
-        return self
+        if self.defs:
+            return self
+        else: # one empty config
+            return [{}].__iter__()
 
     def __next__(self):
         if len(self.closed) == len(self.defs):
