@@ -12,7 +12,7 @@ impl component Client {
 
 impl component KVServer {
     impl raw java:{=
-        Map<String, String> inner_state = new HashMap<String, Integer>();
+        Map<String, String> inner_state = new HashMap<String, String>();
     =}
 
     (* binding for the get method *)
@@ -31,7 +31,7 @@ impl component KVServer {
     =}
 
     impl method delete java:{=
-        this.inner_state.remove{{%k._0_%}});
+        this.inner_state.remove({{%k._0_%}});
         return true;
     =}
 }

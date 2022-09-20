@@ -298,7 +298,7 @@ class ShellRunner(BaseRunner):
     def run_cmd(self):
         env = Environment(loader=BaseLoader())
         template = env.from_string(self._run_cmd)
-        return template.render(name=self.name, i=self.i_run, config=self.config, rconfig=self.render(self.config))
+        return template.render(name=self.name, i=self.i_run, config=self.config, rconfig=self.render(self.config), run_cwd=self.run_cwd)
 
     async def run_async(self, stop_event, stop_display_time):
         # Start child process

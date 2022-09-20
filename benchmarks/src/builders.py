@@ -1,9 +1,9 @@
+from distutils.command.clean import clean
 from inspect import trace
 import logging
 import os
 import subprocess
 import os
-import re
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -108,12 +108,33 @@ class NoBuilder(AbstractBuilder):
 from jinja2 import Environment, BaseLoader, select_autoescape
 
 class ShellBuilder(AbstractBuilder):
-    def __init__(self, project_dir=None, build_dir=None, build_cmd=None, build_cwd=None) -> None:
+    def __init__(self, project_dir=None, build_dir=None, build_cmd=None, build_cwd=None, clean_cmd=None, build_each_time=False) -> None:
         super().__init__(project_dir)
         self.build_dir = build_dir
 
         self._build_cmd = build_cmd
         self.build_cwd = build_cwd
+
+        self._clean_cmd = clean_cmd
+        self.build_each_time = build_each_time
+
+    @property
+    def clean_cmd(self):
+        env = Environment(loader=BaseLoader())
+        template = env.from_string(self._clean_cmd)
+        return template.render(build_dir=self.build_dir, project_dir=self.project_dir)
+
+    def __exit__(self, type, value, traceback):
+        if self._clean_cmd:
+            res = subprocess.run(
+                self.clean_cmd,
+                capture_output=True, 
+                encoding='utf-8',
+                cwd = self.build_cwd,
+                shell=True)
+            if res.returncode != 0:
+                logging.error(res.stdout)
+                logging.error(res.stderr)
 
     @property
     def build_cmd(self):
@@ -131,11 +152,14 @@ class ShellBuilder(AbstractBuilder):
                 varda_version = SoftSpec.get_varda_version(),
                 )[0],    
             project_hash = dirhash(self.project_dir, 'md5'),
-            build_hash = dirhash(self.build_dir, 'md5'),
+            build_hash = dirhash(self.build_dir, 'md5') if self.build_dir else "no-build-dir",
             build_cmd = self.build_cmd 
         )
 
     def aux_is_build(self):
+        if self.build_each_time:
+            return False
+
         if self._is_build:
             return True
 
@@ -159,6 +183,9 @@ class ShellBuilder(AbstractBuilder):
             cwd = self.build_cwd,
             shell=True)
         print("_build", self.build_cmd, res.returncode)
+        if res.returncode != 0:
+            logging.error(res.stdout)
+            logging.error(res.stderr)
 
         self._build_stdout = res.stdout
         self._build_stderr = res.stderr
@@ -197,7 +224,7 @@ class ChainBuilder(AbstractBuilder):
         return self.exposed_builder
 
     def __enter__(self):
-        for k in range(self.builders):
+        for k in range(len(self.builders)):
             self.builders[k].name = self.name
             self.builders[k] = self.builders[k].__enter__()
         return super().__enter__()
@@ -226,6 +253,57 @@ class ChainBuilder(AbstractBuilder):
                 return False
         return True
 
+
+class DockerComposeBuilder(AbstractBuilder):
+    def __init__(self, project_dir=None, build_cwd=None) -> None:
+        super().__init__(project_dir)
+        self.build_cwd = build_cwd
+
+    def __exit__(self, type, value, traceback):
+        res = subprocess.run(
+            "docker-compose down && docker-compose rm",
+            capture_output=True, 
+            encoding='utf-8',
+            cwd = self.build_cwd,
+            shell=True)
+        if res.returncode != 0:
+            logging.error(res.stdout)
+            logging.error(res.stderr)
+
+    @property
+    def build_cmd(self):
+        return "docker-compose up -d --build" 
+
+    def _get_bench_model(self):
+        return Bench.objects.get_or_create(
+            name = self.name,
+            host_spec = HostSpec.objects.get_or_create(name = HostSpec.get_hostname())[0],    
+            soft_spec = SoftSpec.objects.get_or_create(
+                os_version = SoftSpec.get_os_version(),
+                docker_version = SoftSpec.get_docker_version(),
+                varda_version = SoftSpec.get_varda_version(),
+                )[0],    
+            project_hash = dirhash(self.project_dir, 'md5'),
+        )
+
+    def aux_is_build(self):
+        return False 
+
+    def _build(self) -> bool:
+        res = subprocess.run(
+            self.build_cmd, 
+            capture_output=True, 
+            encoding='utf-8',
+            cwd = self.build_cwd,
+            shell=True)
+        print("_build", self.build_cmd, res.returncode)
+        if res.returncode != 0:
+            logging.error(res.stdout)
+            logging.error(res.stderr)
+
+        self._build_stdout = res.stdout
+        self._build_stderr = res.stderr
+        return res.returncode == 0
 
 class DockerBuilder(AbstractBuilder):
     def __init__(self, project_dir=None, remote=DEFAULT_DOCKER_REMOTE) -> None:

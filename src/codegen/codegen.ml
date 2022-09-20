@@ -17,7 +17,7 @@ let codegen_program project_dir build_dir places (target2dependencies, target2he
     let aux error_name = function
     | None -> ""
     | Some xs ->
-        List.fold_left (fun a b -> a^b) ""
+        List.fold_left (fun a b -> a^"\n"^b) ""
         (List.flatten
             (List.map (
                 function (header:Core.IRI.blackbox_term) -> 

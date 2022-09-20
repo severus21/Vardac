@@ -238,8 +238,52 @@ BENCHMARKS = [
         }), DEFAULT_RUNS)
     ),
     Benchmark(
-        "ycsb-kvs-varda",
-        NoBuilder(None),
+        "ycsb-kvs-varda-redis",
+        ChainBuilder(
+            [
+                VardaBuilder(
+                    BENCHMARKS_DIR/"bench-kvs"/"varda",
+                    "dune exec --profile release -- vardac compile --places {{project_dir}}/places.yml --targets {{project_dir}}/targets.yml --filename {{project_dir}}/kv.varch --impl benchmarks/libbench.vimpl --impl {{project_dir}}/kv-redis.vimpl --provenance 0 && cd compiler-build/akka && gradle -x test jarYCSBClient",
+                    Path(os.getcwd()).absolute()),
+                DockerComposeBuilder(
+                    BENCHMARKS_DIR/"bench-kvs"/"varda",
+                    Path(os.getcwd())/"compiler-build"/"akka"),
+            ],
+            # since Varda striclty stronger than docker
+            stamp_strategy=lambda builders: builders[0]._get_bench_model(),
+            # the one pass to runner
+            exposed_builder=lambda builders: builders[-1]
+        ),
+        ShellRunnerFactory(
+            f"java -classpath build/libs/YCSBClient.jar:$YCSB/conf:$YCSB/lib/HdrHistogram-2.1.4.jar:$YCSB/lib/core-0.17.0.jar:$YCSB/lib/htrace-core4-4.1.0-incubating.jar:$YCSB/lib/jackson-core-asl-1.9.4.jar:$YCSB/lib/jackson-mapper-asl-1.9.4.jar:$YCSB/redis-binding/lib/commons-pool2-2.4.2.jar:$YCSB/redis-binding/lib/jedis-2.9.0.jar:$YCSB/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db author.project_name.YCSBClient -s -P $YCSB/workloads/workloada > /tmp/ycsb-results",
+            Path(os.getcwd())/"compiler-build"/"akka",
+            "Terminated ueyiqu8R"
+        ),
+        [
+            FileCollector("/tmp/ycsb-results", get_ycsb_result),
+        ],
+        Generator(RangeIterator({
+            "threads": range(1, 2).__iter__(),
+            "workload": ["workloada"].__iter__(),
+        }), 3)
+    ),
+    Benchmark(
+        "ycsb-kvs-varda-inmemory",
+        ChainBuilder(
+            [
+                VardaBuilder(
+                    BENCHMARKS_DIR/"bench-kvs"/"varda",
+                    "dune exec --profile release -- vardac compile --places {{project_dir}}/places.yml --targets {{project_dir}}/targets.yml --filename {{project_dir}}/kv.varch --impl benchmarks/libbench.vimpl --impl {{project_dir}}/kv-wo-redis.vimpl --provenance 0 && cd compiler-build/akka && gradle -x test jarYCSBClient",
+                    Path(os.getcwd()).absolute()),
+                DockerComposeBuilder(
+                    BENCHMARKS_DIR/"bench-kvs"/"varda",
+                    Path(os.getcwd())/"compiler-build"/"akka"),
+            ],
+            # since Varda striclty stronger than docker
+            stamp_strategy=lambda builders: builders[0]._get_bench_model(),
+            # the one pass to runner
+            exposed_builder=lambda builders: builders[-1]
+        ),
         ShellRunnerFactory(
             f"java -classpath build/libs/YCSBClient.jar:$YCSB/conf:$YCSB/lib/HdrHistogram-2.1.4.jar:$YCSB/lib/core-0.17.0.jar:$YCSB/lib/htrace-core4-4.1.0-incubating.jar:$YCSB/lib/jackson-core-asl-1.9.4.jar:$YCSB/lib/jackson-mapper-asl-1.9.4.jar:$YCSB/redis-binding/lib/commons-pool2-2.4.2.jar:$YCSB/redis-binding/lib/jedis-2.9.0.jar:$YCSB/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db author.project_name.YCSBClient -s -P $YCSB/workloads/workloada > /tmp/ycsb-results",
             Path(os.getcwd())/"compiler-build"/"akka",
@@ -255,7 +299,14 @@ BENCHMARKS = [
     ),
     Benchmark(
         "ycsb-redis",
-        NoBuilder(None),
+        ShellBuilder(
+            BENCHMARKS_DIR/"bench-kvs"/"varda",
+            None,
+            "docker run -d -e ALLOW_EMPTY_PASSWORD=yes -p 6379:6379 bitnami/redis:latest",
+            Path(os.getcwd()).absolute(),
+            clean_cmd='docker rm -f $(docker ps --filter="ancestor=bitnami/redis:latest")',
+            build_each_time=True
+        ),
         ShellRunnerFactory(
             f'$YCSB/bin/ycsb.sh run redis -s -P $YCSB/workloads/workloada -p "redis.host=127.0.0.1" -p "redis.port=6379" > /tmp/ycsb-results',
             "/tmp",

@@ -95,7 +95,8 @@ FIGURES = [
         [("threads", "Throughput"), ("threads", "Avg Update Latency"), ("threads", "Avg Read Latency")],
         lambda: [
             ("redis", Bench.objects.filter(name="ycsb-redis").order_by('-pk')[0].results.all()),
-            ("kvs-redis", Bench.objects.filter(name="ycsb-kvs-varda").order_by('-pk')[0].results.all()),
+            ("kvs-redis", Bench.objects.filter(name="ycsb-kvs-varda-redis").order_by('-pk')[0].results.all()),
+            ("kvs-inmemory", Bench.objects.filter(name="ycsb-kvs-varda-inmemory").order_by('-pk')[0].results.all()),
         ],
         selector    = (lambda x : x['workload'] == "workloada"),
     ) 
