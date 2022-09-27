@@ -12,7 +12,7 @@ DESCRIPTIVE_STATISTICS_CENTER = set(['mean', 'median', 'min', 'max'])
 DESCRIPTIVE_STATISTICS_DISPERSION = set([None, 'stdev'])
 
 class FigureFactory:
-    def __init__(self, fig_name, xy, args, selector=lambda x: True, ylabeling=None, descriptive_statistics_center='mean', descriptive_statistics_dispersion='stdev'):
+    def __init__(self, fig_name, xy, args, selector=lambda x: True, ylabeling=None, descriptive_statistics_center='mean', descriptive_statistics_dispersion='stdev', plot_type=Curve):
         assert(descriptive_statistics_center in DESCRIPTIVE_STATISTICS_CENTER)
         assert(descriptive_statistics_dispersion in DESCRIPTIVE_STATISTICS_DISPERSION)
 
@@ -23,6 +23,7 @@ class FigureFactory:
         self.ylabeling = ylabeling
         self.descriptive_statistics_center = descriptive_statistics_center
         self.descriptive_statistics_dispersion = descriptive_statistics_dispersion
+        self.plot_type=plot_type
 
     @property
     def title(self):
@@ -35,7 +36,7 @@ class FigureFactory:
             x,y = xy_parameters[0], xy_parameters[1]
             curves = []
             for (name, results) in self.args():
-                curves.append(Curve(
+                curves.append(self.plot_type(
                         name,
                         Stats(results).extract(*xy_parameters, selector=self.selector, ylabeling=self.ylabeling),
                         self.descriptive_statistics_center,
@@ -99,5 +100,6 @@ FIGURES = [
             ("kvs-inmemory", Bench.objects.filter(name="ycsb-kvs-varda-inmemory").order_by('-pk')[0].results.all()),
         ],
         selector    = (lambda x : x['workload'] == "workloada"),
+        plot_type   = BarPlot
     ) 
 ]

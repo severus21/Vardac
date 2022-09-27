@@ -30,14 +30,14 @@ class Figure:
         else:
             plt.show()
 
-class Curve:
+class AbstractPlot:
     def __init__(self, name, data, descriptive_statistics_center, descriptive_statistics_dispersion) -> None:
         self.name = name
         self.data = data 
         self.descriptive_statistics_center = descriptive_statistics_center
         self.descriptive_statistics_dispersion = descriptive_statistics_dispersion
 
-    def render(self, ax):
+    def compute(self, ax):
         # Center the error if needed
         q = 2 if self.descriptive_statistics_dispersion in ['stdev', 'variance'] else 1
 
@@ -50,7 +50,32 @@ class Curve:
             ys = np.array(ys)
 
         if self.descriptive_statistics_dispersion == None:
-            ax.plot(xs, ys, marker='o', label=self.name)
+            ye = None
         else:
             ye = np.array(list(map(lambda v: getattr(v, self.descriptive_statistics_dispersion)/q, self.data.values())))
+
+        return xs, ys, ye
+
+class Curve(AbstractPlot):
+    def __init__(self, name, data, descriptive_statistics_center, descriptive_statistics_dispersion) -> None:
+       super().__init__(name, data, descriptive_statistics_center, descriptive_statistics_dispersion) 
+
+    def render(self, ax):
+        xs, ys, ye = self.compute(ax)
+
+        if self.descriptive_statistics_dispersion == None:
+            ax.plot(xs, ys, marker='o', label=self.name)
+        else:
             ax.errorbar(xs, ys, yerr=ye, marker='o', label=self.name)
+import pandas as pd
+class BarPlot(AbstractPlot):
+    def __init__(self, name, data, descriptive_statistics_center, descriptive_statistics_dispersion) -> None:
+       super().__init__(name, data, descriptive_statistics_center, descriptive_statistics_dispersion) 
+
+    def render(self, ax):
+        xs, ys, ye = self.compute(ax)
+        print(xs)
+        if self.descriptive_statistics_dispersion == None:
+            ax.bar(xs, ys, label=self.name)
+        else:
+            ax.bar(xs, ys, yerr=ye, label=self.name)
