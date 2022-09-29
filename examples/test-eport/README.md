@@ -1,6 +1,13 @@
 Scenario
     * https://doc.akka.io/docs/akka/2.6.19/typed/fault-tolerance.html
     * expose PreRestart and PostStop events
+        received from parent                
+        Before a supervised actor is restarted it is sent (by its supervisor) the PreRestart signal giving it a chance to clean up resources it has created, much like the PostStop signal when the actor stops.
+s
+
+. ChildFailed
+    * monitors
+      * Terminated + ChildFailed + watch /unwatch
 
 
 1. Generate code

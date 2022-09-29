@@ -1,6 +1,9 @@
 type event_a of;
 type event_b of;
 
+type akka_child_failed;
+void akka_watch(activation_ref<Any> a);
+
 string toStringEventA(event_a e);
 
 component Dummy {

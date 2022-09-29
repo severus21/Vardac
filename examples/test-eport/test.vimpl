@@ -13,6 +13,13 @@ impl type event_b java:{=
    PostStop 
 =}
 
+impl type akka_child_failed java:{=
+   akka.actor.typed.ChildFailed
+=}
+impl function watch java:{=
+   getContext().watch({{%a%}}.actorRef);
+=}
+
 impl function toStringEventA java:{=
    return {{%e%}}.toString();
 =}
