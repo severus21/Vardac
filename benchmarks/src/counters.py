@@ -18,7 +18,7 @@ class Counter(ABC):
             assert(False)
         
         stamp = {
-            "path": self.target,
+            "path": str(self.target),
             "md5": hash
         }
 
@@ -51,11 +51,11 @@ class LoCCounter(Counter):
 
     def count(self):
         res = subprocess.run(
-            f"cloc {self.target} --vcs=git --json --read-lang-def={CLOC_DEFINITIONS}", 
+            f"cloc {self.target} --json --read-lang-def={CLOC_DEFINITIONS}", 
             capture_output=True, 
             encoding='utf-8',
             shell=True)
-        print(f"cloc {self.target} --vcs=git --json --read-lang-def={CLOC_DEFINITIONS}")
+        print(f"cloc {self.target} --json --read-lang-def={CLOC_DEFINITIONS}")
 
         if res.returncode != 0:
             print(res.stdout)

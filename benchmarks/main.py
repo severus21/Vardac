@@ -17,6 +17,7 @@ django.setup()
 
 
 from src.utils import *
+from src.settings import *
 
 
 coloredlogs.install(level='DEBUG')
@@ -52,7 +53,6 @@ cmdactions['run'] = lambda kwargs: do_run(**kwargs)
 cmdactions['render'] = lambda kwargs: do_render(**kwargs)
 cmdactions['test'] = lambda kwargs: do_test(**kwargs)
 
-FIGURESDIR = 'figures'
 
 def apply_selector(selector, ITEMS, use_re=False):
     if selector == "all":

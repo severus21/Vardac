@@ -75,11 +75,13 @@ class StatMetric:
         if hasattr(self, "_stdev"):
             return self._stdev
         else:
-            if len(self.items) > 1:
-                self._stdev    = statistics.stdev(self.items)
+            # Eliminate NaN
+            items = list(filter(lambda x: x == x,self.items))
+            if len(items) > 1:
+                self._stdev    = statistics.stdev(items)
                 return self._stdev
             else: 
-                return None
+                return 0
 
     def concat(self, obj):
         assert(type(obj) == StatMetric)

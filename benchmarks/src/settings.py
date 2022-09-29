@@ -34,3 +34,5 @@ COUNTSDIR = Path(__file__).parent.parent /'counts'
 
 assert(os.path.isfile(CLOC_DEFINITIONS))
 assert(os.path.isdir(COUNTSDIR))
+
+FIGURESDIR = Path(__file__).parent.parent / 'figures'
