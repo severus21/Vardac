@@ -11,6 +11,7 @@ module Make() = struct
     let logger = Logging.make_logger "vardac" Debug [];;
 
     module Frontend = Frontend.Make()
+    module Sanitiser = IRCompilationPass.Make(Sanitiser)
 
     (* Static passes *)
     module Clean = IRCompilationPass.Make(Common.Clean.Make())
@@ -56,6 +57,7 @@ module Make() = struct
         let (gamma, gamma_types, sealed_envs, ir) = Frontend.to_ir places filename in
         let ir1 =
             ir
+            |> Sanitiser.apply
             |> Reduce.apply
             |> UntypedCleansing.apply
             |> TypeInference1.apply
@@ -114,6 +116,7 @@ module Make() = struct
             |> PartialEval.apply
 
             |> Reflexivity.apply
+            |> Sanitiser.apply
         in
 
         ir3

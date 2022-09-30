@@ -41,6 +41,7 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
         Cluster cluster = Cluster.get(context.getSystem());
         assert (null != cluster);
 
+        {% if enable_global_placement_reflexivity %}
         // register to receptionist to allow reflexivity : componentsat place -> actoref list
         PlaceDiscovery.register(
             context, 
@@ -48,6 +49,8 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
             cluster.selfMember().address(),
             new ActivationRef(this.schema, context.getSelf(), false, SerializableOptional.empty())
             );
+        {% else %}
+        {% endif %}
     }
 
     // (bridge_id, port.expecting_st) -> port_id
@@ -73,8 +76,11 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
         this.currently_inport_bindings.put(key, port.id);
 
         //Register the activations 
+        {% if enable_global_bridge_reflexivity %}
         if(bridge.protocol.get_st().equals(port.expecting_st) || bridge.protocol.get_st().equals(port.expecting_st.dual()) )
             bridge.rightRegister(getContext(), this.guardian, current);
+        {% else %}
+        {% endif %}
 
         return null;
     }
@@ -89,8 +95,11 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
 
     public Void bind_out(OutPort port, Bridge bridge, ActivationRef current) {
         //Register the activations 
+        {% if enable_global_bridge_reflexivity %}
         if(bridge.protocol.get_st().equals(port.expecting_st) || bridge.protocol.get_st().equals(port.expecting_st.dual()) )
             bridge.leftRegister(getContext(), this.guardian, current);
+        {% else %}
+        {% endif %}
 
         return port.bind(bridge);
     }

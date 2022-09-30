@@ -29,6 +29,8 @@ let common_options =
     "--targets", Arg.Set_string targets_file, "Load a YAML file describing the targets";
     "--filename", Arg.String (function x-> filenames := x::!filenames), "Spec file to compile";
     "--provenance", Arg.Int set_provenance, "Select how provenance information should be propagated; 0: None; 1: Medium; 2:Full";
+    "--disable-global-placement-reflexivity", Arg.Clear Core.Config._enable_global_placement_reflexivity, "Disable placement reflexivity for all";
+    "--disable-global-bridge-reflexivity", Arg.Clear Core.Config._enable_global_bridge_reflexivity, "Disable bridge reflexivity for all";
     "-o", Arg.String (function dir -> build_dir := Fpath.v dir), Printf.sprintf "Specify the build directory, by default %s" (Fpath.to_string Core.Config.default_build_dir)
 ]
 

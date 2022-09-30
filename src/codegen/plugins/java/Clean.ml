@@ -224,6 +224,7 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
                     | {value=BlockStmt stmts} :: _ -> ends_by_return stmts
                     | {value=TryStmt (stmt, branches)}::stmts ->
                     (ends_by_return [stmt] && (List.fold_left (fun flag (_,_,stmt) -> flag && ends_by_return [stmt]) true branches)) || (ends_by_return stmts)
+                    | {value=ForeachStmt (_,_,_,stmt)}::_ -> ends_by_return [stmt]
                     | stmt::_-> failwith (show_stmt stmt)
                 in
                 aux (List.rev stmts)

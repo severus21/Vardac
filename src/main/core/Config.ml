@@ -60,6 +60,14 @@ let keep_ghost = function () -> !_keep_ghost
 let default_build_dir = Fpath.add_seg (Fpath.v (Sys.getcwd())) "compiler-build" 
 
 
+
+let _enable_global_placement_reflexivity = ref true
+let enable_global_placement_reflexivity = function () -> !_enable_global_placement_reflexivity
+
+let _enable_global_bridge_reflexivity = ref true
+let enable_global_bridge_reflexivity = function () -> !_enable_global_bridge_reflexivity
+
+
 (***************************************)
 (* Recall applied compilation pass
     This used to ensure at_most_once_apply guarantee for some pass
