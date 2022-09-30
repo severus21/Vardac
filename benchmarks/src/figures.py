@@ -19,7 +19,7 @@ class Figure:
         for curve in self.curves:
             xs, ys, ye= curve.render()
 
-            if not ye :
+            if not ye.any() :
                 ax.plot(xs, ys, marker='o', label=curve.name)
             else:
                 ax.errorbar(xs, ys, yerr=ye, marker='o', label=curve.name)

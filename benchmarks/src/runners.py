@@ -248,38 +248,37 @@ class BaseRunner(Runner):
 
                 for line in lines:
                     if not line:  # EOF
+                        await self.terminate()
                         self._run_stderr = await pod.stderr()
                         if self._run_stderr:
                             logging.error(f"{self.name}> Has failed\n{self.run_stderr}")
-                            await self.terminate()
                             return False 
                         else:
                             logging.debug(f"{self.name}> EOF\n{self.run_stderr}")
-                            await self.terminate()
                             return True
                     elif self.is_terminated(line):
-                        self._run_stderr = await pod.stderr()
-                        logging.debug(f"{self.name}> Is terminated")
                         await self.terminate()
+                        logging.debug(f"{self.name}> Is terminated")
+                        self._run_stderr = await pod.stderr()
                         return True
                     elif self.has_failed(line):
+                        await self.terminate()
                         self._run_stderr = await pod.stderr()
                         logging.error(f"{self.name}> Has failed\n{self.run_stderr}")
                         print(self._run_stdout)
                         print(self.run_stderr)
-                        await self.terminate()
                         return False
 
             except asyncio.TimeoutError:
+                await self.terminate()
                 self._run_stderr = await pod.stderr()
                 logging.error(f"{self.name}> Timeout !")
                 print(self._run_stdout)
-                await self.terminate()
                 return False
             except asyncio.CancelledError:
+                await self.terminate()
                 self._run_stderr = await pod.stderr()
                 logging.error(f"{self.name}> Cancelled !")
-                await self.terminate()
                 return False
 
 class ShellRunner(BaseRunner):
@@ -301,6 +300,7 @@ class ShellRunner(BaseRunner):
         return template.render(name=self.name, i=self.i_run, config=self.config, rconfig=self.render(self.config), run_cwd=self.run_cwd)
 
     async def run_async(self, stop_event, stop_display_time):
+        logging.debug(f"{self.name} runs {self.run_cmd}")
         # Start child process
         process = await asyncio.create_subprocess_shell(
             self.run_cmd,
@@ -319,7 +319,7 @@ class ShellRunner(BaseRunner):
 class DockerRunner(BaseRunner):
     #TODO create img with correct stamp
     def __init__(self, name, i_run, image, run_cmd, stdout_termination_token, error_token, config, set_stop_event, remote=DEFAULT_DOCKER_REMOTE) -> None:
-        super().__init__(name, stdout_termination_token, error_token, config, set_stop_event)
+        super().__init__(name, i_run, stdout_termination_token, error_token, config, set_stop_event)
         self.image = image
         self.run_cmd = run_cmd
 
