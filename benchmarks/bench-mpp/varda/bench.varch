@@ -78,6 +78,8 @@ component Ping {
         }
     }
 
+    list<long> getDurationsReception2Dispatcher();
+
     void sumup(){(* #bench *)
         long start = this.starttime;(* #bench *)
         long end = time();(* #bench *)
@@ -89,6 +91,7 @@ component Ping {
         add2dict(res, "ping_size", this.ping_size);(* #bench *)
         add2dict(res, "pong_size", this.pong_size);(* #bench *)
         add2dict(res, "rtts", this.rtts);(* #bench *)
+        add2dict(res, "durationsReception2Dispatcher", this.getDurationsReception2Dispatcher()); (* #bench *)
         tojson(res, "results.json");(* #bench *)
 (* #bench *)
         info("Terminated ueyiqu8R");(* #bench *)

@@ -19,6 +19,12 @@ impl type payload java:{=
 =}
 
 
-impl component Ping {}
+impl component Ping {
+
+    impl method getDurationsReception2Dispatcher java:{= 
+        return this.durationsReception2Dispatcher;
+    =}
+
+}
 impl component Pong {}
 impl component TopLevel {}

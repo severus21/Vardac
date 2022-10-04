@@ -1770,7 +1770,16 @@ module Make (Arg: sig val target:Target.target end) = struct
                     v = {
                         T.ret_type = t_behavior_of_actor fplace name;
                         name = _m_name;
-                        body = AbstractImpl (generate_event_receiver event_name inner_env);
+                        body = AbstractImpl (
+                        (if Config.trace_enabled () then 
+                            [
+                                auto_fplace(T.RawStmt {|
+                                long durationReception2Dispatcher = System.nanoTime() - t_actor_event_reception;
+                                durationsReception2Dispatcher.add(durationReception2Dispatcher);
+                                |})
+                            ]    
+                        else [])@
+                        generate_event_receiver event_name inner_env);
                         args = [
                             (
                                 auto_place (T.TParam (
@@ -1822,7 +1831,14 @@ module Make (Arg: sig val target:Target.target end) = struct
                 v = {
                     args            = [];
                     throws          = [];
-                    body            = T.AbstractImpl ([
+                    body            = T.AbstractImpl (
+                    (if Config.trace_enabled () then    
+                        [
+                            auto_fplace (T.RawStmt "t_actor_event_reception = System.nanoTime();")
+                        ]
+                    else [])
+                    @
+                    [
                         {place; value=T.ReturnStmt receiver_expr}
                     ]);
                     name            = Atom.builtin "createReceive";

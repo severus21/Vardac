@@ -2071,6 +2071,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             ("dependencies", Jg_types.Tstr (dependencies));
             ("enable_global_placement_reflexivity", Jg_types.Tbool (Config.enable_global_placement_reflexivity()));
             ("enable_global_bridge_reflexivity", Jg_types.Tbool (Config.enable_global_bridge_reflexivity()));
+            ("trace_enabled", Jg_types.Tbool (Config.trace_enabled()));
         ] @ istate.jingoo_models in
 
         (* User defined target *)

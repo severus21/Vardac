@@ -31,6 +31,7 @@ let common_options =
     "--provenance", Arg.Int set_provenance, "Select how provenance information should be propagated; 0: None; 1: Medium; 2:Full";
     "--disable-global-placement-reflexivity", Arg.Clear Core.Config._enable_global_placement_reflexivity, "Disable placement reflexivity for all";
     "--disable-global-bridge-reflexivity", Arg.Clear Core.Config._enable_global_bridge_reflexivity, "Disable bridge reflexivity for all";
+    "--enable-tracing", Arg.Set Core.Config._trace_enabled, "Instrument the glue with tracing logic";
     "-o", Arg.String (function dir -> build_dir := Fpath.v dir), Printf.sprintf "Specify the build directory, by default %s" (Fpath.to_string Core.Config.default_build_dir)
 ]
 

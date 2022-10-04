@@ -34,6 +34,11 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     
     public ActorRef<SpawnProtocol.Command> guardian;
 
+    {% if trace_enabled %}
+    public long t_actor_event_reception = 0;
+    public ArrayList<Long> durationsReception2Dispatcher = new ArrayList(1024);
+    {% endif %}
+
     public AbstractComponent(ActorContext<T> context){
         super(context);
         

@@ -67,6 +67,9 @@ let enable_global_placement_reflexivity = function () -> !_enable_global_placeme
 let _enable_global_bridge_reflexivity = ref true
 let enable_global_bridge_reflexivity = function () -> !_enable_global_bridge_reflexivity
 
+let _trace_enabled = ref false 
+let trace_enabled = function () -> !_trace_enabled
+
 
 (***************************************)
 (* Recall applied compilation pass
