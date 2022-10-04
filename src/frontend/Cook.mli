@@ -2,7 +2,6 @@
    cook the different pieces (ast, place ast) into the IR 
     - ensuring that every name is properly bound (otherwise, an
    error is reported) and switching from a representation of names as strings to a representation of names as atoms
-    - bind contract to method 
     - bind annotations with components/methods/function
     - incorporate vplace into ast
     - detect unbounded variable

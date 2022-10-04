@@ -18,7 +18,6 @@ module Make() = struct
     module Derive = IRCompilationPass.Make(Derive)
     module Intercept = IRCompilationPass.Make(Intercept.Make())
     module PartialEval = IRCompilationPass.Make(Common.PartialEval.Make())
-    module Reduce = IRCompilationPass.Make(Common.Reduce.Make())
     module Reflexivity = IRCompilationPass.Make(Common.Reflexivity.Make())
     module UntypedCleansing = IRCompilationPass.Make(Common.UntypedCleansing.Make())
     module TypeChecking = IRCompilationPass.Make(Common.TypeChecking.Make())
@@ -58,7 +57,6 @@ module Make() = struct
         let ir1 =
             ir
             |> Sanitiser.apply
-            |> Reduce.apply
             |> UntypedCleansing.apply
             |> TypeInference1.apply
             (*|> TypeChecking.apply*)

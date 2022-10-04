@@ -1,0 +1,24 @@
+
+target akka;
+
+impl dependencies gradle:{=
+=}
+
+impl headers java:{=
+=}
+
+impl function fresh_payload java:{=
+    int[] tmp = new int[{{%size%}}];
+    for(int i = 0; i<{{%size%}}; i++)
+        tmp[i] = i;
+    return tmp;
+=}
+
+impl type payload java:{=
+    int[]
+=}
+
+
+impl component Ping {}
+impl component Pong {}
+impl component TopLevel {}

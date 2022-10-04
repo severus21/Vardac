@@ -55,6 +55,29 @@ BENCHMARKS = [
             "warmup": range(DEFAULT_WARMUP_MIN, DEFAULT_WARMUP_MAX).__iter__()
         }), DEFAULT_RUNS)
     ),
+    Benchmark(
+        "mpp-varda-contract-one-jvm",
+        VardaBuilder(
+            BENCHMARKS_DIR/"bench-mpp"/"varda-contract",
+            "dune exec --profile release -- vardac compile --places {{project_dir}}/places.yml --targets {{project_dir}}/targets.yml --impl benchmarks/libbench.vimpl  --filename {{project_dir}}/bench.varch --impl {{project_dir}}/bench.vimpl --provenance 0 && cd compiler-build/akka && make",
+            Path(os.getcwd()).absolute()),
+        ShellRunnerFactory(
+            f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB {{{{rconfig}}}}",
+            Path(os.getcwd())/"compiler-build"/"akka",
+            "Terminated ueyiqu8R"
+        ),
+        [
+            StdoutCollector(get_elapse_time),
+            FileCollector(Path(os.getcwd())/"compiler-build" / \
+                          "akka"/"results.json", get_rtts),
+            FileCollector(Path(os.getcwd())/"compiler-build" / \
+                          "akka"/"results.json", get_pp_size),
+        ],
+        Generator(RangeIterator({
+            "n": logrange(DEFAULT_N_MIN, DEFAULT_N_MAX, base=10),
+            "warmup": range(DEFAULT_WARMUP_MIN, DEFAULT_WARMUP_MAX).__iter__()
+        }), DEFAULT_RUNS)
+    ),
     # inlined Pong in Wrapper
     Benchmark(
         "mpp-varda-inline-one-jvm",

@@ -658,7 +658,9 @@ module Make (Params : IRParams) = struct
                 body        = m.body;
             }:_function_dcl) in 
             let _, collected_elts4, fvars4 = match m.contract_opt with
-                | Some c -> collect_expr_contract parent_opt already_binded selector collector c
+                | Some c -> 
+                    let already_binded = List.fold_left (fun set {value=_,x} -> Atom.Set.add x set) already_binded m.args in
+                    collect_expr_contract parent_opt already_binded selector collector c
                 | None -> already_binded, [],[]
             in
             already_binded, collected_elts1@collected_elts4, fvars1@fvars4

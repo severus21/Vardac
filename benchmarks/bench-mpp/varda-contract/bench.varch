@@ -1,0 +1,192 @@
+use benchmarks.libbench;
+
+type payload;
+
+event ping of int, bool, long, payload; (* i * warmup * init_timestamp*)
+event pong of int, bool, long, payload;
+protocol p_pingpong = !ping?pong.;
+bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
+
+payload fresh_payload(int size); (* size in bits *) 
+
+(* 
+
+Mono JVM
+
+1) Run N pin pong round 
+- only ports + send
+
+2) Run N ping pong ping pong round 
+- add receive
+
+3) Select/branch
+*)
+
+
+component Ping {
+    outport p_out expecting (inline p_pingpong);
+    inport p_in :: bridge<Ping, Pong, inline p_pingpong> expecting ?pong. = this.callback;
+
+    int n = 0;
+    int warmup = 0;
+    int payload = 10;
+    int warmup_counter = 0;
+    int counter = 0;
+    long starttime = 0;
+    array<long> rtts = [|this.n|];
+    long ping_size = 0;
+    long pong_size = 0;
+
+    activation_ref<Pong> b = ();
+    
+    onstartup (int n, int warmup, int payload, bridge<Ping, Pong, inline p_pingpong> b0, activation_ref<Pong> b) {
+        debug("> Starting Ping");
+        this.n = n;
+        this.warmup = warmup;
+        this.b = b;
+        this.payload = payload;
+
+        bind(this.p_out, b0);
+        bind(this.p_in, b0);
+
+        this.starttime = time();
+        this.rtts = [|this.n|];
+        if(this.warmup > 0 ){
+            this.start_warmup();
+        } else {
+            this.start();
+        }
+    }
+
+    result<void, error> start_warmup(){(* #bench *)
+        for(int i in range(0, this.warmup)){(* #bench *)
+            session<p_pingpong> s0 = initiate_session_with(this.p_out, this.b);(* #bench *)
+            ?pong. s1 = fire(s0, ping(i, true, time(), fresh_payload(this.payload)))?; (* #bench *)
+        }(* #bench *)
+    }(* #bench *)
+
+    result<void, error> start(){
+        for(int i in range(0, this.n)){
+            session<p_pingpong> s0 = initiate_session_with(this.p_out, this.b);
+
+            ping msg = ping(i, false, time(), fresh_payload(this.payload));
+            if (this.ping_size == 0){
+                this.ping_size = akka_msg_serialized_size(akka_get_current_system(this), msg);
+            }
+
+            ?pong. s1 = fire(s0, msg)?; 
+        }
+    }
+
+    void sumup(){(* #bench *)
+        long start = this.starttime;(* #bench *)
+        long end = time();(* #bench *)
+        long elapse = end - start;(* #bench *)
+        string tmp = long_to_string(elapse);(* #bench *)
+        info("Time elapse "+tmp+" ms");(* #bench *)
+(* #bench *)
+        dict<string, java_object> res = dict();(* #bench *)
+        add2dict(res, "ping_size", this.ping_size);(* #bench *)
+        add2dict(res, "pong_size", this.pong_size);(* #bench *)
+        add2dict(res, "rtts", this.rtts);(* #bench *)
+        tojson(res, "results.json");(* #bench *)
+(* #bench *)
+        info("Terminated ueyiqu8R");(* #bench *)
+        info("JamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglog");(* #bench *)
+    }(* #bench *)
+
+    contract callback
+    with pong m = msg
+    ensures m._0_ > -1 
+
+    result<void, error> callback(pong msg, . s){
+        if(msg._1_){(* #bench *)
+            this.warmup_counter = this.warmup_counter + 1;(* #bench *)
+            string x = int_to_string(this.warmup_counter);(* #bench *)
+            debug("warmup_counter "+x);(* #bench *)
+(* #bench *)
+            // Last pong(* #bench *)
+            if( this.warmup_counter == this.warmup ){(* #bench *)
+                this.start();(* #bench *)
+            }(* #bench *)
+        } else {(* #bench *)
+            if(this.pong_size == 0){
+                this.pong_size = akka_msg_serialized_size(akka_get_current_system(this), msg);
+            }
+
+            this.counter = this.counter + 1;
+            long endTimestamp = time();
+            debug(int_to_string(msg._0_));(* #debug *)
+            aput(this.rtts, msg._0_, endTimestamp - msg._2_);
+
+            // Last pong
+            (* TODO multiple stmts in an if => unable to parse *)
+            if( this.counter == this.n ){
+                this.sumup();
+            }
+        }(* #bench *)
+
+        return ok(());
+    }
+}
+
+component Pong {
+    inport p_in :: bridge<Ping, Pong, inline p_pingpong> expecting ?ping!pong. = this.callback;
+
+    onstartup (bridge<Ping, Pong, inline p_pingpong> b0){
+        debug("> Starting Pong");(* #debug *)
+        bind(this.p_in, b0);
+    }
+
+    result<void, error> callback (ping msg, ?pong. s0) {
+        debug("> Ping received");(* #debug *)
+        . s1 = fire(s0, pong(msg._0_, msg._1_, msg._2_, msg._3_))?; 
+        debug(">> Pong fired");(* #debug *)
+        return ok(());
+    }
+
+    contract callback 
+    invariant 0 == 0 
+    ensures "a" == "a"
+    returns (res : result<void, error> -> is_ok(res) )
+}
+
+tuple<array<string>, tuple<int,int,int>> main (array<string> args){
+    print("apossiblemain");(* #debug *)
+    int n = 100;
+    int warmup = 100;
+    int payload = 0;
+    list<string> nargs = [];
+    int skip = -1;
+    for(int i in range(0, asize(args) - 1)){
+        if( ((aget(args, i)) == "-n") && ((i - 1)< asize(args)) ){
+            n = int_of_string(aget(args, i+1));
+            skip = i + 1;
+        } else { 
+            if( ((aget(args, i)) == "-warmup") && ((i - 1)< asize(args)) ){
+                warmup = int_of_string(aget(args, i+1));
+                skip = i + 1;
+            } else {
+                if( ((aget(args, i)) == "-payload") && ((i - 1)< asize(args)) ){
+                    payload = int_of_string(aget(args, i+1));
+                    skip = i + 1;
+                } else {
+                    if (i != skip) {
+                        append(nargs, aget(args, i));
+                    }
+                }
+            }
+        }
+    }
+    return (list2array(nargs), (n, warmup, payload));
+}
+
+component TopLevel {
+    onstartup (int n, int warmup, int payload) {
+        print(">> Entering toplevel");(* #debug *)
+        bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
+        activation_ref<Pong> c = (spawn Pong(b0));
+        activation_ref<Ping> a2 = (spawn Ping(n, warmup, payload, b0, c));  
+        print(">> Ending toplevel");(* #debug *)
+    }
+}

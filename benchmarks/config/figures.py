@@ -116,6 +116,16 @@ FIGURES = [
         ylabeling   = lambda s,k: s.extract_metric('pp_size')[k].min,
     ),
     FigureFactory(
+        "MPP",
+        [("n", "duration"), ("n", "rtt")],
+        lambda: [
+            #("akka-one-jvm", Bench.objects.filter(name="mpp-akak-contract-one-jvm").order_by('-pk')[0].results.all()),
+            ("varda-one-jvm", Bench.objects.filter(name="mpp-varda-one-jvm").order_by('-pk')[0].results.all()),
+            #("inline-one-jvm", Bench.objects.filter(name="mpp-varda-inline-one-jvm").order_by('-pk')[0].results.all())
+            ("contract-one-jvm", Bench.objects.filter(name="mpp-varda-contract-one-jvm").order_by('-pk')[0].results.all())
+        ]
+    ),
+    FigureFactory(
         "MS",
         [("vs", "duration")],
         lambda: [

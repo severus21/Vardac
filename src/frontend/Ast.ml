@@ -214,7 +214,9 @@ and _method0 = {
         args: param list; 
         abstract_impl: stmt list; 
         on_destroy: bool;
-        on_startup: bool
+        on_startup: bool;
+
+        _contract_opt: contract option; (* Set by the reduce pass *)
     }
 and method0 = _method0 placed
 

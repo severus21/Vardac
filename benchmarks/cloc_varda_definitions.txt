@@ -1,6 +1,7 @@
 Java
     filter remove_matches ^.*#bench.*$
     filter remove_matches ^.*#debug.*$
+    filter remove_matches ^.*#cli.*$
     filter replace_regex \\$  
     filter replace_between_regex (["'])(.*?/\*)\g1 (.*?) "xx"
     filter replace_between_regex (["'])(.*?\*/)\g1 (.*?) "xx"
@@ -10,6 +11,7 @@ Java
 Varda
     filter remove_matches ^.*#bench.*$
     filter remove_matches ^.*#debug.*$
+    filter remove_matches ^.*#cli.*$
     filter rm_comments_in_strings " /* */
     filter rm_comments_in_strings " // 
     filter rm_comments_in_strings " (* *) 

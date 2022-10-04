@@ -1009,7 +1009,15 @@ module Make(Arg:ArgSig) = struct
         let fct_sign = List.fold_right (fun t1 t2 -> auto_fplace (T.CType (auto_fplace(T.TArrow (t1, t2))))) (List.map (function (arg: T.param) -> fst arg.value) args) ret_type in 
         register_gamma name fct_sign;
 
-        env << [inner_env; env1; env2], {
+        let  cenv, contract_opt =
+            match m._contract_opt with
+            | None -> inner_env, None
+            | Some c -> 
+                let e, c = ccontract inner_env c in
+                e, Some c
+        in
+
+        env << [inner_env; env1; env2; cenv], {
             annotations = List.map (map0_place(fun place -> function
                 | S.MsgInterceptor {kind} -> T.MsgInterceptor {kind}
                 | S.SessionInterceptor {anonymous; kind} -> T.SessionInterceptor {anonymous; kind}
@@ -1021,7 +1029,7 @@ module Make(Arg:ArgSig) = struct
             ret_type = ret_type;
             name;
             args;
-            contract_opt = None; (* Pairing between contract and method0 is done during a next pass, see. Core.PartialEval.ml *)
+            contract_opt = contract_opt;
             body = body;
             on_destroy = m.on_destroy;
             on_startup = m.on_startup 
@@ -1057,7 +1065,7 @@ module Make(Arg:ArgSig) = struct
         let new_env, new_m = cmethod0 env m in
         new_env, [T.Method new_m]
     | S.Contract c -> 
-        env, [T.Contract (snd( ccontract env c))]
+        raise (PlacedDeadbranchError (place, "Contracts should have been paired with methods before!!"))
     | S.Inport p ->
         let new_env, new_p = cport env p in
         new_env, [T.Inport new_p]

@@ -30,6 +30,7 @@ module Make () = struct
         |> dump_selected "Ast" "Ast" Ast.show_program Ast.program_to_yojson
 
     module Resolve = AstCompilationPass.Make(Resolve)
+    module Reduce = AstCompilationPass.Make(Reduce)
 
     let to_ir places filename =
         let module Cookk = Cook.Make(struct 
@@ -43,6 +44,7 @@ module Make () = struct
         |> Resolve.apply  
         |> PairedAnnotation.apair_program 
         |> dump_selected "PairedAnnotationAst" "PairedAnnotationAst" Ast.show_program Ast.program_to_yojson 
+        |> Reduce.apply
         |> function program -> let ir = Cook.apply program in Cookk.gamma, Cookk.gamma_types, Cookk.sealed_envs, ir
 
     let process_place (filename:string) =

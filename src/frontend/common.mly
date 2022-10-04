@@ -507,6 +507,8 @@ core_method:
         abstract_impl= [];
         on_destroy = false;
         on_startup = false;
+
+        _contract_opt = None;
     } }
 | ret_type=any_type name=LID LPAREN args=right_flexible_list(COMMA, any_param) RPAREN LCURLYBRACKET stmts=flexible_sequence(any_stmt) RCURLYBRACKET 
     { {
@@ -518,6 +520,8 @@ core_method:
         abstract_impl= stmts;
         on_destroy = false;
         on_startup = false;
+
+        _contract_opt = None;
     } }
 
 core_lf_method:
@@ -532,6 +536,8 @@ core_lf_method:
         abstract_impl= stmts;
         on_destroy = false;
         on_startup = false;
+
+        _contract_opt = None;
     } }
 
 
