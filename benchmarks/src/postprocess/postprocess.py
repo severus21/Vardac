@@ -4,6 +4,7 @@ import logging
 import re
 from sre_parse import State
 import statistics
+from unicodedata import category
 
 class Measure:
     # value_s can be of type T or type list[T]
@@ -15,7 +16,7 @@ class StatMetric:
     pattern = re.compile('^_[a-zA-Z].*$')
     def __init__(self, unit : str, items : list, f = float) -> None:
         self.unit   = unit
-        self.items  = list(map(f, items)) if type(items) == list else [f(items)]
+        self.items  = list(map(lambda x: x if x == None else f(x), items)) if type(items) == list else [f(items)]
 
         self.f      = f 
 
@@ -163,19 +164,24 @@ class Stats:
                 logging.warning(f"Metric {wanted_metrics} not found in stats[{k}] !")
         return nstats
 
-    def map_on_param(self, data, wanted_param, selector, ylabeling):
-        nstats = {}
+    def map_on_param(self, data, wanted_param, selector, ylabeling, category):
+        nstats = defaultdict(dict)
         for k in data.keys():
             if selector(self.params[k]):
                 if ylabeling:
                     kk = ylabeling(self,k)
                 else:
                     kk = self.params[k][wanted_param]
-                nstats[kk] = data[k]
+
+                c = category(self.params[k])
+                if c:
+                    nstats[c][kk] = data[k]                    
+                else:
+                    nstats[None][kk] = data[k]
         return nstats
 
-    def extract(self, wanted_param, wanted_metric, selector, ylabeling):
-        return self.map_on_param(self.extract_metric(wanted_metric), wanted_param, selector, ylabeling)
+    def extract(self, wanted_param, wanted_metric, selector, ylabeling, category):
+        return self.map_on_param(self.extract_metric(wanted_metric), wanted_param, selector, ylabeling, category)
 
         #else:
         #    #'''where param is in fact a result category, and a bench parameter'''

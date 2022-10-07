@@ -99,6 +99,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
 
     "range", "int -> int -> range", "", t_range;
     "time", "() -> int", "miliseconds", t_time; 
+    "nano_time", "() -> long", "ns", t_nano_time; 
 
     (* Not expose to user, but should be implemented by the underlying plugin *)
     "__get_intermediate_port", "session -> port", "TODO", t___get_intermediate_port;

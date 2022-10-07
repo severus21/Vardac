@@ -16,6 +16,10 @@
 * Shell console
     ``ipython3 -i shell.py``, N.B. models are already loaded by shell.py
 
+## Reset DB
+
+``python3 manage.py flush``
+
 ## Render
 
 1. write bench specification in config/figures.py

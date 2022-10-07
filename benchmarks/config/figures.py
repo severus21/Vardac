@@ -12,7 +12,8 @@ DESCRIPTIVE_STATISTICS_CENTER = set(['mean', 'median', 'min', 'max'])
 DESCRIPTIVE_STATISTICS_DISPERSION = set([None, 'stdev'])
 
 class FigureFactory:
-    def __init__(self, fig_name, xy, args, selector=lambda x: True, ylabeling=None, descriptive_statistics_center='mean', descriptive_statistics_dispersion='stdev'):
+    def __init__(self, fig_name, xy, args, selector=lambda x: True, ylabeling=None, descriptive_statistics_center='mean', descriptive_statistics_dispersion='stdev',
+        category = lambda x:None):
         assert(descriptive_statistics_center in DESCRIPTIVE_STATISTICS_CENTER)
         assert(descriptive_statistics_dispersion in DESCRIPTIVE_STATISTICS_DISPERSION)
 
@@ -23,6 +24,7 @@ class FigureFactory:
         self.ylabeling = ylabeling
         self.descriptive_statistics_center = descriptive_statistics_center
         self.descriptive_statistics_dispersion = descriptive_statistics_dispersion
+        self.category = category
 
     @property
     def title(self):
@@ -31,12 +33,13 @@ class FigureFactory:
     def curves(self, xy_parameters):
         curves = []
         for (name, results) in self.args():
-            curves.append(Curve(
-                    name,
-                    Stats(results).extract(*xy_parameters, selector=self.selector, ylabeling=self.ylabeling),
-                    self.descriptive_statistics_center,
-                    self.descriptive_statistics_dispersion
-                ))
+            for cat, stats in Stats(results).extract(*xy_parameters, selector=self.selector, ylabeling=self.ylabeling, category=self.category).items():
+                curves.append(Curve(
+                        name+"_"+str(cat) if cat else name,
+                        stats,
+                        self.descriptive_statistics_center,
+                        self.descriptive_statistics_dispersion
+                    ))
         return curves
 
     def compare(self):
@@ -63,12 +66,13 @@ class BarFactory(FigureFactory):
         curves = defaultdict(list)
         for bar_name, xs in self.args().items():
             for (name, results) in xs:
-                curves[bar_name].append(Curve(
-                        name,
-                        Stats(results).extract(*xy_parameters, selector=self.selector, ylabeling=self.ylabeling),
-                        self.descriptive_statistics_center,
-                        self.descriptive_statistics_dispersion
-                    ))
+                for cat, stats in Stats(results).extract(*xy_parameters, selector=self.selector, ylabeling=self.ylabeling, category=self.category).items():
+                    curves[bar_name].append(Curve(
+                            name+"_"+str(cat) if cat else name,
+                            stats,
+                            self.descriptive_statistics_center,
+                            self.descriptive_statistics_dispersion
+                        ))
         return curves
 
     def compare(self):
@@ -97,32 +101,24 @@ FIGURES = [
         ]
     ), 
     FigureFactory(
-        "Inlining overhead",
-        [("n", "duration"), ("n", "rtt")],
-        lambda: [
-            ("akka-one-jvm", Bench.objects.filter(name="simpl-com-akka-one-jvm", id=320)[0].results.all()),
-            ("varda-one-jvm", Bench.objects.filter(name="simpl-com-varda-one-jvm", id=316)[0].results.all()),
-            ("inline-one-jvm", Bench.objects.filter(name="simpl-com-varda-inline-one-jvm", id=318)[0].results.all())
-        ]
-    ),
-    FigureFactory(
         "payload",
-        [("payload", "duration"),],
+        [("payload", "duration"),("payload", "rtt")],
         lambda: [
             ("akka-one-jvm", Bench.objects.filter(name="mpp-akka-one-jvm").order_by('-pk')[0].results.all()),
             ("varda-one-jvm", Bench.objects.filter(name="mpp-varda-one-jvm").order_by('-pk')[0].results.all()),
         ],
-        selector    = (lambda x : x['n'] == 100),
+        selector    = (lambda x : x['n'] == 10000),
         ylabeling   = lambda s,k: s.extract_metric('pp_size')[k].min,
+        category    = (lambda x : x['n']) #one curve per n
     ),
     FigureFactory(
         "MPP",
         [("n", "duration"), ("n", "rtt")],
         lambda: [
-            #("akka-one-jvm", Bench.objects.filter(name="mpp-akak-contract-one-jvm").order_by('-pk')[0].results.all()),
+            ("akka-one-jvm", Bench.objects.filter(name="mpp-akka-one-jvm").order_by('-pk')[0].results.all()),
             ("varda-one-jvm", Bench.objects.filter(name="mpp-varda-one-jvm").order_by('-pk')[0].results.all()),
-            #("inline-one-jvm", Bench.objects.filter(name="mpp-varda-inline-one-jvm").order_by('-pk')[0].results.all())
-            ("contract-one-jvm", Bench.objects.filter(name="mpp-varda-contract-one-jvm").order_by('-pk')[0].results.all())
+            ("inline-one-jvm", Bench.objects.filter(name="mpp-varda-inline-one-jvm").order_by('-pk')[0].results.all()),
+            ("contract-one-jvm", Bench.objects.filter(name="mpp-varda-contract-one-jvm").order_by('-pk')[0].results.all()),
         ]
     ),
     FigureFactory(

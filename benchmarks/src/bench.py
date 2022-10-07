@@ -55,7 +55,6 @@ class Benchmark:
         res = {} 
         for collector in self.collectors:
             tmp = collector.collect(runner)
-            print(tmp)
             if tmp:
                 res = res | tmp
         return {'config': runner.config, 'results': res}

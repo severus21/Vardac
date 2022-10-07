@@ -25,6 +25,62 @@ impl component Ping {
         return this.durationsReception2Dispatcher;
     =}
 
+    impl method getDurationsReception2Callback java:{= 
+        return this.durationsReception2Callback;
+    =}
+
+    impl method getDurationsReception2EndCallback java:{= 
+        return this.durationsReception2EndCallback;
+    =}
+
+    impl method getDurationsReception2OnMessage java:{=
+        return this.durationsReception2OnMessage;
+    =}
+
+    impl method getDurationsFire java:{=
+        return com.varda.Session.Statistic.fire_durations;
+    =}
+
+    impl method getDurationsFireAfterChecks java:{=
+        return com.varda.Session.Statistic.fire_durations_after_checks;
+    =}
+    impl method getDurationsFireAfterHydratation java:{=
+        return com.varda.Session.Statistic.fire_durations_after_hydratation;
+    =}
+    impl method getDurationsFireAfterTell java:{=
+        return com.varda.Session.Statistic.fire_durations_after_tell;
+    =}
+
 }
-impl component Pong {}
+impl component Pong {
+
+    impl method getDurationsReception2Dispatcher java:{= 
+        return this.durationsReception2Dispatcher;
+    =}
+
+    impl method getDurationsReception2Callback java:{= 
+        return this.durationsReception2Callback;
+    =}
+
+    impl method getDurationsReception2EndCallback java:{= 
+        return this.durationsReception2EndCallback;
+    =}
+
+    impl method getDurationsReception2OnMessage java:{=
+        return this.durationsReception2OnMessage;
+    =}
+
+    impl method getDurationsFire java:{=
+        return com.varda.Session.Statistic.fire_durations;
+    =}
+    impl method getDurationsFireAfterChecks java:{=
+        return com.varda.Session.Statistic.fire_durations_after_checks;
+    =}
+    impl method getDurationsFireAfterHydratation java:{=
+        return com.varda.Session.Statistic.fire_durations_after_hydratation;
+    =}
+    impl method getDurationsFireAfterTell java:{=
+        return com.varda.Session.Statistic.fire_durations_after_tell;
+    =}
+}
 impl component TopLevel {}

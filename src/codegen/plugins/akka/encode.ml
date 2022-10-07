@@ -88,6 +88,8 @@ let encode_builtin_fct_0 parent_opt place name =
          fst (e_varda_current_place place).value
     | "time" ->
         T.RawExpr "System.currentTimeMillis()"
+    | "nano_time" ->
+        T.RawExpr "System.nanoTime()"
     | "current_activation" ->
         fst (Misc.e_get_self_activation place (Misc.e_get_context place)).value
     | "forge_activation_ref" ->

@@ -34,10 +34,14 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     
     public ActorRef<SpawnProtocol.Command> guardian;
 
-    {% if trace_enabled %}
+    // Tracing instrumentations
     public long t_actor_event_reception = 0;
-    public ArrayList<Long> durationsReception2Dispatcher = new ArrayList(1024);
-    {% endif %}
+    public ArrayList<Long> durationsReception2Dispatcher = new ArrayList({% if trace_enabled %}1024{%endif%});
+    public ArrayList<Long> durationsReception2Callback = new ArrayList({% if trace_enabled %}1024{%endif%});
+    public ArrayList<Long> durationsReception2EndCallback = new ArrayList({% if trace_enabled %}1024{%endif%});
+
+    //Time message type
+    public ArrayList<Tuple2<Long,String>> durationsReception2OnMessage = new ArrayList({% if trace_enabled %}1024{%endif%});
 
     public AbstractComponent(ActorContext<T> context){
         super(context);

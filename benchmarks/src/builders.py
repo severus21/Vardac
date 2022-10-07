@@ -143,6 +143,7 @@ class ShellBuilder(AbstractBuilder):
         return template.render(build_dir=self.build_dir, project_dir=self.project_dir)
 
     def _get_bench_model(self):
+        print(dirhash(self.build_dir, 'md5') if self.build_dir else "no-build-dir")
         return Bench.objects.get_or_create(
             name = self.name,
             host_spec = HostSpec.objects.get_or_create(name = HostSpec.get_hostname())[0],    

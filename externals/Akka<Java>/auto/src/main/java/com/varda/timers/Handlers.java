@@ -27,7 +27,6 @@ public class Handlers {
         List<HashMap<UUID, ?>> intermediate_states, 
         HBSessionTimer timerMsg
     ){
-        context.getLog().debug("receive HBSessionTimer");
         context.getLog().warn( String.format("Session %s of type ? between [%s] and [%s] has timeout after ? ms", timerMsg.session_id, timerMsg.replyTo.toString(), self.toString()));
 
         dead_sessions.add(timerMsg.session_id);
@@ -42,7 +41,7 @@ public class Handlers {
         List<HashMap<UUID, ?>> intermediate_states,
         LBSessionTimer timerMsg
     ){
-        context.getLog().debug("receive LBSessionTimer");
+        context.getLog().warn("receive LBSessionTimer");
         frozen_sessions.remove(timerMsg.session_id);
     } 
 
@@ -56,7 +55,7 @@ public class Handlers {
         List<HashMap<UUID, ?>> intermediate_states,
         SessionIsDead timerMsg
     ){
-        context.getLog().debug("receive SessionIsDead");
+        context.getLog().warn("receive SessionIsDead");
 
         frozen_sessions.remove(timerMsg.session_id);
         dead_sessions.remove(timerMsg.session_id);
@@ -75,7 +74,7 @@ public class Handlers {
         List<HashMap<UUID, ?>> intermediate_states,
         AckDeadSession timerMsg
     ){
-        context.getLog().debug("receive AckDeadSession");
+        context.getLog().warn("receive AckDeadSession");
 
         frozen_sessions.remove(timerMsg.session_id);
         dead_sessions.remove(timerMsg.session_id);

@@ -89,7 +89,6 @@ public class PlaceDiscovery {
                     replyTo -> new SpawnProtocol.SpawnAt(runnable, name, props, at.address, replyTo),
                     Duration.ofSeconds(10),
                     context.getSystem().scheduler());
-
             context.getLog().debug("waiting PlaceDiscovery::spawnAt");
             try {
                 // blocking call

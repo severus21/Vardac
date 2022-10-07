@@ -71,7 +71,9 @@ public final class ASTStype {
             if(s.st.continuations.size() > 0){
                 List<TimerHeader> headers = s.st.continuations.get(0)._2;
                 for (ASTStype.TimerHeader timer : headers) {
+                    {% if debug_enabled %}
                     context.getLog().debug(String.format("timer %s trigger value = %d", timer.timer_name, timer.trigger_value));
+                    {% endif %}
                    
                     // Time name is unique for a given (timer_name, session_id)
                     String specialized_timer_name = timer.timer_name + "_" + s.session_id.toString();

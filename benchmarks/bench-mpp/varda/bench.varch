@@ -28,34 +28,39 @@ component Ping {
     inport p_in :: bridge<Ping, Pong, inline p_pingpong> expecting ?pong. = this.callback;
 
     int n = 0;
-    int warmup = 0;
-    int payload = 10;
-    int warmup_counter = 0;
-    int counter = 0;
-    long starttime = 0;
-    array<long> rtts = [|this.n|];
-    long ping_size = 0;
-    long pong_size = 0;
+    int warmup = 0;(* #bench *)
+    int payload = 10;(* #bench *)
+    int warmup_counter = 0;(* #bench *)
+    int counter = 0;(* #bench *)
+    long starttime = 0;(* #bench *)
+    array<long> rtts = [|this.n|];(* #bench *)
+    array<long> ping_durations = [|this.n|];(* #bench *)
+    array<long> ping_after_session_init_durations = [|this.n|];(* #bench *)
+    array<long> ping_after_computesize_durations = [|this.n|];(* #bench *)
+    long ping_size = 0;(* #bench *)
+    long pong_size = 0;(* #bench *)
 
     activation_ref<Pong> b = ();
     
     onstartup (int n, int warmup, int payload, bridge<Ping, Pong, inline p_pingpong> b0, activation_ref<Pong> b) {
         debug("> Starting Ping");
         this.n = n;
-        this.warmup = warmup;
+        this.warmup = warmup;(* #bench *)
         this.b = b;
-        this.payload = payload;
+        this.payload = payload;(* #bench *)
 
         bind(this.p_out, b0);
         bind(this.p_in, b0);
 
-        this.starttime = time();
-        this.rtts = [|this.n|];
-        if(this.warmup > 0 ){
-            this.start_warmup();
-        } else {
+        this.rtts = [|this.n|];(* #bench *)
+        this.ping_durations = [|this.n|];(* #bench *)
+        this.ping_after_session_init_durations = [|this.n|];(* #bench *)
+        this.ping_after_computesize_durations = [|this.n|];(* #bench *)
+        if(this.warmup > 0 ){(* #bench *)
+            this.start_warmup();(* #bench *)
+        } else {(* #bench *)
             this.start();
-        }
+        }(* #bench *)
     }
 
     result<void, error> start_warmup(){(* #bench *)
@@ -66,19 +71,37 @@ component Ping {
     }(* #bench *)
 
     result<void, error> start(){
+        this.starttime = time();(* #bench *)
         for(int i in range(0, this.n)){
+            long startTime = nano_time();(* #bench *)
+
             session<p_pingpong> s0 = initiate_session_with(this.p_out, this.b);
 
+            long startTimeAfterInitiateSession = nano_time();(* #bench *)
+
             ping msg = ping(i, false, time(), fresh_payload(this.payload));
-            if (this.ping_size == 0){
-                this.ping_size = akka_msg_serialized_size(akka_get_current_system(this), msg);
-            }
+            if (this.ping_size == 0){(* #bench *)
+                this.ping_size = akka_msg_serialized_size(akka_get_current_system(this), msg);(* #bench *)
+            }(* #bench *)
+            long startTimeAfterComputeSize = nano_time();(* #bench *)
 
             ?pong. s1 = fire(s0, msg)?; 
+
+            long endTime = nano_time();(* #bench *)
+            aput(this.ping_durations, i, endTime - startTime);(* #bench *)
+            aput(this.ping_after_session_init_durations, i, endTime - startTimeAfterInitiateSession);(* #bench *)
+            aput(this.ping_after_computesize_durations, i, endTime - startTimeAfterComputeSize);(* #bench *)
         }
     }
 
-    list<long> getDurationsReception2Dispatcher();
+    list<long> getDurationsReception2Dispatcher();(* #bench *)
+    list<long> getDurationsReception2Callback();(* #bench *)
+    list<long> getDurationsReception2EndCallback();(* #bench *)
+    list<long> getDurationsFire();(* #bench *)
+    list<long> getDurationsFireAfterChecks();(* #bench *)
+    list<long> getDurationsFireAfterHydratation();(* #bench *)
+    list<long> getDurationsFireAfterTell();(* #bench *)
+    list<tuple<long,string>> getDurationsReception2OnMessage();(* #bench *)
 
     void sumup(){(* #bench *)
         long start = this.starttime;(* #bench *)
@@ -91,7 +114,17 @@ component Ping {
         add2dict(res, "ping_size", this.ping_size);(* #bench *)
         add2dict(res, "pong_size", this.pong_size);(* #bench *)
         add2dict(res, "rtts", this.rtts);(* #bench *)
+        add2dict(res, "durationsPing", this.ping_durations);(* #bench *)
+        add2dict(res, "durationsPingAfterSessionInit", this.ping_after_session_init_durations);(* #bench *)
+        add2dict(res, "durationsPingAfterComputeSize", this.ping_after_computesize_durations);(* #bench *)
+        add2dict(res, "durationsReception2Callback", this.getDurationsReception2Callback()); (* #bench *)
+        add2dict(res, "durationsReception2EndCallback", this.getDurationsReception2EndCallback()); (* #bench *)
         add2dict(res, "durationsReception2Dispatcher", this.getDurationsReception2Dispatcher()); (* #bench *)
+        add2dict(res, "durationsReception2OnMessage", this.getDurationsReception2OnMessage()); (* #bench *)
+        add2dict(res, "durationsFire", this.getDurationsFire()); (* #bench *)
+        add2dict(res, "durationsFireAfterChecks", this.getDurationsFireAfterChecks()); (* #bench *)
+        add2dict(res, "durationsFireAfterHydratation", this.getDurationsFireAfterHydratation()); (* #bench *)
+        add2dict(res, "durationsFireAfterTell", this.getDurationsFireAfterTell()); (* #bench *)
         tojson(res, "results.json");(* #bench *)
 (* #bench *)
         info("Terminated ueyiqu8R");(* #bench *)
@@ -109,14 +142,14 @@ component Ping {
                 this.start();(* #bench *)
             }(* #bench *)
         } else {(* #bench *)
-            if(this.pong_size == 0){
-                this.pong_size = akka_msg_serialized_size(akka_get_current_system(this), msg);
-            }
+            if(this.pong_size == 0){(* #bench *)
+                this.pong_size = akka_msg_serialized_size(akka_get_current_system(this), msg);(* #bench *)
+            } (* #bench *)
 
             this.counter = this.counter + 1;
-            long endTimestamp = time();
-            debug(int_to_string(msg._0_));(* #debug *)
-            aput(this.rtts, msg._0_, endTimestamp - msg._2_);
+            long endTimestamp = time();(* #bench *)
+            debug(int_to_string(msg._0_));(* #debug *)(* #bench *)
+            aput(this.rtts, msg._0_, endTimestamp - msg._2_);(* #bench *)
 
             // Last pong
             (* TODO multiple stmts in an if => unable to parse *)
@@ -132,15 +165,47 @@ component Ping {
 component Pong {
     inport p_in :: bridge<Ping, Pong, inline p_pingpong> expecting ?ping!pong. = this.callback;
 
-    onstartup (bridge<Ping, Pong, inline p_pingpong> b0){
+    int n = 0; (* #bench *)
+
+    onstartup (bridge<Ping, Pong, inline p_pingpong> b0, int n){
         debug("> Starting Pong");(* #debug *)
         bind(this.p_in, b0);
+
+        this.n = n; (* #bench *)
     }
+
+    list<long> getDurationsReception2Dispatcher();(* #bench *)
+    list<long> getDurationsReception2Callback();(* #bench *)
+    list<long> getDurationsReception2EndCallback();(* #bench *)
+    list<long> getDurationsFire();(* #bench *)
+    list<long> getDurationsFireAfterChecks();(* #bench *)
+    list<long> getDurationsFireAfterHydratation();(* #bench *)
+    list<long> getDurationsFireAfterTell();(* #bench *)
+    list<tuple<long,string>> getDurationsReception2OnMessage();(* #bench *)
 
     result<void, error> callback (ping msg, ?pong. s0) {
         debug("> Ping received");(* #debug *)
         . s1 = fire(s0, pong(msg._0_, msg._1_, msg._2_, msg._3_))?; 
         debug(">> Pong fired");(* #debug *)
+
+
+        int i = msg._0_; (* #bench *)
+        if( (i + 1) == this.n){(* #bench *)
+            dict<string, java_object> res = dict();(* #bench *)
+            add2dict(res, "durationsPing", [|this.n|]);(* #bench *)
+            add2dict(res, "durationsPingAfterSessionInit", [|this.n|]);(* #bench *)
+            add2dict(res, "durationsPingAfterComputeSize", [|this.n|]);(* #bench *)
+            add2dict(res, "durationsReception2Callback", this.getDurationsReception2Callback()); (* #bench *)
+            add2dict(res, "durationsReception2EndCallback", this.getDurationsReception2EndCallback()); (* #bench *)
+            add2dict(res, "durationsReception2Dispatcher", this.getDurationsReception2Dispatcher()); (* #bench *)
+            add2dict(res, "durationsReception2OnMessage", this.getDurationsReception2OnMessage()); (* #bench *)
+            add2dict(res, "durationsFire", this.getDurationsFire()); (* #bench *)
+            add2dict(res, "durationsFireAfterChecks", this.getDurationsFireAfterChecks()); (* #bench *)
+            add2dict(res, "durationsFireAfterHydratation", this.getDurationsFireAfterHydratation()); (* #bench *)
+            add2dict(res, "durationsFireAfterTell", this.getDurationsFireAfterTell()); (* #bench *)
+            tojson(res, "results-pong.json");(* #bench *)
+        }(* #bench *)
+
         return ok(());
     }
 
@@ -184,7 +249,7 @@ component TopLevel {
     onstartup (int n, int warmup, int payload) {
         print(">> Entering toplevel");(* #debug *)
         bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
-        activation_ref<Pong> c = (spawn Pong(b0));
+        activation_ref<Pong> c = (spawn Pong(b0, n));
         activation_ref<Ping> a2 = (spawn Ping(n, warmup, payload, b0, c));  
         print(">> Ending toplevel");(* #debug *)
     }

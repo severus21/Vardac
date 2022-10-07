@@ -41,7 +41,12 @@ BaseSubprocessTransport.__del__ = silence_event_loop_closed(
 
 async def display_time(stop_display_time, start_time, last_elapse=0):
     if stop_display_time.is_set():
+        logging.debug("Stop display_time task")
         return True
+    elif int(time.time() - start_time) > RUN_TIMEOUT:
+        logging.debug("Stop display_time task : by timeout")
+        stop_display_time.set()
+        return False
     else:
         if int(time.time() - start_time) > last_elapse:
             last_elapse = int(time.time() - start_time)
@@ -88,20 +93,27 @@ class Runner(ABC):
 
     async def run_async_with_displaytime(self):
         stop_display_time = asyncio.Event()
-        tmp = await asyncio.gather(
-            self.run_async(None, stop_display_time),
-            display_time(stop_display_time, time.time()),
-            return_exceptions=True)
-        print(tmp)
-        return tmp
+
+        job     = self.run_async(None, stop_display_time)
+        timer   = display_time(stop_display_time, time.time())
+        done, pending = await asyncio.wait(
+            [job, timer],
+            timeout = RUN_TIMEOUT,
+            return_when=asyncio.FIRST_COMPLETED)
+
+        if not job in done:
+            logging.error(f"Job {self.name}-{self.i_run} timeout")
+        
+        #tmp = await asyncio.gather(
+        #    self.run_async(None, stop_display_time),
+        #    display_time(stop_display_time, time.time()),
+        #    return_exceptions=True)
+        #print(tmp)
+        return job 
 
     def run(self):
         loop = asyncio.get_event_loop()
         result = loop.run_until_complete(self.run_async_with_displaytime())
-
-        # For both
-        if result:
-            result = result[0]
         return result
 
 class OrderedMultiShellRunner(Runner):
@@ -155,7 +167,7 @@ class OrderedMultiShellRunner(Runner):
 
         _ = await asyncio.wait(
             [runner.terminate() for runner in self.runners], 
-            timeout = RUN_TIMEOUT, return_when=asyncio.ALL_COMPLETED)
+            timeout = RUN_TIMEOUT, return_when=asyncio.FIRST_COMPLETED)
         logging.info(f"End terminate {self.name}")
 
         return results
@@ -172,6 +184,11 @@ class BaseRunner(Runner):
 
     def is_terminated(self, buffer):
         return self.stdout_termination_token and self.stdout_termination_token in buffer
+
+    def __exit__(self, type, value, traceback):
+        self.terminate()
+
+        super().__exit__(type, value, traceback)
 
     async def terminate(self,):
         if not self.register_terminate:

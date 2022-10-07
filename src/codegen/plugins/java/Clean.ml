@@ -127,23 +127,23 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
         | AssignExpr (e1, op, e2) -> AssignExpr (cexpr e1, op, cexpr e2)
         | BinaryExpr (e1, StructuralEqual, e2) -> 
         begin
-            match (snd e1.value).value, (snd e2.value).value with
-            | TAtomic "Integer", _ | TAtomic "Void", _ | TAtomic "void", _ 
-            | _, TAtomic "Integer" | _, TAtomic "Void" | _, TAtomic "void"
-             -> 
-                (*  Equal == StructuralEqual for those types in Java
-                    Moreover, .equals() works only on boxed types (e.g. Integer) and not on atomic (e.g. int)    
-                    Therefore, we use Equal
-                *)
-                BinaryExpr (e1, Equal, e2)
-            | _-> 
-                AppExpr ( 
-                    auto_place (AccessExpr (
-                        cexpr e1, 
-                        auto_place (VarExpr (Atom.builtin "equals"), auto_place TUnknown)
-                    ), auto_place TUnknown),
-                    [cexpr e2]
-                ) 
+            let autobox e = 
+                match fst e.value, (snd e1.value).value with
+                | VarExpr _, _ -> e
+                | _, TAtomic name when List.mem name ["Integer"; "Void"; "Long"] -> 
+                    auto_place(AppExpr(
+                        auto_place(RawExpr (name^".valueOf"), auto_place TUnknown),
+                        [ e ]
+                    ), auto_place TUnknown)
+                | _, _ -> e
+            in
+            AppExpr ( 
+                auto_place (AccessExpr (
+                    autobox(cexpr e1), 
+                    auto_place (VarExpr (Atom.builtin "equals"), auto_place TUnknown)
+                ), auto_place TUnknown),
+                [autobox(cexpr e2)]
+            ) 
         end
         | BinaryExpr (e1, NotStructuralEqual, e2) -> 
             fst (cexpr (auto_place( UnaryExpr( 

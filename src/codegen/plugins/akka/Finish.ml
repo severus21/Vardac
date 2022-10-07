@@ -1444,13 +1444,31 @@ module Make (Arg: sig val target:Target.target end) = struct
                     auto_place (T.ExpressionStmt (
                         e_apply_headers (this_actor parent_opt) fplace l_session
                     ));
+                ] @ (
+                    if Config.trace_enabled () then [   
+                        auto_fplace(T.RawStmt {|
+                        long durationReception2Callback = System.nanoTime() - t_actor_event_reception;
+                        durationsReception2Callback.add(durationReception2Callback);
+                        |})
+                    ]
+                    else []
+                ) @
+                [
                     auto_place (T.ExpressionStmt (
                         e2_e (T.CallExpr(
                             callback,
                             [ l_event; l_session ]
                         ))
                     ))
-                ]
+                ] @ (
+                    if Config.trace_enabled () then [   
+                        auto_fplace(T.RawStmt {|
+                        long durationReception2EndCallback = System.nanoTime() - t_actor_event_reception;
+                        durationsReception2EndCallback.add(durationReception2EndCallback);
+                        |})
+                    ]
+                    else []
+                )
             in
 
 
@@ -1625,6 +1643,17 @@ module Make (Arg: sig val target:Target.target end) = struct
             ]
         in
 
+        let generate_tracing_for_on_message () =
+            if Config.trace_enabled () then [
+                auto_fplace(T.TemplateStmt (
+                    {|
+                    t_actor_event_reception = System.nanoTime();
+                    |}, [ ]
+                ))
+            ]
+            else []
+        in
+
         (* Step3 - Generate the component receiver *)
         let generate_component_receiver () = 
             let init_receiver_expr : T.expr = {place; value=T.CallExpr(
@@ -1647,7 +1676,9 @@ module Make (Arg: sig val target:Target.target end) = struct
                                 [
                                     auto_place T.TUnknown, l_event_name 
                                 ],
-                                auto_place(T.BlockStmt [
+                                auto_place(T.BlockStmt 
+                                ((generate_tracing_for_on_message ())@
+                                [
                                     auto_place(T.ExpressionStmt(e2_e(T.CallExpr(
                                         e2var (Atom.builtin "ResolvedResult.onResolvedResult"),
                                         [
@@ -1662,7 +1693,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                                     auto_place(T.ReturnStmt(
                                         e_behaviors_same fplace
                                     ))
-                                ])
+                                ]))
                             ))
 
                         ]
@@ -1682,7 +1713,9 @@ module Make (Arg: sig val target:Target.target end) = struct
                                 [
                                     auto_place T.TUnknown, l_event_name 
                                 ],
-                                auto_place(T.BlockStmt [
+                                auto_place(T.BlockStmt 
+                                ((generate_tracing_for_on_message ())@
+                                [
                                     auto_place(T.ExpressionStmt(e2_e(T.CallExpr(
                                         e2var (Atom.builtin handler),
                                         [
@@ -1698,7 +1731,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                                     auto_place(T.ReturnStmt(
                                         e_behaviors_same fplace
                                     ))
-                                ])
+                                ]))
                             ))
                         ]
                     ), auto_place T.TUnknown}
@@ -1747,10 +1780,28 @@ module Make (Arg: sig val target:Target.target end) = struct
                         {place; value=T.VarExpr (Atom.builtin "onMessage"), auto_place T.TUnknown}, 
                         [
                             {place; value=T.ClassOf (auto_place (T.TVar event_name)), auto_place T.TUnknown};
-                            e2_e (T.AccessMethod (
-                                e2_e T.This,
-                                _m_name
-                            ))
+                            if Config.trace_enabled () then
+                                e2_e (T.LambdaExpr (
+                                    [
+                                        auto_place T.TUnknown, l_event_name 
+                                    ],
+                                    auto_place(T.BlockStmt 
+                                    ((generate_tracing_for_on_message ())@
+                                    [
+                                        auto_fplace (T.ReturnStmt (e2_e(T.CallExpr(
+                                            e2_e (T.AccessExpr (
+                                                e2_e T.This,
+                                                e2var _m_name
+                                            )),
+                                            [ l_event ]
+                                        ))))
+                                    ]))
+                                ))
+                            else
+                                e2_e (T.AccessMethod (
+                                    e2_e T.This,
+                                    _m_name
+                                ))
                         ]
                     ), auto_place T.TUnknown}
                 ), auto_place T.TUnknown}, _m::acc_methods)
@@ -1801,10 +1852,28 @@ module Make (Arg: sig val target:Target.target end) = struct
                         {place; value=T.VarExpr (Atom.builtin "onMessage"), auto_place T.TUnknown}, 
                         [
                             {place; value=T.ClassOf (auto_place (T.TVar event_name)), auto_place T.TUnknown};
-                            e2_e (T.AccessMethod (
-                                e2_e T.This,
-                                _m_name
-                            ))
+                            if Config.trace_enabled () then
+                                e2_e (T.LambdaExpr (
+                                    [
+                                        auto_place T.TUnknown, l_event_name 
+                                    ],
+                                    auto_place(T.BlockStmt 
+                                    ((generate_tracing_for_on_message ())@
+                                    [
+                                        auto_fplace (T.ReturnStmt (e2_e(T.CallExpr(
+                                            e2_e (T.AccessExpr (
+                                                e2_e T.This,
+                                                e2var _m_name
+                                            )),
+                                            [ l_event ]
+                                        ))))
+                                    ]))
+                                ))
+                            else
+                                e2_e (T.AccessMethod (
+                                    e2_e T.This,
+                                    _m_name
+                                ))
                         ]
                     ), auto_place T.TUnknown}
                 ), auto_place T.TUnknown}, _m::acc_methods)
@@ -1832,12 +1901,6 @@ module Make (Arg: sig val target:Target.target end) = struct
                     args            = [];
                     throws          = [];
                     body            = T.AbstractImpl (
-                    (if Config.trace_enabled () then    
-                        [
-                            auto_fplace (T.RawStmt "t_actor_event_reception = System.nanoTime();")
-                        ]
-                    else [])
-                    @
                     [
                         {place; value=T.ReturnStmt receiver_expr}
                     ]);

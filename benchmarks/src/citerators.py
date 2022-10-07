@@ -1,4 +1,5 @@
 import numpy
+from copy import copy
 
 class RangeIterator:
     # def = {
@@ -7,24 +8,19 @@ class RangeIterator:
     #
     def __init__(self, defs):
         self.defs = defs
-
-        self.keys = self.defs.keys()
-        self.last = 0
-        self.init = True
         self.closed = set()
 
-
-        # arg1: iterators
-        # arg2: n -> iterate over {n}
         for k in self.defs:
             if type(self.defs[k]) == int:
-                self.defs[k] = range(self.defs[k], self.defs[k]+1).__iter__()
+                self.defs[k] = list(range(self.defs[k], self.defs[k]+1))
+            else:
+                self.defs[k] = list(self.defs[k])
 
-        self.snapshot   = [ r.__next__() for k, r in self.defs.items()]
+        self.snapshots   = [ [ 0 for _ in self.defs.keys()] ]
         self.pos2key    = { i: k for i, k in enumerate(self.defs.keys())}
 
     def prepare(self, snapshot):
-        return { list(self.defs.keys())[i]: v for i, v in enumerate(snapshot)}
+        return { list(self.defs.keys())[i]: self.defs[list(self.defs.keys())[i]][v] for i, v in enumerate(snapshot)}
 
     def __iter__(self):
         if self.defs:
@@ -32,22 +28,31 @@ class RangeIterator:
         else: # one empty config
             return [{}].__iter__()
 
-    def __next__(self):
-        if len(self.closed) == len(self.defs):
-            raise StopIteration
-        if self.last in self.closed:
-            return self.__next__()
-        if self.init:
-            self.init = False
-            return self.prepare(self.snapshot)
+    def next(self, snapshot, i):
+        if snapshot[i] < len(self.defs[self.pos2key[i]])-1:
+            snapshot[i] = snapshot[i]+1
+            return snapshot
+        else:
+            return None
 
-        try:
-            self.snapshot[self.last] = self.defs[self.pos2key[self.last]].__next__()
-            return self.prepare(self.snapshot)
-        except StopIteration:
-            self.closed.add(self.last)
-            self.last = (self.last + 1) % len(self.keys)
-            return self.__next__()
+    def __next__(self):
+        if not self.snapshots:
+            raise StopIteration
+
+        snapshot = self.snapshots.pop(0)
+        while tuple(snapshot) in self.closed and self.snapshots:
+            snapshot = self.snapshots.pop(0)
+        self.closed.add(tuple(snapshot))
+
+        if not snapshot:
+            raise StopIteration
+
+        new_snapshots = [
+            self.next(copy(snapshot), i) for i in range(len(snapshot))
+        ]
+        new_snapshots = filter(lambda x: x != None, new_snapshots)
+        self.snapshots.extend(new_snapshots)
+        return self.prepare(snapshot)
 
 def logrange(start, end, base):
     for x in numpy.logspace(start,end,base=10, num = end-start+1, dtype='int'):
