@@ -1,44 +1,26 @@
 package com.varda;
 
-import akka.actor.Address;
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
-import akka.actor.typed.javadsl.ActorContext;
-import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.Props;
-import akka.actor.typed.receptionist.Receptionist;
-import akka.actor.typed.receptionist.ServiceKey;
 import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
+import akka.actor.typed.javadsl.AskPattern;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import akka.actor.typed.javadsl.AskPattern;
-import akka.cluster.MemberStatus;
-import akka.cluster.sharding.typed.ShardingEnvelope;
-import akka.cluster.sharding.typed.javadsl.ClusterSharding;
-import akka.cluster.sharding.typed.javadsl.Entity;
-import akka.cluster.typed.Cluster;
-import akka.cluster.typed.ClusterSingleton;
-import akka.cluster.typed.Join;
-import akka.cluster.typed.SingletonActor;
 import akka.actor.typed.javadsl.TimerScheduler;
-
-import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
-
+import akka.cluster.MemberStatus;
+import akka.cluster.typed.Cluster;
+import akka.cluster.typed.Join;
 import com.bmartin.SpawnProtocol;
+import java.time.Duration;
+import java.util.concurrent.CompletionStage;
 
 public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Command> {
     public static final String NAME = "{{system_name}}";
     public static final short MAX_CLUSTER_CONNECT_RETRY = 5;
 
     public TimerScheduler<SpawnProtocol.Command> timers;
-    public Receptionist.Listing root_listing; // Maintain a cache
-    public ActorRef<Receptionist.Listing> receptionist_adapter;
-
     public ActorRef<SpawnProtocol.Command> guardian;
 
     public AbstractSystem(ActorContext<SpawnProtocol.Command> context, TimerScheduler<SpawnProtocol.Command> timers,
@@ -55,10 +37,6 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
         Cluster cluster = Cluster.get(context.getSystem());
         assert (null != cluster);
 
-        // register JVM to receptionist
-        context.getSystem().receptionist().tell(
-                Receptionist.register(PlaceDiscovery.serviceKeyOf(cluster.selfMember().address()), context.getSelf())); // per
-                                                                                                                        // place
 
         // init cluster listener
         // context.spawn(ClusterListener.create(cluster), "ClusterListener");
@@ -93,48 +71,17 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
         }
 
         // Receptionist
-        this.receptionist_adapter = getContext().messageAdapter(Receptionist.Listing.class,
-                SpawnProtocol.WrappedListing::new);
-        context.getSystem().receptionist().tell(
-            Receptionist.subscribe(PlaceDiscovery.serviceKeyOf(cluster.selfMember().address()), this.receptionist_adapter)
-        );
-        //TODO monitor Reachability and MemberEvent cf. ClusterListener
-        forceUpdateListing(cluster.selfMember().address());
+        PlaceDiscovery.register_jvm(context, cluster.selfMember().address(), getContext().getSelf());
+        context.getLog().warn("register "+getContext().getSelf()+" at "+cluster.selfMember().address());
     }
 
     public static final class Wait {
     }
 
-    private Behavior<SpawnProtocol.Command> onListing(SpawnProtocol.WrappedListing msg) {
-        this.root_listing = msg.response;
-        return Behaviors.same();
-    }
-
-    // for spawn only
-    // componentsAT need to change the serviceKey
-    private void forceUpdateListing(Address at) {
-        getContext().getSystem().receptionist().tell(
-            Receptionist.find(PlaceDiscovery.serviceKeyOf(at), this.receptionist_adapter)
-        );
-    }
-
     private <_T> Behavior<SpawnProtocol.Command> onSpawnAt(SpawnProtocol.SpawnAt msg) {
-        assert(this.root_listing != null); //FIXME add somthing to wait if it is null
         try {
             getContext().getLog().info("onSpawnAt");
-            Set<ActorRef<SpawnProtocol.Command>> roots = Set.of();
-            roots = this.root_listing.getServiceInstances(PlaceDiscovery.serviceKeyOf(msg.at));
-            
-            roots = roots.stream()
-            .filter(x -> {System.out.println("> collected path "+x.path().toString()); return msg.at.equals(Place.of_actor_ref(getContext(), x).address);})
-            .collect(Collectors.toSet());
-
-            assert (roots.size() == 1);
-            ActorRef<SpawnProtocol.Command> root = null;
-            for (ActorRef<SpawnProtocol.Command> _root : roots) {
-                root = _root;
-                break;
-            }
+            ActorRef<SpawnProtocol.Command> root = PlaceDiscovery.jvmAt(getContext().getSystem(), msg.at);
             if (root == null)
                 getContext().getLog().warn("No target system as been found at place " + msg.at.toString());
             else
@@ -150,9 +97,9 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
                 return Behaviors.same();
             }
 
-            ActorRef<_T> actorRef = null;
             if (root != null) {
-                System.out.println("ghdghsdu");
+                getContext().getLog().warn("Start remote instantiation");
+                ActorRef<_T> actorRef = null;
                 CompletionStage<WrappedActorRef<_T>> ask = AskPattern.ask(root,
                         replyTo -> new SpawnProtocol.Spawn(msg.runnable, msg.name, msg.props, replyTo),
                         Duration.ofSeconds(10), getContext().getSystem().scheduler());
@@ -161,15 +108,21 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
                 } catch (Exception e) {
                     System.out.println(e);
                 }
+
+                if (actorRef == null){
+                    getContext().getLog().error("Remote instantiation failed");
+                    return Behaviors.same();
+                }
+
+                getContext().getLog().info("Remote instantiation Ok "+actorRef.toString());
+                msg.replyTo.tell(new WrappedActorRef(actorRef));
+                return Behaviors.same();
             }
 
-            if (actorRef == null)
-                getContext().getLog().warn("Remote instanciation failed");
-
-            msg.replyTo.tell(new WrappedActorRef(actorRef));
         } catch (Exception e) {
             System.out.println(e);
         }
+        getContext().getLog().warn("Instantiation failed");
         return Behaviors.same();
     }
 
@@ -205,9 +158,9 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
 
     @Override
     public Receive<SpawnProtocol.Command> createReceive() {
-        return newReceiveBuilder().onMessage(SpawnProtocol.WrappedListing.class, this::onListing)
-                .onMessage(SpawnProtocol.SpawnAt.class, this::onSpawnAt)
-                .onMessage(SpawnProtocol.Spawn.class, this::onSpawn)
-                .build();
+        return newReceiveBuilder()
+            .onMessage(SpawnProtocol.SpawnAt.class, this::onSpawnAt)
+            .onMessage(SpawnProtocol.Spawn.class, this::onSpawn)
+            .build();
     }
 }

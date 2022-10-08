@@ -84,3 +84,6 @@ impl component Pong {
     =}
 }
 impl component TopLevel {}
+impl component EmptyRuntime {}
+impl component MultiJVMOrchestrator {}
+impl component MultiJVMOrchestrator::Inner {} 

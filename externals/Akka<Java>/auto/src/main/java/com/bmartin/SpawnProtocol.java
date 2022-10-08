@@ -5,11 +5,10 @@ import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.Props;
 import akka.actor.typed.javadsl.ActorContext;
-import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.receptionist.Receptionist;
-
-import com.bmartin.CborSerializable;
-import com.bmartin.JsonSerializable;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -18,19 +17,15 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import scala.MatchError;
-
+import com.varda.WrappedActorRef;
 import java.io.*;
 import java.util.*;
-import java.util.Optional;
 import java.util.function.Function;
-
-import com.varda.WrappedActorRef;
-import com.varda.WrappedActivationRef;
 
 public class SpawnProtocol {
     @JsonSerialize(using = LambdaJsonSerializer.class)
     @JsonDeserialize(using = LambdaJsonDeserializer.class)
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
     public interface SerializableRunnable<_T> extends Function<ActorRef, Function<ActorContext<_T>, Behavior<_T>>>, Serializable {
     }
 
@@ -59,15 +54,21 @@ public class SpawnProtocol {
         }
     }
 
-    public interface Command {
+    public interface Command extends CborSerializable {
     }
 
-    public static class Spawn<_T> implements Command, JsonSerializable {
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    public static class Spawn<_T> implements Command {//, JsonSerializable, java.io.Serializable {
+        @JsonProperty("runnable")
         public final SerializableRunnable<_T> runnable;
+        @JsonProperty("name")
         public final String name;
+        @JsonProperty("props")
         public final Props props;
+        @JsonProperty("replyTo")
         public final ActorRef<WrappedActorRef<_T>> replyTo;
 
+        @JsonCreator 
         public Spawn(SerializableRunnable<_T> runnable, String name, Props props, ActorRef<WrappedActorRef<_T>> replyTo) {
             assert (null != runnable);
             assert (null != name);
@@ -80,11 +81,18 @@ public class SpawnProtocol {
         }
     }
 
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
     public static class SpawnAt<_T> implements Command, JsonSerializable {
+
+        @JsonProperty("runnable")
         public final SerializableRunnable<_T> runnable;
+        @JsonProperty("name")
         public final String name;
+        @JsonProperty("props")
         public final Props props;
+        @JsonProperty("at")
         public final Address at;
+        @JsonProperty("replyTo")
         public final ActorRef<WrappedActorRef<_T>> replyTo;
 
 

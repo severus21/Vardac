@@ -7,6 +7,12 @@
       main:
         bootstrap: TopLevel 
         entrypoint: main 
+      multiPlayer:
+        bootstrap: MultiJVMOrchestrator
+        entrypoint: main_multi
+      passivePlayer:
+        bootstrap: EmptyRuntime
+        entrypoint: no_main 
   user_defined: |
     task jarConsole(type: ShadowJar) {
       archiveBaseName.set('console')
@@ -23,3 +29,4 @@
     }
   compiler: 
     loglevel: INFO 
+    outbound_message_queue_size: "2000000"

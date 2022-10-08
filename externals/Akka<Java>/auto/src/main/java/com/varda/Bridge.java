@@ -1,37 +1,18 @@
 package com.varda;
 
-import java.util.UUID;
-
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.ActorContext;
-import akka.actor.typed.receptionist.Receptionist;
-import akka.actor.typed.receptionist.ServiceKey;
-
-import com.bmartin.*;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
-import com.fasterxml.jackson.annotation.JsonCreator;
-
-import akka.actor.typed.ActorRef;
-
-import java.util.*;
-import java.util.function.*;
-import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import akka.actor.typed.javadsl.AskPattern;
-import akka.cluster.ddata.ORMultiMapKey;
-import akka.cluster.typed.ClusterSingleton;
-import akka.cluster.typed.ClusterSingletonSettings;
-import akka.cluster.typed.SingletonActor;
-
-
-import io.vavr.*;
+import com.bmartin.*;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.vavr.control.*;
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.CompletionStage;
 
-
+@JsonInclude(JsonInclude.Include.NON_EMPTY)
 public final class Bridge<P extends Protocol> implements CborSerializable, JsonSerializable, java.io.Serializable {
     @JsonProperty("id")
     UUID id;
@@ -115,7 +96,7 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
             }
         }
 
-        context.getLog().error("not registered, timeout");
+        context.getLog().error("Bridge::not registered, timeout");
         return Either.left(new Error("timeout before seeing its own update"));
     }
 

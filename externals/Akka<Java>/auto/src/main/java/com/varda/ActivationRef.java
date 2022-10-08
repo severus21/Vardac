@@ -1,14 +1,13 @@
 package com.varda;
 
 import akka.actor.typed.ActorRef;
-
 import com.bmartin.*;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Optional;
 import java.util.UUID;
 
+@JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class ActivationRef<Command> implements CborSerializable, JsonSerializable, java.io.Serializable {
     @JsonProperty("mockec_uuid")
     public UUID mocked_uuid; //used when ActivationRef does not point to an actor, but rather to a local object
@@ -55,7 +54,7 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
         this.actorRef = a_ref.actorRef;
         this.componentSchema = a_ref.componentSchema;
         this.interceptedActivationRef_opt = interceptedActivationRef_opt;
-        this.isInterceptor = true; 
+        this.isInterceptor = Boolean.valueOf(true); 
     }
 
     //Mocked activation ref, mainly used for inlining
@@ -66,11 +65,12 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
         this.mocked_uuid = mocked_uuid;
     }
 
+    @Override
     public String toString(){
         assert(this.check_integrity());
         if(this.is_mocked())
             return this.mocked_uuid.toString();
-        else if(this.interceptedActivationRef_opt.isPresent())
+        else if(this.interceptedActivationRef_opt != null && this.interceptedActivationRef_opt.isPresent())
             return "Intercepted: \n\t-"+this.interceptedActivationRef_opt.get().toString()+"\nBehind\n\t-"+this.actorRef.toString();
         else 
             return this.actorRef.toString();
@@ -88,7 +88,7 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
             return this.mocked_uuid.toString();
 
         //UUID derived from (id_interceptor, id_intercepted)
-        if(this.interceptedActivationRef_opt.isPresent())
+        if(this.interceptedActivationRef_opt !=null && this.interceptedActivationRef_opt.isPresent())
             return UUIDCreator.getSha1Uuid(
                 this.actorRef.path().toSerializationFormat()
                 + this.interceptedActivationRef_opt.get().activationId()
@@ -104,6 +104,7 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
         return c1;
     }
 
+    @Override
     public boolean equals(Object obj) {
         if (obj == this) {
             return true;
@@ -118,7 +119,7 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
         assert(this.check_integrity());
         assert(b.check_integrity());
        
-        return this.activationId() == b.activationId();
+        return this.activationId().equals(b.activationId());
     }
 
     @Override

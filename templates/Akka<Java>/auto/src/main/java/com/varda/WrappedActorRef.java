@@ -11,6 +11,7 @@ public class WrappedActorRef<_T> implements com.bmartin.SpawnProtocol.Command, {
 
     @JsonCreator
     public WrappedActorRef(@JsonProperty("response") ActorRef<_T> response) {
+      assert(response != null);
       this.response = response;
     }
 }

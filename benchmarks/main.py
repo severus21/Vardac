@@ -10,6 +10,7 @@ import coloredlogs
 import os
 import re
 import itertools
+import time
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "orm.settings")
 import django
@@ -130,6 +131,7 @@ def do_run(bench_selector, use_re=False):
     n_error = 0
 
     loop = asyncio.get_event_loop()
+    start_time = time.time_ns()
     try:
         for bench in benchmarks:
             with bench: 
@@ -141,7 +143,7 @@ def do_run(bench_selector, use_re=False):
             logging.error(
                 f"{n_error} benchmark{'s' if n_error > 1 else ''} ha{'ve' if n_error > 1 else 's'} failed !")
 
-        logging.info("Benchmarks are done!")
+        logging.info(f"Benchmarks are done! in {(time.time_ns()-start_time)*1000*1000} ms")
     finally:
         logging.info("Closing loop in main")
         loop.close()

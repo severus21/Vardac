@@ -22,6 +22,9 @@ class Benchmark:
             self.builder.__exit__(type, value, traceback)
 
     def build(self):
+        for collector in self.collectors:
+            collector.clean()
+
         flag, bench = self.builder.build()
         self.bench  = bench
         return flag

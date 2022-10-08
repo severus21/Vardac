@@ -2078,6 +2078,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
         (* User defined target *)
         let sanitize_target_compiler = function
             | "loglevel",y -> List.mem y ["OFF"; "ERROR"; "WARNING"; "INFO"; "DEBUG"]
+            | "outbound_message_queue_size",y -> Str.string_match (Str.regexp "[0-9]+$") y 0
             | x,_ -> Error.perror target.place "Unsupported attribute [%s] for [type=akka<java>] target_compiler." x
         in
         let default_target_compiler = Collections.StringMap.of_list ["loglevel", "DEBUG"] in

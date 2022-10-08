@@ -74,7 +74,9 @@ def remove_dict(d, k_s):
     d = copy.copy(d)
     if type(k_s) == list:
         for k in k_s:
-            del d[k]
+            if k in d:
+                del d[k]
     else:
-        del d[k_s]
+        if k_s in d:
+            del d[k_s]
     return d

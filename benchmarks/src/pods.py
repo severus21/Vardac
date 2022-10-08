@@ -79,10 +79,11 @@ class ProcessPod(Pod):
 
     async def terminate(self):
         try:
+            logging.info("Process terminated "+str(self.elmt.pid)+"   "+str(os.getpgid(self.elmt.pid)))
             self.elmt.terminate()
-            os.killpg(os.getpgid(self.elmt.pid), signal.SIGTERM)
+            os.killpg(os.getpgid(self.elmt.pid), signal.SIGKILL)
             await self.elmt.wait()
-            await asyncio.sleep(1)  # Needed to be able to bind ports afterwards
+            await asyncio.sleep(2)  # Needed to be able to bind ports afterwards
         except ProcessLookupError:
             # process has already exit (or crash)
             pass

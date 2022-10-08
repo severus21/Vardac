@@ -191,7 +191,49 @@ BENCHMARKS = [
         Generator(RangeIterator({
             "n": logrange(DEFAULT_N_MIN, DEFAULT_N_MAX, base=10),
             "warmup": range(DEFAULT_WARMUP_MIN, DEFAULT_WARMUP_MAX).__iter__(),
-            "payload": range(DEFAULT_PAYLOAD_MIN, DEFAULT_PAYLOAD_MAX, DEFAULT_PAYLOAD_STEP).__iter__()
+            "payload": 0,
+            #"payload": range(DEFAULT_PAYLOAD_MIN, DEFAULT_PAYLOAD_MAX, DEFAULT_PAYLOAD_STEP).__iter__()
+        }), DEFAULT_RUNS)
+    ),
+    Benchmark(
+        "mpp-varda-multi-jvms",
+        VardaBuilder(
+            BENCHMARKS_DIR/"bench-mpp"/"varda",
+            "dune exec --profile release -- vardac compile --places {{project_dir}}/places.yml --targets {{project_dir}}/targets.yml --filename {{project_dir}}/bench.varch --impl benchmarks/libbench.vimpl --impl {{project_dir}}/bench.vimpl --provenance 0 && cd compiler-build/akka && make",
+            Path(os.getcwd()).absolute()
+        ),
+        MultiShellRunnerFactory(
+            [
+                ShellRunnerFactory(
+                    f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/passivePlayer.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeA {{{{rconfig}}}}",
+                    Path(os.getcwd())/"compiler-build"/"akka",
+                    None,
+                    config_adaptor=lambda config: remove_dict(
+                        config, ["n", "warmup", "payload"]),
+                    name = "pong-service"
+                ),
+                ShellRunnerFactory(
+                    f"sleep 5 && java {DEFAULT_JVM_OPTIONS} -jar build/libs/multiPlayer.jar -ip 127.0.0.1 -p 25521 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB {{{{rconfig}}}}",
+                    Path(os.getcwd())/"compiler-build"/"akka",
+                    "Terminated ueyiqu8R",
+                    set_stop_event=True,
+                    name = "ping-service"
+                ),
+            ],
+            name = "orchestrator"
+            ),
+        [
+            StdoutCollector(get_elapse_time),
+            FileCollector(Path(os.getcwd())/"compiler-build" / \
+                          "akka"/"results.json", get_rtts),
+            FileCollector(Path(os.getcwd())/"compiler-build" / \
+                          "akka"/"results.json", get_pp_size),
+        ],
+        Generator(RangeIterator({
+            "n": logrange(DEFAULT_N_MIN, DEFAULT_N_MAX, base=10),
+            "warmup": range(DEFAULT_WARMUP_MIN, DEFAULT_WARMUP_MAX).__iter__(),
+            "payload": 0,
+            #"payload": range(DEFAULT_PAYLOAD_MIN, DEFAULT_PAYLOAD_MAX, DEFAULT_PAYLOAD_STEP).__iter__()
         }), DEFAULT_RUNS)
     ),
     # MS Bench

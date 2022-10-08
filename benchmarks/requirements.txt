@@ -8,3 +8,4 @@ aiodocker
 execo
 pandas
 matplotlib
+dirhash

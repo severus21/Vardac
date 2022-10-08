@@ -117,8 +117,11 @@ FIGURES = [
         lambda: [
             ("akka-one-jvm", Bench.objects.filter(name="mpp-akka-one-jvm").order_by('-pk')[0].results.all()),
             ("varda-one-jvm", Bench.objects.filter(name="mpp-varda-one-jvm").order_by('-pk')[0].results.all()),
-            ("inline-one-jvm", Bench.objects.filter(name="mpp-varda-inline-one-jvm").order_by('-pk')[0].results.all()),
-            ("contract-one-jvm", Bench.objects.filter(name="mpp-varda-contract-one-jvm").order_by('-pk')[0].results.all()),
+            #("inline-one-jvm", Bench.objects.filter(name="mpp-varda-inline-one-jvm").order_by('-pk')[0].results.all()),
+            #("contract-one-jvm", Bench.objects.filter(name="mpp-varda-contract-one-jvm").order_by('-pk')[0].results.all()),
+
+            ("akka-multi-jvms", Bench.objects.filter(name="mpp-akka-multi-jvms").order_by('-pk')[0].results.all()),
+            ("varda-multi-jvms", Bench.objects.filter(name="mpp-varda-multi-jvms").order_by('-pk')[0].results.all()),
         ]
     ),
     FigureFactory(

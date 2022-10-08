@@ -1,4 +1,5 @@
 from distutils.command.clean import clean
+from importlib.abc import ExecutionLoader
 from inspect import trace
 import logging
 import os
@@ -9,7 +10,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from unittest import result
 
-from checksumdir import dirhash
+#from checksumdir import dirhash
+from dirhash import dirhash
 from src.models import *
 from src.settings import * 
 
@@ -143,8 +145,10 @@ class ShellBuilder(AbstractBuilder):
         return template.render(build_dir=self.build_dir, project_dir=self.project_dir)
 
     def _get_bench_model(self):
-        print(dirhash(self.build_dir, 'md5') if self.build_dir else "no-build-dir")
-        return Bench.objects.get_or_create(
+        build_hash = dirhash(self.build_dir, 'md5', ignore=["akka/build/", "akka/bin/", "akka/gradle/", "akka/.gradle/", "akka/gradlew", "akka/gradlew.bat", "*.json"]) if self.build_dir else "no-build-dir"
+        project_hash = dirhash(self.project_dir, 'md5', ignore=["akka/build/", "akka/bin/", "akka/gradle/", "akka/.gradle/", "akka/gradlew", "akka/gradlew.bat", "*.json"])
+
+        flag, bench = Bench.objects.get_or_create(
             name = self.name,
             host_spec = HostSpec.objects.get_or_create(name = HostSpec.get_hostname())[0],    
             soft_spec = SoftSpec.objects.get_or_create(
@@ -152,10 +156,12 @@ class ShellBuilder(AbstractBuilder):
                 docker_version = SoftSpec.get_docker_version(),
                 varda_version = SoftSpec.get_varda_version(),
                 )[0],    
-            project_hash = dirhash(self.project_dir, 'md5'),
-            build_hash = dirhash(self.build_dir, 'md5') if self.build_dir else "no-build-dir",
+            project_hash = project_hash,
+            build_hash = build_hash,
             build_cmd = self.build_cmd 
         )
+        print(bench)
+        return flag, bench
 
     def aux_is_build(self):
         if self.build_each_time:

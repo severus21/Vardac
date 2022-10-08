@@ -1,6 +1,8 @@
+from asyncio.log import logger
 from inspect import trace
 import shlex
 import subprocess
+from tempfile import NamedTemporaryFile
 from threading import TIMEOUT_MAX
 from abc import ABC, abstractmethod
 import time
@@ -69,7 +71,11 @@ class Runner(ABC):
         return self
 
     def __exit__(self, type, value, traceback):
-        logging.debug(f"Exiting runner {self.name}\n- {type}\n- {value}\n- {print_tb(traceback)}")
+        # Store log
+        with NamedTemporaryFile('w', delete=False) as f:
+            f.write(self.run_stdout)
+            f.write(self.run_stderr)
+        logging.debug(f"Exiting runner {self.name}\n- {type}\n- {value}\n- {print_tb(traceback)}\nlog at {f.name}")
 
     @property
     def run_stdout(self):
@@ -151,13 +157,17 @@ class OrderedMultiShellRunner(Runner):
         if not stop_event:
             stop_event = asyncio.Event()
 
-        results = await asyncio.gather(
-            *[runner.run_async(stop_event, stop_display_time)
+        done, pending = await asyncio.wait(
+            [runner.run_async(stop_event, stop_display_time)
               for runner in self.runners],
-            return_exceptions=True
+            timeout = RUN_TIMEOUT, 
+            return_when=asyncio.FIRST_COMPLETED
         )
+        for task in pending:
+            task.cancel()
 
-        for res in results:
+        results = True
+        for res in done:
             res = await res
             if res != True:
                 if res == False:
@@ -186,7 +196,7 @@ class BaseRunner(Runner):
         return self.stdout_termination_token and self.stdout_termination_token in buffer
 
     def __exit__(self, type, value, traceback):
-        self.terminate()
+        asyncio.get_event_loop().run_until_complete(asyncio.gather(self.terminate()))
 
         super().__exit__(type, value, traceback)
 
@@ -200,7 +210,6 @@ class BaseRunner(Runner):
         stop_display_time.set()
         if stop_event != None and self.set_stop_event:
             stop_event.set()
-        print(pod)
         await pod.terminate()
         logging.info(f"End terminate {self.name}")
 
@@ -267,12 +276,8 @@ class BaseRunner(Runner):
                     if not line:  # EOF
                         await self.terminate()
                         self._run_stderr = await pod.stderr()
-                        if self._run_stderr:
-                            logging.error(f"{self.name}> Has failed\n{self.run_stderr}")
-                            return False 
-                        else:
-                            logging.debug(f"{self.name}> EOF\n{self.run_stderr}")
-                            return True
+                        logging.debug(f"{self.name}> EOF")
+                        return True
                     elif self.is_terminated(line):
                         await self.terminate()
                         logging.debug(f"{self.name}> Is terminated")
@@ -281,7 +286,7 @@ class BaseRunner(Runner):
                     elif self.has_failed(line):
                         await self.terminate()
                         self._run_stderr = await pod.stderr()
-                        logging.error(f"{self.name}> Has failed\n{self.run_stderr}")
+                        logging.error(f"{self.name}> Has failed(2)\n{self.run_stderr}")
                         print(self._run_stdout)
                         print(self.run_stderr)
                         return False
@@ -317,7 +322,6 @@ class ShellRunner(BaseRunner):
         return template.render(name=self.name, i=self.i_run, config=self.config, rconfig=self.render(self.config), run_cwd=self.run_cwd)
 
     async def run_async(self, stop_event, stop_display_time):
-        logging.debug(f"{self.name} runs {self.run_cmd}")
         # Start child process
         process = await asyncio.create_subprocess_shell(
             self.run_cmd,
@@ -327,6 +331,7 @@ class ShellRunner(BaseRunner):
             shell=True,
             preexec_fn=os.setpgrp
         )
+        logging.debug(f"{self.name} runs {self.run_cmd} at {str(process.pid)}")
         tmp = await self.run_async_skeleton(ProcessPod(process), stop_event, stop_display_time)
         return tmp
 

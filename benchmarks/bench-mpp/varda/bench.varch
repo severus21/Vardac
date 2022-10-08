@@ -254,3 +254,69 @@ component TopLevel {
         print(">> Ending toplevel");(* #debug *)
     }
 }
+
+(* TODO fix bug in order to use one main for multiple entrypoint *)
+
+tuple<array<string>, tuple<int,int,int>> main_multi (array<string> args){
+    print("apossiblemain");(* #debug *)
+    int n = 100;
+    int warmup = 100;
+    int payload = 0;
+    list<string> nargs = [];
+    int skip = -1;
+    for(int i in range(0, asize(args) - 1)){
+        if( ((aget(args, i)) == "-n") && ((i - 1)< asize(args)) ){
+            n = int_of_string(aget(args, i+1));
+            skip = i + 1;
+        } else { 
+            if( ((aget(args, i)) == "-warmup") && ((i - 1)< asize(args)) ){
+                warmup = int_of_string(aget(args, i+1));
+                skip = i + 1;
+            } else {
+                if( ((aget(args, i)) == "-payload") && ((i - 1)< asize(args)) ){
+                    payload = int_of_string(aget(args, i+1));
+                    skip = i + 1;
+                } else {
+                    if (i != skip) {
+                        append(nargs, aget(args, i));
+                    }
+                }
+            }
+        }
+    }
+    return (list2array(nargs), (n, warmup, payload));
+}
+
+vplacedef vpa of "placeA";
+vplacedef vpb of "placeB";
+
+component EmptyRuntime {
+    onstartup () {
+        print("Start passive player"); 
+    }
+}
+
+component MultiJVMOrchestrator {
+    component Inner { (* FIXMME Inner is needed since there is a deadlock (AskPattern) when propagating the value of return spawn from actorsystem to itself *)
+        onstartup (int n, int warmup, int payload) {
+            print(">> Entering toplevel");(* #debug *)
+
+            vplace<vpb> vp1 = vpb;
+            vplace<vpa> vp2 = vpa;
+            list<place> ps1 = select_places(vpb, x  : place -> true);
+            list<place> ps2 = select_places(vpa, x  : place -> true);
+            place p1 = listget(ps1, 0);
+            place p2 = listget(ps2, 0);
+
+            bridge<Ping, Pong, inline p_pingpong> b0 = bridge(p_pingpong);
+            activation_ref<Pong> c = spawn Pong(b0, n) @ p2;
+            activation_ref<Ping> a2 = spawn Ping(n, warmup, payload, b0, c) @ p1;  
+
+            print(">> Ending toplevel");(* #debug *)
+        }
+    }
+
+    onstartup (int n, int warmup, int payload){
+        spawn Inner(n, warmup, payload);
+    }
+}

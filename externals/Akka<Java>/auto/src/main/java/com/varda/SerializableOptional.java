@@ -7,13 +7,13 @@ import com.bmartin.*;
 
 public class SerializableOptional<T> implements CborSerializable, JsonSerializable, java.io.Serializable{
     @JsonProperty("is_empty")    
-    public final boolean is_empty;
+    public final Boolean is_empty;
     
     @JsonProperty("value")
     public final T value;
  
     @JsonCreator
-    private SerializableOptional(T value, boolean is_empty) {
+    private SerializableOptional(T value, Boolean is_empty) {
         this.value = value;
         this.is_empty = is_empty; 
     }
@@ -46,13 +46,15 @@ public class SerializableOptional<T> implements CborSerializable, JsonSerializab
         return this.is_empty;
     }
     
+    @Override
     public boolean equals(java.lang.Object obj) {
         if(obj == null)
             return false;
         SerializableOptional<T> o = (SerializableOptional<T>) obj;
-        return o.is_empty == this.is_empty && this.value == o.value;
+        return o.is_empty.equals(this.is_empty) && this.value.equals(o.value);
     }
-  
+    
+    @Override
     public java.lang.String toString() {
         if(!this.is_empty)
             return "SerializableOptional<"+this.value+">";
