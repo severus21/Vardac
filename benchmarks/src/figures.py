@@ -71,7 +71,6 @@ class BarFigure(Figure):
         if self.filename:
             fig.savefig(self.filename)
         else:
-            print("kerz")
             plt.show()
 
 class Curve:
