@@ -15,6 +15,9 @@ from dirhash import dirhash
 from src.models import *
 from src.settings import * 
 
+def mydirhash(path):
+    return dirhash(path, 'md5', ignore=["akka/build/", "akka/bin/", "akka/gradle/", "akka/.gradle/", "akka/gradlew", "akka/gradlew.bat", "*.json"])
+
 class AbstractBuilder(ABC):
     def __init__(self, project_dir=None) -> None:
         self.name = None # MUST be set by the benchmark holding it 
@@ -145,8 +148,8 @@ class ShellBuilder(AbstractBuilder):
         return template.render(build_dir=self.build_dir, project_dir=self.project_dir)
 
     def _get_bench_model(self):
-        build_hash = dirhash(self.build_dir, 'md5', ignore=["akka/build/", "akka/bin/", "akka/gradle/", "akka/.gradle/", "akka/gradlew", "akka/gradlew.bat", "*.json"]) if self.build_dir else "no-build-dir"
-        project_hash = dirhash(self.project_dir, 'md5', ignore=["akka/build/", "akka/bin/", "akka/gradle/", "akka/.gradle/", "akka/gradlew", "akka/gradlew.bat", "*.json"])
+        build_hash = mydirhash(self.build_dir) if self.build_dir else "no-build-dir"
+        project_hash = mydirhash(self.project_dir)
 
         flag, bench = Bench.objects.get_or_create(
             name = self.name,
@@ -290,7 +293,7 @@ class DockerComposeBuilder(AbstractBuilder):
                 docker_version = SoftSpec.get_docker_version(),
                 varda_version = SoftSpec.get_varda_version(),
                 )[0],    
-            project_hash = dirhash(self.project_dir, 'md5'),
+            project_hash = mydirhash(self.project_dir),
         )
 
     def aux_is_build(self):
@@ -322,7 +325,7 @@ class DockerBuilder(AbstractBuilder):
     @property
     def image_name(self):
         if not self._image_name:
-            self._image_name = self.name+"_"+dirhash(self.project_dir, 'md5')[:10]
+            self._image_name = self.name+"_"+mydirhash(self.project_dir)[:10]
         return self._image_name
 
     def __exit__(self, type, value, traceback):
@@ -358,7 +361,7 @@ class DockerBuilder(AbstractBuilder):
                 docker_version = SoftSpec.get_docker_version(),
                 varda_version = SoftSpec.get_varda_version(),
                 )[0],    
-            project_hash = dirhash(self.project_dir, 'md5'),
+            project_hash = mydirhash(self.project_dir),
             build_hash = "TODO hash image",
             build_cmd = "docker (build_hash: docker image hash)" 
         )

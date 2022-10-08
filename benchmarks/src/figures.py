@@ -52,15 +52,10 @@ class BarFigure(Figure):
                 d[curve.name].append(ys[0])
                 d[curve.name+"_sd"].append(ye[0])
 
-        print(d)
-
         colors = ['b', 'r', 'g']
         df = pd.DataFrame(d)
         y_cols = list(filter(lambda x: x != "title" and not x.endswith("_sd"), list(df.columns)))
         yerr_cols = list(filter(lambda x: x.endswith("_sd"), list(df.columns)))
-        print(df)
-        print(y_cols)
-        print(yerr_cols)
         
         fig = df.plot.bar(
             x='title', 
@@ -72,13 +67,12 @@ class BarFigure(Figure):
             xlabel = "",
             ylabel = self.ylabel 
             ).get_figure()
-        fig.show()
-
 
         if self.filename:
             fig.savefig(self.filename)
         else:
-            fig.show()
+            print("kerz")
+            plt.show()
 
 class Curve:
     def __init__(self, name, data, descriptive_statistics_center, descriptive_statistics_dispersion) -> None:

@@ -143,7 +143,7 @@ def do_run(bench_selector, use_re=False):
             logging.error(
                 f"{n_error} benchmark{'s' if n_error > 1 else ''} ha{'ve' if n_error > 1 else 's'} failed !")
 
-        logging.info(f"Benchmarks are done! in {(time.time_ns()-start_time)*1000*1000} ms")
+        logging.info(f"Benchmarks are done! in {int((time.time_ns()-start_time)/1000/1000)} ms")
     finally:
         logging.info("Closing loop in main")
         loop.close()

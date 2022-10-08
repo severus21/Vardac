@@ -304,10 +304,11 @@ class BaseRunner(Runner):
                 return False
 
 class ShellRunner(BaseRunner):
-    def __init__(self, name, i_run, run_cmd, run_cwd, stdout_termination_token, error_token, config, set_stop_event) -> None:
+    def __init__(self, name, i_run, run_cmd, run_cwd, stdout_termination_token, error_token, config, set_stop_event, environment={}) -> None:
         super().__init__(name, i_run, stdout_termination_token, error_token, config, set_stop_event)
         self._run_cmd = run_cmd
         self.run_cwd = run_cwd
+        self.environment = environment
 
         self.config = config
         self.set_stop_event = set_stop_event
@@ -319,7 +320,7 @@ class ShellRunner(BaseRunner):
     def run_cmd(self):
         env = Environment(loader=BaseLoader())
         template = env.from_string(self._run_cmd)
-        return template.render(name=self.name, i=self.i_run, config=self.config, rconfig=self.render(self.config), run_cwd=self.run_cwd)
+        return template.render(name=self.name, i=self.i_run, config=self.config, rconfig=self.render(self.config), env=self.environment, run_cwd=self.run_cwd)
 
     async def run_async(self, stop_event, stop_display_time):
         # Start child process
@@ -329,7 +330,7 @@ class ShellRunner(BaseRunner):
             stderr=asyncio.subprocess.PIPE,
             cwd=self.run_cwd,
             shell=True,
-            preexec_fn=os.setpgrp
+            preexec_fn=os.setpgrp,
         )
         logging.debug(f"{self.name} runs {self.run_cmd} at {str(process.pid)}")
         tmp = await self.run_async_skeleton(ProcessPod(process), stop_event, stop_display_time)

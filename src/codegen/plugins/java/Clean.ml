@@ -130,20 +130,24 @@ module Make(Arg: sig val filename:string val toplevel_functions:Atom.Set.t end) 
             let autobox e = 
                 match fst e.value, (snd e1.value).value with
                 | VarExpr _, _ -> e
-                | _, TAtomic name when List.mem name ["Integer"; "Void"; "Long"] -> 
+                | _, TAtomic name when List.mem name ["Integer"; "Long"; "Float"] -> 
                     auto_place(AppExpr(
                         auto_place(RawExpr (name^".valueOf"), auto_place TUnknown),
                         [ e ]
                     ), auto_place TUnknown)
                 | _, _ -> e
             in
-            AppExpr ( 
-                auto_place (AccessExpr (
-                    autobox(cexpr e1), 
-                    auto_place (VarExpr (Atom.builtin "equals"), auto_place TUnknown)
-                ), auto_place TUnknown),
-                [autobox(cexpr e2)]
-            ) 
+            match (snd e1.value).value, (snd e2.value).value with
+            | TAtomic "void", _ | TAtomic "Void",_| _, TAtomic "void" | _, TAtomic "Void" ->
+                BinaryExpr (e1, Equal, e2) 
+            | _ ->
+                AppExpr ( 
+                    auto_place (AccessExpr (
+                        autobox(cexpr e1), 
+                        auto_place (VarExpr (Atom.builtin "equals"), auto_place TUnknown)
+                    ), auto_place TUnknown),
+                    [autobox(cexpr e2)]
+                ) 
         end
         | BinaryExpr (e1, NotStructuralEqual, e2) -> 
             fst (cexpr (auto_place( UnaryExpr( 

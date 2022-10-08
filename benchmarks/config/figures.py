@@ -88,18 +88,11 @@ class BarFactory(FigureFactory):
                 curves
             )) 
         return figures
+
 # Example exclude/filter based on config
 # results.exclude(run_config__regex='"n": 100000')
 
 FIGURES = [
-    FigureFactory(
-        "TOTO1",
-        [("n", "duration"), ("n", "rtt")],
-        lambda: [
-            ("two-jvms", Bench.objects.filter(name="simpl-com-akka-multi-jvm", id=315)[0].results.all()),
-            ("one-jvm", Bench.objects.filter(name="simpl-com-jvm-akka", id=69)[0].results.all())
-        ]
-    ), 
     FigureFactory(
         "payload",
         [("payload", "duration"),("payload", "rtt")],
@@ -129,10 +122,10 @@ FIGURES = [
         [("vs", "duration")],
         lambda: [
             ("akka-one-jvm", Bench.objects.filter(name="ms-akka-one-jvm").order_by('-pk')[0].results.all()),
-            ("akka-one-jvm-docker", Bench.objects.filter(name="ms-akka-one-jvm-docker").order_by('-pk')[0].results.all()),
+            #("akka-one-jvm-docker", Bench.objects.filter(name="ms-akka-one-jvm-docker").order_by('-pk')[0].results.all()),
             ("varda-one-jvm", Bench.objects.filter(name="ms-varda-one-jvm").order_by('-pk')[0].results.all()),
             ("varda-one-jvm-wo-refl", Bench.objects.filter(name="ms-varda-one-jvm-wo-refl").order_by('-pk')[0].results.all()),
-            ("varda-one-jvm-docker", Bench.objects.filter(name="ms-varda-one-jvm-docker").order_by('-pk')[0].results.all()),
+            #("varda-one-jvm-docker", Bench.objects.filter(name="ms-varda-one-jvm-docker").order_by('-pk')[0].results.all()),
         ]
     ), 
     BarFactory(

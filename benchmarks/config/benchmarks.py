@@ -240,7 +240,7 @@ BENCHMARKS = [
     Benchmark(
         "ms-varda-one-jvm",
         VardaBuilder(
-            BENCHMARKS_DIR/"bench-mpp"/"varda",
+            BENCHMARKS_DIR/"bench-ms"/"varda",
             "dune exec --profile release -- vardac compile --places {{project_dir}}/places.yml --targets {{project_dir}}/targets.yml --filename {{project_dir}}/bench.varch --impl benchmarks/libbench.vimpl --impl {{project_dir}}/bench.vimpl --provenance 0 && cd compiler-build/akka && make",
             Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
@@ -262,7 +262,7 @@ BENCHMARKS = [
     Benchmark(
         "ms-varda-one-jvm-wo-refl",
         VardaBuilder(
-            BENCHMARKS_DIR/"bench-mpp"/"varda",
+            BENCHMARKS_DIR/"bench-ms"/"varda",
             "dune exec --profile release -- vardac compile --places {{project_dir}}/places.yml --targets {{project_dir}}/targets.yml --filename {{project_dir}}/bench.varch --impl benchmarks/libbench.vimpl --impl {{project_dir}}/bench.vimpl --provenance 0 --disable-global-placement-reflexivity --disable-global-placement-reflexivity && cd compiler-build/akka && make",
             Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
@@ -327,7 +327,7 @@ BENCHMARKS = [
         ChainBuilder(
             [
                 VardaBuilder(
-                    BENCHMARKS_DIR/"bench-mpp"/"varda",
+                    BENCHMARKS_DIR/"bench-ms"/"varda",
                     "dune exec --profile release -- vardac compile --places {{project_dir}}/places.yml --targets {{project_dir}}/targets.yml --filename {{project_dir}}/bench.varch --impl benchmarks/libbench.vimpl --impl {{project_dir}}/bench.vimpl --provenance 0 && cd compiler-build/akka && make",
                     Path(os.getcwd()).absolute()),
                 DockerBuilder(
@@ -364,15 +364,18 @@ BENCHMARKS = [
                     BENCHMARKS_DIR/"bench-kvs"/"varda",
                     Path(os.getcwd())/"compiler-build"/"akka"),
             ],
-            # since Varda striclty stronger than docker
+            # since Varda one is strictly stronger than docker
             stamp_strategy=lambda builders: builders[0]._get_bench_model(),
             # the one pass to runner
             exposed_builder=lambda builders: builders[-1]
         ),
         ShellRunnerFactory(
-            f"java -classpath build/libs/YCSBClient.jar:$YCSB/conf:$YCSB/lib/HdrHistogram-2.1.4.jar:$YCSB/lib/core-0.17.0.jar:$YCSB/lib/htrace-core4-4.1.0-incubating.jar:$YCSB/lib/jackson-core-asl-1.9.4.jar:$YCSB/lib/jackson-mapper-asl-1.9.4.jar:$YCSB/redis-binding/lib/commons-pool2-2.4.2.jar:$YCSB/redis-binding/lib/jedis-2.9.0.jar:$YCSB/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db author.project_name.YCSBClient -s -P $YCSB/workloads/workloada > /tmp/ycsb-results",
+            f"java -classpath build/libs/YCSBClient.jar:YCSB/conf:{{{{env.YCSB}}}}/lib/HdrHistogram-2.1.4.jar:{{{{env.YCSB}}}}/lib/core-0.17.0.jar:{{{{env.YCSB}}}}/lib/htrace-core4-4.1.0-incubating.jar:{{{{env.YCSB}}}}/lib/jackson-core-asl-1.9.4.jar:{{{{env.YCSB}}}}/lib/jackson-mapper-asl-1.9.4.jar:{{{{env.YCSB}}}}/redis-binding/lib/commons-pool2-2.4.2.jar:{{{{env.YCSB}}}}/redis-binding/lib/jedis-2.9.0.jar:{{{{env.YCSB}}}}/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db author.project_name.YCSBClient -s -P {{{{env.YCSB}}}}/workloads/workloada > /tmp/ycsb-results",
             Path(os.getcwd())/"compiler-build"/"akka",
-            "Terminated ueyiqu8R"
+            "Terminated ueyiqu8R",
+            environment = {
+                'YCSB': BENCHMARKS_DIR/"ycsb-0.17.0"
+            }
         ),
         [
             FileCollector("/tmp/ycsb-results", get_ycsb_result),
@@ -400,9 +403,12 @@ BENCHMARKS = [
             exposed_builder=lambda builders: builders[-1]
         ),
         ShellRunnerFactory(
-            f"java -classpath build/libs/YCSBClient.jar:$YCSB/conf:$YCSB/lib/HdrHistogram-2.1.4.jar:$YCSB/lib/core-0.17.0.jar:$YCSB/lib/htrace-core4-4.1.0-incubating.jar:$YCSB/lib/jackson-core-asl-1.9.4.jar:$YCSB/lib/jackson-mapper-asl-1.9.4.jar:$YCSB/redis-binding/lib/commons-pool2-2.4.2.jar:$YCSB/redis-binding/lib/jedis-2.9.0.jar:$YCSB/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db author.project_name.YCSBClient -s -P $YCSB/workloads/workloada > /tmp/ycsb-results",
+            f"java -classpath build/libs/YCSBClient.jar:{{{{env.YCSB}}}}/conf:{{{{env.YCSB}}}}/lib/HdrHistogram-2.1.4.jar:{{{{env.YCSB}}}}/lib/core-0.17.0.jar:{{{{env.YCSB}}}}/lib/htrace-core4-4.1.0-incubating.jar:{{{{env.YCSB}}}}/lib/jackson-core-asl-1.9.4.jar:{{{{env.YCSB}}}}/lib/jackson-mapper-asl-1.9.4.jar:{{{{env.YCSB}}}}/redis-binding/lib/commons-pool2-2.4.2.jar:{{{{env.YCSB}}}}/redis-binding/lib/jedis-2.9.0.jar:{{{{env.YCSB}}}}/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db author.project_name.YCSBClient -s -P {{{{env.YCSB}}}}/workloads/workloada > /tmp/ycsb-results",
             Path(os.getcwd())/"compiler-build"/"akka",
-            "Terminated ueyiqu8R"
+            "Terminated ueyiqu8R",
+            environment = {
+                'YCSB': BENCHMARKS_DIR/"ycsb-0.17.0"
+            }
         ),
         [
             FileCollector("/tmp/ycsb-results", get_ycsb_result),
@@ -423,9 +429,12 @@ BENCHMARKS = [
             build_each_time=True
         ),
         ShellRunnerFactory(
-            f'$YCSB/bin/ycsb.sh run redis -s -P $YCSB/workloads/workloada -p "redis.host=127.0.0.1" -p "redis.port=6379" > /tmp/ycsb-results',
+            f'java -classpath {{{{env.YCSB}}}}/conf:{{{{env.YCSB}}}}/lib/HdrHistogram-2.1.4.jar:{{{{env.YCSB}}}}/lib/core-0.17.0.jar:{{{{env.YCSB}}}}/lib/htrace-core4-4.1.0-incubating.jar:{{{{env.YCSB}}}}/lib/jackson-core-asl-1.9.4.jar:{{{{env.YCSB}}}}/lib/jackson-mapper-asl-1.9.4.jar:{{{{env.YCSB}}}}/redis-binding/lib/commons-pool2-2.4.2.jar:{{{{env.YCSB}}}}/redis-binding/lib/jedis-2.9.0.jar:{{{{env.YCSB}}}}/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db site.ycsb.db.RedisClient -s -P {{{{env.YCSB}}}}/workloads/workloada -p redis.host=127.0.0.1 -p redis.port=6379 > /tmp/ycsb-results',
             "/tmp",
-            "Terminated ueyiqu8R"
+            "Terminated ueyiqu8R",
+            environment = {
+                'YCSB': BENCHMARKS_DIR/"ycsb-0.17.0"
+            }
         ),
         [
             FileCollector("/tmp/ycsb-results", get_ycsb_result),
@@ -447,15 +456,18 @@ BENCHMARKS = [
                     BENCHMARKS_DIR/"bench-kvs"/"varda",
                     Path(os.getcwd())/"compiler-build"/"akka"),
             ],
-            # since Varda striclty stronger than docker
+            # since Varda one is strictly stronger than docker
             stamp_strategy=lambda builders: builders[0]._get_bench_model(),
             # the one pass to runner
             exposed_builder=lambda builders: builders[-1]
         ),
         ShellRunnerFactory(
-            f"java -classpath build/libs/YCSBClient.jar:$YCSB/conf:$YCSB/lib/HdrHistogram-2.1.4.jar:$YCSB/lib/core-0.17.0.jar:$YCSB/lib/htrace-core4-4.1.0-incubating.jar:$YCSB/lib/jackson-core-asl-1.9.4.jar:$YCSB/lib/jackson-mapper-asl-1.9.4.jar:$YCSB/redis-binding/lib/commons-pool2-2.4.2.jar:$YCSB/redis-binding/lib/jedis-2.9.0.jar:$YCSB/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db author.project_name.YCSBClient -s -P $YCSB/workloads/workloadb > /tmp/ycsb-results",
+            f"java -classpath build/libs/YCSBClient.jar:{{{{env.YCSB}}}}/conf:{{{{env.YCSB}}}}/lib/HdrHistogram-2.1.4.jar:{{{{env.YCSB}}}}/lib/core-0.17.0.jar:{{{{env.YCSB}}}}/lib/htrace-core4-4.1.0-incubating.jar:{{{{env.YCSB}}}}/lib/jackson-core-asl-1.9.4.jar:{{{{env.YCSB}}}}/lib/jackson-mapper-asl-1.9.4.jar:{{{{env.YCSB}}}}/redis-binding/lib/commons-pool2-2.4.2.jar:{{{{env.YCSB}}}}/redis-binding/lib/jedis-2.9.0.jar:{{{{env.YCSB}}}}/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db author.project_name.YCSBClient -s -P {{{{env.YCSB}}}}/workloads/workloadb > /tmp/ycsb-results",
             Path(os.getcwd())/"compiler-build"/"akka",
-            "Terminated ueyiqu8R"
+            "Terminated ueyiqu8R",
+            environment = {
+                'YCSB': BENCHMARKS_DIR/"ycsb-0.17.0"
+            }
         ),
         [
             FileCollector("/tmp/ycsb-results", get_ycsb_result),
@@ -483,9 +495,12 @@ BENCHMARKS = [
             exposed_builder=lambda builders: builders[-1]
         ),
         ShellRunnerFactory(
-            f"java -classpath build/libs/YCSBClient.jar:$YCSB/conf:$YCSB/lib/HdrHistogram-2.1.4.jar:$YCSB/lib/core-0.17.0.jar:$YCSB/lib/htrace-core4-4.1.0-incubating.jar:$YCSB/lib/jackson-core-asl-1.9.4.jar:$YCSB/lib/jackson-mapper-asl-1.9.4.jar:$YCSB/redis-binding/lib/commons-pool2-2.4.2.jar:$YCSB/redis-binding/lib/jedis-2.9.0.jar:$YCSB/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db author.project_name.YCSBClient -s -P $YCSB/workloads/workloadb > /tmp/ycsb-results",
+            f"java -classpath build/libs/YCSBClient.jar:{{{{env.YCSB}}}}/conf:{{{{env.YCSB}}}}/lib/HdrHistogram-2.1.4.jar:{{{{env.YCSB}}}}/lib/core-0.17.0.jar:{{{{env.YCSB}}}}/lib/htrace-core4-4.1.0-incubating.jar:{{{{env.YCSB}}}}/lib/jackson-core-asl-1.9.4.jar:{{{{env.YCSB}}}}/lib/jackson-mapper-asl-1.9.4.jar:{{{{env.YCSB}}}}/redis-binding/lib/commons-pool2-2.4.2.jar:{{{{env.YCSB}}}}/redis-binding/lib/jedis-2.9.0.jar:{{{{env.YCSB}}}}/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db author.project_name.YCSBClient -s -P {{{{env.YCSB}}}}/workloads/workloadb > /tmp/ycsb-results",
             Path(os.getcwd())/"compiler-build"/"akka",
-            "Terminated ueyiqu8R"
+            "Terminated ueyiqu8R",
+            environment = {
+                'YCSB': BENCHMARKS_DIR/"ycsb-0.17.0"
+            }
         ),
         [
             FileCollector("/tmp/ycsb-results", get_ycsb_result),
@@ -506,9 +521,12 @@ BENCHMARKS = [
             build_each_time=True
         ),
         ShellRunnerFactory(
-            f'$YCSB/bin/ycsb.sh run redis -s -P $YCSB/workloads/workloadb -p "redis.host=127.0.0.1" -p "redis.port=6379" > /tmp/ycsb-results',
+            f'{{{{env.YCSB}}}}/bin/ycsb.sh run redis -s -P {{{{env.YCSB}}}}/workloads/workloadb -p "redis.host=127.0.0.1" -p "redis.port=6379" > /tmp/ycsb-results',
             "/tmp",
-            "Terminated ueyiqu8R"
+            "Terminated ueyiqu8R",
+            environment = {
+                'YCSB': BENCHMARKS_DIR/"ycsb-0.17.0"
+            }
         ),
         [
             FileCollector("/tmp/ycsb-results", get_ycsb_result),
