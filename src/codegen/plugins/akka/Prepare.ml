@@ -127,7 +127,7 @@ module Make () = struct
                 e': Either.get tmp
 
             *)
-            let tmp = Atom.fresh "tmp_porpagate" in
+            let tmp = Atom.fresh "tmp_propagate" in
             let store = auto_fplace (LetStmt(
                 snd e.value,
                 tmp,
