@@ -18,6 +18,10 @@ DEFAULT_PAYLOAD_MAX = 1000
 DEFAULT_PAYLOAD_STEP = 300
 DEFAULT_RUNS = 3
 
+# |array to sort| = 2^VS
+DEFAULT_VS_MIN = 3
+DEFAULT_VS_MAX = 10
+
 DEFAULT_JVM_OPTIONS = ' '.join([
     '-javaagent:build/libs/InstrumentationAgent.jar',
     '-enableassertions'
@@ -256,14 +260,14 @@ BENCHMARKS = [
         Generator(RangeIterator({
             "n": 1,
             "warmup": 0,
-            "vs": range(3, 6).__iter__(),
+            "vs": range(DEFAULT_VS_MIN, DEFAULT_VS_MAX).__iter__(),
         }), DEFAULT_RUNS)
     ),
     Benchmark(
         "ms-varda-one-jvm-wo-refl",
         VardaBuilder(
             BENCHMARKS_DIR/"bench-ms"/"varda",
-            "dune exec --profile release -- vardac compile --places {{project_dir}}/places.yml --targets {{project_dir}}/targets.yml --filename {{project_dir}}/bench.varch --impl benchmarks/libbench.vimpl --impl {{project_dir}}/bench.vimpl --provenance 0 --disable-global-placement-reflexivity --disable-global-placement-reflexivity && cd compiler-build/akka && make",
+            "dune exec --profile release -- vardac compile --places {{project_dir}}/places.yml --targets {{project_dir}}/targets.yml --filename {{project_dir}}/bench.varch --impl benchmarks/libbench.vimpl --impl {{project_dir}}/bench.vimpl --provenance 0 --disable-global-placement-reflexivity --disable-global-bridge-reflexivity && cd compiler-build/akka && make",
             Path(os.getcwd()).absolute()),
         ShellRunnerFactory(
             f"java {DEFAULT_JVM_OPTIONS} -jar build/libs/main.jar -ip 127.0.0.1 -p 25520 -s akka://systemProject_name@127.0.0.1:25520 -l 8080 -vp placeB {{{{rconfig}}}}",
@@ -278,7 +282,7 @@ BENCHMARKS = [
         Generator(RangeIterator({
             "n": 1,
             "warmup": 0,
-            "vs": range(3, 6).__iter__(),
+            "vs": range(DEFAULT_VS_MIN, DEFAULT_VS_MAX).__iter__(),
         }), DEFAULT_RUNS)
     ),
     Benchmark(
@@ -300,7 +304,7 @@ BENCHMARKS = [
         Generator(RangeIterator({
             "n": 1,
             "warmup": 0,
-            "vs": range(3, 6).__iter__(),
+            "vs": range(DEFAULT_VS_MIN, DEFAULT_VS_MAX).__iter__(),
         }), DEFAULT_RUNS)
     ),
     Benchmark(
@@ -319,7 +323,7 @@ BENCHMARKS = [
         Generator(RangeIterator({
             "n": 1,
             "warmup": 0,
-            "vs": range(3, 4).__iter__(),
+            "vs": range(DEFAULT_VS_MIN, DEFAULT_VS_MAX).__iter__(),
         }), DEFAULT_RUNS)
     ),
     Benchmark(
@@ -349,9 +353,10 @@ BENCHMARKS = [
         Generator(RangeIterator({
             "n": 1,
             "warmup": 0,
-            "vs": range(3, 6).__iter__(),
+            "vs": range(DEFAULT_VS_MIN, DEFAULT_VS_MAX).__iter__(),
         }), DEFAULT_RUNS)
     ),
+    # YCSB
     Benchmark(
         "ycsb-kvs-varda-redis",
         ChainBuilder(

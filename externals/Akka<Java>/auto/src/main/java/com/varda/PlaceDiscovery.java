@@ -15,7 +15,11 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
 
+
+
 public class PlaceDiscovery {
+    static int MAX_REGISTER_RETRY = 10;
+    static int REGISTER_POLLING_SLEEP_DURATION = 100; // in ms
 
     // Service key only for System (i.e JVM registration)
     public static ServiceKey<SpawnProtocol.Command> serviceKeyOf(Place place) {
@@ -97,14 +101,14 @@ public class PlaceDiscovery {
         receptionist.tell(new ReplacedReceptionist.Register(activationsTypedServiceKeyOf(cl, addr), a));
 
         //Wait that for visible registered activation
-        for(int i = 0; i < 10; i++){ //10 retry max
+        for(int i = 0; i < MAX_REGISTER_RETRY; i++){ //10 retry max
             Set<ActivationRef> activations = activationsAt(context, addr);
             if(activations.contains(a)){
                 context.getLog().debug("RegisterActivation::register "+a.toString()+" at "+addr.toString());
                 return Either.right(true);
             } else {
                 try{
-                    Thread.sleep(500);
+                    Thread.sleep(REGISTER_POLLING_SLEEP_DURATION);
                 } catch( Exception e){
                     System.out.println(e);
                 }
@@ -124,14 +128,14 @@ public class PlaceDiscovery {
         
 
         //Wait that for visible registered activation
-        for(int i = 0; i < 10; i++){ //10 retry max
+        for(int i = 0; i < MAX_REGISTER_RETRY; i++){ //10 retry max
             ActorRef tmp = jvmAt(context.getSystem(), addr);
             if(tmp != null){
                 context.getLog().debug("RegisterJVM::register "+a.toString()+" at "+addr.toString());
                 return Either.right(true);
             } else {
                 try{
-                    Thread.sleep(500);//500 ms
+                    Thread.sleep(REGISTER_POLLING_SLEEP_DURATION);
                 } catch( Exception e){
                     System.out.println(e);
                 }

@@ -3,7 +3,7 @@
     ```bash
     1> make run -- compile --places benchmarks/bench-ms/varda/places.yml --targets benchmarks/bench-ms/varda/targets.yml --filename benchmarks/bench-ms/varda/bench.varch --impl benchmarks/libbench.vimpl --impl benchmarks/bench-ms/varda/bench.vimpl --provenance 0
     ```
-    N.B. disable reflexivity to avoid waiting at activation creation "--disable-global-placement-reflexivity --disable-global-placement-reflexivity"
+    N.B. disable reflexivity to avoid waiting at activation creation "--disable-global-placement-reflexivity --disable-global-bridge-reflexivity"
 1. ```1> cd compiler-build/akka```
 1. Build Varda targets
     ```bash
