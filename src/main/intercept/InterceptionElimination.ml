@@ -370,6 +370,7 @@ module Make (Args: TArgs) = struct
         assert( interceptor_info.inout_statebridges_info = None);
         let interceptor_info = {interceptor_info with 
             inout_statebridges_info = Some (List.mapi ( fun i (b_intercepted, _, b_mt) -> 
+                logger#warning ">><< %d" i;
                 Atom.fresh (Printf.sprintf "%s_outport__%d_" (Atom.to_string b_intercepted) i),
                 Atom.fresh (Printf.sprintf "%s_inport__%d_"  (Atom.to_string b_intercepted) i),
                 Atom.fresh ("b_out_"^string_of_int i),
@@ -626,7 +627,7 @@ module Make (Args: TArgs) = struct
 
         let local_from, e_local_from = e_param_of "from" in
         let local_to, e_local_to = e_param_of "to" in
-        let local_s_out, e_local_s_out = e_param_of "s_out" in
+        let local_s_out, e_local_s_out = e_param_of "s_out_msg" in
         let local_s_out2, e_local_s_out2 = e_param_of "s_out_next" in
 
         let mt_out, mt_out2 = 
@@ -641,12 +642,14 @@ module Make (Args: TArgs) = struct
 
 
 
-        let e_res_msginterceptor = e2_e (AccessExpr ( 
-            e2_e This, 
+        let e_res_msginterceptor = 
             match (get_msginterceptor interceptor_info msg_interceptors tb_intercepted i (tmsg, st_continuation)) with
             | Some x_to -> 
                 e2_e (CallExpr (
-                    e2var x_to,
+                    e2_e (AccessExpr ( 
+                        e2_e This, 
+                        e2var x_to
+                    )),
                     [
                         e_local_from;
                         e_local_to;
@@ -665,7 +668,7 @@ module Make (Args: TArgs) = struct
                         e_param_msg;
                     ]
                 )) 
-        )) in
+        in
 
         let left_mt = tb_intercepted.in_type in
         let right_mt = tb_intercepted.out_type in
@@ -706,7 +709,7 @@ module Make (Args: TArgs) = struct
                 ));
                 auto_fplace (LetStmt(
                     mt_out,
-                    local_to,
+                    local_s_out,
                     aux_ongoing__e_skeleton_s_out sessions_info e_param_s_in
                 ));
 
@@ -735,23 +738,11 @@ module Make (Args: TArgs) = struct
         let local_to_opt, e_local_to_opt = e_param_of "to_opt" in
         let local_to_schema, e_local_to_schema = e_param_of "to_schema" in
         let local_to, e_local_to = e_param_of "to" in
-        let local_s_out, e_local_s_out = e_param_of "s_out" in
+        let local_s_out, e_local_s_out = e_param_of "s_out_init" in
 
 
         let interceptor_by_schema = get_sessioninterceptor_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation) in 
         let interceptor_by_activation = get_sessioninterceptor_not_anon interceptor_info session_interceptors tb_intercepted i (tmsg, st_continuation) in
-
-        let e_session_interceptor = e2_e (AccessExpr ( 
-            e2_e This, 
-            match (interceptor_by_schema, interceptor_by_activation) with
-            | None, None -> 
-                (* Case there is no user defined function *)
-                logger#warning "No @sessioninterceptor(true, ...) for bridge type %s" (show_tbridge tb_intercepted);
-                logger#warning "No @sessioninterceptor(false, ...) for bridge type %s" (show_tbridge tb_intercepted);
-                e2_e (CallExpr ( e2var (Atom.builtin "option_get"), [ e_local_to_opt ])) (* by default, use the requested to *)
-            | Some x_to, None | None, Some x_to -> e2var x_to
-            | Some _, Some _ -> Error.perror interceptor_info.base_interceptor_place  "Two sessioninterceptor are defined for bridge type %s : one with the anonymous modifier, one without" (show_tbridge tb_intercepted);
-        )) in
 
         let e_this_onboarded_activations = e2_e (AccessExpr ( e2_e This, e2var (Option.get interceptor_info.this_onboarded_activations))) in
 
@@ -759,6 +750,39 @@ module Make (Args: TArgs) = struct
         let right_mt = tb_intercepted.out_type in
 
         let sessions_info = Option.get interceptor_info.sessions_info in
+
+        let _e_local_to_opt = 
+            match (interceptor_by_schema, interceptor_by_activation) with
+            | None, None -> 
+                (* Case there is no user defined function *)
+                logger#warning "No @sessioninterceptor(true, ...) for bridge type %s" (show_tbridge tb_intercepted);
+                logger#warning "No @sessioninterceptor(false, ...) for bridge type %s" (show_tbridge tb_intercepted);
+                e2_e (CallExpr ( e2var (Atom.builtin "option_get"), [ e_local_to_opt ])) (* by default, use the requested to *)
+            | Some x_to, None | None, Some x_to -> 
+                e2_e (CallExpr(
+                    e2_e (AccessExpr ( 
+                        e2_e This, 
+                        e2var x_to
+                    )),
+                    [
+                        e_this_onboarded_activations;
+                        e_local_from;
+                        e2_e(AccessExpr (e2_e This, e2var this_b_out));
+                        e2_e (CallExpr( 
+                            e2var (Atom.builtin "option_get"),
+                            [ 
+                                e2_e (CallExpr (
+                                    e2var (Atom.builtin "session_to_2_"),
+                                    [ e_param_s_in ]
+                                ))
+                            ]
+                        ));
+                        e_param_msg;
+                    ]
+                ))
+            | Some _, Some _ -> Error.perror interceptor_info.base_interceptor_place  "Two sessioninterceptor are defined for bridge type %s : one with the anonymous modifier, one without" (show_tbridge tb_intercepted);
+        in
+
 
         auto_fplace {
             annotations = [];
@@ -785,24 +809,7 @@ module Make (Args: TArgs) = struct
                 auto_fplace (LetStmt(
                     mtype_of_ct (TOption (mtype_of_ct (TActivationRef right_mt))),
                     local_to_opt,
-                    e2_e (CallExpr(
-                        e_session_interceptor,
-                        [
-                            e_this_onboarded_activations;
-                            e_local_from;
-                            e2_e(AccessExpr (e2_e This, e2var this_b_out));
-                            e2_e (CallExpr( 
-                                e2var (Atom.builtin "option_get"),
-                                [ 
-                                    e2_e (CallExpr (
-                                        e2var (Atom.builtin "session_to_2_"),
-                                        [ e_param_s_in ]
-                                    ))
-                                ]
-                            ));
-                            e_param_msg;
-                        ]
-                    ))
+                    _e_local_to_opt
                 ));
 
                 auto_fplace(IfStmt(
@@ -825,7 +832,10 @@ module Make (Args: TArgs) = struct
                 ));
 
                 (*** Establishing s_out ***)
-                aux_sessioninit__e_skeleton_establishing_s_out (this_port_out, this_port_in) e_local_to; 
+                auto_fplace(LetStmt(
+                    mtype_of_ct (TActivationRef right_mt),
+                    local_s_out,
+                    aux_sessioninit__e_skeleton_establishing_s_out (this_port_out, this_port_in) e_local_to)); 
             ]
 
             (*** Updating metdata ***)
@@ -855,6 +865,13 @@ module Make (Args: TArgs) = struct
         @param i - n° of the stage. 0 == session init 
     *)
     let generate_skeleton_block_per_intercepted_bridge_per_st_stage  (flag_egress, generate_skeleton_callback_msg, generate_skeleton_callback_sessioninit) interceptor_info msg_interceptors session_interceptors b_intercepted this_port_out this_port_in this_b_out this_b_in tb_intercepted i st_stage = 
+        logger#debug "generate_skeleton_block_per_intercepted_bridge_per_st_stage for %s - %d:\n\t-%s\nt\t-%s\n\t-%s" 
+            (if flag_egress then "egress" else "ingress")
+            i
+            (Atom.to_string this_port_out)
+            (Atom.to_string this_port_in)
+            (show__session_type st_stage)
+            ;
         let e_this_b_out = e2_e (AccessExpr (e2_e This, e2var this_b_out)) in
         let e_this_b_in = e2_e (AccessExpr (e2_e This, e2var this_b_in)) in
 
@@ -862,14 +879,14 @@ module Make (Args: TArgs) = struct
         let callback_name = Atom.fresh (Printf.sprintf "callback_%s__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i) in
 
         (***Inport & Outport generation ***)
-        let outport_name = this_port_out in
+        let outport_name = if i == 0 then this_port_out else Atom.fresh ((Atom.to_string this_port_out)^"_stage_"^(string_of_int i)^"_") in
         let outport = auto_fplace (auto_plgannot(Outport (auto_fplace ({
             name = outport_name;
             protocol = mtype_of_st (dual (auto_fplace st_stage)).value;
             _children = [];
         }, auto_fplace EmptyMainType)))) in
 
-        let inport_name = this_port_in in
+        let inport_name = if i == 0 then this_port_in else Atom.fresh ((Atom.to_string this_port_in)^"_stage_"^(string_of_int i)^"_") in
         let inport = auto_fplace (auto_plgannot(Inport (auto_fplace ({
             name = inport_name;
             expecting_st = mtype_of_st st_stage;
@@ -1037,13 +1054,13 @@ module Make (Args: TArgs) = struct
 
     let generate_ingress_callback_msg = generate_skeleton_callback_msg (false, aux_ongoing__e_ingress_s_out,aux_ongoing__es_ingress_update_metadata)
     let aux_sessioninit__e_ingress_establishing_s_out (_, this_port_in) e_local_to =  
-        auto_fplace (ExpressionStmt( e2_e (CallExpr(
+        e2_e (CallExpr(
             e2var (Atom.builtin "initiate_session_with"),
             [
                 e2_e (AccessExpr( e2_e This, e2var this_port_in));
                 e_local_to;
             ]
-        ))))
+        ))
 
     let aux_sessioninit__es_ingress_update_metadata sessions_info e_param_s_in e_local_s_out = 
         [
@@ -1165,13 +1182,13 @@ module Make (Args: TArgs) = struct
     let generate_egress_callback_msg = generate_skeleton_callback_msg (true, aux_ongoing__e_egress_s_out,aux_ongoing__es_egress_update_metadata)
 
     let aux_sessioninit__e_egress_establishing_s_out (this_port_out, _) e_local_to =  
-        auto_fplace (ExpressionStmt( e2_e (CallExpr(
+        e2_e (CallExpr(
             e2var (Atom.builtin "initiate_session_with"),
             [
                 e2_e (AccessExpr( e2_e This, e2var this_port_out));
                 e_local_to;
             ]
-        ))))
+        ))
 
     let aux_sessioninit__es_egress_update_metadata sessions_info e_param_s_in e_local_s_out = 
         [

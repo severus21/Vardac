@@ -38,7 +38,7 @@ let rec collect_expr_expr_ parent_opt (already_binded:Atom.Set.t) exclude_expr s
     | (VarExpr x) | (ImplicitVarExpr x) when Atom.Set.find_opt x already_binded <> None  -> already_binded, collected_elts0, [] 
     | (VarExpr x) | (ImplicitVarExpr x) when Atom.is_builtin x -> already_binded, collected_elts0, [] 
     | (VarExpr x) | (ImplicitVarExpr x)-> already_binded, collected_elts0, [mt, x]
-    | BridgeCall _ | BoxCExpr _ | EmptyExpr | LitExpr _ | OptionExpr None | ResultExpr (None, None) | RawExpr _ | This | Self -> already_binded, collected_elts0, []
+    | BoxCExpr _ | EmptyExpr | LitExpr _ | OptionExpr None | ResultExpr (None, None) | RawExpr _ | This | Self -> already_binded, collected_elts0, []
     | AccessExpr (e1, {value=VarExpr _, _}) -> (* TODO AccessExpr : expr * Atom.t *)
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded ~exclude_expr:exclude_expr selector collector e1 in
         already_binded, collected_elts0@collected_elts1, fvars1
@@ -47,9 +47,10 @@ let rec collect_expr_expr_ parent_opt (already_binded:Atom.Set.t) exclude_expr s
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded ~exclude_expr:exclude_expr  selector collector e1 in
         let _, collected_elts2, fvars2 = collect_expr_expr parent_opt already_binded ~exclude_expr:exclude_expr selector collector e2 in
         already_binded, collected_elts0@collected_elts1@collected_elts2, fvars1@fvars2
-    | ActivationAccessExpr (_, e, _) | UnopExpr (_, e) | OptionExpr (Some e) | ResultExpr (Some e, None) | ResultExpr (None, Some e)->
+    | NewBridge {protocol_opt=Some e} | ActivationAccessExpr (_, e, _) | UnopExpr (_, e) | OptionExpr (Some e) | ResultExpr (Some e, None) | ResultExpr (None, Some e)->
         let _, collected_elts, fvars = collect_expr_expr parent_opt already_binded ~exclude_expr:exclude_expr selector collector e in
         already_binded, collected_elts0@collected_elts, fvars
+    | NewBridge _ -> already_binded, collected_elts0, [] 
     | CallExpr ({value=(VarExpr _,_) }, es) | NewExpr ({value=(VarExpr _, _)}, es) | Create {args=es} -> (* no first class function nor constructor inside stmt - so we get ride of all possible constructors *)
         let collected_elts, fvars = List.fold_left (fun (acc0, acc1) e -> 
             let _, collected_elts, fvars = collect_expr_expr parent_opt already_binded ~exclude_expr:exclude_expr selector collector e in
@@ -432,8 +433,8 @@ and collect_type_expr_ flag_tcvar parent_opt already_binded selector collector p
     | LitExpr {value = StaticBridge {protocol_name}} ->
         if None <> Atom.Set.find_opt protocol_name already_binded || Atom.is_builtin protocol_name then [], []
         else [], [protocol_name]
-    | BridgeCall _ | EmptyExpr | VarExpr _ | ImplicitVarExpr _ | LitExpr _ | This | Self -> [], []
-    | ActivationAccessExpr (_, e, _) | UnopExpr (_, e) -> 
+    | NewBridge {protocol_opt=None} | EmptyExpr | VarExpr _ | ImplicitVarExpr _ | LitExpr _ | This | Self -> [], []
+    | NewBridge {protocol_opt=Some e} | ActivationAccessExpr (_, e, _) | UnopExpr (_, e) -> 
         let _, collected_elts, ftvars = collect_expr e in
         collected_elts, ftvars
     | AccessExpr (e1, e2) | BinopExpr (e1, _, e2) -> 
@@ -726,7 +727,7 @@ let rec _rewrite_expr_expr parent_opt selector rewriter place (e, mt) =
     let e = match e with
     | e when selector e -> 
         rewriter parent_opt mt e
-    | (BridgeCall _ as e) | (EmptyExpr as e) | (LitExpr _ as e) | (This as e) | (Self as e) | (VarExpr _ as e) | (ImplicitVarExpr _ as e) -> e
+    |(EmptyExpr as e) | (LitExpr _ as e) | (This as e) | (Self as e) | (VarExpr _ as e) | (ImplicitVarExpr _ as e) -> e
     | ActivationAccessExpr (cname, e, mname) ->
         ActivationAccessExpr(
             cname,
@@ -742,6 +743,9 @@ let rec _rewrite_expr_expr parent_opt selector rewriter place (e, mt) =
         op,
         rexpr e2
     )
+    | NewBridge {protocol_opt; protocol_name_opt} -> NewBridge{
+        protocol_opt = Option.map rexpr protocol_opt; 
+        protocol_name_opt}   
     | CastExpr(mt, e) -> CastExpr(
         mt, (* WARNING TODO FIXME*)
         rexpr e
@@ -954,9 +958,13 @@ and _rewrite_type_expr selector rewriter place (e, mt) =
     logger#debug "rewrite_type expr (%s)" (show_main_type mt);
 
     let e = match e with
-        | (VarExpr _ as e) | (ImplicitVarExpr _ as e) | (LitExpr _ as e) | (This as e) | (Self as e) | (BridgeCall _ as e) -> e
+        | (VarExpr _ as e) | (ImplicitVarExpr _ as e) | (LitExpr _ as e) | (This as e) | (Self as e) -> e
         | ActivationAccessExpr (x, e, y) -> ActivationAccessExpr (x, e, y)
         | AccessExpr (e1, e2) -> AccessExpr (rewrite_expr e1, rewrite_expr e2)
+        | NewBridge  {protocol_opt; protocol_name_opt} -> NewBridge{
+            protocol_opt = Option.map rewrite_expr protocol_opt;
+            protocol_name_opt
+        }
         | CastExpr  (mt, e) -> CastExpr(rewrite_mtype mt, rewrite_expr e)
         | BinopExpr (e1, op, e2) -> BinopExpr (rewrite_expr e1, op, rewrite_expr e2)
         | TernaryExpr (e1, e2, e3) -> TernaryExpr (rewrite_expr e1,  rewrite_expr e2, rewrite_expr e3)
@@ -1249,6 +1257,7 @@ rewrite_type_aconstraint
         | TOutport mt -> TOutport (rmt mt)
         | TForall (x, mt) -> TForall (renaming x, rmt mt)
         | TPolyVar x -> TPolyVar (renaming x)
+        | TFuture mt -> TFuture (rmt mt)
         and rename_composed_type renaming = map_place (_rename_composed_type (protect_renaming renaming))
 
         and _rename_session_type renaming place = 
@@ -1348,8 +1357,9 @@ rewrite_type_aconstraint
                 CallExpr (re e, List.map re es)
             | NewExpr (e, es) -> NewExpr (re e, List.map re es)
             | PolyApp (e, mts) -> PolyApp (re e, List.map rmt mts)
-            | BridgeCall{protocol_name} -> BridgeCall{
-                protocol_name = renaming protocol_name;
+            | NewBridge{protocol_opt; protocol_name_opt} -> NewBridge{
+                protocol_opt = Option.map re protocol_opt;
+                protocol_name_opt = Option.map renaming protocol_name_opt;
             }
             | TernaryExpr (e1, e2, e3) -> TernaryExpr (re e1, re e2, re e3)
             | This -> This

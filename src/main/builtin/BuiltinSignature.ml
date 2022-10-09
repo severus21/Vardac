@@ -45,6 +45,17 @@ let fresh_tbridge () =
         })
     ))
 
+let t_protocol_of () =
+
+    mtype_of_ct (TArrow(
+        mtype_of_ct (TBridge {
+            in_type  = mtype_of_ft TWildcard;
+            out_type = mtype_of_ft TWildcard;
+            protocol = mtype_of_st STEnd
+        }),
+        mtype_of_ft TWildcard
+    ))
+
 
 let t_fire () = 
     (*quantify 
@@ -299,6 +310,19 @@ let t_select () =
                 ))
             ))
         ))
+
+let t_is_init_stage () = 
+    mtype_of_ct(TArrow(
+        mtype_of_st STWildcard,
+        mtype_of_ft TBool
+    ))
+
+let t_session_from () =
+    mtype_of_ct(TArrow(
+        mtype_of_st STWildcard,
+        mtype_of_ct (TActivationRef(mtype_of_ft TWildcard))
+    ))
+
 let t_activationat () =
     (*mtype_of_ct(TArrow(
         mtype_of_ft TPlace,

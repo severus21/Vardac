@@ -8,79 +8,79 @@ impl headers java:{=
 =}
 
 (* #bench *)impl function fresh_payload java:{=
-    int[] tmp = new int[{{%size%}}];// #bench
-    for(int i = 0; i<{{%size%}}; i++)// #bench
-        tmp[i] = i;// #bench
-    return tmp;// #bench
+    int[] tmp = new int[{{%size%}}];/* #bench */
+    for(int i = 0; i<{{%size%}}; i++)/* #bench */
+        tmp[i] = i;/* #bench */
+    return tmp;/* #bench */
 =}(* #bench *)
 
 (* #bench *)impl type payload java:{=
-    int[]// #bench
+    int[]/* #bench */
 =}(* #bench *)
 
 
 impl component Ping {
 
     (* #bench *)impl method getDurationsReception2Dispatcher java:{= 
-        return this.durationsReception2Dispatcher;// #bench
+        return this.durationsReception2Dispatcher;/* #bench */
     =}(* #bench *)
 
     (* #bench *)impl method getDurationsReception2Callback java:{= 
-        return this.durationsReception2Callback;// #bench
+        return this.durationsReception2Callback;/* #bench */
     =}(* #bench *)
 
     (* #bench *)impl method getDurationsReception2EndCallback java:{= 
-        return this.durationsReception2EndCallback;// #bench
+        return this.durationsReception2EndCallback;/* #bench */
     =}(* #bench *)
 
     (* #bench *)impl method getDurationsReception2OnMessage java:{=
-        return this.durationsReception2OnMessage;// #bench
+        return this.durationsReception2OnMessage;/* #bench */
     =}(* #bench *)
 
     (* #bench *)impl method getDurationsFire java:{=
-        return com.varda.Session.Statistic.fire_durations;// #bench
+        return com.varda.Session.Statistic.fire_durations;/* #bench */
     =}(* #bench *)
 
     (* #bench *)impl method getDurationsFireAfterChecks java:{=
-        return com.varda.Session.Statistic.fire_durations_after_checks;// #bench
+        return com.varda.Session.Statistic.fire_durations_after_checks;/* #bench */
     =}(* #bench *)
     (* #bench *)impl method getDurationsFireAfterHydratation java:{=
-        return com.varda.Session.Statistic.fire_durations_after_hydratation;// #bench
+        return com.varda.Session.Statistic.fire_durations_after_hydratation;/* #bench */
     =}(* #bench *)
     (* #bench *)impl method getDurationsFireAfterTell java:{=
-        return com.varda.Session.Statistic.fire_durations_after_tell;// #bench
+        return com.varda.Session.Statistic.fire_durations_after_tell;/* #bench */
     =}(* #bench *)
 
 }
 impl component Pong {
 
     (* #bench *)impl method getDurationsReception2Dispatcher java:{= 
-        return this.durationsReception2Dispatcher;// #bench
+        return this.durationsReception2Dispatcher;/* #bench */
     =}(* #bench *)
 
     (* #bench *)impl method getDurationsReception2Callback java:{= 
-        return this.durationsReception2Callback;// #bench
+        return this.durationsReception2Callback;/* #bench */
     =}(* #bench *)
 
     (* #bench *)impl method getDurationsReception2EndCallback java:{= 
-        return this.durationsReception2EndCallback;// #bench
+        return this.durationsReception2EndCallback;/* #bench */
     =}(* #bench *)
 
     (* #bench *)impl method getDurationsReception2OnMessage java:{=
-        return this.durationsReception2OnMessage;// #bench
+        return this.durationsReception2OnMessage;/* #bench */
     =}(* #bench *)
 
     (* #bench *)impl method getDurationsFire java:{=
-        return com.varda.Session.Statistic.fire_durations;// #bench
+        return com.varda.Session.Statistic.fire_durations;/* #bench */
     =}(* #bench *)
     (* #bench *)impl method getDurationsFireAfterChecks java:{=
-        return com.varda.Session.Statistic.fire_durations_after_checks;// #bench
+        return com.varda.Session.Statistic.fire_durations_after_checks;/* #bench */
     =}(* #bench *)
     (* #bench *)impl method getDurationsFireAfterHydratation java:{=
-        return com.varda.Session.Statistic.fire_durations_after_hydratation;// #bench
+        return com.varda.Session.Statistic.fire_durations_after_hydratation;/* #bench */
     =}(* #bench *)
     (* #bench *)impl method getDurationsFireAfterTell java:{=
-        return com.varda.Session.Statistic.fire_durations_after_tell;// #bench
+        return com.varda.Session.Statistic.fire_durations_after_tell;/* #bench */
     =}(* #bench *)
 }
 impl component TopLevel {}

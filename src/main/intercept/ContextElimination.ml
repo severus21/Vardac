@@ -365,11 +365,13 @@ module Make () = struct
         InterceptedBridgeSet.iter (function (tbridge, b) -> 
             let b_in = Atom.fresh ((Atom.value b)^"_in") in
 
+            failwith (show_composed_type tbridge);
+
             (* FIXME default constructor - see whitepaper for improvement *)
-            let b_in__constructor = e2_e (CallExpr(
-                e2var (Atom.builtin "bridge"),
-                []
-            )) in
+            let b_in__constructor = e2_e (NewBridge {
+                    protocol_opt = Some (e2_e (CallExpr(e2var(Atom.builtin "protocolof"), [e2var b])));
+                    protocol_name_opt = None;
+            }) in
 
             let b_in__let = auto_fplace (LetStmt (
                 mtype_of_ct tbridge.value,
@@ -386,12 +388,10 @@ module Make () = struct
         let b_onboard_let = auto_fplace (LetStmt (
             b_onboard_mt,
             b_onboard,
-            e2_e (CallExpr(
-                e2var (Atom.builtin "bridge"),
-                [
-                    e2var p_onboard
-                ]
-            ))
+            e2_e (NewBridge{
+                    protocol_name_opt = Some p_onboard;
+                    protocol_opt = None;
+            })
         )) in
         
         (generated_bridges, (b_onboard, b_onboard_mt, b_onboard_let))

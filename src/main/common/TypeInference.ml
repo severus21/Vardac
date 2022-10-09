@@ -571,7 +571,7 @@ module Make () = struct
                         logger#debug "endaccess";
                         tmp
                     end
-                    | _ -> Error.perror place "Invalid attribute"
+                    | _ -> Error.perror place "Invalid attribute: %s" (show_expr e2)
 
                 in
                 
@@ -680,13 +680,17 @@ module Make () = struct
                 let e2 = tannot_expr parent_opt e2 in
                 let e3 = tannot_expr parent_opt e3 in
                 TernaryExpr(e1, e2, e3), snd e2.value
-            | BridgeCall b -> 
-                BridgeCall b, mtype_of_ct (TBridge {
+            | NewBridge {protocol_opt; protocol_name_opt} -> 
+                let protocol_opt = Option.map (tannot_expr parent_opt) protocol_opt in
+                NewBridge {protocol_opt = protocol_opt; protocol_name_opt}, mtype_of_ct (TBridge {
                     (* TODO *)
                     in_type = mtype_of_ft TWildcard;
                     (* TODO *)
                     out_type = mtype_of_ft TWildcard;
-                    protocol = mtype_of_var b.protocol_name 
+                    protocol = match protocol_opt, protocol_name_opt with 
+                    | Some protocol, None -> snd protocol.value 
+                    | None, Some protocol_name -> mtype_of_var protocol_name
+                    | Some _, Some _ | None, None -> raise (Error.DeadbranchError "NewBridge error")
                 })
             | BoxCExpr ce -> failwith "BoxCExpr Typeinference"
             | OptionExpr e_opt ->  

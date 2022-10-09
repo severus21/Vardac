@@ -1692,7 +1692,7 @@ module Make (Params : IRParams) = struct
                     | CallExpr _ -> CallExpr (e1, es_n)
                     | NewExpr _ -> NewExpr (e1, es_n)
                 ), mt_e)
-            | (BridgeCall _ as e ) | (LambdaExpr _ as e) | (LitExpr _ as e) | (This as e) | (Self as e) -> (* Interaction primitives are forbidden in LambdaExpr 
+            | (LambdaExpr _ as e) | (LitExpr _ as e) | (This as e) | (Self as e) -> (* Interaction primitives are forbidden in LambdaExpr 
             TODO check as a precondition
             *)
                 [], (e, mt_e)
@@ -1705,6 +1705,14 @@ module Make (Params : IRParams) = struct
                         stmts2, Some e2
                 in
                 stmts1@stmts2, (InterceptedActivationRef (e1, e2_opt), mt_e)
+            | NewBridge {protocol_opt; protocol_name_opt} -> 
+                let stmts, protocol = match protocol_opt with
+                    | Some protocol -> 
+                        let stmts, protocol = rewrite_exprstmts_expr protocol  in
+                        stmts, Some protocol
+                    | None -> [], None
+                in
+                stmts, (NewBridge {protocol_name_opt; protocol_opt}, mt_e)
             | UnopExpr (op, e) -> 
                 let stmts, e = rewrite_exprstmts_expr e in
                 stmts, (UnopExpr(op, e), mt_e)

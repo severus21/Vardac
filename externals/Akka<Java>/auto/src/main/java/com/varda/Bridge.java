@@ -18,7 +18,7 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
     UUID id;
     
     @JsonProperty("protocol")
-    P protocol;
+    public P protocol;
 
     public Bridge (P protocol){
         assert(protocol != null);

@@ -190,8 +190,9 @@ and _expr =
     | PolyApp of expr * main_type list
 
     (** Control flow *)
-    | BridgeCall of { (* denotes a "bridge()" *)
-        protocol_name: component_variable;
+    | NewBridge of { (* denotes a "bridge(protocol)" *)
+        protocol_name_opt: expr_variable option; (* protocol constructor *)
+        protocol_opt: expr option; (* an exsiting object of type protocol*)
     }
 
     (* condensed form of the if-else statement that also returns a value i.e. an expr *)

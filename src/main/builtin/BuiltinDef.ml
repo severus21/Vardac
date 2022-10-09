@@ -62,8 +62,11 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "select", "st -> label -> st", "select", t_select;
     "select_local", "st -> label -> st", "select", t_select;
     "option_get", "option<'a> -> 'a", "", t_option_get;
-    "session_from", "session -> activation<>", "get the initiater of the session", t_select; (*TODO*)
+    "session_from", "session -> activation<>", "get the initiater of the session", t_session_from;
     "session_to_2_", "session -> activation<>", "TODO", t_session_to_2_;
+
+    "is_init_stage", "session -> bool", "TODO", t_is_init_stage;
+    "protocolof", "bridge -> protocol", "TODO", t_protocol_of;
 
     "current_activation", "() -> activation_ref", "", t_current_activation;
     "forge_activation_ref", "() -> activation_ref", "", t_forge_activation_ref;

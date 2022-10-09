@@ -334,12 +334,13 @@ module Make () = struct
 
     and peval_call env place (fct: expr) (args: expr list) (mt_ret:main_type): env * (_expr * main_type) =
     match fct.value, args with
-    | (VarExpr name, _), [{value=(VarExpr protocol_name, _);}] when Atom.hint(name) = "bridge" ->
-        env, (BridgeCall {
-            protocol_name
+    | (VarExpr name, _), [{value=VarExpr x,_}] when Atom.hint(name) = "bridge" ->
+        env, (NewBridge {
+            protocol_name_opt = Some x;
+            protocol_opt = None;
         }, mt_ret)
-    | (VarExpr name, _), _ when Atom.hint(name) = "bridge" ->
-        Error.perror place "bridge should have exactly one argument - the protocol"
+    | (VarExpr name, _), es when Atom.hint(name) = "bridge" ->
+        Error.perror place "bridge should have exactly one argument - the protocol; not %d" (List.length es)
     | _ -> env, (CallExpr (fct, args), mt_ret)
 
     and peval_expr env place (e, mt) :  env * (_expr * main_type) = 

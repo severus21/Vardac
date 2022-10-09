@@ -494,8 +494,14 @@ module Make (Arg: sig val target:Target.target end) = struct
                 List.map (map0_place (fun _ (mt, x) -> fmtype parent_opt mt, x)) params,
                 auto_place (T.ReturnStmt (fexpr parent_opt e))
             ) 
-        | S.BridgeCall b -> 
-        fst (e_bridge_of_protocol place (auto_place (T.VarExpr b.protocol_name, auto_place T.TUnknown))).value 
+        | S.NewBridge {protocol_opt; protocol_name_opt} -> begin
+            match protocol_opt, protocol_name_opt with
+            | Some protocol, None ->
+                fst (e_bridge_of_protocol place (fexpr parent_opt protocol)).value 
+            | None, Some protocol_name ->
+                fst (e_bridge_of_protocol place (auto_place (T.VarExpr protocol_name, auto_place T.TUnknown))).value 
+            | None, None | Some _, Some _ -> raise (Error.DeadbranchError "NewBridge wrong protocol")
+        end
         | S.LitExpr {value=S.BLabelLit l; place=lit_place} -> 
             T.NewExpr( 
                 e2_e (T.RawExpr "LabelEvent"), 
