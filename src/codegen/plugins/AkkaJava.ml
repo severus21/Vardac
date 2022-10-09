@@ -1002,7 +1002,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             | S.TFuture t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "CompletableFuture"), [fctype t1])
             | S.TList t1 -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "List"), [fctype t1])
             | S.TMap (t1, t2) -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "HashMap"), [fctype t1; fctype t2])
-            | S.TOption t1 -> T.ClassOrInterfaceType  (auto_place(T.TAtomic "Optional"), [fctype t1]) 
+            | S.TOption t1 -> T.ClassOrInterfaceType  (auto_place(T.TAtomic "SerializableOptional"), [fctype t1]) 
             | S.TAccess (t1, t2) -> T.TAccess (fctype t1, fctype t2)
             | S.TParam (t, t_args) -> T.ClassOrInterfaceType (fctype t, List.map fctype t_args)
             | S.TResult (t1, t2) -> 

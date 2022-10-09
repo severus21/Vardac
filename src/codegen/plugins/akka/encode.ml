@@ -394,6 +394,11 @@ let encode_builtin_fct_2 parent_opt place name a b =
             e2_e (T.RawExpr "PlaceDiscovery.register"),
             [ 
                 e_get_context place;
+                e2_e (T.ClassOf (match (snd a.value).value with
+                    | T.TActivationRef t -> t
+                    | _ ->
+                        raise (Error.PlacedDeadbranchError (b.place, "Not typed with activation_ref"))
+                ));
                 b;
                 a;
             ]
