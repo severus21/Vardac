@@ -7,83 +7,83 @@ impl dependencies gradle:{=
 impl headers java:{=
 =}
 
-impl function fresh_payload java:{=
-    int[] tmp = new int[{{%size%}}];
-    for(int i = 0; i<{{%size%}}; i++)
-        tmp[i] = i;
-    return tmp;
-=}
+(* #bench *)impl function fresh_payload java:{=
+    int[] tmp = new int[{{%size%}}];// #bench
+    for(int i = 0; i<{{%size%}}; i++)// #bench
+        tmp[i] = i;// #bench
+    return tmp;// #bench
+=}(* #bench *)
 
-impl type payload java:{=
-    int[]
-=}
+(* #bench *)impl type payload java:{=(* #bench *)
+    int[]// #bench
+=}(* #bench *)
 
 
 impl component Ping {
 
-    impl method getDurationsReception2Dispatcher java:{= 
-        return this.durationsReception2Dispatcher;
-    =}
+    (* #bench *)impl method getDurationsReception2Dispatcher java:{= 
+        return this.durationsReception2Dispatcher;// #bench
+    =}(* #bench *)
 
-    impl method getDurationsReception2Callback java:{= 
-        return this.durationsReception2Callback;
-    =}
+    (* #bench *)impl method getDurationsReception2Callback java:{= 
+        return this.durationsReception2Callback;// #bench
+    =}(* #bench *)
 
-    impl method getDurationsReception2EndCallback java:{= 
-        return this.durationsReception2EndCallback;
-    =}
+    (* #bench *)impl method getDurationsReception2EndCallback java:{= 
+        return this.durationsReception2EndCallback;// #bench
+    =}(* #bench *)
 
-    impl method getDurationsReception2OnMessage java:{=
-        return this.durationsReception2OnMessage;
-    =}
+    (* #bench *)impl method getDurationsReception2OnMessage java:{=
+        return this.durationsReception2OnMessage;// #bench
+    =}(* #bench *)
 
-    impl method getDurationsFire java:{=
-        return com.varda.Session.Statistic.fire_durations;
-    =}
+    (* #bench *)impl method getDurationsFire java:{=
+        return com.varda.Session.Statistic.fire_durations;// #bench
+    =}(* #bench *)
 
-    impl method getDurationsFireAfterChecks java:{=
-        return com.varda.Session.Statistic.fire_durations_after_checks;
-    =}
-    impl method getDurationsFireAfterHydratation java:{=
-        return com.varda.Session.Statistic.fire_durations_after_hydratation;
-    =}
-    impl method getDurationsFireAfterTell java:{=
-        return com.varda.Session.Statistic.fire_durations_after_tell;
-    =}
+    (* #bench *)impl method getDurationsFireAfterChecks java:{=
+        return com.varda.Session.Statistic.fire_durations_after_checks;// #bench
+    =}(* #bench *)
+    (* #bench *)impl method getDurationsFireAfterHydratation java:{=
+        return com.varda.Session.Statistic.fire_durations_after_hydratation;// #bench
+    =}(* #bench *)
+    (* #bench *)impl method getDurationsFireAfterTell java:{=
+        return com.varda.Session.Statistic.fire_durations_after_tell;// #bench
+    =}(* #bench *)
 
 }
 impl component Pong {
 
-    impl method getDurationsReception2Dispatcher java:{= 
-        return this.durationsReception2Dispatcher;
-    =}
+    (* #bench *)impl method getDurationsReception2Dispatcher java:{= 
+        return this.durationsReception2Dispatcher;// #bench
+    =}(* #bench *)
 
-    impl method getDurationsReception2Callback java:{= 
-        return this.durationsReception2Callback;
-    =}
+    (* #bench *)impl method getDurationsReception2Callback java:{= 
+        return this.durationsReception2Callback;// #bench
+    =}(* #bench *)
 
-    impl method getDurationsReception2EndCallback java:{= 
-        return this.durationsReception2EndCallback;
-    =}
+    (* #bench *)impl method getDurationsReception2EndCallback java:{= 
+        return this.durationsReception2EndCallback;// #bench
+    =}(* #bench *)
 
-    impl method getDurationsReception2OnMessage java:{=
-        return this.durationsReception2OnMessage;
-    =}
+    (* #bench *)impl method getDurationsReception2OnMessage java:{=
+        return this.durationsReception2OnMessage;// #bench
+    =}(* #bench *)
 
-    impl method getDurationsFire java:{=
-        return com.varda.Session.Statistic.fire_durations;
-    =}
-    impl method getDurationsFireAfterChecks java:{=
-        return com.varda.Session.Statistic.fire_durations_after_checks;
-    =}
-    impl method getDurationsFireAfterHydratation java:{=
-        return com.varda.Session.Statistic.fire_durations_after_hydratation;
-    =}
-    impl method getDurationsFireAfterTell java:{=
-        return com.varda.Session.Statistic.fire_durations_after_tell;
-    =}
+    (* #bench *)impl method getDurationsFire java:{=
+        return com.varda.Session.Statistic.fire_durations;// #bench
+    =}(* #bench *)
+    (* #bench *)impl method getDurationsFireAfterChecks java:{=
+        return com.varda.Session.Statistic.fire_durations_after_checks;// #bench
+    =}(* #bench *)
+    (* #bench *)impl method getDurationsFireAfterHydratation java:{=
+        return com.varda.Session.Statistic.fire_durations_after_hydratation;// #bench
+    =}(* #bench *)
+    (* #bench *)impl method getDurationsFireAfterTell java:{=
+        return com.varda.Session.Statistic.fire_durations_after_tell;// #bench
+    =}(* #bench *)
 }
 impl component TopLevel {}
 impl component EmptyRuntime {}
 impl component MultiJVMOrchestrator {}
-impl component MultiJVMOrchestrator::Inner {} 
+impl component MultiJVMOrchestrator::Inner {} (* #bench *)

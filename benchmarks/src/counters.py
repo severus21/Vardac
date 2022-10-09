@@ -1,3 +1,5 @@
+from collections import defaultdict
+from email.policy import default
 from src.settings import * 
 from src.utils import *
 from checksumdir import dirhash
@@ -51,19 +53,16 @@ class LoCCounter(Counter):
 
     def count(self):
         res = subprocess.run(
-            f"cloc {self.target} --json --read-lang-def={CLOC_DEFINITIONS}", 
+            f"cloc . --json --force-lang-def={CLOC_DEFINITIONS} --exclude-list-file={CLOC_EXCLUDES}", 
             capture_output=True, 
             encoding='utf-8',
-            shell=True)
-        print(f"cloc {self.target} --json --read-lang-def={CLOC_DEFINITIONS}")
+            shell=True,
+            cwd=self.target)
 
         if res.returncode != 0:
             print(res.stdout)
             print(res.stderr)
         assert(res.returncode == 0)
-
-        print(res.stdout)
-        print(res.stderr)
 
         self.data = json.loads(res.stdout)
 
@@ -77,10 +76,15 @@ class LoCCounter(Counter):
         with open(COUNTSDIR/f"{normalize_path(self.name)}.json", "w") as f:
             json.dump(self.data, f)
 
+        LoC = defaultdict(lambda: 0) 
+        for cloc_name, suffix in self.exports:
+            if cloc_name in self.data:
+                LoC[suffix] += self.data[cloc_name]['code']
+
         for cloc_name, suffix in self.exports:
             with open(COUNTSDIR/f"{normalize_path('loc-'+self.name)}-{suffix}.tex", "w") as f:
                 if cloc_name in self.data:
-                    res =  f"${str(self.data[cloc_name]['code'])}$"
+                    res =  f"${str(LoC[suffix])}$"
                 else:
                     res = "$\emptyset$"
 

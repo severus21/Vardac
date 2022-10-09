@@ -1,18 +1,14 @@
 package com.varda;
 
 
-import akka.actor.typed.ActorSystem;
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.*;
-
-import java.util.*;
-import java.util.function.*;
+import com.google.gson.Gson;
 import java.io.FileWriter;
 import java.io.IOException;
-
-import com.google.gson.Gson;
-import org.apache.commons.cli.*;
+import java.util.*;
+import java.util.function.*;
 
 public class PingActor extends AbstractBehavior<PingActor.Command> {
 
@@ -24,26 +20,26 @@ public class PingActor extends AbstractBehavior<PingActor.Command> {
 
 	long start;
 	private final int limit;
-	private final int limitWarmup;
+	private final int limitWarmup;// #bench
 	private final int payload;
 	private final BitSet bitset;
-	private final BitSet bitsetWarmup;
+	private final BitSet bitsetWarmup;// #bench
 	private final ActorRef<PongActor.Command> pongAct;
-	private final long[] rtts;
-	private long ping_size = 0;
-	private long pong_size = 0;
+	private final long[] rtts;// #bench
+	private long ping_size = 0;// #bench
+	private long pong_size = 0;// #bench
 
 	public PingActor(ActorContext<Command> context, ActorRef<PongActor.Command> pongAct, int limit, int limitWarmup, int payload) {
 		super(context);
 		assert(pongAct != null);
 		this.limit = limit;
 		this.bitset = new BitSet(limit);
-		this.limitWarmup = limitWarmup;
-		this.bitsetWarmup = new BitSet(limitWarmup);
+		this.limitWarmup = limitWarmup;// #bench
+		this.bitsetWarmup = new BitSet(limitWarmup);// #bench
 		bitset.set(0, limit);
-		bitsetWarmup.set(0, limitWarmup);
+		bitsetWarmup.set(0, limitWarmup);// #bench
 		this.pongAct = pongAct;
-		this.rtts = new long[limit];
+		this.rtts = new long[limit];// #bench
 		this.payload = payload;
 
 		this.start();
@@ -56,39 +52,39 @@ public class PingActor extends AbstractBehavior<PingActor.Command> {
 		return tmp;
 	}
 
-	private void store_data(){
-		Gson gson = new Gson();
+	private void store_data(){// #bench
+		Gson gson = new Gson();// #bench
 
 
-		HashMap<String,  Object> res = new HashMap();
-		res.put("ping_size",  this.ping_size);
-		res.put("pong_size",  this.pong_size);
-		res.put("rtts",  this.rtts);
+		HashMap<String,  Object> res = new HashMap();// #bench
+		res.put("ping_size",  this.ping_size);// #bench
+		res.put("pong_size",  this.pong_size);// #bench
+		res.put("rtts",  this.rtts);// #bench
 
 
-		try {
-			FileWriter fileWriter =new FileWriter("results.json"); 
-			gson.toJson(res, fileWriter);
-			fileWriter.close();
-		} catch (IOException e ){
-			System.err.println(e.toString());
-		}
-	}
+		try {// #bench
+			FileWriter fileWriter =new FileWriter("results.json"); // #bench
+			gson.toJson(res, fileWriter);// #bench
+			fileWriter.close();// #bench
+		} catch (IOException e ){// #bench
+			System.err.println(e.toString());// #bench
+		}// #bench
+	}// #bench
 
-	private void start() {
-		System.err.println("AKKA PingPong warmup");
-		for (int i=0; i<limitWarmup; i++) {
-			Ping msg = new Ping(i, true, fresh_payload(this.payload), getContext().getSelf(), System.currentTimeMillis());
-			this.pongAct.tell(msg);	
-		}
+	private void start() {// #bench
+		System.err.println("AKKA PingPong warmup");// #bench
+		for (int i=0; i<limitWarmup; i++) {// #bench
+			Ping msg = new Ping(i, true, fresh_payload(this.payload), getContext().getSelf(), System.currentTimeMillis());// #bench
+			this.pongAct.tell(msg);	// #bench
+		}// #bench
 
-		if (limitWarmup == 0)
-			this.run();
-	}
+		if (limitWarmup == 0)// #bench
+			this.run();// #bench
+	}// #bench
 
 	private void run(){
 		System.err.println("VKKA Massive Tell started...");
-		this.start = System.currentTimeMillis();
+		this.start = System.currentTimeMillis();// #bench
 		for (int i=0; i<limit; i++) {
 			Ping msg = new Ping(i, false, fresh_payload(this.payload), getContext().getSelf(), System.currentTimeMillis());
 			if (this.ping_size==0)
@@ -107,33 +103,33 @@ public class PingActor extends AbstractBehavior<PingActor.Command> {
 	}
 	
 	private Behavior<Command> onPong(Pong pong) {
-		if(pong.warmup) {
-			bitsetWarmup.clear(pong.i);
+		if(pong.warmup) {// #bench
+			bitsetWarmup.clear(pong.i);// #bench
 
 			// Warmup is over, run the bench
-			if (bitsetWarmup.isEmpty()) {
-				this.run();
-			}
-		} else {
+			if (bitsetWarmup.isEmpty()) {// #bench
+				this.run();// #bench
+			}// #bench
+		} else {// #bench
 			bitset.clear(pong.i);
-			if (this.pong_size == 0)
-				this.pong_size = com.varda.objectsize.InstrumentationAgent.getSerializedSize(getContext().getSystem(), pong);
+			if (this.pong_size == 0)// #bench
+				this.pong_size = com.varda.objectsize.InstrumentationAgent.getSerializedSize(getContext().getSystem(), pong);// #bench
 
 			// Calcull RTT
-			long endTimestamp = System.currentTimeMillis();
-			long rtt = endTimestamp - pong.initTimestamp;
-			this.rtts[pong.i] = rtt;
+			long endTimestamp = System.currentTimeMillis();// #bench
+			long rtt = endTimestamp - pong.initTimestamp;// #bench
+			this.rtts[pong.i] = rtt;// #bench
 
 			if (bitset.isEmpty()) {
-				long end = System.currentTimeMillis();
-				getContext().getLog().info("Time elapse " + (end - start) +" ms");
-				this.store_data();
+				long end = System.currentTimeMillis();// #bench
+				getContext().getLog().info("Time elapse " + (end - start) +" ms");// #bench
+				this.store_data();// #bench
 
-				getContext().getLog().info("Terminated ueyiqu8R");
-				getContext().getLog().info("JamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglog");
+				getContext().getLog().info("Terminated ueyiqu8R");// #bench
+				getContext().getLog().info("JamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglogJamminglog");// #bench
 				getContext().getSystem().terminate();	
 			}
-		}
+		}// #bench
 		return Behaviors.same();
 	}
 }

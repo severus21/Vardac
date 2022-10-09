@@ -1,1 +1,1 @@
-sudo apt install cloc
+sudo apt install cloc #>1.94 (use npm install or pacman, if need)

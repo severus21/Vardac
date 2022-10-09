@@ -1,2 +1,2 @@
 default:
-	./merge.sh
+	@./merge.sh

@@ -30,6 +30,7 @@ if DEFAULT_DOCKER_REMOTE:
     os.environ["DOCKER_CERT_PATH"] = str(DOCKER_CERT_PATH)
 
 CLOC_DEFINITIONS = Path(__file__).parent.parent / "cloc_varda_definitions.txt"
+CLOC_EXCLUDES = Path(__file__).parent.parent / "cloc_exclude_list.txt"
 COUNTSDIR = Path(__file__).parent.parent /'counts'
 
 assert(os.path.isfile(CLOC_DEFINITIONS))
