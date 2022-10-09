@@ -681,7 +681,7 @@ module Make () = struct
                 let e3 = tannot_expr parent_opt e3 in
                 TernaryExpr(e1, e2, e3), snd e2.value
             | NewBridge {protocol_opt; protocol_name_opt} -> 
-                let protocol_opt = Option.map (tannot_expr parent_opt) protocol_opt in
+                (* TODO FIXME currently Protocol_opt should be typed manually *)
                 NewBridge {protocol_opt = protocol_opt; protocol_name_opt}, mtype_of_ct (TBridge {
                     (* TODO *)
                     in_type = mtype_of_ft TWildcard;

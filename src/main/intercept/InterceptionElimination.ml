@@ -373,8 +373,8 @@ module Make (Args: TArgs) = struct
                 logger#warning ">><< %d" i;
                 Atom.fresh (Printf.sprintf "%s_outport__%d_" (Atom.to_string b_intercepted) i),
                 Atom.fresh (Printf.sprintf "%s_inport__%d_"  (Atom.to_string b_intercepted) i),
-                Atom.fresh ("b_out_"^string_of_int i),
-                Atom.fresh ("b_in_"^string_of_int i),
+                Atom.fresh ("b_out_"^(string_of_int i)^"_"),
+                Atom.fresh ("b_in_"^(string_of_int i)^"_"),
                 b_mt
             )  interceptor_info.inout_bridges_info);
         }
@@ -387,13 +387,13 @@ module Make (Args: TArgs) = struct
                     ghost = false;
                     type0 = b_mt;
                     name = b_in;
-                    body = None 
+                    body = Some (e2_lit VoidLit)
                 } ))));
                 auto_fplace (auto_plgannot(State (auto_fplace ({
                     ghost = false;
                     type0 = b_mt;
                     name = b_out;
-                    body = None 
+                    body = Some (e2_lit VoidLit)
                 } ))))
             ]
         ) (Option.get interceptor_info.inout_statebridges_info)) in
@@ -517,13 +517,13 @@ module Make (Args: TArgs) = struct
             }))));
             auto_fplace (auto_plgannot(State (auto_fplace ({
                 ghost = false;
-                type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TWildcard));
+                type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_st STWildcard));
                 name = this_4external;
                 body = Some (e2_e (Block2Expr (Dict, [])));
             }))));
             auto_fplace (auto_plgannot(State (auto_fplace ({
                 ghost = false;
-                type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_ft TWildcard));
+                type0 = mtype_of_ct (TDict (mtype_of_ft TSessionID, mtype_of_st STWildcard));
                 name = this_4internal;
                 body = Some (e2_e (Block2Expr (Dict, [])));
             }))));
@@ -678,7 +678,7 @@ module Make (Args: TArgs) = struct
         auto_fplace {
             annotations = [];
             ghost = false;
-            ret_type = mtype_of_ft TVoid;
+            ret_type = mtype_of_ct (TResult (mtype_of_ft TVoid, mtype_of_var (Atom.builtin "error")));
             name = Atom.fresh (Printf.sprintf "%s_callback_ongoing__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i);
             args = [
                 auto_fplace (tmsg, param_msg);
@@ -697,20 +697,25 @@ module Make (Args: TArgs) = struct
                 auto_fplace (LetStmt(
                     mtype_of_ct (TActivationRef right_mt),
                     local_to,
-                    e2_e (CallExpr( 
-                        e2var (Atom.builtin "option_get"),
-                        [ 
-                            e2_e (CallExpr (
-                                e2var (Atom.builtin "session_to_2_"),
-                                [ e_param_s_in ]
-                            ))
-                        ]
+                    e2_e(CastExpr(
+                        mtype_of_ct (TActivationRef right_mt),
+                        e2_e (CallExpr( 
+                            e2var (Atom.builtin "option_get"),
+                            [ 
+                                e2_e (CallExpr (
+                                    e2var (Atom.builtin "session_to_2_"),
+                                    [ e_param_s_in ]
+                                ))
+                            ]
+                        ))
                     ))
                 ));
                 auto_fplace (LetStmt(
                     mt_out,
                     local_s_out,
-                    aux_ongoing__e_skeleton_s_out sessions_info e_param_s_in
+                    e2_e(CastExpr(
+                        mt_out,
+                        aux_ongoing__e_skeleton_s_out sessions_info e_param_s_in))
                 ));
 
                 (* TODO assert  ... *)
@@ -718,8 +723,9 @@ module Make (Args: TArgs) = struct
                 (*** Apply msg interceptor ***)
                 auto_fplace (LetStmt(
                     mt_out2,
+                    (*mtype_of_ct (TResult (mt_out2, mtype_of_var (Atom.builtin "error"))),*)
                     local_s_out2,
-                    e_res_msginterceptor
+                    e2_e (UnopExpr (UnpackOrPropagateResult, e_res_msginterceptor))
                 ));
             ]
             (*** Update metadata ***)
@@ -757,7 +763,8 @@ module Make (Args: TArgs) = struct
                 (* Case there is no user defined function *)
                 logger#warning "No @sessioninterceptor(true, ...) for bridge type %s" (show_tbridge tb_intercepted);
                 logger#warning "No @sessioninterceptor(false, ...) for bridge type %s" (show_tbridge tb_intercepted);
-                e2_e (CallExpr ( e2var (Atom.builtin "option_get"), [ e_local_to_opt ])) (* by default, use the requested to *)
+                e2_e (CallExpr ( 
+                    e2var (Atom.builtin "session_to_2_"), [ e_param_s_in ])) (* by default, use the requested to *)
             | Some x_to, None | None, Some x_to -> 
                 e2_e (CallExpr(
                     e2_e (AccessExpr ( 
@@ -787,7 +794,7 @@ module Make (Args: TArgs) = struct
         auto_fplace {
             annotations = [];
             ghost = false;
-            ret_type = mtype_of_ft TVoid;
+            ret_type = mtype_of_ct (TResult (mtype_of_ft TVoid, mtype_of_var (Atom.builtin "error")));
             name = Atom.fresh (Printf.sprintf "%s_callback_sessioninit__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i);
             args = [
                 auto_fplace (tmsg, param_msg);
@@ -807,6 +814,7 @@ module Make (Args: TArgs) = struct
                 ));
                 (* TODO assert ... *)
                 auto_fplace (LetStmt(
+                    (* FIXME Java does correctly handles type if specified inside two encapsulated generics *)
                     mtype_of_ct (TOption (mtype_of_ct (TActivationRef right_mt))),
                     local_to_opt,
                     _e_local_to_opt
@@ -825,17 +833,22 @@ module Make (Args: TArgs) = struct
                 auto_fplace (LetStmt(
                     mtype_of_ct (TActivationRef right_mt),
                     local_to,
-                    e2_e (CallExpr( 
-                        e2var (Atom.builtin "option_get"),
-                        [ e_local_to_opt ]
+                    e2_e(CastExpr(
+                        mtype_of_ct (TActivationRef right_mt),
+                        e2_e (CallExpr( 
+                            e2var (Atom.builtin "option_get"),
+                            [ e_local_to_opt ]
+                        ))
                     ))
                 ));
 
                 (*** Establishing s_out ***)
                 auto_fplace(LetStmt(
-                    mtype_of_ct (TActivationRef right_mt),
+                    tb_intercepted.protocol,
                     local_s_out,
-                    aux_sessioninit__e_skeleton_establishing_s_out (this_port_out, this_port_in) e_local_to)); 
+                    e2_e(CastExpr(
+                        tb_intercepted.protocol, (* FIXME Java compiler does infer the type conversion*)
+                        aux_sessioninit__e_skeleton_establishing_s_out (this_port_out, this_port_in) e_local_to)))); 
             ]
 
             (*** Updating metdata ***)
@@ -879,17 +892,25 @@ module Make (Args: TArgs) = struct
         let callback_name = Atom.fresh (Printf.sprintf "callback_%s__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i) in
 
         (***Inport & Outport generation ***)
+
+        let st_out, st_in = 
+            let dst_stage = (dual (auto_fplace st_stage)).value in
+            match (IRMisc.unfold_st_star  (auto_fplace st_stage)).value with
+            | STBranch _ | STRecv _ ->  dst_stage, st_stage 
+            | _ -> st_stage, dst_stage
+        in
+
         let outport_name = if i == 0 then this_port_out else Atom.fresh ((Atom.to_string this_port_out)^"_stage_"^(string_of_int i)^"_") in
         let outport = auto_fplace (auto_plgannot(Outport (auto_fplace ({
             name = outport_name;
-            protocol = mtype_of_st (dual (auto_fplace st_stage)).value;
+            protocol = mtype_of_st st_out;
             _children = [];
         }, auto_fplace EmptyMainType)))) in
 
         let inport_name = if i == 0 then this_port_in else Atom.fresh ((Atom.to_string this_port_in)^"_stage_"^(string_of_int i)^"_") in
         let inport = auto_fplace (auto_plgannot(Inport (auto_fplace ({
             name = inport_name;
-            expecting_st = mtype_of_st st_stage;
+            expecting_st = mtype_of_st st_in;
             callback = e2_e (AccessExpr(
                 e2_e This,
                 e2var callback_name
@@ -922,7 +943,7 @@ module Make (Args: TArgs) = struct
                 auto_fplace {
                     annotations = [];
                     ghost = false;
-                    ret_type = mtype_of_ft TVoid;
+                    ret_type = mtype_of_ct (TResult (mtype_of_ft TVoid, mtype_of_var (Atom.builtin "error")));
                     name = callback_name;
                     args = [
                         auto_fplace (tmsg, param_msg);
@@ -1053,11 +1074,11 @@ module Make (Args: TArgs) = struct
         ]
 
     let generate_ingress_callback_msg = generate_skeleton_callback_msg (false, aux_ongoing__e_ingress_s_out,aux_ongoing__es_ingress_update_metadata)
-    let aux_sessioninit__e_ingress_establishing_s_out (_, this_port_in) e_local_to =  
+    let aux_sessioninit__e_ingress_establishing_s_out (this_port_out, _) e_local_to =  
         e2_e (CallExpr(
             e2var (Atom.builtin "initiate_session_with"),
             [
-                e2_e (AccessExpr( e2_e This, e2var this_port_in));
+                e2_e (AccessExpr( e2_e This, e2var this_port_out));
                 e_local_to;
             ]
         ))

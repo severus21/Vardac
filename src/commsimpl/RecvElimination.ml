@@ -930,7 +930,8 @@ module Make () : Sig = struct
                     (* p or one of its stages is concerned by the receive*)
                     generate_intermediate_port_for_port (fst port.value).name
                 else( 
-                    Error.error "not suffix for %s\n%s\n\t\tVS\n%s" (Atom.to_string (fst port.value).name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation)))) (show_main_type (fst port.value).expecting_st)
+                    Error.error "in> not suffix for %s\n%s\n\t\tVS\n%s" (Atom.to_string (fst port.value).name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation)))) (show_main_type (fst port.value).expecting_st);
+                    []
                 )
             ) ports)
             @
@@ -944,7 +945,7 @@ module Make () : Sig = struct
                     (* p or one of its stages is concerned by the receive*)
                     generate_intermediate_port_for_port (fst port.value).name
                 else( 
-                    Error.error "not suffix for %s\n%s\n\t\tVS\n%s" (Atom.to_string (fst port.value).name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation)))) (show_main_type (fst port.value).protocol)
+                    Error.error "out> not suffix for %s\n%s\n\t\tVS\n%s" (Atom.to_string (fst port.value).name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation)))) (show_main_type (fst port.value).protocol);
                     []
                 )
             ) outports)

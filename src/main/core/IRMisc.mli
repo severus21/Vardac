@@ -7,6 +7,7 @@ val schema_to_label : Error.place -> Atom.atom -> literal
 val schema_to_stringlit : Error.place -> Atom.atom -> literal
 
 val dual : session_type -> session_type
+val dual_mt : main_type -> main_type
 val unfold_st_star : session_type -> session_type
 val stages_of_st : session_type -> _session_type list
 val msgcont_of_st: session_type -> main_type * session_type 

@@ -452,7 +452,7 @@ let e_bridge_of_protocol place (protocol_e:Ast.expr) =
     let auto_place smth = {place; value=smth} in
     auto_place (Ast.NewExpr (
         auto_place (Ast.VarExpr (Atom.builtin "Bridge"), auto_place Ast.TUnknown),
-       [ auto_place (Ast.NewExpr (protocol_e,[]), auto_place Ast.TUnknown)] 
+       [ protocol_e ] 
     ), auto_place Ast.TUnknown)
 let e_static_bridge_of_protocol place (protocol_e:Ast.expr) (id: Atom.atom)=
     let auto_place smth = {place; value=smth} in

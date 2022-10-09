@@ -294,6 +294,18 @@ let encode_builtin_fct_1 parent_opt place name a =
             e2_e (T.RawExpr "Long.valueOf"),
             [ a ]
         )
+    | "is_init_stage" ->
+        T.AccessExpr(
+            a,
+            e2_e (T.RawExpr "init_stage"))
+    |"protocolof" ->
+        T.AccessExpr(
+            a,
+            e2_e (T.RawExpr "protocol"))
+    |"session_from" ->
+        T.AccessExpr(
+            a,
+            e2_e (T.RawExpr "left"))
     | "session_to_2_" ->
         T.AccessExpr(
             a,

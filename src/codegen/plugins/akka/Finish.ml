@@ -499,7 +499,13 @@ module Make (Arg: sig val target:Target.target end) = struct
             | Some protocol, None ->
                 fst (e_bridge_of_protocol place (fexpr parent_opt protocol)).value 
             | None, Some protocol_name ->
-                fst (e_bridge_of_protocol place (auto_place (T.VarExpr protocol_name, auto_place T.TUnknown))).value 
+                fst (e_bridge_of_protocol 
+                    place 
+                    (T_A2.e2_e (Ast.NewExpr ( 
+                        (T_A2.e2_e (T.VarExpr protocol_name)),
+                        []
+                    ))
+                )).value 
             | None, None | Some _, Some _ -> raise (Error.DeadbranchError "NewBridge wrong protocol")
         end
         | S.LitExpr {value=S.BLabelLit l; place=lit_place} -> 
@@ -1352,7 +1358,7 @@ module Make (Arg: sig val target:Target.target end) = struct
                     | S.STBranch _ | S.STRecv _ -> () 
                     | st' -> 
                         logger#error "%s" (S.show_session_type st);
-                        Core.Error.perror (fst p.value).expecting_st.place "%s plugin: expecting type can only start by the reception of a message or of a label" plg_name
+                        Core.Error.perror (fst p.value).expecting_st.place "%s plugin: expecting type of [%s] can only start by the reception of a message or of a label" plg_name (Atom.to_string (fst p.value).name)
                 );
 
                 st, (event_name, st_continuation)

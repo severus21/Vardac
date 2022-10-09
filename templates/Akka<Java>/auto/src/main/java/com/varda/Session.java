@@ -18,7 +18,7 @@ import com.varda.timers.*;
 import com.varda.metadata.*;
 import com.varda.OutPort;
 
-public class Session implements CborSerializable {
+public class Session<T3> implements CborSerializable {
     public UUID bridge_id;
     public ActivationRef left;
     public ActivationRef right;
@@ -26,7 +26,7 @@ public class Session implements CborSerializable {
     public ASTStype.Base st;
 
     public Boolean init_stage;
-    public SerializableOptional<ActivationRef> hidden_right; //e.g. non anonymous redirection
+    public SerializableOptional<ActivationRef<T3>> hidden_right; //e.g. non anonymous redirection
     
     public AbstractPort init_port;
 
@@ -44,7 +44,7 @@ public class Session implements CborSerializable {
         ActivationRef right,
         ASTStype.Base st,
         Boolean init_stage,
-        SerializableOptional<ActivationRef> hidden_right,
+        SerializableOptional<ActivationRef<T3>> hidden_right,
         AbstractPort init_port //used for RecvElim for now 
         ) {
 

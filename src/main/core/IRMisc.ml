@@ -44,6 +44,10 @@ let rec _dual place : _session_type -> _session_type  = function
 | STDual st -> (dual st).value
 and dual st : session_type = 
 { st with value = _dual st.place st.value }
+and _dual_mt place = function
+| SType st -> SType (dual st)
+| _ -> raise (Error.PlacedDeadbranchError (place, "can not compute the dual of a non-stype"))
+and dual_mt mt = map_place _dual_mt mt
 
 
 (* Return form do not start with an µx.*)
