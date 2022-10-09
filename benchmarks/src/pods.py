@@ -3,6 +3,7 @@ import logging
 from abc import ABC, abstractmethod
 import os
 import signal
+from aiodocker.exceptions import DockerError
 
 from .settings import *
 
@@ -92,33 +93,58 @@ class DockerPod(Pod):
     def __init__(self, elmt) -> None:
         super().__init__(elmt)
 
-    async def nextof(self, _next):
+    async def _nextstdout(self):
         """retrun lines 
         subsequent call will not output the previously display lines"""
-
         await asyncio.sleep(1) # for Docker
-        lines = await _next()
+        lines = await self.elmt.log(stdout=True)
+
+        if lines:
+            lines = lines[self.last_readline_stdout:]
+        self.last_readline_stdout += len(lines)
+
+        return lines
+
+    async def _nextstderr(self):
+        """retrun lines 
+        subsequent call will not output the previously display lines"""
+        await asyncio.sleep(1) # for Docker
+        lines = await self.elmt.log(stderr=True)
 
         if lines:
             lines = lines[self.last_readline_stderr:]
         self.last_readline_stderr += len(lines)
 
         return lines
-    
-    def _nextstdout(self):
-        return self.nextof(lambda: self.elmt.log(stdout=True))
-
-    def _nextstderr(self):
-        return self.nextof(lambda: self.elmt.log(stderr=True))
 
     async def stdout(self):
-        return ''.join(await self.elmt.log(stdout=True))
+        try:
+            return ''.join(await self.elmt.log(stdout=True))
+        except DockerError as e:
+            if e.status in [404, 409]: #container which is dead or marked for removal
+                pass
+            else:
+                logging.error('DockerPod::stdout>>',str(e))
+            return ''
 
     async def stderr(self):
-        return ''.join(await self.elmt.log(stderr=True))
+        try:
+            return ''.join(await self.elmt.log(stderr=True))
+        except DockerError as e:
+            if e.status in [404, 409]: #container which is dead or marked for removal
+                pass
+            else:
+                logging.error('DockerPod::stderr>>',str(e))
+            return ''
 
     async def _is_terminated(self):
         return (await self.elmt.wait())["StatusCode"]
 
     async def terminate(self):
-        return await self.elmt.delete(force=True)
+        try:
+            return await self.elmt.delete(force=True)
+        except RuntimeError as e:
+            if e == "Session is closed": #Already closed
+                return True
+            else:
+                logging.error('DockerPod::stdout>>',e)

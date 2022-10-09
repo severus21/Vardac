@@ -165,6 +165,7 @@ class OrderedMultiShellRunner(Runner):
         )
         for task in pending:
             task.cancel()
+            await task
 
         results = True
         for res in done:
@@ -356,7 +357,6 @@ class DockerRunner(BaseRunner):
         return self.volumes[-1]#['Mountpoint']/'Name
 
     def __exit__(self, type, value, traceback):
-        super().__exit__(type, value, traceback)
         async def aux():
             for container in self.containers:
                 try:
@@ -383,6 +383,7 @@ class DockerRunner(BaseRunner):
             await self.docker.close()
 
         asyncio.get_event_loop().run_until_complete(asyncio.gather(aux()))
+        super().__exit__(type, value, traceback)
 
     def render(self, snapshot):
         return " ".join([f"-{k} {shlex.quote(str(v))}" for k, v in snapshot.items()])
