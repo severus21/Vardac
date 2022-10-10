@@ -14,6 +14,9 @@ import java.util.concurrent.CompletionStage;
 
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public final class Bridge<P extends Protocol> implements CborSerializable, JsonSerializable, java.io.Serializable {
+    static int MAX_REGISTER_RETRY = 10;
+    static int REGISTER_POLLING_SLEEP_DURATION = 100; // in ms
+
     @JsonProperty("id")
     UUID id;
     
@@ -77,7 +80,7 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
         receptionist.tell(new ReplacedReceptionist.Register(left ? this.leftServiceKey() : this.rightServiceKey(), a));
 
         //Wait that for visible registered activation
-        for(int i = 0; i < 10; i++){ //10 retry max
+        for(int i = 0; i < MAX_REGISTER_RETRY; i++){ //10 retry max
             Set<ActivationRef> activations = 
                 left ? this.leftActivations(context, guardian).get() : this.rightActivations(context, guardian).get();
             if(activations.contains(a)){
@@ -89,7 +92,7 @@ public final class Bridge<P extends Protocol> implements CborSerializable, JsonS
                 return Either.right(true);
             } else {
                 try{
-                    Thread.sleep(500);
+                    Thread.sleep(REGISTER_POLLING_SLEEP_DURATION);
                 } catch( Exception e){
                     System.out.println(e);
                 }

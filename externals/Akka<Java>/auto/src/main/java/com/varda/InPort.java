@@ -2,8 +2,6 @@ package com.varda;
 
 import java.util.*;
 import java.util.function.BiFunction;
-import akka.actor.typed.javadsl.ActorContext;
-import com.bmartin.*;
 
 
 // FIXME a port should be serializable
@@ -33,7 +31,7 @@ public final class InPort<A, B, C> extends AbstractPort {
 
     @Override
     public String toString(){
-        return "InPort {name="+this.id.toString()+"; id="+this.name+"} [expecting_st="+this.expecting_st.toString()+"] binded with ["+this.bridge.id+"]";
+        return "InPort {name="+this.id.toString()+"; id="+this.name+"} [expecting_st="+this.expecting_st.toString()+"] binded with ["+(this.bridge == null ? "": this.bridge.id)+"]";
     }
 
     public void setCallback(BiFunction<A,B,C> callback){
