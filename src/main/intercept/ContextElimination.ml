@@ -737,6 +737,13 @@ module Make () = struct
                                     ))
                                 )
                             ];
+
+                            (* Use inner bridges for inner intercepted spawns *)
+                            let rename_bridge x = 
+                                match Hashtbl.find_opt generated_bridges x with
+                                | None -> x
+                                | Some (_, b_in, _) -> b_in
+                            in
                             
                             if exposed_info = None then (
                                 stmt_headers := !stmt_headers @ [
@@ -753,6 +760,7 @@ module Make () = struct
                             else
                                 (* Need to replace at if exists, in case at expr is not idempotent or costly *)
                                 Spawn { spawn with
+                                    args = List.map (rename_expr false rename_bridge) spawn.args;
                                     at = Option.map (function _ -> e2var p_of_a) spawn.at
                                 }
                         end 

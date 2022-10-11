@@ -360,9 +360,6 @@ module Make (Args: TArgs) = struct
         @return an hydrated copy of interceptor_info
     *)
     let include_base_citems interceptor_info (base_interceptor : component_structure) : interceptor_info * component_item list = 
-        (*** Collect intells ***)
-        let base_onstartup_opt = get_onstartup base_interceptor in
-        let citems_wo_onstartup = List.filter (function | {value={v=Method m}} -> Bool.not m.value.on_startup | _ -> true) base_interceptor.body in 
 
         (*** Add states to store in/out bridges and onboarding bridge ***)
         
@@ -371,8 +368,10 @@ module Make (Args: TArgs) = struct
         let interceptor_info = {interceptor_info with 
             inout_statebridges_info = Some (List.mapi ( fun i (b_intercepted, _, b_mt) -> 
                 logger#warning ">><< %d" i;
-                Atom.fresh (Printf.sprintf "%s_outport__%d_" (Atom.to_string b_intercepted) i),
-                Atom.fresh (Printf.sprintf "%s_inport__%d_"  (Atom.to_string b_intercepted) i),
+                Atom.fresh (Printf.sprintf "%s_outport_egress__%d_" (Atom.to_string b_intercepted) i),
+                Atom.fresh (Printf.sprintf "%s_outport_ingress__%d_" (Atom.to_string b_intercepted) i),
+                Atom.fresh (Printf.sprintf "%s_inport_egress__%d_"  (Atom.to_string b_intercepted) i),
+                Atom.fresh (Printf.sprintf "%s_inport_ingress__%d_"  (Atom.to_string b_intercepted) i),
                 Atom.fresh ("b_out_"^(string_of_int i)^"_"),
                 Atom.fresh ("b_in_"^(string_of_int i)^"_"),
                 b_mt
@@ -381,7 +380,7 @@ module Make (Args: TArgs) = struct
         in
 
 
-        let inout_bridges_states = List.flatten (List.map ( function (_, _, b_out, b_in, b_mt) ->
+        let inout_bridges_states = List.flatten (List.map ( function (_, _, _, _, b_out, b_in, b_mt) ->
             [ 
                 auto_fplace (auto_plgannot(State (auto_fplace ({
                     ghost = false;
@@ -398,89 +397,8 @@ module Make (Args: TArgs) = struct
             ]
         ) (Option.get interceptor_info.inout_statebridges_info)) in
 
-        (*** Create onstartup ***)
-        let param_b_onboarding, e_param_b_onboarding = e_param_of "b_onboarding" in
-        let onstartup_params_inout = (List.map (function (_, _, b_mt) -> 
-                (Atom.fresh "param_b_out", Atom.fresh "param_b_in", b_mt) 
-        ) interceptor_info.inout_bridges_info) in
-        let onstartup_params = 
-            auto_fplace (interceptor_info.onboard_info.b_onboard_mt, param_b_onboarding)
-            ::
-            (List.flatten (List.map (function (param_b_out, param_b_in, b_mt) -> 
-                [
-                    auto_fplace (b_mt, param_b_out);
-                    auto_fplace (b_mt, param_b_in);
-                ]) onstartup_params_inout)
-            )
-            @ (match base_onstartup_opt with
-                | None -> []
-                | Some m -> m.value.args 
-            )
-        in
-
-        let onstartup = auto_fplace (auto_plgannot(Method (auto_fplace {
-            annotations = (match base_onstartup_opt with Some m -> m.value.annotations | _ -> []);
-            ghost = false;
-            ret_type = mtype_of_ft TVoid;
-            name = Atom.fresh "onstartup"; 
-            args = onstartup_params;
-            contract_opt = None;
-            body = 
-            auto_fplace (AssignThisExpr(
-                Option.get interceptor_info.b_onboard_state,
-                e2var param_b_onboarding
-            ))
-            ::
-            auto_fplace (ExpressionStmt(
-                e2_e (CallExpr(
-                    e2var (Atom.builtin "bind"),
-                    [ 
-                        e2var (Option.get interceptor_info.this_port_onboard);
-                        e2var param_b_onboarding 
-                    ]
-                ))
-            ))
-            ::
-            (List.map (function ((this_port_out, this_port_in, this_b_out, this_b_in, _), ( param_b_out, param_b_in, _)) -> 
-                auto_fplace (AssignThisExpr(
-                    this_b_out, 
-                    e2var param_b_out
-                ));
-                auto_fplace (AssignThisExpr(
-                    this_b_in, 
-                    e2var param_b_in 
-                ));
-                auto_fplace (ExpressionStmt(
-                    e2_e (CallExpr(
-                        e2var (Atom.builtin "bind"),
-                        [ 
-                            e2var this_port_out;    
-                            e2var param_b_out 
-                        ]
-                    ))
-                ));
-                auto_fplace (ExpressionStmt(
-                    e2_e (CallExpr(
-                        e2var (Atom.builtin "bind"),
-                        [ 
-                            e2var this_port_in;    
-                            e2var param_b_in 
-                        ]
-                    ))
-                ));
-            ) (List.combine (Option.get interceptor_info.inout_statebridges_info) onstartup_params_inout))
-            @ (
-                match base_onstartup_opt with
-                | None -> []
-                | Some m -> m.value.body
-            );
-            on_startup = true;
-            on_destroy = false;
-        }))) in
-
         (*** Retrun citems ***)
-        interceptor_info, onstartup :: (citems_wo_onstartup @ inout_bridges_states)
-
+        interceptor_info,  base_interceptor.body@inout_bridges_states
 
     (*************** Step 2 - Interception session block******************)
     let generate_sessions_block interceptor_info : interceptor_info * component_item list = 
@@ -531,6 +449,8 @@ module Make (Args: TArgs) = struct
 
 
     (*************** Ingress Egress utils ******************)
+    let used_outports = Hashtbl.create 16
+    let used_inports = Hashtbl.create 16
 
     let paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_B, st3, tmsg3)=
         TypingUtils.is_subtype left_mt  mt_A
@@ -736,7 +656,7 @@ module Make (Args: TArgs) = struct
             on_startup = false;
         }
 
-    let generate_skeleton_callback_sessioninit (flag_egress, aux_sessioninit__e_skeleton_establishing_s_out, aux_sessioninit__es_skeleton_update_metadata) interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_port_out this_port_in this_b_out this_b_in i this_callback_msg tmsg st_continuation = 
+    let generate_skeleton_callback_sessioninit (flag_egress, aux_sessioninit__e_skeleton_establishing_s_out, aux_sessioninit__es_skeleton_update_metadata) interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_port_out_egress this_port_out_ingress this_port_in_egress this_port_in_ingress this_b_out this_b_in i this_callback_msg tmsg st_continuation = 
         let param_msg, e_param_msg = e_param_of "msg" in
         let param_s_in, e_param_s_in = e_param_of "s_in" in
 
@@ -848,7 +768,7 @@ module Make (Args: TArgs) = struct
                     local_s_out,
                     e2_e(CastExpr(
                         tb_intercepted.protocol, (* FIXME Java compiler does infer the type conversion*)
-                        aux_sessioninit__e_skeleton_establishing_s_out (this_port_out, this_port_in) e_local_to)))); 
+                        aux_sessioninit__e_skeleton_establishing_s_out (this_port_out_egress, this_port_out_ingress, this_port_in_egress, this_port_in_ingress) e_local_to)))); 
             ]
 
             (*** Updating metdata ***)
@@ -877,12 +797,12 @@ module Make (Args: TArgs) = struct
     (**
         @param i - n° of the stage. 0 == session init 
     *)
-    let generate_skeleton_block_per_intercepted_bridge_per_st_stage  (flag_egress, generate_skeleton_callback_msg, generate_skeleton_callback_sessioninit) interceptor_info msg_interceptors session_interceptors b_intercepted this_port_out this_port_in this_b_out this_b_in tb_intercepted i st_stage = 
+    let generate_skeleton_block_per_intercepted_bridge_per_st_stage  (flag_egress, generate_skeleton_callback_msg, generate_skeleton_callback_sessioninit) interceptor_info msg_interceptors session_interceptors b_intercepted this_port_out_egress this_port_out_ingress this_port_in_egress this_port_in_ingress this_b_out this_b_in tb_intercepted i st_stage = 
         logger#debug "generate_skeleton_block_per_intercepted_bridge_per_st_stage for %s - %d:\n\t-%s\nt\t-%s\n\t-%s" 
             (if flag_egress then "egress" else "ingress")
             i
-            (Atom.to_string this_port_out)
-            (Atom.to_string this_port_in)
+            (Atom.to_string this_port_out_ingress)
+            (Atom.to_string this_port_in_egress)
             (show__session_type st_stage)
             ;
         let e_this_b_out = e2_e (AccessExpr (e2_e This, e2var this_b_out)) in
@@ -900,27 +820,38 @@ module Make (Args: TArgs) = struct
             | _ -> st_stage, dst_stage
         in
 
-        let outport_name = if i == 0 then this_port_out else Atom.fresh ((Atom.to_string this_port_out)^"_stage_"^(string_of_int i)^"_") in
-        let outport = auto_fplace (auto_plgannot(Outport (auto_fplace ({
-            name = outport_name;
-            protocol = mtype_of_st st_out;
-            _children = [];
-        }, auto_fplace EmptyMainType)))) in
+        let outport_egress_name = if i == 0 then this_port_out_egress else Atom.fresh ((Atom.to_string this_port_out_egress)^"_stage_"^(string_of_int i)^"_") in
+        let outport_ingress_name = if i == 0 then this_port_out_ingress else Atom.fresh ((Atom.to_string this_port_out_ingress)^"_stage_"^(string_of_int i)^"_") in
+        let inport_egress_name = if i == 0 then this_port_in_egress else Atom.fresh ((Atom.to_string this_port_in_egress)^"_stage_"^(string_of_int i)^"_") in
+        let inport_ingress_name = if i == 0 then this_port_in_ingress else Atom.fresh ((Atom.to_string this_port_in_ingress)^"_stage_"^(string_of_int i)^"_") in
 
-        let inport_name = if i == 0 then this_port_in else Atom.fresh ((Atom.to_string this_port_in)^"_stage_"^(string_of_int i)^"_") in
-        let inport = auto_fplace (auto_plgannot(Inport (auto_fplace ({
-            name = inport_name;
-            expecting_st = mtype_of_st st_in;
-            callback = e2_e (AccessExpr(
-                e2_e This,
-                e2var callback_name
-            ));
-            _disable_session = false;
-            _children = [];
-            _is_intermediate = false;
-            _receive_id = None;
-        }, auto_fplace EmptyMainType)))) in
+        (* Register init_stage only *)
+        logger#error ">register used_outports: %s" (Atom.to_string (if flag_egress then outport_egress_name else outport_ingress_name));
+        logger#error ">register used_inports: %s" (Atom.to_string (if flag_egress then inport_egress_name else inport_ingress_name));
+        Hashtbl.add used_outports (if flag_egress then outport_egress_name else outport_ingress_name) ();
+        Hashtbl.add used_inports (if flag_egress then inport_egress_name else inport_ingress_name) ();
 
+        let outport = 
+            auto_fplace (auto_plgannot(Outport (auto_fplace ({
+                name = if flag_egress then outport_egress_name else outport_ingress_name;
+                protocol = mtype_of_st st_out;
+                _children = [];
+            }, auto_fplace EmptyMainType)))) in
+
+        let inport =
+            auto_fplace (auto_plgannot(Inport (auto_fplace ({
+                        name = if flag_egress then inport_egress_name else inport_ingress_name;
+                        expecting_st = mtype_of_st st_in;
+                        callback = e2_e (AccessExpr(
+                            e2_e This,
+                            e2var callback_name
+                        ));
+                        _disable_session = false;
+                        _children = [];
+                        _is_intermediate = false;
+                        _receive_id = None;
+                    }, auto_fplace EmptyMainType))))
+        in
 
         let (tmsg, st_continuation) : main_type * session_type = msgcont_of_st (auto_fplace st_stage) in
 
@@ -930,7 +861,7 @@ module Make (Args: TArgs) = struct
         (*** Session interception callback ***)
         let callback_session_init : method0 option = 
             if i = 0 then 
-                Some (generate_skeleton_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_port_out this_port_in this_b_out this_b_in i callback_msg.value.name tmsg st_continuation)
+                Some (generate_skeleton_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_port_out_egress this_port_out_ingress this_port_in_egress this_port_in_ingress this_b_out this_b_in i callback_msg.value.name tmsg st_continuation)
             else None 
         in
 
@@ -1002,7 +933,7 @@ module Make (Args: TArgs) = struct
         else [])
 
 
-    let generate_skeleton_block_per_intercepted_bridge (flag_egress, generate_skeleton_block_per_intercepted_bridge) interceptor_info msg_interceptors session_interceptors b_intercepted this_port_out this_port_in this_b_out this_b_in b_mt : component_item list = 
+    let generate_skeleton_block_per_intercepted_bridge (flag_egress, generate_skeleton_block_per_intercepted_bridge) interceptor_info msg_interceptors session_interceptors b_intercepted this_port_out_egress this_port_out_ingress this_port_in_egress this_port_in_ingress this_b_out this_b_in b_mt : component_item list = 
         let tb_intercepted = (match b_mt with | {value = CType {value = TBridge tb}} -> tb) in
         let p_st = (match tb_intercepted.protocol with 
             | {value = SType st} -> st
@@ -1012,7 +943,7 @@ module Make (Args: TArgs) = struct
 
         List.flatten (
             List.mapi
-                (generate_skeleton_block_per_intercepted_bridge interceptor_info msg_interceptors session_interceptors b_intercepted this_port_out this_port_in this_b_out this_b_in tb_intercepted)
+                (generate_skeleton_block_per_intercepted_bridge interceptor_info msg_interceptors session_interceptors b_intercepted this_port_out_egress this_port_in_egress this_port_in_egress this_port_out_ingress this_b_out this_b_in tb_intercepted)
                 st_stages
         )
 
@@ -1074,11 +1005,11 @@ module Make (Args: TArgs) = struct
         ]
 
     let generate_ingress_callback_msg = generate_skeleton_callback_msg (false, aux_ongoing__e_ingress_s_out,aux_ongoing__es_ingress_update_metadata)
-    let aux_sessioninit__e_ingress_establishing_s_out (this_port_out, _) e_local_to =  
+    let aux_sessioninit__e_ingress_establishing_s_out (this_port_out_egress, this_port_out_ingress, _, _) e_local_to =  
         e2_e (CallExpr(
             e2var (Atom.builtin "initiate_session_with"),
             [
-                e2_e (AccessExpr( e2_e This, e2var this_port_out));
+                e2_e (AccessExpr( e2_e This, e2var this_port_out_ingress));
                 e_local_to;
             ]
         ))
@@ -1133,13 +1064,13 @@ module Make (Args: TArgs) = struct
             (auto_fplace(DocComment "******************** Ingress Block ********************"))
         )))))
         :: List.flatten(
-            List.map (function ((b_intercepted, _, b_mt), (this_port_out, this_port_in, this_b_out, this_b_in, _)) ->
+            List.map (function ((b_intercepted, _, b_mt), (this_port_out_egress, this_port_out_ingress, this_port_in_egress, this_port_in_ingress, this_b_out, this_b_in, _)) ->
                 if Bool.not (has_kind_ingress interceptor_info b_mt) then []
                 else begin
                     auto_fplace (auto_plgannot(Term (auto_fplace (auto_plgannot(Comments
                         (auto_fplace(DocComment (Printf.sprintf "*** Ingress Block for bridge [%s] ***" (Atom.to_string b_intercepted))))))
                     )))
-                    :: (generate_ingress_block_per_intercepted_bridge interceptor_info  msg_interceptors session_interceptors b_intercepted this_port_out this_port_in this_b_out this_b_in b_mt) 
+                    :: (generate_ingress_block_per_intercepted_bridge interceptor_info  msg_interceptors session_interceptors b_intercepted this_port_out_egress this_port_out_ingress this_port_in_egress this_port_in_ingress this_b_out this_b_in b_mt) 
                 end
             ) (List.combine interceptor_info.inout_bridges_info (Option.get interceptor_info.inout_statebridges_info)) 
         )
@@ -1202,11 +1133,11 @@ module Make (Args: TArgs) = struct
     
     let generate_egress_callback_msg = generate_skeleton_callback_msg (true, aux_ongoing__e_egress_s_out,aux_ongoing__es_egress_update_metadata)
 
-    let aux_sessioninit__e_egress_establishing_s_out (this_port_out, _) e_local_to =  
+    let aux_sessioninit__e_egress_establishing_s_out (this_port_out_egress, this_port_out_ingress, _, _) e_local_to =  
         e2_e (CallExpr(
             e2var (Atom.builtin "initiate_session_with"),
             [
-                e2_e (AccessExpr( e2_e This, e2var this_port_out));
+                e2_e (AccessExpr( e2_e This, e2var this_port_out_egress));
                 e_local_to;
             ]
         ))
@@ -1262,16 +1193,114 @@ module Make (Args: TArgs) = struct
             (auto_fplace(DocComment "******************** Egress Block ********************"))
         )))))
         :: List.flatten(
-            List.map (function ((b_intercepted, _, b_mt), (this_port_out, this_port_in, this_b_out, this_b_in, _)) ->
+            List.map (function ((b_intercepted, _, b_mt), (this_port_out_egress, this_port_out_ingress, this_port_in_egress, this_port_in_ingress, this_b_out, this_b_in, _)) ->
                 if Bool.not (has_kind_egress interceptor_info b_mt) then []
                 else begin
                     auto_fplace (auto_plgannot(Term (auto_fplace (auto_plgannot(Comments
                         (auto_fplace(DocComment (Printf.sprintf "*** Egress Block for bridge [%s] ***" (Atom.to_string b_intercepted))))))
                     )))
-                    :: (generate_egress_block_per_intercepted_bridge interceptor_info  msg_interceptors session_interceptors b_intercepted this_port_out this_port_in this_b_out this_b_in b_mt) 
+                    :: (generate_egress_block_per_intercepted_bridge interceptor_info  msg_interceptors session_interceptors b_intercepted this_port_out_egress this_port_out_ingress this_port_in_egress this_port_in_ingress this_b_out this_b_in b_mt) 
                 end
             ) (List.combine interceptor_info.inout_bridges_info (Option.get interceptor_info.inout_statebridges_info)) 
         )
+
+    (*************** Step 5 - Onstartup generation ******************)
+
+    let generate_onstartup interceptor_info citems = 
+        (*** Collect intells ***)
+        let base_onstartup_opt = List.find_opt (function | {value={v=Method m}} -> m.value.on_startup | _ -> false) citems in
+        let base_onstartup_opt = Option.map (function | {value={v=Method m}} -> m) base_onstartup_opt in
+        let citems_wo_onstartup = List.filter (function | {value={v=Method m}} -> Bool.not m.value.on_startup | _ -> true) citems in 
+
+        (*** Create onstartup ***)
+        let param_b_onboarding, e_param_b_onboarding = e_param_of "b_onboarding" in
+        let onstartup_params_inout = (List.map (function (_, _, b_mt) -> 
+                (Atom.fresh "param_b_out", Atom.fresh "param_b_in", b_mt) 
+        ) interceptor_info.inout_bridges_info) in
+        let onstartup_params = 
+            auto_fplace (interceptor_info.onboard_info.b_onboard_mt, param_b_onboarding)
+            ::
+            (List.flatten (List.map (function (param_b_out, param_b_in, b_mt) -> 
+                [
+                    auto_fplace (b_mt, param_b_out);
+                    auto_fplace (b_mt, param_b_in);
+                ]) onstartup_params_inout)
+            )
+            @ (match base_onstartup_opt with
+                | None -> []
+                | Some m -> m.value.args 
+            )
+        in
+
+        let aux ((_, _, _, _, this_b_out, this_b_in, _), ( param_b_out, param_b_in, _)) = 
+            auto_fplace (AssignThisExpr(
+                this_b_out, 
+                e2var param_b_out
+            ))::
+            auto_fplace (AssignThisExpr(
+                this_b_in, 
+                e2var param_b_in 
+            ))::
+            (List.map (function this_outport_name ->
+                auto_fplace (ExpressionStmt(
+                    e2_e (CallExpr(
+                        e2var (Atom.builtin "bind"),
+                        [ 
+                            e2var this_outport_name;    
+                            e2var param_b_out 
+                        ]
+                    ))
+                ))
+            ) (List.of_seq (Hashtbl.to_seq_keys used_outports))) @
+            (List.map (function this_inport_name ->
+                auto_fplace (ExpressionStmt(
+                    e2_e (CallExpr(
+                        e2var (Atom.builtin "bind"),
+                        [ 
+                            e2var this_inport_name;    
+                            e2var param_b_in 
+                        ]
+                    ))
+                ))
+            ) (List.of_seq (Hashtbl.to_seq_keys used_inports)))
+        in
+
+        let onstartup = auto_fplace (auto_plgannot(Method (auto_fplace {
+            annotations = (match base_onstartup_opt with Some m -> m.value.annotations | _ -> []);
+            ghost = false;
+            ret_type = mtype_of_ft TVoid;
+            name = Atom.fresh "onstartup"; 
+            args = onstartup_params;
+            contract_opt = None;
+            body = 
+            auto_fplace (AssignThisExpr(
+                Option.get interceptor_info.b_onboard_state,
+                e2var param_b_onboarding
+            ))
+            ::
+            auto_fplace (ExpressionStmt(
+                e2_e (CallExpr(
+                    e2var (Atom.builtin "bind"),
+                    [ 
+                        e2var (Option.get interceptor_info.this_port_onboard);
+                        e2var param_b_onboarding 
+                    ]
+                ))
+            ))
+            ::
+            (List.flatten(List.map aux (List.combine (Option.get interceptor_info.inout_statebridges_info) onstartup_params_inout)))
+            @ (
+                match base_onstartup_opt with
+                | None -> []
+                | Some m -> m.value.body
+            );
+            on_startup = true;
+            on_destroy = false;
+        }))) in
+
+        (*** Retrun citems ***)
+        onstartup :: citems_wo_onstartup
+
 
 
     (*************** Interception Elimination ******************)
@@ -1290,6 +1319,7 @@ module Make (Args: TArgs) = struct
 
         let ingress_block = generate_ingress_block interceptor_info base_interceptor in
         let egress_block = generate_egress_block interceptor_info base_interceptor in
+        let inlined_onstartup_block = generate_onstartup interceptor_info inlined_onstartup_block in
 
         Component (auto_fplace (ComponentStructure {
             target_name = SameAs base_interceptor.name; 

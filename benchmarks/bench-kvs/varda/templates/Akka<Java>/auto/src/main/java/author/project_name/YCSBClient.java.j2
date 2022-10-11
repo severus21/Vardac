@@ -52,6 +52,10 @@ public class YCSBClient extends DB {
         } catch (Exception e) {
             throw new DBException("Could not create {{grpc_client}} object.", e);
         }
+
+        try{
+            Thread.sleep(5000);
+        }catch(InterruptedException e) {}
     }
 
     /**
