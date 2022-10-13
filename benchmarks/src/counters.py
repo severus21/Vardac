@@ -1,11 +1,11 @@
 from collections import defaultdict
-from email.policy import default
 from src.settings import * 
 from src.utils import *
 from checksumdir import dirhash
 import subprocess
 import json
 from abc import ABC, abstractmethod
+import glob
 
 class Counter(ABC):
     def __init__(self, name, target) -> None:
@@ -39,6 +39,44 @@ class Counter(ABC):
         self.count()
         self.stamp()
         self.export()
+
+
+class CallbackCounter(Counter):
+    SUFFIX = "cb"
+    EXTS = [] 
+    TOKENS = []
+    "returns the number of user-defined callbacks"
+    def __init__(self, name, target) -> None:
+        super().__init__(name, target)
+        self.counter = 0
+        self.suffix = self.SUFFIX
+
+    def count(self):
+        for ext in self.EXTS:
+            for filename in glob.glob(ext, root_dir=self.target, recursive=True):
+                path = os.path.join(self.target, filename)
+                with open(path, "r") as fp:
+                    for line in fp:
+                        for token in self.TOKENS:
+                            if token in line: 
+                                self.counter += 1
+    
+    def export(self):
+        with open(COUNTSDIR/f"{normalize_path(self.name)+'-'+self.suffix}.json", "w") as f:
+            json.dump(self.counter, f)
+
+        with open(COUNTSDIR/f"{normalize_path('loc-'+self.name)}-{self.suffix}.tex", "w") as f:
+            f.write(f"\\newcommand{{\\loc{LoCCounter.normalize_tex_var(self.name+'-'+self.suffix)}}}{{ {self.counter} }}")
+
+
+
+class VardaCallbackCounter(CallbackCounter):
+    EXTS = ["**/*.varch"]
+    TOKENS = ["inport", "eport"]
+
+class AkkaCallbackCounter(CallbackCounter):
+    EXTS = ["**/*.java"]
+    TOKENS = ["onMessage"]
 
 class LoCCounter(Counter):
     """

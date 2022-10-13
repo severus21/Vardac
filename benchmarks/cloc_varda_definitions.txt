@@ -170,3 +170,20 @@ XML
     extension xul
     extension zcml
     3rd_gen_scale 1.90
+YAML
+    filter remove_matches ^\s*#
+    filter remove_inline #.*$
+    extension clang-format
+    extension clang-tidy
+    extension gemrc
+    extension glide.lock
+    extension mir
+    extension reek
+    extension rviz
+    extension sublime-syntax
+    extension syntax
+    extension yaml
+    extension yaml-tmlanguage
+    extension yml
+    extension yml.mysql
+    3rd_gen_scale 0.90
