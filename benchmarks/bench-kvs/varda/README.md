@@ -1,7 +1,7 @@
 * Scenario 1 : without redis
     1. Generate code
         ```bash
-        1> make run -- compile --places benchmarks/bench-kvs/places.yml --targets benchmarks/bench-kvs/targets.yml --filename benchmarks/bench-kvs/kv.varch --impl benchmarks/bench-kvs/kv-wo-redis.vimpl --provenance 0
+        1> make run -- compile --places benchmarks/bench-kvs/varda/places.yml --targets benchmarks/bench-kvs/varda/targets.yml --filename benchmarks/bench-kvs/varda/kv.varch --impl benchmarks/bench-kvs/varda/kv-wo-redis.vimpl --provenance 0
         ```
     1. ```1> cd compiler-build/akka```
     1. Build artifacts
@@ -36,7 +36,7 @@
 2. Scenario 2 : with redis
     1. Generate code
         ```bash
-        1> make run -- compile --places benchmarks/bench-kvs/places.yml --targets benchmarks/bench-kvs/targets.yml --filename benchmarks/bench-kvs/kv.varch --impl benchmarks/bench-kvs/kv-redis.vimpl --provenance 0
+        1> make run -- compile --places benchmarks/bench-kvs/varda/places.yml --targets benchmarks/bench-kvs/varda/targets.yml --filename benchmarks/bench-kvs/varda/kv.varch --impl benchmarks/bench-kvs/varda/kv-redis.vimpl --provenance 0
         ```
     1. ```1> cd compiler-build/akka```
     1. 

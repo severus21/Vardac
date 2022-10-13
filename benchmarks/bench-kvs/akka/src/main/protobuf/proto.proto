@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "author.project_name.grpc";
+option java_outer_classname = "Project_nameProto";
+
+package author.project_name;
+
+
+service KVProtoService {
+    rpc get (ProtoGetResponse) returns (ProtoGetRequest){}
+    rpc put (ProtoPutResponse) returns (ProtoPutRequest){}
+}
+
+message ProtoGetRequest {
+    string key = 1;
+    
+}
+
+message ProtoGetResponse {
+    string key = 1;
+    string value = 2;
+}
+
+message ProtoPutRequest {
+    string key = 1;
+    string value = 2;
+}
+
+message ProtoPutResponse {
+    string key = 1;
+    bool flag = 2;
+}
