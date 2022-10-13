@@ -22,4 +22,12 @@ COUNTS = [
     # KVS
     LoCCounter("kvs-varda", BENCHMARKS_DIR/"bench-kvs/varda", VARDA_EXPORT),
     VardaCallbackCounter("kvs-varda", BENCHMARKS_DIR/"bench-kvs/varda"),
+    LoCCounter("kvs-akka", BENCHMARKS_DIR/"bench-kvs/akka", AKKA_EXPORT),
+    AkkaCallbackCounter("kvs-akka", BENCHMARKS_DIR/"bench-kvs/akka"),
+
+    # KVS with loadbalancer
+    LoCCounter("lkvs-varda", BENCHMARKS_DIR/"bench-kvs/varda", VARDA_EXPORT),
+    VardaCallbackCounter("lkvs-varda", BENCHMARKS_DIR/"bench-kvs/varda"),
+    LoCCounter("lkvs-akka", BENCHMARKS_DIR/"bench-kvs/akka", AKKA_EXPORT),
+    AkkaCallbackCounter("lkvs-akka", BENCHMARKS_DIR/"bench-kvs/akka"),
 ]
