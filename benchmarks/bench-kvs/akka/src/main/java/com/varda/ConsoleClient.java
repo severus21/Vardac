@@ -1,5 +1,7 @@
 package com.varda;
 
+//#cloc-exclude
+
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;

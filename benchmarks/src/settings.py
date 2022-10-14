@@ -31,6 +31,7 @@ if DEFAULT_DOCKER_REMOTE:
 
 CLOC_DEFINITIONS = Path(__file__).parent.parent / "cloc_varda_definitions.txt"
 CLOC_EXCLUDES = Path(__file__).parent.parent / "cloc_exclude_list.txt"
+CLOC_EXCLUDE_TOKEN = "#cloc-exclude"
 COUNTSDIR = Path(__file__).parent.parent /'counts'
 
 assert(os.path.isfile(CLOC_DEFINITIONS))

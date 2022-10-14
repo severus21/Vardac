@@ -91,7 +91,7 @@ class LoCCounter(Counter):
 
     def count(self):
         res = subprocess.run(
-            f"cloc . --json --force-lang-def={CLOC_DEFINITIONS} --exclude-list-file={CLOC_EXCLUDES}", 
+            f"cloc . --json --force-lang-def={CLOC_DEFINITIONS} --exclude-list-file={CLOC_EXCLUDES} --exclude-content={CLOC_EXCLUDE_TOKEN}", 
             capture_output=True, 
             encoding='utf-8',
             shell=True,

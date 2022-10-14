@@ -1,8 +1,10 @@
 package com.varda.objectsize;
-import java.lang.instrument.Instrumentation;
 
-import akka.serialization.*;
+//#cloc-exclude
+
 import akka.actor.typed.ActorSystem;
+import akka.serialization.*;
+import java.lang.instrument.Instrumentation;
 
 public class InstrumentationAgent {
     private static volatile Instrumentation globalInstrumentation;
