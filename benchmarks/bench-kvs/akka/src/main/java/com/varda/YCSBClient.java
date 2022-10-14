@@ -97,6 +97,7 @@ public class YCSBClient extends DB {
             final Boolean flag = client.put(key, encode(values));
             return flag ? Status.OK : Status.ERROR;
         } catch (Exception e) {
+            System.out.println("Error inserting "+e);
             if (log.isErrorEnabled()) {
                 log.error("Could not insert value for key " + key, e);
             }

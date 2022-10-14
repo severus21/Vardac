@@ -1,8 +1,13 @@
 package com.varda;
 
-
+import akka.actor.typed.ActorRef;
 import akka.actor.typed.ActorSystem;
+import akka.actor.typed.Behavior;
+import akka.actor.typed.javadsl.*;
 import org.apache.commons.cli.*;
+import com.typesafe.config.Config;
+
+import akka.actor.typed.receptionist.Receptionist;
 
 public class KVStore {
 
@@ -16,15 +21,7 @@ public class KVStore {
 
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
-        CommandLine cmd = null;
-
-        try {
-            cmd = parser.parse(options, args);
-        } catch (ParseException e) {
-            System.out.println(e.getMessage());
-            formatter.printHelp("g", options);
-            System.exit(1);
-        }
+        CommandLine cmd = AbstractMain.get_cmd(options, args)._1;
 
         assert (null != cmd);
         if(!cmd.hasOption("n") || !cmd.hasOption("warmup") ){
@@ -33,25 +30,45 @@ public class KVStore {
             System.exit(1);
         }
 
-		int nIterations = Integer.parseInt(cmd.getOptionValue("n"));
-		int nWarmupIterations = Integer.parseInt(cmd.getOptionValue("warmup"));
+		int limit = Integer.parseInt(cmd.getOptionValue("n"));
+		int limitWarmup = Integer.parseInt(cmd.getOptionValue("warmup"));
 
-
-		run(nIterations, nWarmupIterations);
-	}
-
-	public static void run(int limit, int limitWarmup) throws InterruptedException {
         System.out.println("KVClientKVShard SERVICE STARTED");
 		final ActorSystem system = ActorSystem.create(
-			ClientActor.create(
-				context -> context.spawn(ShardActor.create(), "runner"),
-				limit, limitWarmup), 
-			AbstractMain.SYSTEM_NAME);
+			KVSystem.create(limit, limitWarmup), 
+			AbstractMain.SYSTEM_NAME, 
+            AbstractMain.get_config(cmd));
 
-		system.getWhenTerminated().toCompletableFuture().join();
+        if( limit > 0)
+            system.getWhenTerminated().toCompletableFuture().join();
 	}
 	
-	
+    static class KVSystem extends AbstractBehavior<KVCommand.Command> {
+        static public Behavior<KVCommand.Command> create(int limit, int limitWarmup) {
+            System.out.println(("Creating KVSystem"));
+            return Behaviors.setup(context -> new KVSystem(context, limit, limitWarmup));
+        }
 
-	
+        int limit;
+        int limitWarmup;
+
+        public KVSystem(ActorContext context, int limit, int limitWarmup){
+            super(context);
+            this.limit = limit;
+            this.limitWarmup = limitWarmup;
+
+            System.out.println(("Starting KVSystem"));
+            ActorRef<KVCommand.Command> shard = context.spawn(ShardActor.create(), "shard-1");
+            context.getSystem().receptionist().tell(Receptionist.register(KVCommand.SERVICE_KEY, shard));
+
+
+            ActorRef<KVCommand.Command> client = this.getContext().spawn(ClientActor.create(shard, this.limit, this.limitWarmup), "client");
+
+        }
+
+        @Override
+        public Receive<KVCommand.Command> createReceive() {
+            return newReceiveBuilder().build();
+        }
+    } 
 }

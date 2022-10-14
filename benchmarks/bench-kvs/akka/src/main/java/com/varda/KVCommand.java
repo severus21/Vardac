@@ -1,10 +1,14 @@
 package com.varda;
 
 import akka.actor.typed.ActorRef;
-
+import akka.actor.typed.receptionist.Receptionist;
+import akka.actor.typed.receptionist.ServiceKey;
 public class KVCommand {
+    public static final ServiceKey<Command> SERVICE_KEY
+            = ServiceKey.create(Command.class, "key");
 
-	public interface Command {}
+
+	public interface Command extends CborSerializable {}
 
     public static class RegisterShardRequest implements  Command {
         public ActorRef<Command> shard;

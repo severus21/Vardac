@@ -132,15 +132,16 @@ FIGURES = [
         "YCSB",
         [("threads", "Throughput"), ("threads", "Avg Update Latency"), ("threads", "Avg Read Latency")],
         lambda: {
-            'YSCB-a' : [
-                ("redis", Bench.objects.filter(name="ycsb-redis").order_by('-pk')[0].results.all()),
-                ("kvs-redis", Bench.objects.filter(name="ycsb-kvs-varda-redis").order_by('-pk')[0].results.all()),
-                ("kvs-inmemory", Bench.objects.filter(name="ycsb-kvs-varda-inmemory").order_by('-pk')[0].results.all()),
-            ],
+            #'YSCB-a' : [
+            #    ("redis", Bench.objects.filter(name="ycsb-redis").order_by('-pk')[0].results.all()),
+            #    ("kvs-redis", Bench.objects.filter(name="ycsb-kvs-varda-redis").order_by('-pk')[0].results.all()),
+            #    ("kvs-inmemory", Bench.objects.filter(name="ycsb-kvs-varda-inmemory").order_by('-pk')[0].results.all()),
+            #],
             'YSCB-b' : [
                 ("redis", Bench.objects.filter(name="ycsb-b-redis").order_by('-pk')[0].results.all()),
                 ("kvs-redis", Bench.objects.filter(name="ycsb-b-kvs-varda-redis").order_by('-pk')[0].results.all()),
-                ("kvs-inmemory", Bench.objects.filter(name="ycsb-b-kvs-varda-inmemory").order_by('-pk')[0].results.all()),
+                ("kvs-varda-inmemory", Bench.objects.filter(name="ycsb-b-kvs-varda-inmemory").order_by('-pk')[0].results.all()),
+                ("kvs-akka-inmemory", Bench.objects.filter(name="ycsb-b-kvs-akka-inmemory").order_by('-pk')[0].results.all()),
         ]},
         selector    = (lambda x : x['workload'] == "workloada" or x['workload'] == "workloadb"),
     ) 

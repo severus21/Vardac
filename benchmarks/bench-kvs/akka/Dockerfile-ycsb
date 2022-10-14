@@ -1,0 +1,17 @@
+FROM maven:3.8.6-jdk-11 AS build_ycsb
+RUN git clone https://github.com/brianfrankcooper/YCSB.git
+RUN cd YCSB && mn -pl site.ycsb:couchbase-binding -am clean package
+
+FROM gradle:7.1.1-jdk11 AS build_varda
+COPY . /home/gradle/src
+WORKDIR /home/gradle/src
+RUN gradle wrapper  && ./gradlew build -x test && gradle -x test jarYCSBClient
+
+FROM openjdk:11.0.13-jre-buster
+RUN wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh -O /bin/wait-for-it.sh && chmod u+x /bin/wait-for-it.sh
+COPY --from=build_varda /home/gradle/src/build/libs/* /data/
+COPY --from=build_ycsb YCSB /data/
+WORKDIR /data
+RUN wget https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.12/grpc_health_probe-linux-amd64 && chmod +x grpc_health_probe-linux-amd64 && mv grpc_health_probe-linux-amd64 grpc_health_probe
+ENTRYPOINT [ "/bin/bash", "-l", "-c" ]
+#CMD ["--help"]

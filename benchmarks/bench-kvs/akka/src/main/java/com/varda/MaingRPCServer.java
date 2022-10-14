@@ -27,7 +27,7 @@ class MaingRPCServer  extends AbstractBehavior<KVCommand.Command> {
         // Akka ActorSystem Boot
         ActorSystem sys = ActorSystem.create(
             MaingRPCServer.create(), 
-            "systemProject_name",
+            "systemAkkaBench",
             conf);
 
         run(sys).thenAccept(binding -> {

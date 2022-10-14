@@ -123,6 +123,15 @@ public class ConsoleClient {
                     } else {
                         terminal.writer().println("Usage: get <string>");
                     }
+                } else if ("delete".equals(pl.word())) {
+                    checkState(currentState, true);
+
+                    if (pl.words().size() == 2) {
+                        String key = pl.words().get(1);
+                        terminal.writer().println("delete: "+currentState.grpcClient.delete(key));
+                    } else {
+                        terminal.writer().println("Usage: delete <string>");
+                    }
                 } else if ("put".equals(pl.word())) {
                     checkState(currentState, true);
 

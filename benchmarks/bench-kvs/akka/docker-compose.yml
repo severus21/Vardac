@@ -1,0 +1,80 @@
+version: "3"
+
+services:
+  redis:
+    hostname: redis
+    image: 'bitnami/redis:latest'
+    environment:
+      ALLOW_EMPTY_PASSWORD: "yes"
+      REDIS_PORT_NUMBER: 6379
+    expose:
+      - 6379
+    ports:
+      - 6379:6379/tcp
+
+  server-seed: #seed node
+    # hostname is needed to define a known docker hostname that is used as the seed hostname.
+    hostname: server-seed
+    build: .
+    image: bench_kvs_akka
+    ports:
+      - "8080:8080/tcp"
+      - "25520:25520/tcp"
+    environment:
+      TZ: 'Europe/Paris'
+      REDIS_ADDR: redis
+      REDIS_PORT: 6379
+    entrypoint: []
+    command: [
+      "/bin/wait-for-it.sh", "redis:6379",
+      "--",
+      "/usr/local/openjdk-11/bin/java",
+      "-jar", "lmain.jar",
+      "-p", "25520",
+      "-s", "\"akka://systemAkkaBench@server-seed:25520\"",
+      "-n", "0",
+      "-warmup", "0",
+    ]
+
+  gateway:
+    hostname: gateway
+    build: .
+    image: bench_kvs_akka
+    ports:
+      - 8090:8090
+    expose:
+      - 8090
+    entrypoint: []
+    command: [
+      "/usr/local/openjdk-11/bin/java",
+      "-jar", "gRPCServer.jar",
+      "-p", "25521", 
+      "-s", "\"akka://systemAkkaBench@server-seed:25520\"",
+    ]
+    depends_on:
+      - "server-seed"
+
+  #console: 
+  #  hostname: console
+  #  build:
+  #    context: .
+  #    dockerfile: ./Dockerfile-console
+  #  image: bench_kvs_console
+  #  entrypoint: []
+  #  command: [
+  #    "/usr/local/openjdk-11/bin/java",
+  #    "-jar", "console.jar"
+  #  ]
+  #  depends_on:
+  #    - "gateway"
+
+  #loadgenerator:
+  #  hostname: loadgenerator
+  #  build:
+  #    context: .
+  #    dockerfile: ./Dockerfile-ycsb
+  #  image: {{project_name}}-loadgenerator
+  #  entrypoint: []
+  #  command: []
+  #  depends_on:
+  #    - "gateway"

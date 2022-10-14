@@ -479,7 +479,7 @@ BENCHMARKS = [
         ],
         Generator(RangeIterator({
             "threads": range(1, 2).__iter__(),
-            "workload": ["workloada"].__iter__(),
+            "workload": ["workloadb"].__iter__(),
         }), 3)
     ),
     Benchmark(
@@ -512,7 +512,7 @@ BENCHMARKS = [
         ],
         Generator(RangeIterator({
             "threads": range(1, 2).__iter__(),
-            "workload": ["workloada"].__iter__(),
+            "workload": ["workloadb"].__iter__(),
         }), 3)
     ),
     Benchmark(
@@ -538,7 +538,28 @@ BENCHMARKS = [
         ],
         Generator(RangeIterator({
             "threads": range(1, 2).__iter__(),
-            "workload": ["workloada"].__iter__(),
+            "workload": ["workloadb"].__iter__(),
+        }), 3)
+    ),
+    Benchmark(
+        "ycsb-b-kvs-akka-inmemory",
+        DockerComposeBuilder(
+            BENCHMARKS_DIR/"bench-kvs"/"akka",
+            BENCHMARKS_DIR/"bench-kvs"/"akka"),
+        ShellRunnerFactory(
+            f"java -classpath build/libs/YCSBClient.jar:{{{{env.YCSB}}}}/conf:{{{{env.YCSB}}}}/lib/HdrHistogram-2.1.4.jar:{{{{env.YCSB}}}}/lib/core-0.17.0.jar:{{{{env.YCSB}}}}/lib/htrace-core4-4.1.0-incubating.jar:{{{{env.YCSB}}}}/lib/jackson-core-asl-1.9.4.jar:{{{{env.YCSB}}}}/lib/jackson-mapper-asl-1.9.4.jar:{{{{env.YCSB}}}}/redis-binding/lib/commons-pool2-2.4.2.jar:{{{{env.YCSB}}}}/redis-binding/lib/jedis-2.9.0.jar:{{{{env.YCSB}}}}/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db com.varda.YCSBClient -s -P {{{{env.YCSB}}}}/workloads/workloadb > /tmp/ycsb-results",
+            BENCHMARKS_DIR/"bench-kvs"/"akka",
+            "Terminated ueyiqu8R",
+            environment = {
+                'YCSB': BENCHMARKS_DIR/"ycsb-0.17.0"
+            }
+        ),
+        [
+            FileCollector("/tmp/ycsb-results", get_ycsb_result),
+        ],
+        Generator(RangeIterator({
+            "threads": range(1, 2).__iter__(),
+            "workload": ["workloadb"].__iter__(),
         }), 3)
     ),
 ]

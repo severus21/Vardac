@@ -45,55 +45,48 @@ import akka.cluster.typed.Cluster;
 import akka.actor.typed.receptionist.ServiceKey;
 import com.varda.grpc.*;
 
+import akka.actor.typed.receptionist.Receptionist;
+import akka.actor.typed.receptionist.ServiceKey;
+
 class KVProtoServiceImpl implements KVProtoService {
    final public ActorSystem system;
-   final public ActorRef actor;
+   public ActorRef actor;
    
-    public ActorRef getActor(int retry) {
+    public void getActor() {
         assert (null != system);
 
-        int DEFAULT_MAX_RETRY = 5;
-        long DEFAULT_RETRY_TIMEOUT = 500;   // in ms
-        Duration DEFAULT_TIMEOUT = Duration.ofSeconds(3);
+        while(actor == null){
+            try {
+                Thread.sleep(50);
+                System.out.println("\nwaiting for detection\n");
+                CompletionStage<Receptionist.Listing> result =
+                AskPattern.ask(system.receptionist(),
+                        (ActorRef<Receptionist.Listing> replyTo) -> Receptionist.find(KVCommand.SERVICE_KEY, replyTo),
+                        Duration.ofSeconds(10),
+                        system.scheduler());
 
-        ActorRef actor = null;
+                Set<ActorRef<KVCommand.Command>> listing = result.toCompletableFuture().get().getServiceInstances(KVCommand.SERVICE_KEY);
 
-        try {
-            // blocking call
-            Set<ActorRef> listing = PlaceDiscovery.activationsAt(this.system, "front");
-            if (listing.isEmpty()) {
-                if (++retry < DEFAULT_MAX_RETRY + 1) {
-                    final long timeout = DEFAULT_RETRY_TIMEOUT * retry;
-                    system.log().info("KVProtoServiceImpl::getActor() retry " + retry + "/" + DEFAULT_MAX_RETRY + ", timeout=" + timeout);
-                    // sleep and retry
-                    Thread.sleep(timeout);
-                    return getActor(retry);
-                } else {
-                    throw new RuntimeException("Could not find systemProject_name after " + DEFAULT_MAX_RETRY + " retries.");
+                for(ActorRef a: listing){
+                    this.actor = a;
                 }
-            } else {
-                actor = listing.iterator().next();    // TODO: if more than 1 result, use closest
-                system.log().info("KVProtoServiceImpl::getActor(): found Client26 " + actor +
-                        " out of " + listing.size());
+            } catch (java.lang.Exception e) {
+                System.out.println(e);
             }
-        } catch (java.lang.InterruptedException e) {
-            assert(false);
-            //TODO
         }
-
-        return actor;
-                                                    
    }
    
    public KVProtoServiceImpl(ActorSystem system) {
         this.system = system;
-        this.actor = this.getActor(0);
+        this.getActor();
                                                 
    }
 
    @Override 
    public CompletionStage<ProtoGetResponse> get(
     ProtoGetRequest in) {
+        if( this.actor == null)
+            this.getActor();
         assert(this.actor != null);
                                 
         Function<KVCommand.GetResult,  ProtoGetResponse> unpack = 
@@ -115,6 +108,8 @@ class KVProtoServiceImpl implements KVProtoService {
    @Override 
    public CompletionStage<ProtoDeleteResponse> delete(
     ProtoDeleteRequest in) {
+        if( this.actor == null)
+            this.getActor();
         assert(this.actor != null);
                                 
         Function<KVCommand.DeleteResult,  ProtoDeleteResponse> unpack = 
@@ -136,6 +131,8 @@ class KVProtoServiceImpl implements KVProtoService {
    @Override 
    public CompletionStage<ProtoPutResponse> put(
     ProtoPutRequest in) {
+        if( this.actor == null)
+            this.getActor();
         assert(this.actor != null);
                                 
         Function<KVCommand.PutResult,  ProtoPutResponse> unpack = 
