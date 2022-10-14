@@ -13,7 +13,13 @@ build_clientService:
 build_shardService:
 	gradle -x test jarGetResultService jarInstrumentationAgent
 
-build: protobuf  build_main build_lmain build_clientService build_shardService
+build_gRPCServer:
+	gradle -x test jarGRPCServer  jarInstrumentationAgent
+
+build_console:
+	gradle -x test jarConsole  jarInstrumentationAgent
+
+build: protobuf  build_main build_lmain build_clientService build_shardService build_gRPCServer build_console
 
 .PHONY:protobuf
 protobuf:

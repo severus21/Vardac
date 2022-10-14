@@ -23,6 +23,11 @@ public class ShardActor extends AbstractBehavior<KVCommand.Command> {
             return tmp;
     }
 
+    boolean inner_delete(String key){
+        this.inner_state.remove(key);
+        return true;
+    }
+
     Boolean inner_put(String key, String value){
         this.inner_state.put(key, value);
         return true;
@@ -49,6 +54,7 @@ public class ShardActor extends AbstractBehavior<KVCommand.Command> {
     public Receive<Command> createReceive() {
         return newReceiveBuilder()
             .onMessage(GetRequest.class, this::onGetRequest)
+            .onMessage(DeleteRequest.class, this::onDeleteRequest)
             .onMessage(PutRequest.class, this::onPutRequest)
             .build();
     }
@@ -57,6 +63,13 @@ public class ShardActor extends AbstractBehavior<KVCommand.Command> {
         System.out.println("processing get at "+this.getContext().getSelf().path());
         String value = this.inner_get(msg.key);
         msg.replyTo.tell(new KVCommand.GetResult(msg.key, value, getContext().getSelf(), msg.initTimestamp));
+        return Behaviors.same();
+    }
+
+    private Behavior<Command> onDeleteRequest(DeleteRequest msg) {
+        System.out.println("processing delete at "+this.getContext().getSelf().path());
+        boolean flag = this.inner_delete(msg.key);
+        msg.replyTo.tell(new KVCommand.DeleteResult(msg.key, flag, getContext().getSelf(), msg.initTimestamp));
         return Behaviors.same();
     }
 

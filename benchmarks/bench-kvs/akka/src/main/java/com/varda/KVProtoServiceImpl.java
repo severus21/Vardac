@@ -39,8 +39,6 @@ import akka.actor.typed.javadsl.AskPattern;
 import io.vavr.*;
 import io.vavr.control.*;
 import com.varda.*;
-import com.varda.timers.*;
-import com.bmartin.*;
 
 import akka.actor.typed.Props;
 import akka.cluster.typed.Cluster;
@@ -62,20 +60,20 @@ class KVProtoServiceImpl implements KVProtoService {
 
         try {
             // blocking call
-            Set<ActivationRef> listing = PlaceDiscovery.activationsAt(this.system, Client26.class);
+            Set<ActorRef> listing = PlaceDiscovery.activationsAt(this.system, "front");
             if (listing.isEmpty()) {
-                if (++retry504 < DEFAULT_MAX_RETRY + 1) {
-                    final long timeout = DEFAULT_RETRY_TIMEOUT * retry504;
-                    system503.log().info("ClientServiceImpl453::getActor() retry " + retry504 + "/" + DEFAULT_MAX_RETRY + ", timeout=" + timeout);
+                if (++retry < DEFAULT_MAX_RETRY + 1) {
+                    final long timeout = DEFAULT_RETRY_TIMEOUT * retry;
+                    system.log().info("KVProtoServiceImpl::getActor() retry " + retry + "/" + DEFAULT_MAX_RETRY + ", timeout=" + timeout);
                     // sleep and retry
                     Thread.sleep(timeout);
-                    return getActor502(system503, retry504);
+                    return getActor(retry);
                 } else {
                     throw new RuntimeException("Could not find systemProject_name after " + DEFAULT_MAX_RETRY + " retries.");
                 }
             } else {
-                actor = listing.iterator().next().actorRef;    // TODO: if more than 1 result, use closest
-                system.log().info("ClientServiceImpl453::getActor(): found Client26 " + actor +
+                actor = listing.iterator().next();    // TODO: if more than 1 result, use closest
+                system.log().info("KVProtoServiceImpl::getActor(): found Client26 " + actor +
                         " out of " + listing.size());
             }
         } catch (java.lang.InterruptedException e) {
@@ -92,43 +90,69 @@ class KVProtoServiceImpl implements KVProtoService {
         this.actor = this.getActor(0);
                                                 
    }
+
    @Override 
    public CompletionStage<ProtoGetResponse> get(
-    ProtoGetRequest in457) {
-        assert(this.actor455 != null);
+    ProtoGetRequest in) {
+        assert(this.actor != null);
                                 
-        Function<author.project_name.Stage2235.Actor2Service462,  ProtoMsgOut435> unpack463 = 
-        ( (author.project_name.Stage2235.Actor2Service462 message458) -> { return ProtoMsgOut435.newBuilder().
-        setRetValue434(message458._0_()).build(); } );
+        Function<KVCommand.GetResult,  ProtoGetResponse> unpack = 
+        ( (KVCommand.GetResult msg) -> ProtoGetResponse.newBuilder().
+        setKey(msg.key).setValue(msg.value).build() );
         return AskPattern.ask(
-                                this.actor455, 
-                                ( ( replyToActor464) -> { return new 
-                                author.project_name.Stage2235.Service2Actor460(
-                                
-                                in457.getK430(), 
-                                in457.getV431(), 
-                                replyToActor464); } ), 
-                                Duration.ofSeconds(5), 
-                                this.system454.scheduler()).thenApply(
-                unpack463);
+            this.actor, 
+            ( ( replyToActor) -> { return new 
+                KVCommand.GetRequest(
+                    in.getKey(), 
+                    replyToActor,
+                    0); } ), 
+                    Duration.ofSeconds(5), 
+                    this.system.scheduler()
+                ).thenApply(
+                unpack);
     }
 
-    @Override 
-    public CompletionStage<ProtoPutResponse> put(ProtoGetResponse in473) {
+   @Override 
+   public CompletionStage<ProtoDeleteResponse> delete(
+    ProtoDeleteRequest in) {
         assert(this.actor != null);
-                                    
-        Function<author.project_name.Stage2235.Actor2Service478,  ProtoMsgOut447> unpack479 = 
-        ( (author.project_name.Stage2235.Actor2Service478 message474) -> { return ProtoMsgOut447.newBuilder().
-        setRetValue446(message474._0_()).build(); } );
-        return AskPattern.ask(
-                                this.actor455, 
-                                ( ( replyToActor480) -> { return new 
-                                author.project_name.Stage2235.Service2Actor476(
                                 
-                                in473.getK443(), 
-                                replyToActor480); } ), 
-                                Duration.ofSeconds(5), 
-                                this.system454.scheduler()).thenApply(
-                unpack479);
+        Function<KVCommand.DeleteResult,  ProtoDeleteResponse> unpack = 
+        ( (KVCommand.DeleteResult msg) -> ProtoDeleteResponse.newBuilder().
+        setKey(msg.key).setFlag(msg.flag).build() );
+        return AskPattern.ask(
+            this.actor, 
+            ( ( replyToActor) -> { return new 
+                KVCommand.DeleteRequest(
+                    in.getKey(), 
+                    replyToActor,
+                    0); } ), 
+                    Duration.ofSeconds(5), 
+                    this.system.scheduler()
+                ).thenApply(
+                unpack);
     }
+
+   @Override 
+   public CompletionStage<ProtoPutResponse> put(
+    ProtoPutRequest in) {
+        assert(this.actor != null);
+                                
+        Function<KVCommand.PutResult,  ProtoPutResponse> unpack = 
+        ( (KVCommand.PutResult msg) -> ProtoPutResponse.newBuilder().
+        setKey(msg.key).setFlag(msg.flag).build() );
+        return AskPattern.ask(
+            this.actor, 
+            ( ( replyToActor) -> { return new 
+                KVCommand.PutRequest(
+                    in.getKey(), 
+                    in.getValue(),
+                    replyToActor,
+                    0); } ), 
+                    Duration.ofSeconds(5), 
+                    this.system.scheduler()
+                ).thenApply(
+                unpack);
+    }
+
 }

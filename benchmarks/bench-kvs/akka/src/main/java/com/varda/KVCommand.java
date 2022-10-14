@@ -43,6 +43,30 @@ public class KVCommand {
 		}
 	}
 
+	static public class DeleteRequest implements Command {
+		public String key;
+		public ActorRef replyTo;/* #bench */
+		public long initTimestamp;
+		public DeleteRequest(String key, ActorRef replyTo, long initTimestamp){
+			this.key = key;
+			this.replyTo = replyTo;
+			this.initTimestamp = initTimestamp;
+		}
+	}
+
+	static public class DeleteResult implements Command {
+		public String key;
+		public boolean flag;
+		public ActorRef replyTo;
+		public long initTimestamp;
+		public DeleteResult(String key, boolean flag, ActorRef replyTo, long initTimestamp){
+			this.key = key;
+			this.flag = flag;
+			this.replyTo = replyTo;
+			this.initTimestamp = initTimestamp;
+		}
+	}
+
 	static public class PutRequest implements Command {
 		public String key;
 		public String value;

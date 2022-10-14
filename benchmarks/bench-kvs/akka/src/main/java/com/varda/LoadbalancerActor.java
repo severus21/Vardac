@@ -5,6 +5,7 @@ import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.*;
 import akka.actor.typed.receptionist.Receptionist;
 import akka.actor.typed.receptionist.ServiceKey;
+import com.varda.KVCommand.DeleteRequest;
 import com.varda.KVCommand.GetRequest;
 import com.varda.KVCommand.PutRequest;
 import com.varda.KVCommand.RegisterShardRequest;
@@ -36,6 +37,7 @@ public class LoadbalancerActor extends AbstractBehavior<KVCommand.Command> {
         return newReceiveBuilder()
             .onMessage(RegisterShardRequest.class, this::onRegisterShard)
             .onMessage(GetRequest.class, this::onGetRequest)
+            .onMessage(DeleteRequest.class, this::onDeleteRequest)
             .onMessage(PutRequest.class, this::onPutRequest)
             .build();
     }
@@ -53,6 +55,13 @@ public class LoadbalancerActor extends AbstractBehavior<KVCommand.Command> {
 
         // Transmit request, direct response
         shard.tell(msg);
+        return Behaviors.same();
+    }
+
+    private Behavior<KVCommand.Command> onDeleteRequest(DeleteRequest msg) {
+        for(ActorRef<KVCommand.Command> shard : this.shards){
+            shard.tell(msg);
+        }
         return Behaviors.same();
     }
 

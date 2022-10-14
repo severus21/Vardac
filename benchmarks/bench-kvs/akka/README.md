@@ -3,6 +3,15 @@
 ```java -enableassertions -jar build/libs/main.jar -n 100 -warmup 100```
 ```java -enableassertions -jar build/libs/lmain.jar -n 100 -warmup 100```
 
+1. Run the console client (which is using the gRPC client under the hood)
+```bash
+3> java -enableassertions -jar build/libs/console.jar
+```
+1. Connect the console to the gRPC server
+```bash
+3> connect 127.0.0.1 8090
+```
+
 ## Two JVM setup
 
 1. ```make```
