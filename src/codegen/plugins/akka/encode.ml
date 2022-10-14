@@ -307,10 +307,10 @@ let encode_builtin_fct_1 parent_opt place name a =
             a,
             e2_e (T.RawExpr "left"))
     | "session_to_2_" ->
-        T.AccessExpr(
-            a,
-            e2_e (T.RawExpr "hidden_right")
-        )
+            T.AccessExpr(
+                a,
+                e2_e (T.RawExpr "hidden_right")
+            )
     | "list2array" -> begin
         match (snd a.value).value with
         | T.TList mt -> 

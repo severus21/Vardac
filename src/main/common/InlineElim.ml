@@ -579,16 +579,19 @@ module Make () = struct
                                             e2_e(CallExpr(
                                                 e2var (Atom.builtin "activationid"),
                                                 [
-                                                    e2_e(CallExpr(
-                                                        e2var (Atom.builtin "option_get"),
-                                                        [
-                                                            e2_e(CallExpr(
-                                                                e2var (Atom.builtin "session_to_2_"),
-                                                                [
-                                                                    e2var a_session 
-                                                                ]
-                                                            ))
-                                                        ]
+                                                    e2_e (CastExpr( (* it fix a java codegen error *)   
+                                                        mtype_of_ct (TActivationRef  (mtype_of_cvar schema)),
+                                                        e2_e(CallExpr(
+                                                            e2var (Atom.builtin "option_get"),
+                                                            [
+                                                                e2_e(CallExpr(
+                                                                    e2var (Atom.builtin "session_to_2_"),
+                                                                    [
+                                                                        e2var a_session 
+                                                                    ]
+                                                                ))
+                                                            ]
+                                                        ))
                                                     ))
                                                 ]
                                             ))

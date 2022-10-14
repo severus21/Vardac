@@ -1247,18 +1247,25 @@ module Make (Args: TArgs) = struct
                         e2var (Atom.builtin "bind"),
                         [ 
                             e2var this_outport_name;    
-                            e2var param_b_out 
+                            if Utils.str_contains (Atom.to_string this_outport_name) "_egress_" then
+                                e2var param_b_in 
+                            else
+                                e2var param_b_out 
                         ]
                     ))
                 ))
             ) (List.of_seq (Hashtbl.to_seq_keys used_outports))) @
             (List.map (function this_inport_name ->
+                            logger#error "><> %b %s" (Utils.str_contains (Atom.to_string this_inport_name) "_ingress_" ) (Atom.to_string this_inport_name);
                 auto_fplace (ExpressionStmt(
                     e2_e (CallExpr(
                         e2var (Atom.builtin "bind"),
                         [ 
                             e2var this_inport_name;    
-                            e2var param_b_in 
+                            if Utils.str_contains (Atom.to_string this_inport_name) "_egress_" then
+                                e2var param_b_in 
+                            else
+                                e2var param_b_out 
                         ]
                     ))
                 ))
