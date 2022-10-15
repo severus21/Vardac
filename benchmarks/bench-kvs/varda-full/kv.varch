@@ -1,0 +1,206 @@
+event key of string;
+event value of string;
+
+protocol p_kv = §{
+    l_get: !key?value.;
+    l_delete: !key?bool.;
+    l_put: !tuple<key,value>?bool.;
+};
+
+(* TODO 
+3) multi jvm
+4) sharding
+*)
+
+@capturable([Loadbalancer])
+component KVServer {
+    onstartup (bridge<Client, KVServer, p_kv> b){
+        print(">>> Starting a KVServer instance");
+        bind(this.p_in, b);
+    }
+
+    inport p_in :: bridge<Client, KVServer, p_kv> expecting (dual p_kv) = this.callback;
+
+    result<void, error> callback (blabel msg, (dual p_kv) s) {
+        print("callback");
+
+        branch s on msg {
+            | l_get => s_i -> { 
+                print("l_get");
+                tuple<key, !value.> tmp = receive(s_i);
+                fire(tmp._1, this.get(tmp._0))?;
+            }
+            | l_delete => s_i -> {
+                print("l_delete");
+                tuple<key, !bool.> tmp = receive(s_i);
+                fire(tmp._1, this.delete(tmp._0))?;
+            }
+            | l_put => s_i -> {
+                print("l_put");
+                tuple<tuple<key,value>, !bool.> tmp = receive(s_i);
+                tuple<key, value> res = tmp._0; 
+                this.put(res._0, res._1);
+                fire(tmp._1, true)?;
+            }
+        }
+
+        return ok(());
+    }
+
+    (*** Impl of get and put out of the scope of the glu, i.e., defined as abstract methods ***)
+    value get(key k){
+        return value(this._get(k));
+    }
+    string _get(key k);
+    bool delete(key k); 
+    bool put(key k, value v); 
+}
+
+(* TODO rename as => gateway *)
+component Client {
+    activation_ref<KVServer> kv;
+
+    outport p_out expecting p_kv;
+
+    onstartup (bridge<Client, KVServer, p_kv> b, activation_ref<KVServer> kv){
+        print(">>> Starting a Client instance");
+        bind(this.p_out, b);
+        this.kv = kv;
+    }
+
+    @expose
+    result<bool, error> api_put(string k, string v){
+        print(">> start put");
+        session<p_kv> s = initiate_session_with(this.p_out, this.kv);
+
+        !tuple<key, value>?bool. s = select(s, l_put)?;
+        ?bool. s = fire(s, (key(k), value(v)))?;
+        print(">> end put");
+
+        tuple<bool, .> res = receive(s);
+        return ok(res._0);
+    }
+
+    @expose
+    result<bool, error> api_delete(string k){
+        print(">> start delete");
+        session<p_kv> s = initiate_session_with(this.p_out, this.kv);
+
+        !key?bool. s = select(s, l_delete)?;
+        ?bool. s = fire(s, key(k))?;
+        print(">> end delete");
+
+        tuple<bool, .> res = receive(s);
+        return ok(res._0);
+    }
+
+    @expose
+    result<string, error> api_get(string k){
+        session<p_kv> s = initiate_session_with(this.p_out, this.kv);
+
+        !key?value. s = select(s, l_get)?;
+        ?value. s = fire(s, key(k))?;
+
+        (* We need this intermediate let since there is no unification yet for universal type and receive is universally quantified *)
+        (* TODO maybe use polyapp *)
+        tuple<value, .> tmp = receive(s);
+        value tmp_ret = tmp._0;
+        string ret = tmp_ret._0_;
+        
+        (* TODO print(f">> get success {{ret}}");*)
+        print(">> get success");
+        print(ret);
+        print("");
+        return ok(ret);
+    }
+
+    (*@expose
+    void api_get(string k){
+        return this.dmz_get(k);
+    }*)
+}
+
+
+(***************** Loadbalancer *******************)
+
+component Loadbalancer {
+
+    onstartup () {
+        print("> Loadbalancer");
+    }
+
+    (****************************** Activation onboarding ******************************)
+    @onboard([KVServer])
+    bool onboard_A(activation_ref<KVServer> a, place p_of_a){
+        print("Onboarding a KVServer");
+        return true;
+    }
+
+    (****************************** Session interception  ******************************)
+    @sessioninterceptor(true, both)
+    result<option<activation_ref<KVServer>>,error> my_session_interceptor_a(
+        dict<activation_id, activation_ref<KVServer>> onboarded_activations, 
+        activation_ref<Client> from, 
+        bridge<Client, KVServer, inline p_kv> b_inner, 
+        string requested_to_schema, 
+        blabel msg
+    ){
+        print("Intercepted session init");
+        activation_ref<KVServer> a = pick(onboarded_activations);
+        return ok(some(a));
+    }
+
+    (****************************** Msg interception  ******************************)
+    @msginterceptor(both)
+    result<!key?value.,error> intercept_ping(
+        activation_ref<Client> from, 
+        activation_ref<KVServer> to, 
+        !key?value. continuation_in, 
+        p_kv continuation_out, 
+        blabel msg
+    ){
+        print("Intercept get branch selection");
+        !key?value. s_out = select(continuation_out, msg)?;
+
+        return ok(s_out);
+    }
+}
+
+(***************** Entrypoint *********************)
+
+component TopLevel {
+    component Inner {
+        (* FIXME TODO specialized Loadbalancer is not subtype of MsgCounter in Java,
+            HOT FIX replace Loadbalancer by Any
+        *)
+
+        option<activation_ref<any>> loadbalancer = none; 
+
+        activation_ref<Loadbalancer> make_interceptor (
+            option<place> -> activation_ref<any> factory,
+            string intercepted_component_schema,
+            place p_of_intercepted
+        ){
+            if(is_none(this.loadbalancer)){
+                place p = current_place();
+                this.loadbalancer = some(factory(some(p)));
+            }
+            return option_get(this.loadbalancer);
+        }
+
+        onstartup () {
+            print(">> Entering toplevel");
+            bridge<Client, KVServer, p_kv> b = bridge(p_kv);
+
+            with<Loadbalancer, anonymous> this.make_interceptor{
+                activation_ref<KVServer> kv_a = spawn KVServer(b);
+            }
+
+            activation_ref<Client> c = spawn Client(b, kv_a);
+            print(">> Ending toplevel");
+        }
+    }
+    onstartup () {
+        spawn Inner();
+    }
+}

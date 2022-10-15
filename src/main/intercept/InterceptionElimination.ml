@@ -690,7 +690,9 @@ module Make (Args: TArgs) = struct
             match tmsg.value with
             | CType{ value = TFlatType TBLabel} -> 
                 (* select*)
-                mtype_of_st (dual st_continuation).value, mtype_of_ft TWildcard 
+                let mt_out2 = dual st_continuation in
+                (* TODO fixme, the first returned type should be {b1:st1; ... bn:stn} not just st_i for sti=st_continuation *)
+                mtype_of_st (dual st_continuation).value,  mtype_of_st mt_out2.value  
             | _ -> (* fire *)
                 let mt_out2 = dual st_continuation in
                 mtype_of_st (STSend (tmsg, mt_out2)), mtype_of_st mt_out2.value 

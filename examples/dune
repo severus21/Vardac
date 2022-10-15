@@ -2,7 +2,6 @@
  (section (site (vardac test_examples)))
   (files 
     (test-intercept/README.md as test-intercept/README.md)
-    (test-intercept/templates/Akka<Java>/auto/docker-compose.yml.j2 as test-intercept/templates/Akka<Java>/auto/docker-compose.yml.j2)
     (test-intercept/test.vimpl as test-intercept/test.vimpl)
     (test-intercept/test.varch as test-intercept/test.varch)
     (test-intercept/places.yml as test-intercept/places.yml)
