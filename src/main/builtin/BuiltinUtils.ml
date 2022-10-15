@@ -52,6 +52,7 @@ let sig_of_builtin_inductive_type ft =
 
 
 let type_of place x : main_type = 
+    logger#error "%s" x;
     assert(is_builtin_expr x);
     let (_, _, make_mt) = 
         try

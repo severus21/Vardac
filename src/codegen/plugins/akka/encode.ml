@@ -306,6 +306,10 @@ let encode_builtin_fct_1 parent_opt place name a =
         T.AccessExpr(
             a,
             e2_e (T.RawExpr "left"))
+    |"session_to" ->
+        T.AccessExpr(
+            a,
+            e2_e (T.RawExpr "right"))
     | "session_to_2_" ->
             T.AccessExpr(
                 a,

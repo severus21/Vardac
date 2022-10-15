@@ -63,6 +63,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "select_local", "st -> label -> st", "select", t_select;
     "option_get", "option<'a> -> 'a", "", t_option_get;
     "session_from", "session -> activation<>", "get the initiater of the session", t_session_from;
+    "session_to", "session -> activation<>", "", t_session_from;
     "session_to_2_", "session -> activation<>", "TODO", t_session_to_2_;
 
     "is_init_stage", "session -> bool", "TODO", t_is_init_stage;
