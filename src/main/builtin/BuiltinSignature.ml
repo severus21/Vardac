@@ -620,6 +620,11 @@ let t_activationid () =
         mtype_of_ct (TActivationRef (mtype_of_ft TWildcard)),
         mtype_of_ft TActivationID
     ))
+let t_schema_of () =
+    mtype_of_ct (TArrow (
+        mtype_of_ct (TActivationRef (mtype_of_ft TWildcard)),
+        mtype_of_ft TStr 
+    ))
 
 let t_option_get () =
     mtype_of_ct (TArrow (

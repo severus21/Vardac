@@ -1053,14 +1053,16 @@ module Make (Arg: Plugin.CgArgSig) = struct
                         fexpr (Rt.Misc.e_none fplace);
                     ]
                 )              
-            | S.InterceptedActivationRef {actor_ref; intercepted_actor_ref} -> 
+            | S.InterceptedActivationRef {actor_ref; intercepted_actor_ref; intercepted_schema} -> 
                 T.NewExpr(
                     auto_place(T.VarExpr(Atom.builtin "ActivationRef"), auto_place T.TUnknown),
                     [
                         fexpr actor_ref;
-                        match intercepted_actor_ref with
+                        (match intercepted_actor_ref with
                         | None -> fexpr (Rt.Misc.e_none fplace)
-                        | Some e2 -> fexpr (Rt.Misc.e_some fplace e2) 
+                        | Some e2 -> fexpr (Rt.Misc.e_some fplace e2));
+                        auto_fplace( T.LiteralExpr( auto_fplace (T.StringLit (Atom.to_string intercepted_schema))), auto_fplace T.TUnknown);
+
                     ]
                 )              
             | S.AssertExpr e -> T.AssertExpr (fexpr e)                   

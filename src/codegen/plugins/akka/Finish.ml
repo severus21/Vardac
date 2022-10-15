@@ -677,10 +677,11 @@ module Make (Arg: sig val target:Target.target end) = struct
         | S.ResultExpr (_,_) -> raise (Core.Error.PlacedDeadbranchError (place, "finish_expr : a result expr can not be Ok and Err at the same time."))
         | S.BlockExpr (b, es) -> T.BlockExpr(b, List.map (fexpr parent_opt) es)
         | S.Block2Expr (b, ees) -> T.Block2Expr(b, List.map (function (e1, e2) -> fexpr parent_opt e1, fexpr parent_opt e2) ees) 
-        | S.InterceptedActivationRef (e1, e2_opt) -> 
+        | S.InterceptedActivationRef (e1, e2_opt, intercepted_schema) -> 
             T.InterceptedActivationRef{
                 actor_ref = fexpr parent_opt e1;
-                intercepted_actor_ref = Option.map (fexpr parent_opt) e2_opt
+                intercepted_actor_ref = Option.map (fexpr parent_opt) e2_opt;
+                intercepted_schema
             }
 
         | S.TernaryExpr (e1, e2, e3) -> T.TernaryExpr (fexpr parent_opt e1, fexpr parent_opt e2, fexpr parent_opt e3) 

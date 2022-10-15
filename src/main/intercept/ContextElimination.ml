@@ -826,7 +826,7 @@ module Make () = struct
             (*
                 Wrap identity of exposed_activations according to ctx option (anonymous or not)
 
-                add at the end  [let a = [InterceptedActivationRef(i, a')] if identity of [a'] should be exposed else [VarExpr i]]
+                add at the end  [let a = [InterceptedActivationRef(i, a',intercepted_schema)] if identity of [a'] should be exposed else [VarExpr i]]
             *)
             let footer_binders = Hashtbl.fold (fun  a (schema_a, _, a', i_a) footers ->
                 let mt_a = mtype_of_ct (TActivationRef (mtype_of_cvar schema_a)) in
@@ -834,8 +834,9 @@ module Make () = struct
                 let binded_value = e2_e (
                     InterceptedActivationRef (
                         e2var i_a,
-                        if anonymous_mod then None
-                        else Some (e2var a')
+                        (if anonymous_mod then None
+                        else Some (e2var a')),
+                        schema_a
                     )
                 ) in
 

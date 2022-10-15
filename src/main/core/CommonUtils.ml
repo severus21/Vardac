@@ -81,7 +81,7 @@ let rec collect_expr_expr_ parent_opt (already_binded:Atom.Set.t) exclude_expr s
         let collected_elts1, fvars1 = collect_expr_exprs es1 in 
         let collected_elts2, fvars2 = collect_expr_exprs es2 in
         already_binded, collected_elts1@collected_elts2, fvars1@fvars2
-    | InterceptedActivationRef (e1, e2_opt) ->
+    | InterceptedActivationRef (e1, e2_opt,_) ->
         let _, collected_elts1, fvars1 = collect_expr_expr parent_opt already_binded ~exclude_expr:exclude_expr selector collector e1 in
         let _, collected_elts2, fvars2 = match e2_opt with
             | None -> Atom.Set.empty, [], []
@@ -439,7 +439,7 @@ and collect_type_expr_ flag_tcvar parent_opt already_binded selector collector p
         collected_elts, ftvars
     | AccessExpr (e1, e2) | BinopExpr (e1, _, e2) -> 
         collect_exprs [e1; e2]
-    | InterceptedActivationRef (actor_ref, interceptec_actor_ref) -> 
+    | InterceptedActivationRef (actor_ref, interceptec_actor_ref,_) -> 
         let _, collected_elts1, ftvars1 = collect_expr actor_ref in
         let _, collected_elts2, ftvars2 = collect_expropt interceptec_actor_ref in
         collected_elts1@collected_elts2, ftvars1@ftvars2
@@ -793,9 +793,10 @@ let rec _rewrite_expr_expr parent_opt selector rewriter place (e, mt) =
         rexpr e2,
         rexpr e3
     )
-    | InterceptedActivationRef (e1, e2_opt) -> InterceptedActivationRef(
+    | InterceptedActivationRef (e1, e2_opt,intercepted_schema) -> InterceptedActivationRef(
         rexpr e1,
-        Option.map rexpr e2_opt
+        Option.map rexpr e2_opt,
+        intercepted_schema
     )
     | RawExpr str -> RawExpr str
     in 
@@ -988,7 +989,11 @@ and _rewrite_type_expr selector rewriter place (e, mt) =
         } 
         | BoxCExpr ce -> BoxCExpr (rewrite_type_cexpr selector rewriter ce)
         | OptionExpr e_opt -> OptionExpr (Option.map rewrite_expr e_opt)
-        | InterceptedActivationRef (e1, e2_opt) -> InterceptedActivationRef (rewrite_expr e1, Option.map rewrite_expr e2_opt)
+        | InterceptedActivationRef (e1, e2_opt,intercepted_schema) -> 
+            InterceptedActivationRef (
+                rewrite_expr e1, 
+                Option.map rewrite_expr e2_opt,
+                intercepted_schema)
         | ResultExpr (e1_opt, e2_opt) -> ResultExpr (Option.map rewrite_expr e1_opt, Option.map rewrite_expr e2_opt)
         | BlockExpr (b, es) -> BlockExpr (b, List.map rewrite_expr es)
         | Block2Expr (b, ees) -> Block2Expr (b,
@@ -1336,7 +1341,8 @@ rewrite_type_aconstraint
             | EmptyExpr -> EmptyExpr
             | VarExpr x -> VarExpr (renaming x)
             | ImplicitVarExpr x -> ImplicitVarExpr (renaming x)
-            | InterceptedActivationRef (e1, e2_opt) -> InterceptedActivationRef (re e1, Option.map re e2_opt) 
+            | InterceptedActivationRef (e1, e2_opt,intercepted_schema) -> 
+                InterceptedActivationRef (re e1, Option.map re e2_opt, intercepted_schema) 
             | ActivationAccessExpr (x, e, y) -> 
                 ActivationAccessExpr (renaming x, re e, if flag_rename_attribute then renaming y else y)
             | AccessExpr (e1, ({value=VarExpr _,_} as e2)) -> 
@@ -1378,6 +1384,7 @@ rewrite_type_aconstraint
                 List.map (function (e1, e2) -> (re e1, re e2)) ees
             )
             | RawExpr x -> RawExpr x
+            | CastExpr (mt,e) -> CastExpr (rmt mt, re e)
             in
             (e, rmt mt_e)
         and rename_expr ?(flag_rename_attribute=false) flag_rename_type renaming : expr -> expr = map_place (_rename_expr flag_rename_attribute flag_rename_type (protect_renaming renaming))

@@ -581,10 +581,10 @@ module Make () = struct
                 let e1 = tannot_expr parent_opt e1 in
                 let e2 = tannot_expr parent_opt e2 in
                 BinopExpr (e1, op, e2), typeof_binop place op (snd e1.value) (snd e2.value)
-            | InterceptedActivationRef (e1, e2_opt) ->
+            | InterceptedActivationRef (e1, e2_opt,intercepted_schema) ->
                 let e1 = tannot_expr parent_opt e1 in
                 let e2_opt = Option.map (tannot_expr parent_opt) e2_opt in
-                InterceptedActivationRef(e1, e2_opt), snd e1.value 
+                InterceptedActivationRef(e1, e2_opt,intercepted_schema), snd e1.value 
             | CastExpr (mt, e) -> 
                 CastExpr(mt, tannot_expr parent_opt e), mt
             | LambdaExpr (params, e) -> 

@@ -73,6 +73,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "forge_activation_ref", "() -> activation_ref", "", t_forge_activation_ref;
     "one_hop_activation_ref", "activation_ref -> activation_ref -> activation_ref", "parent -> hidden -> new activation ref", t_one_hop_activation_ref;
     "activationid", "activation_ref -> activation_id", "TODO", t_activationid;
+    "schemaof", "activation_ref -> string", "TODO", t_schema_of;
     "sessionid", "'st -> int", "Return the id of the session", t_sessionid;
     "ip", "place -> string", "TODO", t_ip;
     "port", "place -> int", "TODO", t_select;

@@ -348,7 +348,7 @@ module Make () : Sig = struct
         | ({place; value = IfStmt (e, stmt1, stmt2_opt)} as stmt) :: stmts -> 
             logger#debug "recv-elim IfStmt";
             (* DEBUG Code split_body (main_name, main_annotations) acc_stmts next_method (stmt1::stmts)*)
-            let _,_,flag1 = collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> [true]) stmt1 in
+            let _,flag1,_ = collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> [true]) stmt1 in
             let flag1 = flag1 <> [] in
 
             let flag2 = Option.map (collect_expr_stmt None Atom.Set.empty receive_selector (fun _ _ _ -> [true])) stmt2_opt in
@@ -360,6 +360,7 @@ module Make () : Sig = struct
             if flag1 || flag2 then
             begin
                 logger#debug "Detect receive in If block in %s" (Atom.to_string main_name);
+
                 (* There is at least one receive inside stmt1 or stmt2_opt *)
 
                 (*  next_method is in charge of the whole IfStmt not a branch, 

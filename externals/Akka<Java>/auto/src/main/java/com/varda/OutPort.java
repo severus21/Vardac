@@ -1,8 +1,6 @@
 package com.varda;
 
 import java.util.*;
-import akka.actor.typed.javadsl.ActorContext;
-import com.bmartin.*;
 
 // FIXME a port should be serializable
 public final class OutPort extends AbstractPort {

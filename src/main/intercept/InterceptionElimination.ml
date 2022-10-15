@@ -577,6 +577,11 @@ module Make (Args: TArgs) = struct
 
     (*************** Ingress Egress utils ******************)
 
+    let filter_session_interceptors flag_anonymous = 
+        List.filter (function (m:method0) ->
+            List.exists (function | SessionInterceptor annot -> annot.anonymous = flag_anonymous | _ -> false ) m.value.annotations 
+        )
+
     let paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_B, st3, tmsg3)=
         TypingUtils.is_subtype left_mt  mt_A
         && TypingUtils.is_subtype right_mt mt_B
@@ -594,13 +599,20 @@ module Make (Args: TArgs) = struct
             (* Well-formedness of msginterceptor should have been checked during typechecking *)
             let [param_from; param_to; param_continuation_in; param_continuation_out; param_msg] = m.value.args in
 
-            let mt_A = fst param_from.value in
-            let mt_B = fst param_to.value in
+
+            let mt_A = mt_activation_2_mt_schema (fst param_from.value) in
+            let mt_B = mt_activation_2_mt_schema (fst param_to.value) in
             let st3 = match fst param_continuation_in.value with | {value=SType st} -> st in (* type of continuation_in*)
             let tmsg3 = fst param_msg.value in 
 
+            logger#info "%s\ntry paired msginterceptor with \n\t%s < %s"  (Atom.to_string m.value.name) (show_main_type left_mt) (show_main_type mt_A);
+
             paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_B, st3, tmsg3)
         in 
+
+        List.iter (function (m:method0) -> 
+            logger#info "msginterceptor %s" (Atom.to_string m.value.name)
+        ) msg_interceptors;
 
         match List.filter filter msg_interceptors with
         | [] -> None
@@ -615,18 +627,25 @@ module Make (Args: TArgs) = struct
             (* Well-formedness of sessioninterceptor should have been checked during typechecking *)
             let [onboarded_activations; param_from; param_b_inner; _; param_msg] = m.value.args in
 
-            let mt_A = fst param_from.value in
+            let mt_A = mt_activation_2_mt_schema (fst param_from.value) in
             (* Loss of precesion compare to non anonymous case 
                 mt_Bs is overapproximated using the in_type of b_inner param
             *)
             let mt_Bs = match (fst param_b_inner.value).value with
-                | CType{ value = TBridge tb } -> tb.in_type (* see whitepaper *)
+                | CType{ value = TBridge tb } -> tb.out_type (* see whitepaper *)
             in
             let st3 = st_continuation in
             let tmsg3 = fst param_msg.value in 
 
+            logger#error "trying to pair session_anon callback for \n\t%s < %s" 
+                (show_main_type right_mt)
+                (show_main_type mt_Bs)
+            ;
+
             paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_Bs, st3, tmsg3)
         in 
+
+        let session_interceptors = filter_session_interceptors true session_interceptors in
 
         match List.filter filter session_interceptors with
         | [] -> None
@@ -641,28 +660,20 @@ module Make (Args: TArgs) = struct
             (* Well-formedness of msginterceptor should have been checked during typechecking *)
             let [onboarded_activations; param_from; param_b_inner; param_to; param_msg] = m.value.args in
 
-            let mt_A = fst param_from.value in
-            let mt_B = fst param_to.value in
+            let mt_A = mt_activation_2_mt_schema (fst param_from.value) in
+            let mt_B = mt_activation_2_mt_schema (fst param_to.value) in
             let st3 = st_continuation in
             let tmsg3 = fst param_msg.value in 
 
             paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_B, st3, tmsg3)
         in 
 
+        let session_interceptors = filter_session_interceptors false session_interceptors in
+
         match List.filter filter session_interceptors with
         | [] -> None
         | [ m ] -> Some m.value.name 
         | ms -> Error.perror interceptor_info.base_interceptor_place "Multiple session interceptors, for non anonymous case, are defined for the same msg (+ context) in %s" (Atom.to_string interceptor_info.base_interceptor_name)
-
-    let get_sessioninterceptor interceptor_info session_interceptors flag_anonymous tb_intercepted_bridge i (tmsg, st_continuation) =
-        let session_interceptors = List.filter (function (m:method0) ->
-            List.exists (function | SessionInterceptor annot -> annot.anonymous = flag_anonymous | _ -> false ) m.value.annotations 
-        ) session_interceptors in
-       
-        if flag_anonymous then 
-            get_sessioninterceptor_anon interceptor_info session_interceptors tb_intercepted_bridge i (tmsg, st_continuation)
-        else
-            get_sessioninterceptor_not_anon interceptor_info session_interceptors tb_intercepted_bridge i (tmsg, st_continuation)
 
     (* flag =true if egress else ingress *)
     let generate_skeleton_callback_msg (flag_egress, aux_ongoing__e_skeleton_s_out, aux_ongoing__es_skeleton_update_metadata) interceptor_info msg_interceptors (b_intercepted, tb_intercepted) i tmsg st_continuation = 
@@ -690,6 +701,7 @@ module Make (Args: TArgs) = struct
         let e_res_msginterceptor = 
             match (get_msginterceptor interceptor_info msg_interceptors tb_intercepted i (tmsg, st_continuation)) with
             | Some x_to -> 
+                logger#warning "Some @msginterceptor(...) for bridge type %s" (Atom.to_string b_intercepted);
                 e2_e (CallExpr (
                     e2_e (AccessExpr ( 
                         e2_e This, 
@@ -705,7 +717,7 @@ module Make (Args: TArgs) = struct
                 ))
             | None -> 
                 (* Case there is no user defined function *)
-                logger#warning "No @msginterceptor(...) for bridge type %s" (show_tbridge tb_intercepted);
+                logger#warning "No @msginterceptor(...) for bridge type %s" (Atom.to_string b_intercepted);
                 e2_e (CallExpr (
                     e2var (Atom.builtin "fire"),
                     [
@@ -794,39 +806,102 @@ module Make (Args: TArgs) = struct
 
         let sessions_info = Option.get interceptor_info.sessions_info in
 
-        let _e_local_to_opt = 
-            match (interceptor_by_schema, interceptor_by_activation) with
-            | None, None -> 
-                (* Case there is no user defined function *)
-                logger#warning "No @sessioninterceptor(true, ...) for bridge type %s" (show_tbridge tb_intercepted);
-                logger#warning "No @sessioninterceptor(false, ...) for bridge type %s" (show_tbridge tb_intercepted);
-                e2_e (CallExpr ( 
-                    e2var (Atom.builtin "session_to_2_"), [ e_param_s_in ])) (* by default, use the requested to *)
-            | Some x_to, None | None, Some x_to -> 
-                e2_e (CallExpr(
-                    e2_e (AccessExpr ( 
-                        e2_e This, 
-                        e2var x_to
-                    )),
-                    [
-                        e_this_onboarded_activations;
-                        e_local_from;
-                        e2_e(AccessExpr (e2_e This, e2var this_b_out));
-                        e2_e (CallExpr( 
-                            e2var (Atom.builtin "option_get"),
-                            [ 
-                                e2_e (CallExpr (
-                                    e2var (Atom.builtin "session_to_2_"),
-                                    [ e_param_s_in ]
-                                ))
-                            ]
-                        ));
-                        e_param_msg;
-                    ]
-                ))
-            | Some _, Some _ -> Error.perror interceptor_info.base_interceptor_place  "Two sessioninterceptor are defined for bridge type %s : one with the anonymous modifier, one without" (show_tbridge tb_intercepted);
-        in
 
+        let anon_branching_stmts = [
+            auto_fplace (LetStmt(
+                (* FIXME Java does correctly handles type if specified inside two encapsulated generics *)
+                mtype_of_ct (TOption (mtype_of_ct (TActivationRef right_mt))),
+                local_to_opt,
+                e2_e(OptionExpr None) 
+            ));
+            auto_fplace(IfStmt(
+                e2_e (CallExpr (
+                    e2var (Atom.builtin "is_none"), 
+                    [ e2_e (CallExpr ( 
+                        e2var (Atom.builtin "session_to_2_"), 
+                        [ e_param_s_in ]))])),
+            (* Case anonymous init *)
+            (
+                match interceptor_by_schema with
+                | None -> 
+                    logger#warning "No @sessioninterceptor(true, ...) for bridge type %s" (show_tbridge tb_intercepted);
+                    auto_fplace (ReturnStmt( 
+                        e2_e (ResultExpr (None, Some (e2_lit (StringLit "Can not generate a default sessioninit interceptor for anonymous case"))))
+                    ))
+                | Some x_to ->
+                    auto_fplace(AssignExpr(
+                        local_to_opt,
+                        e2_e (UnopExpr (UnpackOrPropagateResult,
+                            e2_e (CallExpr(
+                                e2_e (AccessExpr ( 
+                                    e2_e This, 
+                                    e2var x_to
+                                )),
+                                [
+                                    e_this_onboarded_activations;
+                                    e_local_from;
+                                    e2_e(AccessExpr (e2_e This, e2var this_b_out));
+                                    e2_e (CallExpr( 
+                                        e2var (Atom.builtin "schemaof"),
+                                        [ 
+                                            e2_e (CallExpr (
+                                                e2var (Atom.builtin "session_to"),
+                                                [ e_param_s_in ]
+                                            ))
+                                        ]
+                                    ));
+                                    e_param_msg;
+                                ]
+                            ))
+                        ))
+                    ))
+            )
+            ,
+            (* Case non anonymous init *)
+            Some(
+                match interceptor_by_activation with
+                | None ->
+                    (* Case there is no user defined function *)
+                    logger#warning "No @sessioninterceptor(false, ...) for bridge type %s" (show_tbridge tb_intercepted);
+
+                    auto_fplace(AssignExpr(
+                        local_to_opt,
+                        e2_e (CallExpr ( 
+                            e2var (Atom.builtin "session_to_2_"), [ e_param_s_in ])) (* by default, use the requested to *)
+                    ))
+                | Some x_to ->
+                    auto_fplace(AssignExpr(
+                        local_to_opt,
+                        e2_e (UnopExpr (UnpackOrPropagateResult,
+                            e2_e (CallExpr(
+                                e2_e (AccessExpr ( 
+                                    e2_e This, 
+                                    e2var x_to
+                                )),
+                                [
+                                    e_this_onboarded_activations;
+                                    e_local_from;
+                                    e2_e(AccessExpr (e2_e This, e2var this_b_out));
+                                    e2_e (CastExpr( (* This fix a java type inference limitation *)
+                                        mtype_of_ct (TActivationRef right_mt),
+                                        e2_e (CallExpr( 
+                                            e2var (Atom.builtin "option_get"),
+                                            [ 
+                                                e2_e (CallExpr (
+                                                    e2var (Atom.builtin "session_to_2_"),
+                                                    [ e_param_s_in ]
+                                                ))
+                                            ]
+                                        ))
+                                    ));
+                                    e_param_msg;
+                                ]
+                            ))
+                        ))
+                    ))
+            )
+        )) 
+        ] in
 
         auto_fplace {
             annotations = [];
@@ -848,15 +923,9 @@ module Make (Args: TArgs) = struct
                         e2var (Atom.builtin "session_from"),
                         [ e_param_s_in ]
                     ))
-                ));
+                ))
+            ] @ anon_branching_stmts @ [
                 (* TODO assert ... *)
-                auto_fplace (LetStmt(
-                    (* FIXME Java does correctly handles type if specified inside two encapsulated generics *)
-                    mtype_of_ct (TOption (mtype_of_ct (TActivationRef right_mt))),
-                    local_to_opt,
-                    _e_local_to_opt
-                ));
-
                 auto_fplace(IfStmt(
                     e2_e(BinopExpr( e_local_to_opt, Equal, e2_e (OptionExpr None))),     
                     auto_fplace (BlockStmt [

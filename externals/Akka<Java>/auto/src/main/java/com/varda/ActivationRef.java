@@ -51,8 +51,20 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
     }
 
     public ActivationRef(ActivationRef<Command> a_ref, SerializableOptional<ActivationRef<Command>> interceptedActivationRef_opt){
+        // For inlining
         this.actorRef = a_ref.actorRef;
-        this.componentSchema = a_ref.componentSchema;
+        if( interceptedActivationRef_opt.isEmpty())
+            this.componentSchema = a_ref.componentSchema;
+        else
+            this.componentSchema = interceptedActivationRef_opt.get().componentSchema;
+        this.interceptedActivationRef_opt = interceptedActivationRef_opt;
+        this.isInterceptor = Boolean.valueOf(true); 
+    }
+
+    public ActivationRef(ActivationRef<Command> a_ref, SerializableOptional<ActivationRef<Command>> interceptedActivationRef_opt, String interceptedComponentSchema){
+        // For interception 
+        this.actorRef = a_ref.actorRef;
+        this.componentSchema = interceptedComponentSchema;
         this.interceptedActivationRef_opt = interceptedActivationRef_opt;
         this.isInterceptor = Boolean.valueOf(true); 
     }
@@ -63,6 +75,10 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
     }
     public ActivationRef(UUID mocked_uuid){
         this.mocked_uuid = mocked_uuid;
+    }
+
+    public String getComponentSchema(){
+        return this.componentSchema;
     }
 
     @Override

@@ -109,6 +109,14 @@ let encode_builtin_fct_1 parent_opt place name a =
             )),
             []
         )
+    | "schemaof" ->
+        T.CallExpr(
+                e2_e (T.AccessExpr(
+                    a,
+                    e2var (Atom.builtin "getComponentSchema")
+            )),
+            []
+        )
     | "asize" ->
         T.CallExpr(
             e2_e(T.AccessExpr(

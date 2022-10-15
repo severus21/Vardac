@@ -1696,7 +1696,7 @@ module Make (Params : IRParams) = struct
             TODO check as a precondition
             *)
                 [], (e, mt_e)
-            | InterceptedActivationRef (e1, e2_opt) ->
+            | InterceptedActivationRef (e1, e2_opt, intercepted_schema) ->
                 let stmts1, e1 = rewrite_exprstmts_expr e1 in
                 let stmts2, e2_opt = match e2_opt with
                     | None -> [], None
@@ -1704,7 +1704,7 @@ module Make (Params : IRParams) = struct
                         let stmts2, e2 = rewrite_exprstmts_expr e2 in
                         stmts2, Some e2
                 in
-                stmts1@stmts2, (InterceptedActivationRef (e1, e2_opt), mt_e)
+                stmts1@stmts2, (InterceptedActivationRef (e1, e2_opt,intercepted_schema), mt_e)
             | NewBridge {protocol_opt; protocol_name_opt} -> 
                 let stmts, protocol = match protocol_opt with
                     | Some protocol -> 

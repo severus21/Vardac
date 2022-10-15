@@ -122,3 +122,8 @@ let rec st_branch_of mt_st branch_label =
         | st -> failwith (show__session_type st)
     end
     | mt -> failwith (show__main_type mt)
+
+let _mt_activation_2_mt_schema place = function
+| CType {value=TActivationRef mt_schema} -> mt_schema
+| _ -> Error.perror place "This should have type activation_ref"
+let mt_activation_2_mt_schema = map0_place _mt_activation_2_mt_schema

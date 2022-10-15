@@ -86,9 +86,10 @@ and _apply_rename_expr rename_binders (renaming : Atom.atom -> Atom.atom) place 
         schema = apply_rename_expr rename_binders renaming schema;
         actor_ref = apply_rename_expr rename_binders renaming actor_ref
     }
-    | InterceptedActivationRef {actor_ref; intercepted_actor_ref} -> InterceptedActivationRef { 
+    | InterceptedActivationRef {actor_ref; intercepted_actor_ref;intercepted_schema} -> InterceptedActivationRef { 
         actor_ref = apply_rename_expr rename_binders renaming actor_ref;
-        intercepted_actor_ref = Option.map (apply_rename_expr rename_binders renaming) intercepted_actor_ref
+        intercepted_actor_ref = Option.map (apply_rename_expr rename_binders renaming) intercepted_actor_ref;
+        intercepted_schema = renaming intercepted_schema
     }
     | AssertExpr e -> AssertExpr (
         apply_rename_expr rename_binders renaming e
@@ -313,9 +314,10 @@ let rec _rewriteexpr_expr selector rewriter place (e, mt): _expr * ctype =
         schema;
         actor_ref  = rewriteexpr_expr selector rewriter actor_ref
     }
-    | InterceptedActivationRef {actor_ref; intercepted_actor_ref} -> InterceptedActivationRef {
+    | InterceptedActivationRef {actor_ref; intercepted_actor_ref; intercepted_schema} -> InterceptedActivationRef {
         actor_ref  = rewriteexpr_expr selector rewriter actor_ref;
-        intercepted_actor_ref  = Option.map (rewriteexpr_expr selector rewriter) intercepted_actor_ref
+        intercepted_actor_ref  = Option.map (rewriteexpr_expr selector rewriter) intercepted_actor_ref;
+        intercepted_schema
     }
     | AssertExpr e -> AssertExpr (
         rewriteexpr_expr selector rewriter e

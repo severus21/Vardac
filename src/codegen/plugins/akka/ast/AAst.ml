@@ -71,7 +71,7 @@ and _expr =
     | AccessExpr of expr * expr
     | AccessMethod of expr * variable
     | ActivationRef of {schema: expr; actor_ref: expr;}
-    | InterceptedActivationRef of {actor_ref: expr; intercepted_actor_ref: expr option}
+    | InterceptedActivationRef of {actor_ref: expr; intercepted_actor_ref: expr option; intercepted_schema: variable}
     | AssertExpr of expr 
     | BinopExpr of expr * binop * expr 
     | CallExpr of expr * expr list

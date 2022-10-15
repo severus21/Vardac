@@ -15,4 +15,5 @@ val msgcont_of_st: session_type -> main_type * session_type
 val e_param_of : string -> Atom.atom * expr
 
 val st_branch_of : main_type -> literal -> session_type
+val mt_activation_2_mt_schema : main_type -> main_type
 

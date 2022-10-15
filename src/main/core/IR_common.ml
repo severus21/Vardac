@@ -171,8 +171,9 @@ and _expr =
     | VarExpr of expr_variable 
     | ImplicitVarExpr of expr_variable
 
-    | InterceptedActivationRef of expr * expr option (* Interceptor activation * intercepted activation 
+    | InterceptedActivationRef of expr * expr option * Atom.atom (* Interceptor activation * intercepted activation 
     If option for second arg => anonymous mod
+    * intercepted_schema name
     *)
 
     | ActivationAccessExpr of component_variable * expr * expr_variable (* cname, e, x*)

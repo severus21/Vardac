@@ -14,7 +14,7 @@ component A {
     inport p_in :: bridge<B, A, inline p_pingpong> expecting (dual p_pingpong) = this.handle_ping;
 
     result<void, error> handle_ping (ping msg, !pong. s1) {
-        print("ping");
+        print("ping on A");
         fire(s1, pong())?; 
     }
 }
@@ -90,42 +90,45 @@ component MsgCounter {
     (****************************** Activation onboarding ******************************)
     @onboard([A]) (* List of schemas that can be onboarded by the method *)
     bool onboard_A(activation_ref<A> a, place p_of_a){
+        print("Onboarding activation of A");
         return true;
     }
 
     (****************************** Session interception  ******************************)
     @sessioninterceptor(true, both)
-    option<activation_ref<A>> my_session_interceptor_a(
+    result<option<activation_ref<A>>,error> my_session_interceptor_a(
         dict<activation_id, activation_ref<A>> onboarded_activations, 
         activation_ref<B> from, 
         bridge<B, A, inline p_pingpong> b_inner, 
         string requested_to_schema, 
         ping msg
     ){
+        print("Intercepted session init (anonymous_mod)");
         (*  assert onboarded_activations > 1 
             since this do not create activations to process request
         *)
         activation_ref<A> a = pick(onboarded_activations);
-        return some(a);
+        return ok(some(a));
     }
 
     @sessioninterceptor(false, both)
-    option<activation_ref<A>> my_session_interceptor_b(
+    result<option<activation_ref<A>>,error> my_session_interceptor_b(
         dict<activation_id, activation_ref<A>> onboarded_activations, 
         activation_ref<B> from, 
         bridge<B, A, inline p_pingpong> b_inner, 
         activation_ref<A> requested_to, 
         ping msg
     ){
-        return some(requested_to);
+        print("Intercepted session init (no-anonymous_mod)");
+        return ok(some(requested_to));
     }
 
     (****************************** Msg interception  ******************************)
     (* TODO need polymorphism *)
-    @msginterceptor(both)
-    option<ping> intercept_ping(
-        activation_ref<A> from, 
-        activation_ref<B> to, 
+    (*@msginterceptor(both)
+    result<option<ping>,error> intercept_ping(
+        activation_ref<B> from, 
+        activation_ref<A> to, 
         ?pong. continuation_in, 
         !pong. continuation_out, 
         ping msg
@@ -135,8 +138,8 @@ component MsgCounter {
         print("Counted ping");
         print(this.nbr_msg);
 
-        return some(msg);
-    }
+        return ok(some(msg));
+    }*)
 }
 
 
