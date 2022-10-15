@@ -81,6 +81,10 @@ public class ActivationRef<Command> implements CborSerializable, JsonSerializabl
         return this.componentSchema;
     }
 
+    static public String unique_actor_name(String prefix){
+        return prefix+UUID.randomUUID().toString();
+    }
+
     @Override
     public String toString(){
         assert(this.check_integrity());

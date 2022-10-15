@@ -283,6 +283,8 @@ and is_instance mt1 mt2 =
 
 (* check if st1 is a valide suffix of st2 (including subtyping) *)
 let rec is_suffix_st st1 st2 = 
+    logger#error "st1> \n\t%s" (show_session_type st1);
+    logger#error "st2> \n\t%s" (show_session_type st2);
     if is_subtype_st st1 st2 then true
     else
     match st2.value with (* try each suffix*)

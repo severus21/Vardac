@@ -1397,8 +1397,8 @@ rewrite_type_aconstraint
         function
         | EmptyStmt -> EmptyStmt
         | AssignExpr (x, e) -> AssignExpr (renaming x, re e)
-        | AssignThisExpr (x, e) -> AssignThisExpr (renaming x, re e)
-        | AssignSelfExpr (x, e) -> AssignSelfExpr (renaming x, re e)
+        | AssignThisExpr (x, e) -> AssignThisExpr ((if flag_rename_attribute then renaming x else x), re e)
+        | AssignSelfExpr (x, e) -> AssignSelfExpr ((if flag_rename_attribute then renaming x else x), re e)
         | LetStmt (mt, x, e) -> LetStmt (rmt mt, renaming x, re e)
         | CommentsStmt _ as stmt -> stmt
         | BreakStmt -> BreakStmt

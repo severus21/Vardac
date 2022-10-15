@@ -996,6 +996,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             | S.ActorRef {value=S.TVar x} -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActorRef"), [fctype (Rt.Misc.t_command_of_actor place x)])  
             | S.ActorRef ct -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActorRef"), [fctype ct]) 
             | S.TActivationRef {value=S.TVar x} -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActivationRef"), [fctype (Rt.Misc.t_command_of_actor place x)])  
+            | S.TActivationRef {value=S.Atomic "Object"}  -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActivationRef"), []) 
             | S.TActivationRef ct -> T.ClassOrInterfaceType  (auto_place (T.TAtomic "ActivationRef"), [fctype ct]) 
             | S.TArrow (t1, t2) -> T.ClassOrInterfaceType  ( auto_place (T.TAtomic "Function"), [fctype t1; fctype t2]) 
             | S.TArray t1 -> T.ClassOrInterfaceType  (auto_place (T.TArray (fctype t1)), [])

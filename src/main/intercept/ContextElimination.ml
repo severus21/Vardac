@@ -37,7 +37,7 @@ module Make () = struct
     let interceptor_makes : (interceptor_key, (component_dcl * (Atom.atom * session_type * _term))) Hashtbl.t = Hashtbl.create 16 
 
     (* cf. 4.b.1 *)
-    let to_specialized_defined_policy : (Atom.atom, (Atom.atom * Atom.atom) list) Hashtbl.t = Hashtbl.create 16
+    let to_specialized_defined_policy : (Atom.atom, (Atom.atom * Atom.atom * Atom.atom) list) Hashtbl.t = Hashtbl.create 16
 
     let parent_onboarding_outports = Hashtbl.create 16
     let get_parent_onboarding_outport parent st_onboarding = 
@@ -565,8 +565,8 @@ module Make () = struct
             
             Hashtbl.add to_specialized_defined_policy user_defined_policy_name (
                 match Hashtbl.find_opt to_specialized_defined_policy user_defined_policy_name with
-                | None -> [(interceptor_name, specialized_defined_policy)]
-                | Some set -> (interceptor_name, specialized_defined_policy) :: set
+                | None -> [(base_interceptor_name, interceptor_name, specialized_defined_policy)]
+                | Some set -> (base_interceptor_name, interceptor_name, specialized_defined_policy) :: set
             );
 
             let user_defined_policy = e2_e (AccessExpr(
@@ -1010,7 +1010,7 @@ module Make () = struct
         let policy_rewriter _ place = function
             | Method m -> begin
                 let specialized_ms = List.map 
-                    (function (interceptor_name, specialized_policy_name) ->
+                    (function (base_interceptor_name, interceptor_name, specialized_policy_name) ->
                         logger#error "Specialized policy %s for %s" (Atom.to_string specialized_policy_name) (Atom.to_string interceptor_name); 
                         (* rename body *)
                         let freevars, _ = free_vars_component_item Atom.Set.empty (auto_fplace (auto_annote(Method m))) in
@@ -1018,6 +1018,10 @@ module Make () = struct
 
                         let renaming = 
                             let state = Hashtbl.create 256 in
+
+                            (* Rewrite interceptor name to specialized name *)
+                            Hashtbl.add state base_interceptor_name interceptor_name;
+
                             function x -> 
                             if Atom.is_builtin x then x (* TODO guarantee *) 
                             else
@@ -1029,12 +1033,13 @@ module Make () = struct
                                         let y = Atom.fresh (Atom.hint x) in 
                                         Hashtbl.add state x y;
                                         logger#debug "rename %s -> %s" (Atom.to_string x) (Atom.to_string y);
+                                        logger#info "rename %s -> %s" (Atom.to_string x) (Atom.to_string y);
                                         y
                                     end
                                     else x
                                 | Some y -> y
                         in
-                        let body = List.map (rename_stmt ~flag_rename_attribute:true true renaming) m.value.body in
+                        let body = List.map (rename_stmt ~flag_rename_attribute:false true renaming) m.value.body in
 
 
                         Method (auto_fplace {

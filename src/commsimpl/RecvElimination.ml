@@ -925,32 +925,40 @@ module Make () : Sig = struct
                 ]
             in
 
-            (* When session is initiated by an inport *)
-            List.flatten (List.map (function port ->
-                if Common.TypingUtils.is_suffix_st  (auto_fplace (STRecv(t_msg, st_continuation))) (match (fst port.value).expecting_st.value with SType st -> st) then 
-                    (* p or one of its stages is concerned by the receive*)
-                    generate_intermediate_port_for_port (fst port.value).name
-                else( 
-                    (* Error.error "in> not suffix for %s\n%s\n\t\tVS\n%s" (Atom.to_string (fst port.value).name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation)))) (show_main_type (fst port.value).expecting_st); *)
-                    []
+            let generated_ports =
+                (* When session is initiated by an inport *)
+                List.flatten (List.map (function port ->
+                    if Common.TypingUtils.is_suffix_st  (auto_fplace (STRecv(t_msg, st_continuation))) (match (fst port.value).expecting_st.value with SType st -> st) then 
+                        (* p or one of its stages is concerned by the receive*)
+                        generate_intermediate_port_for_port (fst port.value).name
+                    else( 
+                        []
+                    )
+                ) ports)
+                @
+                ( (* When session is initiated by an outport *)
+                    List.flatten (List.map (function (port:outport) ->
+                        if Common.TypingUtils.is_suffix_st (auto_fplace (STRecv(t_msg, st_continuation))) (match (fst port.value).protocol.value with 
+                            | SType st -> 
+                                st 
+                            | mt -> raise (Error.PlacedDeadbranchError (port.place, Printf.sprintf "Wrong outport type %s" (show__main_type mt)))
+                        ) then 
+                            (* p or one of its stages is concerned by the receive*)
+                            generate_intermediate_port_for_port (fst port.value).name
+                        else( 
+                            []
+                        )
+                    ) outports)
                 )
-            ) ports)
-            @
-            (* When session is initiated by an outport *)
-            List.flatten (List.map (function (port:outport) ->
-                if Common.TypingUtils.is_suffix_st (auto_fplace (STRecv(t_msg, st_continuation))) (match (fst port.value).protocol.value with 
-                    | SType st -> 
-                        st 
-                    | mt -> raise (Error.PlacedDeadbranchError (port.place, Printf.sprintf "Wrong outport type %s" (show__main_type mt)))
-                ) then 
-                    (* p or one of its stages is concerned by the receive*)
-                    generate_intermediate_port_for_port (fst port.value).name
-                else( 
-                    (* Error.error "out> not suffix for %s\n%s\n\t\tVS\n%s" (Atom.to_string (fst port.value).name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation)))) (show_main_type (fst port.value).protocol); *) 
-                    []
-                )
-            ) outports)
+            in
+
+            if generated_ports = [] then
+                Error.error " not suffix for [%s] : %s" (Atom.to_string cdcl.name) (show_session_type (auto_fplace (STRecv(t_msg, st_continuation))));
+
+            generated_ports
         in
+
+
 
         (* generated ports must be add before user defined ports,
            since they are children of user-defined ports *)

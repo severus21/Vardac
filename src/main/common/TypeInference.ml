@@ -248,6 +248,7 @@ module Make () = struct
         [(fst p.value).name, typeof_outport p]
     | State s -> 
         logger#debug "state registration";
+        logger#error "register %s" (Atom.to_string s.value.name);
         register_expr_type s.value.name (typeof_state s);
         [s.value.name, typeof_state s]
     | Term t -> scan_term parent_opt t 

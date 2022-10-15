@@ -1,21 +1,25 @@
 event ping of;
 event pong of;
 
-protocol p_pingpong = !ping?pong.;
+protocol p_pingpong = !ping?pong!ping.;
 
 (********************* PingPong *********************)
 @capturable([MsgCounter])
 component A {
-    onstartup (bridge<B, A, inline p_pingpong> chan){
+    string id = "";
+    onstartup (bridge<B, A, inline p_pingpong> chan, string id){
         print("> Starting A");
         bind(this.p_in, chan);
+        this.id = id;
     }
 
     inport p_in :: bridge<B, A, inline p_pingpong> expecting (dual p_pingpong) = this.handle_ping;
 
-    result<void, error> handle_ping (ping msg, !pong. s1) {
-        print("ping on A");
-        fire(s1, pong())?; 
+    result<void, error> handle_ping (ping msg, !pong?ping. s1) {
+        print("ping on A "+this.id);
+        ?ping. s = fire(s1, pong())?; 
+        tuple<ping, .> res_A = receive(s);
+        print("ping2 on A "+this.id);
     }
 }
 
@@ -24,17 +28,21 @@ component B {
 
     onstartup (bridge<B, A, inline p_pingpong> chan, activation_ref<A> b) {
         bind(this.p_out, chan);
-        this.methodb(b);
+        for(int i in range(0,2)){
+            this.methodb(b);
+        }
     }
 
     result<void, error> methodb(activation_ref<A> b){
         print("> Starting B");
         session<p_pingpong> s0 = initiate_session_with(this.p_out, b);
 
-        ?pong. s1 = fire(s0, ping())?;
+        ?pong!ping. s1 = fire(s0, ping())?;
         print("> Ping fired");
-        tuple<pong, .> res = receive(s1);
+        tuple<pong, !ping.> res = receive(s1);
         print("pong_or_timeout");
+        . s2 = fire(res._1, ping())?;
+        print("> Ping2 fired");
     }
 }
 
@@ -44,7 +52,25 @@ component PingPong {
     (* FIXME TODO specialized MsgCounter is not subtype of MsgCounter in Java,
         HOT FIX replace MsgCounter by Any
     *)
-    activation_ref<any> make_interceptor (
+
+    option<activation_ref<any>> interceptori = none; 
+
+    activation_ref<MsgCounter> make_interceptor (
+        option<place> -> activation_ref<any> factory,
+        string intercepted_component_schema,
+        place p_of_intercepted
+    ){
+        if(is_none(this.interceptori)){
+            place p = current_place();
+            this.interceptori = some(factory(some(p)));
+        }
+        return option_get(this.interceptori);
+    }
+    
+    (*
+    FIXME spawn interceptor hang for ever; the issue comes from the spawnprotocol somewhere
+    and not from the interception code
+    activation_ref<MsgCounter> make_amnesic_interceptor (
         option<place> -> activation_ref<any> factory,
         string intercepted_component_schema,
         place p_of_intercepted
@@ -52,21 +78,25 @@ component PingPong {
         place p = current_place();
         return factory(some(p));
     }
+    *)
 
     onstartup () {
         bridge<B, A, inline p_pingpong> bridge0 = bridge(p_pingpong);
 
         (* First group *) 
         with<MsgCounter> this.make_interceptor{
-            activation_ref<A> a = spawn A(bridge0);
+            activation_ref<A> a = spawn A(bridge0, "a");
+            activation_ref<A> aaa = spawn A(bridge0, "aaa");
+            activation_ref<A> aaaaa = spawn A(bridge0, "aaaaa");
         }
         activation_ref<B> b = spawn B(bridge0, a);
+        activation_ref<B> b = spawn B(bridge0, aaa);
 
-        (* TODO Second group *) 
-        (*with<MsgCounter, anonymous> this.make_interceptor{
-            activation_ref<A> aa = spawn A(bridge0);
+        with<MsgCounter, anonymous> this.make_interceptor{
+            activation_ref<A> aa = spawn A(bridge0, "aa");
+            activation_ref<A> aaaa = spawn A(bridge0, "aaaa");
         }
-        activation_ref<B> bb = spawn B(bridge0, aa);*)
+        activation_ref<B> bb = spawn B(bridge0, aa);
 
         (* Third group - TODO low-level api *)
     }
@@ -125,21 +155,23 @@ component MsgCounter {
 
     (****************************** Msg interception  ******************************)
     (* TODO need polymorphism *)
-    (*@msginterceptor(both)
-    result<option<ping>,error> intercept_ping(
+    @msginterceptor(both)
+    result<?pong.,error> intercept_ping(
         activation_ref<B> from, 
         activation_ref<A> to, 
-        ?pong. continuation_in, 
-        !pong. continuation_out, 
+        ?pong!ping. continuation_in, 
+        !ping?pong!ping. continuation_out, 
         ping msg
     ){
         this.incr();
         
-        print("Counted ping");
+        print("Counted ping1");
         print(this.nbr_msg);
 
-        return ok(some(msg));
-    }*)
+        ?pong!ping. s_out = fire(continuation_out, msg)?;
+
+        return ok(s_out);
+    }
 }
 
 

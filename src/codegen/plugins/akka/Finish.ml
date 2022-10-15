@@ -557,7 +557,12 @@ module Make (Arg: sig val target:Target.target end) = struct
                                 e_this_guardian (this_actor parent_opt) fplace
                                 :: List.map (fexpr parent_opt) args
                             )
-                        )] @ [ e2_lit (T.StringLit (Atom.to_string (Atom.fresh ((Atom.to_string (IRMisc.schema_of c))^"_name"))))]
+                        )] @ [ 
+                            e2_e(T.CallExpr(
+                                e2_e(T.RawExpr "ActivationRef.unique_actor_name"),
+                                [ e2_lit (T.StringLit (Atom.to_string (Atom.fresh ((Atom.to_string (IRMisc.schema_of c))^"_name"))))]
+                            ))
+                        ]
                     ))
                 })
             }
