@@ -72,7 +72,7 @@ type interceptor_info = {
     this_onboarded_activations: Atom.atom option;
     b_onboard_state: Atom.atom option; (* state holding the onboarding bridge *)
     this_port_onboard: Atom.atom option;
-    inout_statebridges_info: ((Atom.atom * Atom.atom * Atom.atom * Atom.atom *Atom.atom * Atom.atom * main_type) list) option; (* schema state that holds the ports and the corresponding bridges *)
+    inout_statebridges_info: ((Atom.atom * Atom.atom * main_type) list) option; (* schema state that holds the corresponding bridges *)
     sessions_info: sessions_info option
 } [@@deriving show {with_path = false}]
 

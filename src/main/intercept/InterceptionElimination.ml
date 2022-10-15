@@ -368,10 +368,6 @@ module Make (Args: TArgs) = struct
         let interceptor_info = {interceptor_info with 
             inout_statebridges_info = Some (List.mapi ( fun i (b_intercepted, _, b_mt) -> 
                 logger#warning ">><< %d" i;
-                Atom.fresh (Printf.sprintf "%s_outport_egress__%d_" (Atom.to_string b_intercepted) i),
-                Atom.fresh (Printf.sprintf "%s_outport_ingress__%d_" (Atom.to_string b_intercepted) i),
-                Atom.fresh (Printf.sprintf "%s_inport_egress__%d_"  (Atom.to_string b_intercepted) i),
-                Atom.fresh (Printf.sprintf "%s_inport_ingress__%d_"  (Atom.to_string b_intercepted) i),
                 Atom.fresh ("b_out_"^(string_of_int i)^"_"),
                 Atom.fresh ("b_in_"^(string_of_int i)^"_"),
                 b_mt
@@ -380,7 +376,7 @@ module Make (Args: TArgs) = struct
         in
 
 
-        let inout_bridges_states = List.flatten (List.map ( function (_, _, _, _, b_out, b_in, b_mt) ->
+        let inout_bridges_states = List.flatten (List.map ( function (b_out, b_in, b_mt) ->
             [ 
                 auto_fplace (auto_plgannot(State (auto_fplace ({
                     ghost = false;
@@ -400,6 +396,141 @@ module Make (Args: TArgs) = struct
         (*** Retrun citems ***)
         interceptor_info,  base_interceptor.body@inout_bridges_states
 
+    (*************** Step 1.C network infrastructure *********************)
+    (* port_name, port_def, (this_bridge_out, this_bridge_in) *)
+    let used_outports : (string, Atom.atom * _outport) Hashtbl.t = Hashtbl.create 16
+    let used_inports :  (string, Atom.atom * _port) Hashtbl.t = Hashtbl.create 16
+
+
+    let get_init_outport b_intercepted interface =
+        let key_outport = Printf.sprintf "%s_outport_%s__%d_" (Atom.to_string b_intercepted) interface 0 in
+        
+        (* For init stage both port must exist *)
+        try
+            fst (Hashtbl.find used_outports key_outport)
+        with Not_found -> raise (Error.DeadbranchError (Printf.sprintf "outport [%s] must exists" key_outport))
+
+    (*
+        1 => an intecepted activation can not initiate a session on the bridge
+        2 => an intecepted activation can not listen on session creation on the bridge
+        3 => an intercepted activation can initiate or listen 
+    *)
+    let kind_of_intercepted_bridge interceptor_info = function
+    | {value=CType {value = TBridge tbridge}} -> begin
+        let right = tbridge.out_type in
+        let left = tbridge.in_type in
+
+        let flag1 = List.fold_left (fun flag schema -> 
+            flag || ( TypingUtils.is_subtype (mtype_of_cvar schema) left) 
+        ) false (Atom.Set.to_list interceptor_info.intercepted_schemas) in
+        let flag2 = List.fold_left (fun flag schema -> 
+            flag || (TypingUtils.is_subtype (mtype_of_cvar schema) right) 
+        ) false (Atom.Set.to_list interceptor_info.intercepted_schemas) in
+
+        match flag1, flag2 with
+        | false, true   -> 1 
+        | true, false   -> 2
+        | true, true    -> 3
+        | false, false  -> raise (Error.DeadbranchError "intercepted bridge must have a bridge type!")
+    end
+    | _ -> raise (Error.DeadbranchError "intercepted bridge must have a bridge type!")
+    let generate_network_infrastructure interceptor_info =
+        let intercepted_bridges = interceptor_info.inout_bridges_info in
+
+        let aux (b_intercepted, _, tb_intercepted) = 
+            let st_intercepted = match tb_intercepted.value with
+                | CType {value=TBridge {protocol}} -> begin
+                    match protocol.value with
+                    | SType st -> st
+                end
+            in
+
+            let st_out, st_in = 
+                let dst = (dual st_intercepted) in
+                match (IRMisc.unfold_st_star st_intercepted).value with
+                | STBranch _ | STRecv _ ->  dst, st_intercepted 
+                | _ -> st_intercepted, dst
+            in
+
+            (* interface \in [egress, ingress]*)
+            let unroll_ports interface i st_stage =
+                match st_stage with
+                | STBranch _ | STRecv _ ->
+                    let name = Atom.fresh (Printf.sprintf "%s_inport_%s__%d_" (Atom.to_string b_intercepted) interface i) in
+                    Some (
+                        interface,
+                        name,
+                        Some {
+                            name = name;
+                            expecting_st = mtype_of_st st_stage;
+                            callback = e2_lit VoidLit; (* will be hydrated later on*)
+                            _disable_session = false;
+                            _children = [];
+                            _is_intermediate = false;
+                            _receive_id = None;
+                        },
+                        None
+                    )
+                | STSelect _ | STSend _ when i == 0 ->
+                    let name = Atom.fresh (Printf.sprintf "%s_outport_%s__%d_" (Atom.to_string b_intercepted) interface i) in
+                    Some (
+                        interface,
+                        name,
+                        None,
+                        Some {
+                            name = name;
+                            protocol = mtype_of_st st_stage;
+                            _children = [];
+                        }
+                    )
+                | STSelect _ | STSend _ when i > 0 -> None
+            in
+
+
+            match kind_of_intercepted_bridge interceptor_info tb_intercepted with
+            | 1 -> begin
+                (* stage_0 egress => out /\ stage_0 ingress => in *) 
+                let st_egress_0, st_ingress_0 = st_out, st_in in 
+
+                let egress_ports = List.mapi (unroll_ports "egress") (stages_of_st st_egress_0) in
+                let ingress_ports = List.mapi (unroll_ports "ingress")  (stages_of_st st_ingress_0) in
+
+                let egress_ports = List.filter_map Fun.id egress_ports in
+                let ingress_ports = List.filter_map Fun.id ingress_ports in
+
+                List.iter (function (interface,name,in_opt,out_opt) -> 
+                    logger#info "~- %s" (Atom.to_string name);    
+                    begin
+                    match in_opt with
+                    | Some port ->
+                        Hashtbl.add used_inports (Atom.hint name) (name,port) 
+                    | None -> ()
+                    end;
+                    begin
+                    match out_opt with
+                    | Some port ->
+                        Hashtbl.add used_outports (Atom.hint name) (name,port) 
+                    | None -> ()
+                    end;
+                    ()
+                ) (ingress_ports@egress_ports);
+                ()
+
+            end
+            | 2 -> begin
+            (* stage_0 egress => in /\ stage_0 ingress => out *) 
+                let st_egress_0, st_ingress_0 = st_in, st_out in 
+                failwith "><2" 
+            end
+            | 3 -> begin
+                failwith "><3" 
+            end
+        in
+
+        List.map aux intercepted_bridges
+
+
+        
     (*************** Step 2 - Interception session block******************)
     let generate_sessions_block interceptor_info : interceptor_info * component_item list = 
         let this_4external2internal = Atom.fresh "convert_4external2internal" in
@@ -447,10 +578,7 @@ module Make (Args: TArgs) = struct
             }))));
         ]
 
-
     (*************** Ingress Egress utils ******************)
-    let used_outports = Hashtbl.create 16
-    let used_inports = Hashtbl.create 16
 
     let paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_B, st3, tmsg3)=
         TypingUtils.is_subtype left_mt  mt_A
@@ -656,7 +784,7 @@ module Make (Args: TArgs) = struct
             on_startup = false;
         }
 
-    let generate_skeleton_callback_sessioninit (flag_egress, aux_sessioninit__e_skeleton_establishing_s_out, aux_sessioninit__es_skeleton_update_metadata) interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_port_out_egress this_port_out_ingress this_port_in_egress this_port_in_ingress this_b_out this_b_in i this_callback_msg tmsg st_continuation = 
+    let generate_skeleton_callback_sessioninit (flag_egress, aux_sessioninit__e_skeleton_establishing_s_out, aux_sessioninit__es_skeleton_update_metadata) interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted   this_outport_init this_b_out this_b_in i this_callback_msg tmsg st_continuation = 
         let param_msg, e_param_msg = e_param_of "msg" in
         let param_s_in, e_param_s_in = e_param_of "s_in" in
 
@@ -768,7 +896,7 @@ module Make (Args: TArgs) = struct
                     local_s_out,
                     e2_e(CastExpr(
                         tb_intercepted.protocol, (* FIXME Java compiler does infer the type conversion*)
-                        aux_sessioninit__e_skeleton_establishing_s_out (this_port_out_egress, this_port_out_ingress, this_port_in_egress, this_port_in_ingress) e_local_to)))); 
+                        aux_sessioninit__e_skeleton_establishing_s_out  this_outport_init e_local_to)))); 
             ]
 
             (*** Updating metdata ***)
@@ -797,12 +925,10 @@ module Make (Args: TArgs) = struct
     (**
         @param i - n° of the stage. 0 == session init 
     *)
-    let generate_skeleton_block_per_intercepted_bridge_per_st_stage  (flag_egress, generate_skeleton_callback_msg, generate_skeleton_callback_sessioninit) interceptor_info msg_interceptors session_interceptors b_intercepted this_port_out_egress this_port_out_ingress this_port_in_egress this_port_in_ingress this_b_out this_b_in tb_intercepted i st_stage = 
-        logger#debug "generate_skeleton_block_per_intercepted_bridge_per_st_stage for %s - %d:\n\t-%s\nt\t-%s\n\t-%s" 
+    let generate_skeleton_block_per_intercepted_bridge_per_st_stage  (flag_egress, generate_skeleton_callback_msg, generate_skeleton_callback_sessioninit) interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted  this_outport_init this_b_out this_b_in i st_stage = 
+        logger#warning "generate_skeleton_block_per_intercepted_bridge_per_st_stage for %s - %d:\n\t-%s\nt\t-%s\n\t-%s" 
             (if flag_egress then "egress" else "ingress")
             i
-            (Atom.to_string this_port_out_ingress)
-            (Atom.to_string this_port_in_egress)
             (show__session_type st_stage)
             ;
         let e_this_b_out = e2_e (AccessExpr (e2_e This, e2var this_b_out)) in
@@ -812,46 +938,32 @@ module Make (Args: TArgs) = struct
         let callback_name = Atom.fresh (Printf.sprintf "callback_%s__%s__%d" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i) in
 
         (***Inport & Outport generation ***)
+        let interface = if flag_egress then "egress" else "ingress" in
+        let key_inport = Printf.sprintf "%s_inport_%s__%d_" (Atom.to_string b_intercepted) interface i in 
+        let key_outport = Printf.sprintf "%s_outport_%s__%d_" (Atom.to_string b_intercepted) interface i in
+        
+        Seq.iter (function x -> logger#error "glup %s %s" key_outport x) (Hashtbl.to_seq_keys used_outports);
 
-        let st_out, st_in = 
-            let dst_stage = (dual (auto_fplace st_stage)).value in
-            match (IRMisc.unfold_st_star  (auto_fplace st_stage)).value with
-            | STBranch _ | STRecv _ ->  dst_stage, st_stage 
-            | _ -> st_stage, dst_stage
-        in
-
-        let outport_egress_name = if i == 0 then this_port_out_egress else Atom.fresh ((Atom.to_string this_port_out_egress)^"_stage_"^(string_of_int i)^"_") in
-        let outport_ingress_name = if i == 0 then this_port_out_ingress else Atom.fresh ((Atom.to_string this_port_out_ingress)^"_stage_"^(string_of_int i)^"_") in
-        let inport_egress_name = if i == 0 then this_port_in_egress else Atom.fresh ((Atom.to_string this_port_in_egress)^"_stage_"^(string_of_int i)^"_") in
-        let inport_ingress_name = if i == 0 then this_port_in_ingress else Atom.fresh ((Atom.to_string this_port_in_ingress)^"_stage_"^(string_of_int i)^"_") in
-
-        (* Register init_stage only *)
-        logger#error ">register used_outports: %s" (Atom.to_string (if flag_egress then outport_egress_name else outport_ingress_name));
-        logger#error ">register used_inports: %s" (Atom.to_string (if flag_egress then inport_egress_name else inport_ingress_name));
-        Hashtbl.add used_outports (if flag_egress then outport_egress_name else outport_ingress_name) ();
-        Hashtbl.add used_inports (if flag_egress then inport_egress_name else inport_ingress_name) ();
-
-        let outport = 
-            auto_fplace (auto_plgannot(Outport (auto_fplace ({
-                name = if flag_egress then outport_egress_name else outport_ingress_name;
-                protocol = mtype_of_st st_out;
-                _children = [];
-            }, auto_fplace EmptyMainType)))) in
-
-        let inport =
-            auto_fplace (auto_plgannot(Inport (auto_fplace ({
-                        name = if flag_egress then inport_egress_name else inport_ingress_name;
-                        expecting_st = mtype_of_st st_in;
-                        callback = e2_e (AccessExpr(
-                            e2_e This,
-                            e2var callback_name
-                        ));
-                        _disable_session = false;
-                        _children = [];
-                        _is_intermediate = false;
-                        _receive_id = None;
-                    }, auto_fplace EmptyMainType))))
-        in
+        (* Maj inport with callback *)
+        begin
+            match Hashtbl.find_opt used_inports key_inport with 
+            | None -> () 
+            | Some (name, inport) -> begin
+                logger#info "maj callback for  %s" (Atom.to_string name);     
+                begin
+                    match fst inport.callback.value with
+                    | LitExpr _ -> ()
+                    | _ -> raise (Error.DeadbranchError (Printf.sprintf "callback for %s has already been updated" key_inport))
+                end;
+                let inport = { inport with callback = 
+                    e2_e (AccessExpr(
+                        e2_e This,
+                        e2var callback_name
+                    ));
+                } in
+                Hashtbl.replace used_inports key_inport (name, inport)
+            end
+        end;
 
         let (tmsg, st_continuation) : main_type * session_type = msgcont_of_st (auto_fplace st_stage) in
 
@@ -861,7 +973,7 @@ module Make (Args: TArgs) = struct
         (*** Session interception callback ***)
         let callback_session_init : method0 option = 
             if i = 0 then 
-                Some (generate_skeleton_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_port_out_egress this_port_out_ingress this_port_in_egress this_port_in_ingress this_b_out this_b_in i callback_msg.value.name tmsg st_continuation)
+                Some (generate_skeleton_callback_sessioninit interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_outport_init this_b_out this_b_in i callback_msg.value.name tmsg st_continuation)
             else None 
         in
 
@@ -921,8 +1033,6 @@ module Make (Args: TArgs) = struct
         in
 
         [
-            outport;
-            inport;
             auto_fplace (auto_plgannot(Method callback));
         ]
         @ (if i = 0 then
@@ -933,7 +1043,7 @@ module Make (Args: TArgs) = struct
         else [])
 
 
-    let generate_skeleton_block_per_intercepted_bridge (flag_egress, generate_skeleton_block_per_intercepted_bridge) interceptor_info msg_interceptors session_interceptors b_intercepted this_port_out_egress this_port_out_ingress this_port_in_egress this_port_in_ingress this_b_out this_b_in b_mt : component_item list = 
+    let generate_skeleton_block_per_intercepted_bridge (flag_egress, generate_skeleton_block_per_intercepted_bridge) interceptor_info msg_interceptors session_interceptors b_intercepted this_outport_init this_b_out this_b_in b_mt : component_item list = 
         let tb_intercepted = (match b_mt with | {value = CType {value = TBridge tb}} -> tb) in
         let p_st = (match tb_intercepted.protocol with 
             | {value = SType st} -> st
@@ -943,7 +1053,7 @@ module Make (Args: TArgs) = struct
 
         List.flatten (
             List.mapi
-                (generate_skeleton_block_per_intercepted_bridge interceptor_info msg_interceptors session_interceptors b_intercepted this_port_out_egress this_port_in_egress this_port_in_egress this_port_out_ingress this_b_out this_b_in tb_intercepted)
+                (generate_skeleton_block_per_intercepted_bridge interceptor_info msg_interceptors session_interceptors b_intercepted tb_intercepted this_outport_init this_b_out this_b_in )
                 st_stages
         )
 
@@ -1005,11 +1115,11 @@ module Make (Args: TArgs) = struct
         ]
 
     let generate_ingress_callback_msg = generate_skeleton_callback_msg (false, aux_ongoing__e_ingress_s_out,aux_ongoing__es_ingress_update_metadata)
-    let aux_sessioninit__e_ingress_establishing_s_out (this_port_out_egress, this_port_out_ingress, _, _) e_local_to =  
+    let aux_sessioninit__e_ingress_establishing_s_out this_outport_init e_local_to =  
         e2_e (CallExpr(
             e2var (Atom.builtin "initiate_session_with"),
             [
-                e2_e (AccessExpr( e2_e This, e2var this_port_out_ingress));
+                e2_e (AccessExpr( e2_e This, e2var this_outport_init));
                 e_local_to;
             ]
         ))
@@ -1057,6 +1167,7 @@ module Make (Args: TArgs) = struct
     let generate_ingress_block_per_intercepted_bridge = generate_skeleton_block_per_intercepted_bridge (false, generate_ingress_block_per_intercepted_bridge_per_st_stage) 
 
     let generate_ingress_block interceptor_info base_interceptor : component_item list = 
+        logger#warning "Generating ingress block";
         let msg_interceptors = extract_message_intercept_methods (methods_of base_interceptor) in
         let session_interceptors = extract_session_intercept_methods (methods_of base_interceptor) in
 
@@ -1064,13 +1175,15 @@ module Make (Args: TArgs) = struct
             (auto_fplace(DocComment "******************** Ingress Block ********************"))
         )))))
         :: List.flatten(
-            List.map (function ((b_intercepted, _, b_mt), (this_port_out_egress, this_port_out_ingress, this_port_in_egress, this_port_in_ingress, this_b_out, this_b_in, _)) ->
+            List.map (function ((b_intercepted, _, b_mt), (this_b_out, this_b_in, _)) ->
+
+                logger#warning "Generating ingress block for a bridge %b" (Bool.not (has_kind_ingress interceptor_info b_mt));
                 if Bool.not (has_kind_ingress interceptor_info b_mt) then []
                 else begin
                     auto_fplace (auto_plgannot(Term (auto_fplace (auto_plgannot(Comments
                         (auto_fplace(DocComment (Printf.sprintf "*** Ingress Block for bridge [%s] ***" (Atom.to_string b_intercepted))))))
                     )))
-                    :: (generate_ingress_block_per_intercepted_bridge interceptor_info  msg_interceptors session_interceptors b_intercepted this_port_out_egress this_port_out_ingress this_port_in_egress this_port_in_ingress this_b_out this_b_in b_mt) 
+                    :: (generate_ingress_block_per_intercepted_bridge interceptor_info  msg_interceptors session_interceptors b_intercepted (get_init_outport b_intercepted "ingress") this_b_out this_b_in b_mt) 
                 end
             ) (List.combine interceptor_info.inout_bridges_info (Option.get interceptor_info.inout_statebridges_info)) 
         )
@@ -1133,7 +1246,7 @@ module Make (Args: TArgs) = struct
     
     let generate_egress_callback_msg = generate_skeleton_callback_msg (true, aux_ongoing__e_egress_s_out,aux_ongoing__es_egress_update_metadata)
 
-    let aux_sessioninit__e_egress_establishing_s_out (this_port_out_egress, this_port_out_ingress, _, _) e_local_to =  
+    let aux_sessioninit__e_egress_establishing_s_out this_port_out_egress  e_local_to =  
         e2_e (CallExpr(
             e2var (Atom.builtin "initiate_session_with"),
             [
@@ -1186,6 +1299,7 @@ module Make (Args: TArgs) = struct
     let generate_egress_block_per_intercepted_bridge = generate_skeleton_block_per_intercepted_bridge (true, generate_egress_block_per_intercepted_bridge_per_st_stage) 
 
     let generate_egress_block interceptor_info base_interceptor : component_item list = 
+        logger#warning "Generating egress block";
         let msg_interceptors = extract_message_intercept_methods (methods_of base_interceptor) in
         let session_interceptors = extract_session_intercept_methods (methods_of base_interceptor) in
 
@@ -1193,13 +1307,14 @@ module Make (Args: TArgs) = struct
             (auto_fplace(DocComment "******************** Egress Block ********************"))
         )))))
         :: List.flatten(
-            List.map (function ((b_intercepted, _, b_mt), (this_port_out_egress, this_port_out_ingress, this_port_in_egress, this_port_in_ingress, this_b_out, this_b_in, _)) ->
+            List.map (function ((b_intercepted, _, b_mt), (this_b_out, this_b_in, _)) ->
+                logger#warning "Generating egress block for a bridge %b" (Bool.not (has_kind_egress interceptor_info b_mt));
                 if Bool.not (has_kind_egress interceptor_info b_mt) then []
                 else begin
                     auto_fplace (auto_plgannot(Term (auto_fplace (auto_plgannot(Comments
                         (auto_fplace(DocComment (Printf.sprintf "*** Egress Block for bridge [%s] ***" (Atom.to_string b_intercepted))))))
                     )))
-                    :: (generate_egress_block_per_intercepted_bridge interceptor_info  msg_interceptors session_interceptors b_intercepted this_port_out_egress this_port_out_ingress this_port_in_egress this_port_in_ingress this_b_out this_b_in b_mt) 
+                    :: (generate_egress_block_per_intercepted_bridge interceptor_info  msg_interceptors session_interceptors b_intercepted (get_init_outport b_intercepted "egress") this_b_out this_b_in b_mt) 
                 end
             ) (List.combine interceptor_info.inout_bridges_info (Option.get interceptor_info.inout_statebridges_info)) 
         )
@@ -1232,7 +1347,7 @@ module Make (Args: TArgs) = struct
             )
         in
 
-        let aux ((_, _, _, _, this_b_out, this_b_in, _), ( param_b_out, param_b_in, _)) = 
+        let aux ((this_b_out, this_b_in, _), ( param_b_out, param_b_in, _)) = 
             auto_fplace (AssignThisExpr(
                 this_b_out, 
                 e2var param_b_out
@@ -1241,7 +1356,7 @@ module Make (Args: TArgs) = struct
                 this_b_in, 
                 e2var param_b_in 
             ))::
-            (List.map (function this_outport_name ->
+            (List.map (function (this_outport_name,_) ->
                 auto_fplace (ExpressionStmt(
                     e2_e (CallExpr(
                         e2var (Atom.builtin "bind"),
@@ -1254,8 +1369,8 @@ module Make (Args: TArgs) = struct
                         ]
                     ))
                 ))
-            ) (List.of_seq (Hashtbl.to_seq_keys used_outports))) @
-            (List.map (function this_inport_name ->
+            ) (List.of_seq (Hashtbl.to_seq_values used_outports))) @
+            (List.map (function (this_inport_name,_) ->
                             logger#error "><> %b %s" (Utils.str_contains (Atom.to_string this_inport_name) "_ingress_" ) (Atom.to_string this_inport_name);
                 auto_fplace (ExpressionStmt(
                     e2_e (CallExpr(
@@ -1269,7 +1384,7 @@ module Make (Args: TArgs) = struct
                         ]
                     ))
                 ))
-            ) (List.of_seq (Hashtbl.to_seq_keys used_inports)))
+            ) (List.of_seq (Hashtbl.to_seq_values used_inports)))
         in
 
         let onstartup = auto_fplace (auto_plgannot(Method (auto_fplace {
@@ -1324,9 +1439,20 @@ module Make (Args: TArgs) = struct
         let interceptor_info, sessions_block = generate_sessions_block interceptor_info in
         logger#debug "3 > \n%s" (show_interceptor_info interceptor_info);
 
+        generate_network_infrastructure interceptor_info;
+
         let ingress_block = generate_ingress_block interceptor_info base_interceptor in
         let egress_block = generate_egress_block interceptor_info base_interceptor in
         let inlined_onstartup_block = generate_onstartup interceptor_info inlined_onstartup_block in
+
+        let outports = List.map (function (name, outport)->
+            logger#info "&& %s" (Atom.to_string name);
+            auto_fplace (auto_plgannot(Outport (auto_fplace (outport, auto_fplace EmptyMainType))))
+        ) (List.of_seq (Hashtbl.to_seq_values used_outports)) in
+        let inports = List.map (function (name, inport)->
+            logger#info "&& %s" (Atom.to_string name);
+            auto_fplace (auto_plgannot(Inport (auto_fplace (inport, auto_fplace EmptyMainType))))
+        ) (List.of_seq (Hashtbl.to_seq_values used_inports)) in
 
         Component (auto_fplace (ComponentStructure {
             target_name = SameAs base_interceptor.name; 
@@ -1336,6 +1462,8 @@ module Make (Args: TArgs) = struct
             body = 
                 onboard_block
                 @ inlined_onstartup_block
+                @ inports
+                @ outports
                 @ sessions_block
                 @ ingress_block
                 @ egress_block
