@@ -107,20 +107,18 @@ let refresh_value a value =
 
 (* Comparison of atoms. *)
 
-let equal a b =
-  if a.builtin = b.builtin then
-    a.hint = b.hint
-  else
-    a.identity = b.identity
 
 
 let compare a b =
   (* Identities are always positive numbers (see [allocate] above)
      so I believe overflow is impossible here. *)
-  if a.builtin = b.builtin then
-    String.compare a.hint b.hint
-  else
-    a.identity - b.identity
+  match a.builtin,b.builtin with
+  | true, true -> String.compare a.hint b.hint
+  | true, false | false, true -> -1
+  | false, false -> a.identity - b.identity
+
+let equal a b =
+  compare a b = 0 
 
 let compare_atom = compare 
 let equal_atom = equal 

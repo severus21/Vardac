@@ -19,13 +19,13 @@ module Make () = struct
 
 
     (* Typing context for expressions *)
-    let ectx : (Atom.atom, main_type) Hashtbl.t = Hashtbl.create 256
+    let ectx : main_type Atom.AtomHashtbl.t = Atom.AtomHashtbl.create 256
     (* Contexts of types*)
-    let tctx : (Atom.atom, main_type) Hashtbl.t = Hashtbl.create 256
+    let tctx : main_type Atom.AtomHashtbl.t = Atom.AtomHashtbl.create 256
     (* Typing context for components *)
-    let cctx : (Atom.atom, main_type) Hashtbl.t = Hashtbl.create 256
+    let cctx : main_type Atom.AtomHashtbl.t = Atom.AtomHashtbl.create 256
     (* Typing context for clasclass *)
-    let clctx : (Atom.atom, main_type) Hashtbl.t = Hashtbl.create 256
+    let clctx : main_type Atom.AtomHashtbl.t = Atom.AtomHashtbl.create 256
 
     let typeof_var_expr place x : main_type =
         if Atom.is_builtin x then
@@ -34,42 +34,42 @@ module Make () = struct
             else Builtin.type_of place (Atom.value x)
         else
             try
-                Hashtbl.find ectx x
+                Atom.AtomHashtbl.find ectx x
             with Not_found -> failwith (Printf.sprintf "notfound type of expr %s" (Atom.to_string x))
 
     let typeof_var_cexpr x : main_type =
         try
-            Hashtbl.find cctx x
+            Atom.AtomHashtbl.find cctx x
         with Not_found -> failwith (Printf.sprintf "notfound type of cexpr %s" (Atom.to_string x))
 
     let typeof_var_clexpr x : main_type =
         try
-            Hashtbl.find clctx x
+            Atom.AtomHashtbl.find clctx x
         with Not_found -> failwith (Printf.sprintf "notfound type of clexpr %s" (Atom.to_string x))
 
 
     let defof_tvar x : main_type = 
         try 
-            Hashtbl.find tctx x
+            Atom.AtomHashtbl.find tctx x
         with Not_found -> failwith (Printf.sprintf "notfound def of tvar %s" (Atom.to_string x))
 
 
     let register_expr_type x mt : unit= 
         logger#debug "> %s" (Atom.to_string x); 
-        assert(Hashtbl.find_opt ectx x = None);
-        Hashtbl.add ectx x mt 
+        assert(Atom.AtomHashtbl.find_opt ectx x = None);
+        Atom.AtomHashtbl.add ectx x mt 
 
     let register_cexpr_type x mt : unit = 
-        assert(Hashtbl.find_opt cctx x = None);
-        Hashtbl.add cctx x mt
+        assert(Atom.AtomHashtbl.find_opt cctx x = None);
+        Atom.AtomHashtbl.add cctx x mt
 
     let register_clexpr_type x mt : unit = 
-        assert(Hashtbl.find_opt clctx x = None);
-        Hashtbl.add clctx x mt
+        assert(Atom.AtomHashtbl.find_opt clctx x = None);
+        Atom.AtomHashtbl.add clctx x mt
 
     let register_type x mt : unit= 
-        assert( Hashtbl.find_opt tctx x = None);
-        Hashtbl.add tctx x mt
+        assert( Atom.AtomHashtbl.find_opt tctx x = None);
+        Atom.AtomHashtbl.add tctx x mt
 
     let register_def_type : _typedef -> unit = 
         let fplace = (Error.forge_place "TypeUtils.register_def_type" 0 0) in
@@ -231,7 +231,7 @@ module Make () = struct
     | Contract _ -> [] 
     | Include _ -> []
     | Method m -> 
-        logger#debug "scan method %s" (match parent_opt with | None -> "None" | Some p -> Atom.to_string p);
+        logger#debug "scan method %s %s" (match parent_opt with | None -> "None" | Some p -> Atom.to_string p) (Atom.to_string m.value.name);
         register_expr_type m.value.name (typeof_method m);
         [m.value.name, typeof_method m]
     | Inport p -> 
@@ -481,7 +481,8 @@ module Make () = struct
             | None -> 
                 logger#debug "%s\n\n%s" (Atom.VMap.show c_sign) (show_main_type mt_component);
                 raise (Error.PlacedDeadbranchError (place, (Printf.sprintf "The infered component have no field/method named %s" (Atom.to_string mname))))
-            | Some mt -> mt
+            | Some mt -> 
+                mt
         in
         ret_type
 
@@ -561,7 +562,9 @@ module Make () = struct
                         logger#debug "access begin \n %s" (show_expr e1);
                         (* class or component *)
                         let tmp = match (snd e1.value).value with
-                            | CompType _ -> mt_of_citem parent_opt place (snd e1.value) field
+                            | CompType _ -> 
+                                logger#error "access expr type of %s" (Atom.to_string field);
+                                mt_of_citem parent_opt place (snd e1.value) field
                             | CType {value= TObject _}-> begin
                                 match fst e1.value with
                                 | This -> failwith "[This] has been labelled with class type"  
