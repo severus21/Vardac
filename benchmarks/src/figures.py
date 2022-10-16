@@ -53,6 +53,7 @@ class BarFigure(Figure):
                 d[curve.name+"_sd"].append(ye[0])
 
         colors = ['b', 'r', 'g']
+        print(d)
         df = pd.DataFrame(d)
         y_cols = list(filter(lambda x: x != "title" and not x.endswith("_sd"), list(df.columns)))
         yerr_cols = list(filter(lambda x: x.endswith("_sd"), list(df.columns)))

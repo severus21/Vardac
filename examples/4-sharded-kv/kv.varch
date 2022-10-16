@@ -23,7 +23,7 @@ component KVStore {
     option<activation_ref<KVServer>> delaying_selection(
         dict<activation_id, activation_ref<KVServer>> onboarded_activations, 
         activation_ref<Client> from, 
-        bridge<Client, KVServer, inline p_kv> b_inner, 
+        bridge<Client, KVServer, inline p_kv> b_other_side, 
         string requested_to_schema, 
         blabel msg
     ){

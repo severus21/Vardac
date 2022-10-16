@@ -66,6 +66,11 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     private HashMap<Tuple2<UUID, ASTStype.Base>, UUID> currently_inport_bindings = new HashMap();
 
     public Void bind_in(InPort port, Bridge bridge, ActivationRef current) {
+        // If already bound, do nothing
+        if(port.bridge != null)
+            if(port.bridge.id.equals(bridge.id))
+                return null;
+
         // Check that there is at most once (bridge.id, port.expecting_st) couple defined at a time
         // See Wiki for more details
 
@@ -103,6 +108,11 @@ public abstract class AbstractComponent<T> extends AbstractBehavior<T> {
     }
 
     public Void bind_out(OutPort port, Bridge bridge, ActivationRef current) {
+        // If already bound, do nothing
+        if(port.bridge != null)
+            if(port.bridge.id.equals(bridge.id))
+                return null;
+
         {% if enable_global_bridge_reflexivity %}
         //Register the activations 
         if(bridge.protocol.get_st().equals(port.expecting_st) || bridge.protocol.get_st().equals(port.expecting_st.dual()) )

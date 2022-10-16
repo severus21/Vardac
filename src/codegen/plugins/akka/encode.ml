@@ -375,6 +375,14 @@ let encode_builtin_fct_2 parent_opt place name a b =
             )),
             [ b ]
         ) 
+    | "exist2dict" ->
+        T.CallExpr( 
+            e2_e (T.AccessExpr (
+                a, 
+                e2var (Atom.builtin "containsKey")
+            )),
+            [ b ]
+        ) 
     | "fire" -> 
         T.CallExpr( 
             e2_e (T.AccessExpr (

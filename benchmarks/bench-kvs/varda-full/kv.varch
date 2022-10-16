@@ -14,30 +14,32 @@ protocol p_kv = §{
 
 @capturable([Loadbalancer])
 component KVServer {
-    onstartup (bridge<Client, KVServer, p_kv> b){
-        print(">>> Starting a KVServer instance");
+    string name = "shard-no-name";
+    onstartup (bridge<Client, KVServer, p_kv> b, string name){
+        print(">>> Starting a KVServer instance "+name);
         bind(this.p_in, b);
+        this.name = name;
     }
 
     inport p_in :: bridge<Client, KVServer, p_kv> expecting (dual p_kv) = this.callback;
 
     result<void, error> callback (blabel msg, (dual p_kv) s) {
-        print("callback");
+        print("callback "+this.name);
 
         branch s on msg {
             | l_get => s_i -> { 
-                print("l_get");
                 tuple<key, !value.> tmp = receive(s_i);
+                print("get "+this.name);
                 fire(tmp._1, this.get(tmp._0))?;
             }
             | l_delete => s_i -> {
-                print("l_delete");
                 tuple<key, !bool.> tmp = receive(s_i);
+                print("delete "+this.name);
                 fire(tmp._1, this.delete(tmp._0))?;
             }
             | l_put => s_i -> {
-                print("l_put");
                 tuple<tuple<key,value>, !bool.> tmp = receive(s_i);
+                print("put "+this.name);
                 tuple<key, value> res = tmp._0; 
                 this.put(res._0, res._1);
                 fire(tmp._1, true)?;
@@ -124,6 +126,10 @@ component Client {
 (***************** Loadbalancer *******************)
 
 component Loadbalancer {
+    list<activation_ref<KVServer>> shards = [];
+    dict<session_id, !key?bool.> s_inner_delete = dict();
+    dict<session_id, !key?bool.> s_inner_put = dict();
+    outport custom_p_out expecting p_kv;
 
     onstartup () {
         print("> Loadbalancer");
@@ -133,6 +139,7 @@ component Loadbalancer {
     @onboard([KVServer])
     bool onboard_A(activation_ref<KVServer> a, place p_of_a){
         print("Onboarding a KVServer");
+        append(this.shards, a);
         return true;
     }
 
@@ -141,12 +148,13 @@ component Loadbalancer {
     result<option<activation_ref<KVServer>>,error> my_session_interceptor_a(
         dict<activation_id, activation_ref<KVServer>> onboarded_activations, 
         activation_ref<Client> from, 
-        bridge<Client, KVServer, inline p_kv> b_inner, 
+        bridge<Client, KVServer, inline p_kv> b_other_side, 
         string requested_to_schema, 
         blabel msg
     ){
         print("Intercepted session init");
         activation_ref<KVServer> a = pick(onboarded_activations);
+        bind(this.custom_p_out, b_other_side);
         return ok(some(a));
     }
 
@@ -155,14 +163,76 @@ component Loadbalancer {
     result<!key?value.,error> intercept_ping(
         activation_ref<Client> from, 
         activation_ref<KVServer> to, 
-        !key?value. continuation_in, 
+        (dual p_kv) continuation_in, 
         p_kv continuation_out, 
         blabel msg
     ){
-        print("Intercept get branch selection");
-        !key?value. s_out = select(continuation_out, msg)?;
+        branch continuation_in on msg {
+            | l_get => s -> {
+                print("Intercept get branch : nothing to do");
+            }
+            | l_delete => s -> {
+                print("Intercept delete branch selection");
+                for(activation_ref<KVServer> shard in this.shards){
+                    if( activationid(shard) != activationid(to)){
+                        print("handling another shard");
+                        session<p_kv> s = initiate_session_with(this.custom_p_out, shard);
+                        !key?bool. s_a = select(s, l_delete)?;
+                        add2dict(this.s_inner_delete, sessionid(continuation_in), s_a);
+                    }
+                }
+            }
+            | l_put => s -> {
+                print("Intercept put branch selection");
+                for(activation_ref<KVServer> shard in this.shards){
+                    if( activationid(shard) != activationid(to)){
+                        print("handling another shard");
+                        session<p_kv> s = initiate_session_with(this.custom_p_out, shard);
+                        !key?bool. s_a = select(s, l_put)?;
+                        add2dict(this.s_inner_put, sessionid(continuation_in), s_a);
+                    }
+                }
+            }
+        }
 
+        !key?value. s_out = select(continuation_out, msg)?;
         return ok(s_out);
+    }
+
+    @msginterceptor(both)
+    result<.,error> intercept_delete(
+        activation_ref<Client> from, 
+        activation_ref<KVServer> to, 
+        ?bool. continuation_in, 
+        !bool. continuation_out, 
+        key msg
+    ){
+        print("Intercept bidule");
+        session_id s_id = sessionid(continuation_in);
+        if(exist2dict(this.s_inner_delete, s_id)){
+            print("Intercept bidule delete ");
+            (* do not wait for response *)
+            fire(get2dict(this.s_inner_delete, s_id), msg);
+        }
+
+        return ok(fire(continuation_out, msg)?);
+    }
+    @msginterceptor(both)
+    result<.,error> intercept_put(
+        activation_ref<Client> from, 
+        activation_ref<KVServer> to, 
+        ?bool. continuation_in, 
+        !bool. continuation_out, 
+        tuple<key,value> msg
+    ){
+        session_id s_id = sessionid(continuation_in);
+        if(exist2dict(this.s_inner_put, s_id)){
+            print("Intercept bidule put ");
+            (* do not wait for response *)
+            fire(get2dict(this.s_inner_put, s_id), msg);
+        }
+
+        return ok(fire(continuation_out, msg)?);
     }
 }
 
@@ -193,7 +263,8 @@ component TopLevel {
             bridge<Client, KVServer, p_kv> b = bridge(p_kv);
 
             with<Loadbalancer, anonymous> this.make_interceptor{
-                activation_ref<KVServer> kv_a = spawn KVServer(b);
+                activation_ref<KVServer> kv_a = spawn KVServer(b, "shard-1");
+                activation_ref<KVServer> kv_b = spawn KVServer(b, "shard-2");
             }
 
             activation_ref<Client> c = spawn Client(b, kv_a);

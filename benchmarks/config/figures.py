@@ -138,10 +138,11 @@ FIGURES = [
             #    ("kvs-inmemory", Bench.objects.filter(name="ycsb-kvs-varda-inmemory").order_by('-pk')[0].results.all()),
             #],
             'YSCB-b' : [
-                ("redis", Bench.objects.filter(name="ycsb-b-redis").order_by('-pk')[0].results.all()),
-                ("kvs-redis", Bench.objects.filter(name="ycsb-b-kvs-varda-redis").order_by('-pk')[0].results.all()),
+                #("redis", Bench.objects.filter(name="ycsb-b-redis").order_by('-pk')[0].results.all()),
+                #("kvs-redis", Bench.objects.filter(name="ycsb-b-kvs-varda-redis").order_by('-pk')[0].results.all()),
                 ("kvs-varda-inmemory", Bench.objects.filter(name="ycsb-b-kvs-varda-inmemory").order_by('-pk')[0].results.all()),
-                ("kvs-akka-inmemory", Bench.objects.filter(name="ycsb-b-kvs-akka-inmemory").order_by('-pk')[0].results.all()),
+                ("kvs-full-varda-inmemory", Bench.objects.filter(name="ycsb-b-kvs-full-varda-inmemory").order_by('-pk')[0].results.all()),
+                #("kvs-akka-inmemory", Bench.objects.filter(name="ycsb-b-kvs-akka-inmemory").order_by('-pk')[0].results.all()),
         ]},
         selector    = (lambda x : x['workload'] == "workloada" or x['workload'] == "workloadb"),
     ) 

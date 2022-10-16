@@ -129,7 +129,7 @@ component MsgCounter {
     result<option<activation_ref<A>>,error> my_session_interceptor_a(
         dict<activation_id, activation_ref<A>> onboarded_activations, 
         activation_ref<B> from, 
-        bridge<B, A, inline p_pingpong> b_inner, 
+        bridge<B, A, inline p_pingpong> b_other_side, 
         string requested_to_schema, 
         ping msg
     ){
@@ -145,7 +145,7 @@ component MsgCounter {
     result<option<activation_ref<A>>,error> my_session_interceptor_b(
         dict<activation_id, activation_ref<A>> onboarded_activations, 
         activation_ref<B> from, 
-        bridge<B, A, inline p_pingpong> b_inner, 
+        bridge<B, A, inline p_pingpong> b_other_side, 
         activation_ref<A> requested_to, 
         ping msg
     ){

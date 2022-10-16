@@ -606,16 +606,23 @@ module Make (Args: TArgs) = struct
             let st3 = match fst param_continuation_in.value with | {value=SType st} -> st in (* type of continuation_in*)
             let tmsg3 = fst param_msg.value in 
 
-            logger#info "%s\ntry paired msginterceptor with %b \n\t%s \n<\n\t %s"  (Atom.to_string m.value.name) 
-            (TypingUtils.is_subtype (mtype_of_st st_continuation.value) (mtype_of_st st3.value))
-            (show_session_type st_continuation) (show_session_type st3);
+            logger#info "try paired msginterceptor [%s] with %b \n\t%s \n<\n\t %s\nAND\n\t%s \n<\n\t %s\nAND\n\t%s \n<\n\t %s\nAND\n\t%s \n<\n\t %s"  
+                (Atom.to_string m.value.name) 
+                (TypingUtils.is_subtype (mtype_of_st st_continuation.value) (mtype_of_st st3.value))
+                (show_main_type left_mt) (show_main_type mt_A)
+                (show_main_type right_mt) (show_main_type mt_B)
+                (show_session_type st_continuation) (show_session_type st3)
+                (show_main_type tmsg) (show_main_type tmsg3);
 
             paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_B, st3, tmsg3)
         in 
 
+        (*
+        (* DEBUG *)
         List.iter (function (m:method0) -> 
             logger#info "> msginterceptor %s" (Atom.to_string m.value.name)
         ) msg_interceptors;
+        *)
 
         match List.filter filter msg_interceptors with
         | [] -> None
@@ -628,13 +635,13 @@ module Make (Args: TArgs) = struct
 
         let filter (m: method0) =
             (* Well-formedness of sessioninterceptor should have been checked during typechecking *)
-            let [onboarded_activations; param_from; param_b_inner; _; param_msg] = m.value.args in
+            let [onboarded_activations; param_from; param_b_other_side; _; param_msg] = m.value.args in
 
             let mt_A = mt_activation_2_mt_schema (fst param_from.value) in
             (* Loss of precesion compare to non anonymous case 
-                mt_Bs is overapproximated using the in_type of b_inner param
+                mt_Bs is overapproximated using the in_type of b_other_side param
             *)
-            let mt_Bs = match (fst param_b_inner.value).value with
+            let mt_Bs = match (fst param_b_other_side.value).value with
                 | CType{ value = TBridge tb } -> tb.out_type (* see whitepaper *)
             in
             let st3 = st_continuation in
@@ -661,7 +668,7 @@ module Make (Args: TArgs) = struct
 
         let filter (m: method0) =
             (* Well-formedness of msginterceptor should have been checked during typechecking *)
-            let [onboarded_activations; param_from; param_b_inner; param_to; param_msg] = m.value.args in
+            let [onboarded_activations; param_from; param_b_other_side; param_to; param_msg] = m.value.args in
 
             let mt_A = mt_activation_2_mt_schema (fst param_from.value) in
             let mt_B = mt_activation_2_mt_schema (fst param_to.value) in
@@ -713,11 +720,12 @@ module Make (Args: TArgs) = struct
 
 
         let e_res_msginterceptor = 
-            logger#info "searching message interceptor for %s" (Atom.to_string b_intercepted);
+            let log_token = Printf.sprintf "%s_callback_ongoing__%s__%d_" (if flag_egress then "egress" else "ingress") (Atom.to_string b_intercepted) i in
+            logger#info "searching message interceptor for %s" log_token;
 
             match (get_msginterceptor interceptor_info msg_interceptors tb_intercepted i (tmsg, st_continuation)) with
             | Some x_to -> 
-                logger#warning "Some @msginterceptor(...) for bridge type %s" (Atom.to_string b_intercepted);
+                logger#warning "Some @msginterceptor(...) for bridge type %s" log_token;
                 e2_e (CallExpr (
                     e2_e (AccessExpr ( 
                         e2_e This, 
@@ -733,7 +741,7 @@ module Make (Args: TArgs) = struct
                 ))
             | None -> begin 
                 (* Case there is no user defined function *)
-                logger#warning "No @msginterceptor(...) for bridge type %s" (Atom.to_string b_intercepted);
+                logger#warning "No @msginterceptor(...) for bridge type %s" log_token;
                 match tmsg.value with
                 | CType {value=TFlatType TBLabel} ->
                     e2_e (CallExpr (
@@ -759,6 +767,9 @@ module Make (Args: TArgs) = struct
 
         let sessions_info = Option.get interceptor_info.sessions_info in
 
+
+        let e_exist_sout, e_get_sout = aux_ongoing__e_skeleton_s_out sessions_info e_param_s_in in
+
         auto_fplace {
             annotations = [];
             ghost = false;
@@ -769,43 +780,50 @@ module Make (Args: TArgs) = struct
                 auto_fplace (mtype_of_st st_continuation.value, param_s_in);
             ];
             body = [
-                (*** Computing from, to and s_out ***)
-                auto_fplace (LetStmt(
-                    mt_out,
-                    local_s_out,
-                    e2_e(CastExpr(
-                        mt_out,
-                        aux_ongoing__e_skeleton_s_out sessions_info e_param_s_in))
-                ));
-                auto_fplace (LetStmt(
-                    mtype_of_ct (TActivationRef left_mt),
-                    local_from,
-                    e2_e (CallExpr (
-                        e2var (Atom.builtin "session_from"),
-                        [ e_param_s_in ]
-                    ))
-                ));
-                auto_fplace (LetStmt(
-                    mtype_of_ct (TActivationRef right_mt),
-                    local_to,
-                    e2_e (CallExpr (
-                        e2var (Atom.builtin "session_to"),
-                        [ e2var local_s_out ]
-                    ))
-                ));
+                auto_fplace(IfStmt( (* FIXME TODO currently an unregistered session is dropped -> e.g. loadbalancer example for put/delete on other shards *)
+                    e_exist_sout,
+                    auto_fplace(BlockStmt ([
+                        (*** Computing from, to and s_out ***)
+                        auto_fplace (LetStmt(
+                            mt_out,
+                            local_s_out,
+                            e2_e(CastExpr(
+                                mt_out,
+                                e_get_sout))
+                        ));
 
-                (* TODO assert  ... *)
+                        auto_fplace (LetStmt(
+                            mtype_of_ct (TActivationRef left_mt),
+                            local_from,
+                            e2_e (CallExpr (
+                                e2var (Atom.builtin "session_from"),
+                                [ e_param_s_in ]
+                            ))
+                        ));
+                        auto_fplace (LetStmt(
+                            mtype_of_ct (TActivationRef right_mt),
+                            local_to,
+                            e2_e (CallExpr (
+                                e2var (Atom.builtin "session_to"),
+                                [ e2var local_s_out ]
+                            ))
+                        ));
 
-                (*** Apply msg interceptor ***)
-                auto_fplace (LetStmt(
-                    mt_out2,
-                    (*mtype_of_ct (TResult (mt_out2, mtype_of_var (Atom.builtin "error"))),*)
-                    local_s_out2,
-                    e2_e (UnopExpr (UnpackOrPropagateResult, e_res_msginterceptor))
-                ));
+                        (* TODO assert  ... *)
+
+                        (*** Apply msg interceptor ***)
+                        auto_fplace (LetStmt(
+                            mt_out2,
+                            (*mtype_of_ct (TResult (mt_out2, mtype_of_var (Atom.builtin "error"))),*)
+                            local_s_out2,
+                            e2_e (UnopExpr (UnpackOrPropagateResult, e_res_msginterceptor))
+                        ));
+                    ]
+                    (*** Update metadata ***)
+                    @ (aux_ongoing__es_skeleton_update_metadata sessions_info e_param_s_in e_local_s_out2)
+                    )),
+                    None))
             ]
-            (*** Update metadata ***)
-            @ (aux_ongoing__es_skeleton_update_metadata sessions_info e_param_s_in e_local_s_out2)
             ;
             contract_opt = None;
             on_destroy = false;
@@ -867,7 +885,7 @@ module Make (Args: TArgs) = struct
                                 [
                                     e_this_onboarded_activations;
                                     e_local_from;
-                                    e2_e(AccessExpr (e2_e This, e2var this_b_out));
+                                    e2_e(AccessExpr (e2_e This, e2var (if flag_egress then this_b_in else this_b_out))); (* bridge on the other side *)
                                     e2_e (CallExpr( 
                                         e2var (Atom.builtin "schemaof"),
                                         [ 
@@ -908,7 +926,7 @@ module Make (Args: TArgs) = struct
                                 [
                                     e_this_onboarded_activations;
                                     e_local_from;
-                                    e2_e(AccessExpr (e2_e This, e2var this_b_out));
+                                    e2_e(AccessExpr (e2_e This, e2var (if flag_egress then this_b_in else this_b_out))); (* bridge on the other side *)
                                     e2_e (CastExpr( (* This fix a java type inference limitation *)
                                         mtype_of_ct (TActivationRef right_mt),
                                         e2_e (CallExpr( 
@@ -1159,20 +1177,31 @@ module Make (Args: TArgs) = struct
 
 
     let aux_ongoing__e_ingress_s_out sessions_info e_param_s_in = 
+        let e_sid = 
+            e2_e (CallExpr( 
+                e2var (Atom.builtin "get2dict"),
+                [ 
+                    e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4internal2external));
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "sessionid"),
+                        [ e_param_s_in ]
+                    ))
+                ]
+            ))
+        in
+
+        e2_e (CallExpr( 
+            e2var (Atom.builtin "exist2dict"),
+            [ 
+                e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4external));
+                e_sid;
+            ]
+        )),
         e2_e (CallExpr( 
             e2var (Atom.builtin "get2dict"),
             [ 
                 e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4external));
-                e2_e (CallExpr( 
-                    e2var (Atom.builtin "get2dict"),
-                    [ 
-                        e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4internal2external));
-                        e2_e (CallExpr (
-                            e2var (Atom.builtin "sessionid"),
-                            [ e_param_s_in ]
-                        ))
-                    ]
-                ));
+                e_sid;
             ]
         ))
 
@@ -1278,20 +1307,30 @@ module Make (Args: TArgs) = struct
     (*************** Step 4 - Egress generation ******************)
 
     let aux_ongoing__e_egress_s_out sessions_info e_param_s_in = 
+        let e_sid = 
+            e2_e (CallExpr( 
+                e2var (Atom.builtin "get2dict"),
+                [ 
+                    e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4external2internal));
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "sessionid"),
+                        [ e_param_s_in ]
+                    ))
+                ]
+            ))
+        in
+        e2_e (CallExpr( 
+            e2var (Atom.builtin "exist2dict"),
+            [ 
+                e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4internal));
+                e_sid;
+            ]
+        )),
         e2_e (CallExpr( 
             e2var (Atom.builtin "get2dict"),
             [ 
                 e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4internal));
-                e2_e (CallExpr( 
-                    e2var (Atom.builtin "get2dict"),
-                    [ 
-                        e2_e (AccessExpr (e2_e This, e2var sessions_info.this_4external2internal));
-                        e2_e (CallExpr (
-                            e2var (Atom.builtin "sessionid"),
-                            [ e_param_s_in ]
-                        ))
-                    ]
-                ));
+                e_sid;
             ]
         ))
 

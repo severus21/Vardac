@@ -385,6 +385,25 @@ let t_get2dict () =
         ))
 
     ))
+let t_exist2dict () = 
+    (*quantify ["k"; "v"] (function [k;v] ->
+        mtype_of_ct(TArrow(
+            mtype_of_ct (TDict (mtype_poly_of_var k, mtype_poly_of_var v)),
+            mtype_of_ct(TArrow(
+                mtype_poly_of_var k,
+                mtype_poly_of_var v
+            ))
+        ))    
+    )
+*)
+    mtype_of_ct(TArrow(
+        mtype_of_ft TWildcard,
+        mtype_of_ct(TArrow(
+            mtype_of_ft TWildcard,
+            mtype_of_ft TBool 
+        ))
+    ))
+
 let t_remove2dict () = 
     (*quantify ["k"; "v"] (function [k;v] ->
         mtype_of_ct(TArrow(

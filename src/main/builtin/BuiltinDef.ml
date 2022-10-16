@@ -24,7 +24,7 @@ encode builtin fcts as type constructor to be able to type check that each plg c
 
 (* name, signature string, description, signature () -> .. , neeed a closure to generate fresh types *)
 let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
-    "bind", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind; 
+    "bind", "in|ouport -> bridge -> ()", "bind a port with a bridge, binding two times the same (port,bridge) does nothing (no overhead)", t_bind; 
     "bind_in", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind; 
     "bind_out", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind; 
     "bind_inlined", "in|ouport -> bridge -> ()", "bind a port with a bridge", t_bind_inlined; 
@@ -42,6 +42,7 @@ let builtin_fcts : (string * string * string * (unit -> main_type)) list= [
     "dict", "() -> dict", "create a new dict", t_dict;
     "first", "Tuple<'a, 'b> -> 'a", "Return the first element of list, failed if empty", t_first;
     "get2dict", "dict<k,v> -> k -> v", "get", t_get2dict;
+    "exist2dict", "dict<k,v> -> k -> bool", "TODO", t_exist2dict;
     "initiate_session_with", "TODO", "TODO", t_initiate;
     "initiate_session_with_inlined", "TODO", "TODO", t_initiate_inlined;
     "listget", " list<T> -> int -> t", "", t_listget;

@@ -562,4 +562,37 @@ BENCHMARKS = [
             "workload": ["workloadb"].__iter__(),
         }), 3)
     ),
+    Benchmark(
+        "ycsb-b-kvs-full-varda-inmemory",
+        ChainBuilder(
+            [
+                VardaBuilder(
+                    BENCHMARKS_DIR/"bench-kvs"/"varda-full",
+                    "dune exec --profile release -- vardac compile --places {{project_dir}}/places.yml --targets {{project_dir}}/targets.yml --filename {{project_dir}}/kv.varch --impl benchmarks/libbench.vimpl --impl {{project_dir}}/kv-wo-redis.vimpl --provenance 0 && cd compiler-build/akka && gradle -x test jarYCSBClient",
+                    Path(os.getcwd()).absolute()),
+                DockerComposeBuilder(
+                    BENCHMARKS_DIR/"bench-kvs"/"varda-full",
+                    Path(os.getcwd())/"compiler-build"/"akka"),
+            ],
+            # since Varda striclty stronger than docker
+            stamp_strategy=lambda builders: builders[0]._get_bench_model(),
+            # the one pass to runner
+            exposed_builder=lambda builders: builders[-1]
+        ),
+        ShellRunnerFactory(
+            f"java -classpath build/libs/YCSBClient.jar:{{{{env.YCSB}}}}/conf:{{{{env.YCSB}}}}/lib/HdrHistogram-2.1.4.jar:{{{{env.YCSB}}}}/lib/core-0.17.0.jar:{{{{env.YCSB}}}}/lib/htrace-core4-4.1.0-incubating.jar:{{{{env.YCSB}}}}/lib/jackson-core-asl-1.9.4.jar:{{{{env.YCSB}}}}/lib/jackson-mapper-asl-1.9.4.jar:{{{{env.YCSB}}}}/redis-binding/lib/commons-pool2-2.4.2.jar:{{{{env.YCSB}}}}/redis-binding/lib/jedis-2.9.0.jar:{{{{env.YCSB}}}}/redis-binding/lib/redis-binding-0.17.0.jar site.ycsb.Client -t -db author.project_name.YCSBClient -s -P {{{{env.YCSB}}}}/workloads/workloadb > /tmp/ycsb-results",
+            Path(os.getcwd())/"compiler-build"/"akka",
+            "Terminated ueyiqu8R",
+            environment = {
+                'YCSB': BENCHMARKS_DIR/"ycsb-0.17.0"
+            }
+        ),
+        [
+            FileCollector("/tmp/ycsb-results", get_ycsb_result),
+        ],
+        Generator(RangeIterator({
+            "threads": range(1, 2).__iter__(),
+            "workload": ["workloadb"].__iter__(),
+        }), 3)
+    ),
 ]
