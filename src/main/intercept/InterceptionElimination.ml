@@ -717,16 +717,27 @@ module Make (Args: TArgs) = struct
                         e_param_msg;
                     ]
                 ))
-            | None -> 
+            | None -> begin 
                 (* Case there is no user defined function *)
                 logger#warning "No @msginterceptor(...) for bridge type %s" (Atom.to_string b_intercepted);
-                e2_e (CallExpr (
-                    e2var (Atom.builtin "fire"),
-                    [
-                        e_local_s_out;
-                        e_param_msg;
-                    ]
-                )) 
+                match tmsg.value with
+                | CType {value=TFlatType TBLabel} ->
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "select"),
+                        [
+                            e_local_s_out;
+                            e_param_msg;
+                        ]
+                    )) 
+                | _ -> 
+                    e2_e (CallExpr (
+                        e2var (Atom.builtin "fire"),
+                        [
+                            e_local_s_out;
+                            e_param_msg;
+                        ]
+                    )) 
+            end
         in
 
         let left_mt = tb_intercepted.in_type in

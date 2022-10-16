@@ -87,6 +87,7 @@ public class Session<T3> implements CborSerializable {
         long startTime = System.nanoTime();
         {% endif %}
 
+        assert(this.st.continuations != null);
         assert(this.st.continuations.size() == 1);
         if(! Handlers.is_session_alive( context, this.left, frozen_sessions, dead_sessions, this.session_id, this.right)){
             context.getLog().warn( String.format("Can not send message from [%s] to [%s] : session %s is dead", this.left.toString(), this.right.toString(), this.session_id));
