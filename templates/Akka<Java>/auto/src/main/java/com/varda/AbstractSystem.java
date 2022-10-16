@@ -13,8 +13,10 @@ import akka.cluster.MemberStatus;
 import akka.cluster.typed.Cluster;
 import akka.cluster.typed.Join;
 import com.bmartin.SpawnProtocol;
+import com.bmartin.CborSerializable;
 import java.time.Duration;
 import java.util.concurrent.CompletionStage;
+
 
 public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Command> {
     public static final String NAME = "{{system_name}}";
@@ -22,6 +24,8 @@ public abstract class AbstractSystem extends AbstractBehavior<SpawnProtocol.Comm
 
     public TimerScheduler<SpawnProtocol.Command> timers;
     public ActorRef<SpawnProtocol.Command> guardian;
+
+    public interface Command extends CborSerializable {}
 
     public AbstractSystem(ActorContext<SpawnProtocol.Command> context, TimerScheduler<SpawnProtocol.Command> timers,
             String name, Wait wait) {
