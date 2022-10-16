@@ -54,6 +54,7 @@ and is_subtype_ct ct1 ct2 =
         *)
     _is_subtype_ct ct1.place ct2.place ct1.value ct2.value
 and _is_subtype_st (known_subtypes:(_session_type * _session_type) list) place1 place2 st1 st2 =  
+(* see Table6. https://lmcs.episciences.org/3752/pdf *)
     List.mem (st1, st2) known_subtypes || (* for recursive types *)
     match (st1, st2) with
     | STRecv (mt1, st1), STRecv(mt2, st2) ->
@@ -63,19 +64,38 @@ and _is_subtype_st (known_subtypes:(_session_type * _session_type) list) place1 
         is_subtype mt2 mt1 && (* contra-variance *)
         is_subtype_st st1 st2
     | STBranch branches1, STBranch branches2 -> 
-        let labels1 = (Atom.Set.of_seq (List.to_seq (List.map (function (x, _, _) ->x) branches1))) in
-        let tbl1 = (Atom.VMap.of_seq (List.to_seq (List.map (function (x,y,z) -> (x,(y,z))) branches1))) in
-        let labels2 = (Atom.Set.of_seq (List.to_seq (List.map (function (x, _, _) -> x) branches2))) in
-        let tbl2 = (Atom.VMap.of_seq (List.to_seq (List.map (function (x,y,z) -> (x,(y,z))) branches2))) in
+        (* a subtype can receive more in term of label or type of branch *)
+        let labels1 = (Core.Collections.StringSet.of_seq (List.to_seq (List.map (function (x, _, _) -> Atom.hint x) branches1))) in
+        let tbl1 = (Core.Collections.StringMap.of_seq (List.to_seq (List.map (function (x,y,z) -> (Atom.hint x,(y,z))) branches1))) in
+        let labels2 = (Core.Collections.StringSet.of_seq (List.to_seq (List.map (function (x, _, _) -> Atom.hint x) branches2))) in
+        let tbl2 = (Core.Collections.StringMap.of_seq (List.to_seq (List.map (function (x,y,z) -> (Atom.hint x,(y,z))) branches2))) in
 
-        let common_labels = Atom.Set.inter labels1 labels2 in
-
-        common_labels = labels1 && (* labels 1 \subset labels 2*)
+        let common_labels = Core.Collections.StringSet.inter labels1 labels2 in
+        (* surtype_labels \subset subtype_labels, a subtype can express more not less *)
+        common_labels = labels2 && 
+        (* for common label, subptyping relation for each branch (co-variance) *)
         Seq.fold_left (fun flag label ->
-            let st1,_ = Atom.VMap.find label tbl1 in
-            let st2,_ = Atom.VMap.find label tbl2 in
-            flag && is_subtype_st st1 st2 (* TODO FIXME check implication *)
-        ) true (Atom.Set.to_seq common_labels)
+            let st1,_ = Core.Collections.StringMap.find label tbl1 in
+            let st2,_ = Core.Collections.StringMap.find label tbl2 in
+            flag && is_subtype_st st1 st2
+        ) true (Core.Collections.StringSet.to_seq common_labels)
+
+    | STSelect branches1, STSelect branches2 -> 
+        (* a subtype can send less in term of label or type of branch *)
+        let labels1 = (Core.Collections.StringSet.of_seq (List.to_seq (List.map (function (x, _, _) -> Atom.hint x) branches1))) in
+        let tbl1 = (Core.Collections.StringMap.of_seq (List.to_seq (List.map (function (x,y,z) -> (Atom.hint x,(y,z))) branches1))) in
+        let labels2 = (Core.Collections.StringSet.of_seq (List.to_seq (List.map (function (x, _, _) -> Atom.hint x) branches2))) in
+        let tbl2 = (Core.Collections.StringMap.of_seq (List.to_seq (List.map (function (x,y,z) -> (Atom.hint x,(y,z))) branches2))) in
+
+        let common_labels = Core.Collections.StringSet.inter labels1 labels2 in
+        (* surtype_labels \subset subtype_labels, a subtype can express more not less *)
+        common_labels = labels1 && 
+        (* for common label, subptyping relation for each branch (contra-variance) *)
+        Seq.fold_left (fun flag label ->
+            let st1,_ = Core.Collections.StringMap.find label tbl1 in
+            let st2,_ = Core.Collections.StringMap.find label tbl2 in
+            flag && is_subtype_st st2 st1
+        ) true (Core.Collections.StringSet.to_seq common_labels)
     | STVar x, STVar y -> x = y
     | st0, (STRec (x, st1) as st_rec) ->
         (* One unfolding *)

@@ -415,13 +415,12 @@ module Make () = struct
         program
 
 
-    module StringSet = Set.Make(String) 
     let postcondition program = 
-        let  fcts_set = StringSet.of_seq (List.to_seq   ["complete_future"; "future"; "wait_future"]) in
+        let  fcts_set = Core.Collections.StringSet.of_seq (List.to_seq   ["complete_future"; "future"; "wait_future"]) in
         (* Ensure not more future primitives *)
         collect_expr_program Atom.Set.empty 
             (function |VarExpr x -> 
-                Atom.is_builtin x && StringSet.mem (Atom.hint x) fcts_set | _ -> false)
+                Atom.is_builtin x && Core.Collections.StringSet.mem (Atom.hint x) fcts_set | _ -> false)
             (fun _ _ e -> raise (Error.PlacedDeadbranchError(e.place, "future's primitives remains after FutureElim")))
             program;
         program

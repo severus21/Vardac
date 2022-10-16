@@ -592,6 +592,7 @@ module Make (Args: TArgs) = struct
         @return if exists the msginterceptor function for [intercepted_bridge] at stage [i]
     *)
     let get_msginterceptor interceptor_info (msg_interceptors: method0 list) tb_intercepted_bridge i (tmsg, st_continuation) =
+        logger#info"<> get_msginterceptor";
         let left_mt = tb_intercepted_bridge.in_type in
         let right_mt = tb_intercepted_bridge.out_type in
 
@@ -605,13 +606,15 @@ module Make (Args: TArgs) = struct
             let st3 = match fst param_continuation_in.value with | {value=SType st} -> st in (* type of continuation_in*)
             let tmsg3 = fst param_msg.value in 
 
-            logger#info "%s\ntry paired msginterceptor with \n\t%s < %s"  (Atom.to_string m.value.name) (show_main_type left_mt) (show_main_type mt_A);
+            logger#info "%s\ntry paired msginterceptor with %b \n\t%s \n<\n\t %s"  (Atom.to_string m.value.name) 
+            (TypingUtils.is_subtype (mtype_of_st st_continuation.value) (mtype_of_st st3.value))
+            (show_session_type st_continuation) (show_session_type st3);
 
             paired_interceptor_stage (left_mt, right_mt, st_continuation, tmsg) (mt_A, mt_B, st3, tmsg3)
         in 
 
         List.iter (function (m:method0) -> 
-            logger#info "msginterceptor %s" (Atom.to_string m.value.name)
+            logger#info "> msginterceptor %s" (Atom.to_string m.value.name)
         ) msg_interceptors;
 
         match List.filter filter msg_interceptors with
@@ -680,6 +683,15 @@ module Make (Args: TArgs) = struct
         let param_msg, e_param_msg = e_param_of "msg" in
         let param_s_in, e_param_s_in = e_param_of "s_in" in
 
+        logger#info "generate_skeleton_callback_msg %s" (Atom.to_string b_intercepted);
+        begin
+            (* Sanity check *)
+            match st_continuation.value with 
+            | STRecv _ | STBranch _ when flag_egress -> ()
+            | _ when flag_egress -> raise (Error.DeadbranchError (Printf.sprintf "generate_skeleton_callback_msg wrong continuation type for %s: duality error" (Atom.to_string b_intercepted)))
+            | _ -> ()
+        end;
+
 
         let local_from, e_local_from = e_param_of "from" in
         let local_to, e_local_to = e_param_of "to" in
@@ -692,7 +704,7 @@ module Make (Args: TArgs) = struct
                 (* select*)
                 let mt_out2 = dual st_continuation in
                 (* TODO fixme, the first returned type should be {b1:st1; ... bn:stn} not just st_i for sti=st_continuation *)
-                mtype_of_st (dual st_continuation).value,  mtype_of_st mt_out2.value  
+                mtype_of_st st_continuation.value,  mtype_of_st mt_out2.value  
             | _ -> (* fire *)
                 let mt_out2 = dual st_continuation in
                 mtype_of_st (STSend (tmsg, mt_out2)), mtype_of_st mt_out2.value 
@@ -701,6 +713,8 @@ module Make (Args: TArgs) = struct
 
 
         let e_res_msginterceptor = 
+            logger#info "searching message interceptor for %s" (Atom.to_string b_intercepted);
+
             match (get_msginterceptor interceptor_info msg_interceptors tb_intercepted i (tmsg, st_continuation)) with
             | Some x_to -> 
                 logger#warning "Some @msginterceptor(...) for bridge type %s" (Atom.to_string b_intercepted);
@@ -1012,6 +1026,8 @@ module Make (Args: TArgs) = struct
         let interface = if flag_egress then "egress" else "ingress" in
         let key_inport = Printf.sprintf "%s_inport_%s__%d_" (Atom.to_string b_intercepted) interface i in 
         let key_outport = Printf.sprintf "%s_outport_%s__%d_" (Atom.to_string b_intercepted) interface i in
+
+        logger#info "generate_skeleton_block_per_intercepted_bridge_per_st_stage";
         
         Seq.iter (function x -> logger#error "glup %s => %s" key_outport x) (Hashtbl.to_seq_keys used_outports);
         Seq.iter (function x -> logger#error "glups %s => %s" key_inport x) (Hashtbl.to_seq_keys used_inports);
@@ -1038,6 +1054,11 @@ module Make (Args: TArgs) = struct
 
 
                 let (tmsg, st_continuation) : main_type * session_type = msgcont_of_st (auto_fplace st_stage) in
+                (* Correct st_continuation *)
+                let st_continuation = match tmsg.value with
+                    | CType{value=TFlatType TBLabel} -> dual st_continuation
+                    | _ -> st_continuation
+                in
 
                 (*** Msg interception callback ***)
                 let callback_msg : method0 = generate_skeleton_callback_msg interceptor_info msg_interceptors (b_intercepted, tb_intercepted) i tmsg st_continuation in
@@ -1484,6 +1505,8 @@ module Make (Args: TArgs) = struct
     (*************** Interception Elimination ******************)
 
     let generate_interceptor base_interceptor interceptor_info : _term = 
+        logger#info "generate_interceptor";
+
         logger#debug "0 > \n%s" (show_interceptor_info interceptor_info);
 
         let interceptor_info, onboard_block = generate_onboard_block base_interceptor interceptor_info in

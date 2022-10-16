@@ -1676,7 +1676,7 @@ module Make (Arg: sig val target:Target.target end) = struct
 
         (* Step3 - Generate the component receiver *)
         let generate_component_receiver () = 
-            logger#error "> generate_receiver for [%s]" (Atom.to_string name);
+            logger#debug "> generate_receiver for [%s]" (Atom.to_string name);
             let init_receiver_expr : T.expr = {place; value=T.CallExpr(
                 {place; value=T.VarExpr (
                     Atom.builtin "newReceiveBuilder"

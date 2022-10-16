@@ -103,7 +103,7 @@ and free_vars_expr already_binded e =
 and collect_expr_mtype_ parent_opt already_binded selector collector place = function
 | EmptyMainType -> already_binded, [], []
 | CType ct ->   already_binded, [], [] (*TODO FIXME*)
-| SType st -> already_binded, [], []
+| SType st -> already_binded, [], [] (* TODO label of branch are free vars expr and protocol are binder for them *)
 | CompType cmt ->already_binded, [], []
 | ConstrainedType _ ->already_binded, [], []
 | TRaw _ ->already_binded, [], []
@@ -309,11 +309,15 @@ and collect_type_stype_ flag_tcvar parent_opt already_binded selector collector 
     let _, collected_elts2, ftvars2 = collect_type_stype flag_tcvar parent_opt already_binded selector collector st in
     already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2
 | STBranch branches | STSelect branches -> 
+    let labels = List.map (function (l, _,_) -> l) branches in
+    let free_labels = Atom.Set.to_list(Atom.Set.diff (Atom.Set.of_list labels) already_binded) in
+
+
     let sts =  List.map (function (_,st,_) -> st) branches in
     let acs =  List.map Option.get (List.filter (function x -> x <> None) (List.map (function (_,_,ac) -> ac) branches)) in
     let collected_elts1, ftvars1 = collect_type_stypes flag_tcvar parent_opt already_binded selector collector sts in
     let collected_elts2, ftvars2 = collect_type_aconstraints flag_tcvar parent_opt already_binded selector collector acs in
-    already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2 
+    already_binded, collected_elts1@collected_elts2, ftvars1@ftvars2@free_labels 
 | STRec (x, st) -> 
     let inner_already_binded = (Atom.Set.add x already_binded) in
     let _, collected_elts, ftvars = collect_type_stype flag_tcvar parent_opt inner_already_binded selector collector st in

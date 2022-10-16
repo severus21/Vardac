@@ -1091,9 +1091,6 @@ module Make (Params : IRParams) = struct
             let collected_elts3 = List.flatten (List.map fst res) in
             let ftvars3 = List.flatten (List.map snd res) in
 
-            if List.exists (function x -> Atom.value x = "Interceptor") (ftvars1@ftvars2@ftvars3) then
-                logger#error "%s" (Atom.to_string m.name);
-
             already_binded, collected_elts1@collected_elts2@collected_elts3, ftvars1@ftvars2@ftvars3
         and collect_type_function_dcl flag_tcvar parent_opt (already_binded:Atom.Set.t) selector collector fdcl = 
             map0_place (collect_type_function_dcl_ flag_tcvar parent_opt already_binded selector collector) fdcl
@@ -1209,7 +1206,18 @@ module Make (Params : IRParams) = struct
                 let _, collected_elts2, ftvars2 = collect_type_typedef_body flag_tcvar parent_opt already_binded selector collector body in
                 Atom.Set.add x already_binded, collected_elts@collected_elts2, ftvars@ftvars2 
             | ProtocolDef (x, mt) -> 
+                let _,binded_labels,_ = collect_type_mtype parent_opt already_binded (function 
+                    | SType {value=STBranch _} | SType{value=STSelect _} -> true
+                    | _ -> false
+                ) (fun _ _ -> function
+                    | {value=SType{value=STBranch branches}} | {value=SType{value=STSelect branches}} ->
+                        List.map (function (l,_,_) -> l) branches
+                ) mt in
+
+                let already_binded = Atom.Set.union already_binded (Atom.Set.of_list binded_labels) in
+
                 let _, collected_elts, ftvars = collect_type_mtype ~flag_tcvar:flag_tcvar parent_opt already_binded selector collector mt in
+
                 Atom.Set.add x already_binded, collected_elts, ftvars
             | VPlaceDef x ->
                 Atom.Set.add x already_binded, [], []

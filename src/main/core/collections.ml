@@ -8,3 +8,5 @@ module StringMap = struct
   let of_list xs = of_seq (List.to_seq xs)
 
 end
+
+module StringSet = Set.Make(String) 
