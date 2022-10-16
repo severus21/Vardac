@@ -248,7 +248,6 @@ module Make () = struct
         [(fst p.value).name, typeof_outport p]
     | State s -> 
         logger#debug "state registration";
-        logger#error "register %s" (Atom.to_string s.value.name);
         register_expr_type s.value.name (typeof_state s);
         [s.value.name, typeof_state s]
     | Term t -> scan_term parent_opt t 
@@ -563,7 +562,6 @@ module Make () = struct
                         (* class or component *)
                         let tmp = match (snd e1.value).value with
                             | CompType _ -> 
-                                logger#error "access expr type of %s" (Atom.to_string field);
                                 mt_of_citem parent_opt place (snd e1.value) field
                             | CType {value= TObject _}-> begin
                                 match fst e1.value with
@@ -922,7 +920,6 @@ module Make () = struct
     (* Warning FIXME ERROR -> returns is annotated once more after eliminating receive -> change result type to void, however the contract type should remain the same .... -> TODO compile or erase contract before Akka passe *)
     and _tannot_contract parent_opt ret_type place (p:_contract) = 
         List.iter (fun (mt, x, _) -> 
-            logger#error "contract with %s" (Atom.to_string x);
             register_expr_type x mt) p.pre_binders;
 
         {
