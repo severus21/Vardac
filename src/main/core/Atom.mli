@@ -119,3 +119,5 @@ val show_list : string -> atom list -> string
 val pp_list : string -> (Format.formatter -> 'a -> unit) -> Format.formatter -> atom list -> unit 
 
 module AtomVariable : (AstUtils.TVariable with type t = atom and module Set = Set)
+
+module AtomHashtbl : Hashtbl.S with type key = atom

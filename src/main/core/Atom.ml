@@ -108,19 +108,28 @@ let refresh_value a value =
 (* Comparison of atoms. *)
 
 let equal a b =
-  a.identity = b.identity
+  if a.builtin = b.builtin then
+    a.hint = b.hint
+  else
+    a.identity = b.identity
 
 
 let compare a b =
   (* Identities are always positive numbers (see [allocate] above)
      so I believe overflow is impossible here. *)
-  a.identity - b.identity
+  if a.builtin = b.builtin then
+    String.compare a.hint b.hint
+  else
+    a.identity - b.identity
 
 let compare_atom = compare 
 let equal_atom = equal 
 
 let hash a =
-  Hashtbl.hash a.identity
+  if a.builtin then
+    Hashtbl.hash a.hint
+  else
+    Hashtbl.hash a.identity
 
 (* -------------------------------------------------------------------------- *)
 
@@ -319,6 +328,17 @@ end
 
 let deduplicate atoms = 
     Set.elements (Set.of_list atoms)
+
+(* Hash map *)
+
+module AtomHash =
+  struct
+    type t = atom 
+    let equal = equal 
+    let hash = hash 
+  end
+
+module AtomHashtbl = Hashtbl.Make(AtomHash)
 
 
 module AtomVariable = struct 

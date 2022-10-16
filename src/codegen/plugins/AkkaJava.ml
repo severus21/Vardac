@@ -70,15 +70,15 @@ module Make (Arg: Plugin.CgArgSig) = struct
         let cstate : Rt.Finish.collected_state ref = ref (Rt.Finish.empty_cstate ())
 
         let rename_cstate renaming = 
-            let e2rs = Hashtbl.to_seq (!cstate).event2receptionists in
+            let e2rs = Atom.AtomHashtbl.to_seq (!cstate).event2receptionists in
             let e2rs = Seq.map (function (k,v) -> k, List.map renaming v) e2rs in
             (* No Hashtbl.reset since we do not alter the keys *)
-            Hashtbl.replace_seq (!cstate).event2receptionists e2rs;
+            Atom.AtomHashtbl.replace_seq (!cstate).event2receptionists e2rs;
 
-            let e2rs = Hashtbl.to_seq (!cstate).external2receptionists in
+            let e2rs = Atom.AtomHashtbl.to_seq (!cstate).external2receptionists in
             let e2rs = Seq.map (function (k,v) -> k, List.map renaming v) e2rs in
             (* No Hashtbl.reset since we do not alter the keys *)
-            Hashtbl.replace_seq (!cstate).external2receptionists e2rs;
+            Atom.AtomHashtbl.replace_seq (!cstate).external2receptionists e2rs;
 
             (!cstate).collected_components := Atom.Set.map (function name -> renaming name) !((!cstate).collected_components);
 
@@ -1314,7 +1314,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
             *)
             
             let implemented_types = 
-                match Hashtbl.find_opt (!cstate).event2receptionists name with
+                match Atom.AtomHashtbl.find_opt (!cstate).event2receptionists name with
                 | None -> Error.plog_warning logger fplace "Event %s can not be received by any component" (Atom.hint name); [] (*FIXME do this check inside the IR *) 
                 | Some actor_names -> 
                     List.map fctype (List.map (Akka.Misc.t_command_of_actor fplace) actor_names)
@@ -1857,7 +1857,7 @@ module Make (Arg: Plugin.CgArgSig) = struct
                             implemented_types = 
                             List.map fctype cdcl.implemented_types @ 
                             (* External events should implements command type *)
-                            (match Hashtbl.find_opt (!cstate).external2receptionists cdcl.name with
+                            (match Atom.AtomHashtbl.find_opt (!cstate).external2receptionists cdcl.name with
                             | None -> []
                             | Some actor_names -> 
                                 List.map fctype (List.map (Akka.Misc.t_command_of_actor fplace) actor_names)

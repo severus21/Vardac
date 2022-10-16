@@ -25,15 +25,15 @@ module T = Ast
 (*** Global state *)
 type collected_state = {
     mutable target : Core.Target.target option;
-    event2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
-    external2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
+    event2receptionists : (Atom.t list) Atom.AtomHashtbl.t; 
+    external2receptionists : (Atom.t list) Atom.AtomHashtbl.t; 
     collected_components: Atom.Set.t ref;
     guardian_components: Atom.Set.t ref
 }
  
 let print_cstate cstate = 
     Format.fprintf Format.std_formatter "Cstate.event2receptionists\n";
-    Hashtbl.iter (fun k v -> 
+    Atom.AtomHashtbl.iter (fun k v -> 
         Format.fprintf 
             Format.std_formatter "+ %s -> @[<hv>%a@]\n" 
             (Atom.to_string k) 
@@ -43,8 +43,8 @@ let print_cstate cstate =
 
 let empty_cstate () : collected_state = {
     target = None;
-    event2receptionists = Hashtbl.create 0;
-    external2receptionists = Hashtbl.create 0;
+    event2receptionists = Atom.AtomHashtbl.create 0;
+    external2receptionists = Atom.AtomHashtbl.create 0;
     collected_components = ref Atom.Set.empty;
     guardian_components = ref Atom.Set.empty
 }
@@ -68,37 +68,39 @@ module Make (Arg: sig val target:Target.target end) = struct
     (*
         event -> list of components that can receive it 
     *)
-    let event2receptionists : (Atom.t, Atom.t list) Hashtbl.t= Hashtbl.create 64
-    let external2receptionists : (Atom.t, Atom.t list) Hashtbl.t= Hashtbl.create 64
+    let event2receptionists : Atom.t list Atom.AtomHashtbl.t = 
+        Atom.AtomHashtbl.create 64
+    let external2receptionists : Atom.t list Atom.AtomHashtbl.t = 
+        Atom.AtomHashtbl.create 64
     let add_event_e2rs event component : unit = 
         let vs = 
             try
-                Hashtbl.find event2receptionists event
+                Atom.AtomHashtbl.find event2receptionists event
             with Not_found -> []
         in
-        Hashtbl.add event2receptionists event (component::vs)
+        Atom.AtomHashtbl.add event2receptionists event (component::vs)
     let add_external_e2rs name component : unit = 
         let vs = 
             try
-                Hashtbl.find external2receptionists name 
+                Atom.AtomHashtbl.find external2receptionists name 
             with Not_found -> []
         in
-        Hashtbl.add external2receptionists name (component::vs)
+        Atom.AtomHashtbl.add external2receptionists name (component::vs)
 
     let rename_collected_state renaming = 
-        let e2rs = Hashtbl.to_seq event2receptionists in
+        let e2rs = Atom.AtomHashtbl.to_seq event2receptionists in
         let e2rs = List.of_seq (Seq.map (function (k,v) -> renaming k, List.map renaming v) e2rs) in
 
         (* Since we change the keys *)
-        Hashtbl.reset event2receptionists; 
-        Hashtbl.add_seq event2receptionists (List.to_seq e2rs);
+        Atom.AtomHashtbl.reset event2receptionists; 
+        Atom.AtomHashtbl.add_seq event2receptionists (List.to_seq e2rs);
 
-        let e2rs = Hashtbl.to_seq external2receptionists in
+        let e2rs = Atom.AtomHashtbl.to_seq external2receptionists in
         let e2rs = List.of_seq (Seq.map (function (k,v) -> renaming k, List.map renaming v) e2rs) in
 
         (* Since we change the keys *)
-        Hashtbl.reset external2receptionists; 
-        Hashtbl.add_seq external2receptionists (List.to_seq e2rs);
+        Atom.AtomHashtbl.reset external2receptionists; 
+        Atom.AtomHashtbl.add_seq external2receptionists (List.to_seq e2rs);
 
         ()
     (*****)
@@ -1331,22 +1333,22 @@ module Make (Arg: sig val target:Target.target end) = struct
         let l_event : T.expr = auto_place (T.VarExpr l_event_name, auto_place T.TUnknown) in
 
         (* Step 1bis - create {external_event: eport} *)
-        let external_env : (Atom.atom, S.eport) Hashtbl.t = Hashtbl.create 16 in
+        let external_env : S.eport Atom.AtomHashtbl.t = Atom.AtomHashtbl.create 16 in
         let hydrate_external_env (p:S.eport) = 
             let external_event_name = match (fst p.value).expecting_mt.value with
                 | S.CType{value=S.TVar x} -> x
                 | _ -> raise (Error.PlacedDeadbranchError (p.place, "expecting_mt should be a TVar, this should have been checked before Akka/Finish.ml"))
             in
 
-            match Hashtbl.find_opt external_env external_event_name with
-            | None -> Hashtbl.add external_env external_event_name p
+            match Atom.AtomHashtbl.find_opt external_env external_event_name with
+            | None -> Atom.AtomHashtbl.add external_env external_event_name p
             | Some p2 -> raise (Error.PlacedDeadbranchError (p.place@p2.place, "eports should be deterministic, this should have been checked before Akka/Finish.ml"))
         in
         List.iter hydrate_external_env grp_items.eports;
 
 
         (* Step1 - create {event_name: {(port, st, remaining_step i.e st) ->  callback}} *)
-        let env : (Atom.atom, (S.port * S.session_type * S.session_type, T.expr) Hashtbl.t) Hashtbl.t = Hashtbl.create 16 in
+        let env : ((S.port * S.session_type * S.session_type, T.expr) Hashtbl.t) Atom.AtomHashtbl.t = Atom.AtomHashtbl.create 16 in
         let hydrate_env (p: S.port) = 
 
             let expecting_st, (msg_type, remaining_st) = match (fst p.value).expecting_st.value with 
@@ -1374,10 +1376,10 @@ module Make (Arg: sig val target:Target.target end) = struct
             
             let inner_env : (S.port * S.session_type * S.session_type, T.expr) Hashtbl.t= begin 
                 try 
-                    Hashtbl.find env msg_type 
+                    Atom.AtomHashtbl.find env msg_type 
                 with Not_found -> 
                     let _inner_env = Hashtbl.create 8 in 
-                    Hashtbl.add env msg_type _inner_env; 
+                    Atom.AtomHashtbl.add env msg_type _inner_env; 
                     _inner_env
             end in
 
@@ -1674,6 +1676,7 @@ module Make (Arg: sig val target:Target.target end) = struct
 
         (* Step3 - Generate the component receiver *)
         let generate_component_receiver () = 
+            logger#error "> generate_receiver for [%s]" (Atom.to_string name);
             let init_receiver_expr : T.expr = {place; value=T.CallExpr(
                 {place; value=T.VarExpr (
                     Atom.builtin "newReceiveBuilder"
@@ -1826,8 +1829,9 @@ module Make (Arg: sig val target:Target.target end) = struct
             in
 
             let add_case event_name inner_env (acc, acc_methods) =
+                logger#error "> add_case for [%s] %s %d %d %d" (Atom.to_string name) (Atom.to_string event_name) (Atom.identity event_name) (Hashtbl.hash event_name) (Atom.hash event_name);
                 (
-                    match Hashtbl.find_opt external_env event_name with
+                    match Atom.AtomHashtbl.find_opt external_env event_name with
                     | None -> ();
                     | Some _ -> Error.error "(currently) event [%s] can not be used for both eport and input port" (Atom.to_string event_name)
                 );
@@ -1896,8 +1900,21 @@ module Make (Arg: sig val target:Target.target end) = struct
                     ), auto_place T.TUnknown}
                 ), auto_place T.TUnknown}, _m::acc_methods)
             in
+
+            (* Akka support only one onMessage per type *)
+            (*let group_by_expecting_msg_type = Hashtbl.create 16 in
+            Hashtbl.iter (fun (p, expecting_st, remaining_st) value ->
+                let msg_mt = in
+                match Hashtbl.find_opt group_by_expecting_msg_type with
+                | None ->
+                    Hashtbl.add group_by_expecting_msg_type msg_mt [(p, expecting_st, remain_st, value)]
+                | Some entries ->
+                    Hashtbl.add group_by_expecting_msg_type msg_mt ((p, expecting_st, remain_st, value)::entries)
+            ) env;*)
+
+
            
-            Hashtbl.fold add_external_case external_env (Hashtbl.fold add_case env (init_receiver_expr, []))
+            Atom.AtomHashtbl.fold add_external_case external_env (Atom.AtomHashtbl.fold add_case env (init_receiver_expr, []))
         in
 
         let (receiver_body, receiver_methods) = generate_component_receiver () in
@@ -1933,8 +1950,8 @@ module Make (Arg: sig val target:Target.target end) = struct
             event Pong implements C.Command for all C that can receive a Pong event
         *)
 
-        Hashtbl.iter (fun event _ -> add_event_e2rs event name) env;
-        Hashtbl.iter (fun event _ -> add_external_e2rs event name) external_env;
+        Atom.AtomHashtbl.iter (fun event _ -> add_event_e2rs event name) env;
+        Atom.AtomHashtbl.iter (fun event _ -> add_external_e2rs event name) external_env;
 
         (***** Building methods *****)
         let methods = receiver_methods @ (List.flatten (List.map (fmethod parent_opt name) grp_items.methods)) in 

@@ -6,8 +6,8 @@ open Core
 (* Type used to export collected state to subsequent processing *)
 type collected_state = {
     mutable target : Core.Target.target option;
-    event2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
-    external2receptionists : (Atom.t, Atom.t list) Hashtbl.t; 
+    event2receptionists : (Atom.t list) Atom.AtomHashtbl.t; 
+    external2receptionists : (Atom.t list) Atom.AtomHashtbl.t; 
     collected_components: Atom.Set.t ref;
     guardian_components: Atom.Set.t ref;
 }
