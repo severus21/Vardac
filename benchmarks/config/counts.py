@@ -20,14 +20,23 @@ COUNTS = [
     AkkaCallbackCounter("ms-akka", BENCHMARKS_DIR/"bench-ms/akka"),
 
     # KVS
-    LoCCounter("kvs-varda", BENCHMARKS_DIR/"bench-kvs/varda", VARDA_EXPORT),
+    LoCCounter("kvs-varda", BENCHMARKS_DIR/"bench-kvs/varda", VARDA_EXPORT, excludes=["kv-redis.vimpl"]),
     VardaCallbackCounter("kvs-varda", BENCHMARKS_DIR/"bench-kvs/varda"),
-    LoCCounter("kvs-akka", BENCHMARKS_DIR/"bench-kvs/akka", AKKA_EXPORT),
+    LoCCounter("kvs-akka", BENCHMARKS_DIR/"bench-kvs/akka", AKKA_EXPORT, excludes=[
+        "src/main/java/com/varda/ConsoleClient.java",
+        "src/main/java/com/varda/KVLStore.java",
+        "src/main/java/com/varda/LoadbalancerActor.java",
+        "src/main/java/com/varda/YCSB.java"
+        ]),
     AkkaCallbackCounter("kvs-akka", BENCHMARKS_DIR/"bench-kvs/akka"),
 
     # KVS with loadbalancer
-    LoCCounter("lkvs-varda", BENCHMARKS_DIR/"bench-kvs/varda", VARDA_EXPORT),
-    VardaCallbackCounter("lkvs-varda", BENCHMARKS_DIR/"bench-kvs/varda"),
-    LoCCounter("lkvs-akka", BENCHMARKS_DIR/"bench-kvs/akka", AKKA_EXPORT),
+    LoCCounter("lkvs-varda", BENCHMARKS_DIR/"bench-kvs/varda-full", VARDA_EXPORT, excludes=["kv-redis.vimpl"]),
+    VardaCallbackCounter("lkvs-varda", BENCHMARKS_DIR/"bench-kvs/varda-full"),
+    LoCCounter("lkvs-akka", BENCHMARKS_DIR/"bench-kvs/akka", AKKA_EXPORT,excludes=[
+        "src/main/java/com/varda/ConsoleClient.java",
+        "src/main/java/com/varda/KVStore.java",
+        "src/main/java/com/varda/YCSB.java"
+        ]),
     AkkaCallbackCounter("lkvs-akka", BENCHMARKS_DIR/"bench-kvs/akka"),
 ]

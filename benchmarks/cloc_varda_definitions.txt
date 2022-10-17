@@ -65,6 +65,7 @@ Varda
     filter rm_comments_in_strings " /* */
     filter rm_comments_in_strings " // 
     filter rm_comments_in_strings " (* *) 
+    filter remove_between_general (* *)
     filter call_regexp_common C++
     extension varch 
     3rd_gen_scale 1.00
@@ -74,6 +75,7 @@ Varda impl
     filter rm_comments_in_strings " /* */
     filter rm_comments_in_strings " // 
     filter rm_comments_in_strings " (* *) 
+    filter remove_between_general (* *)
     filter call_regexp_common C++
     extension vimpl 
     3rd_gen_scale 1.00

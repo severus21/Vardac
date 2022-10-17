@@ -54,6 +54,7 @@ impl component KVServer {
 }
 
 impl component Loadbalancer {}
+impl component MsgCounter {}
 
 impl component TopLevel::Inner {}
 impl component TopLevel {}

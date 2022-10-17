@@ -8,10 +8,12 @@ protocol p_kv = §{
 };
 
 (* TODO 
+2) more than two shards => add a list in dict
 3) multi jvm
-4) sharding
+4) nested
 *)
 
+(*@capturable([Loadbalancer,MsgCounter])*)
 @capturable([Loadbalancer])
 component KVServer {
     string name = "shard-no-name";
@@ -24,22 +26,22 @@ component KVServer {
     inport p_in :: bridge<Client, KVServer, p_kv> expecting (dual p_kv) = this.callback;
 
     result<void, error> callback (blabel msg, (dual p_kv) s) {
-        print("callback "+this.name);
+        (*print("callback "+this.name);*)
 
         branch s on msg {
             | l_get => s_i -> { 
                 tuple<key, !value.> tmp = receive(s_i);
-                print("get "+this.name);
+                (*print("get "+this.name);*)
                 fire(tmp._1, this.get(tmp._0))?;
             }
             | l_delete => s_i -> {
                 tuple<key, !bool.> tmp = receive(s_i);
-                print("delete "+this.name);
+                (*print("delete "+this.name);*)
                 fire(tmp._1, this.delete(tmp._0))?;
             }
             | l_put => s_i -> {
                 tuple<tuple<key,value>, !bool.> tmp = receive(s_i);
-                print("put "+this.name);
+                (*print("put "+this.name);*)
                 tuple<key, value> res = tmp._0; 
                 this.put(res._0, res._1);
                 fire(tmp._1, true)?;
@@ -65,19 +67,19 @@ component Client {
     outport p_out expecting p_kv;
 
     onstartup (bridge<Client, KVServer, p_kv> b, activation_ref<KVServer> kv){
-        print(">>> Starting a Client instance");
+        (*print(">>> Starting a Client instance");*)
         bind(this.p_out, b);
         this.kv = kv;
     }
 
     @expose
     result<bool, error> api_put(string k, string v){
-        print(">> start put");
+        (*print(">> start put");*)
         session<p_kv> s = initiate_session_with(this.p_out, this.kv);
 
         !tuple<key, value>?bool. s = select(s, l_put)?;
         ?bool. s = fire(s, (key(k), value(v)))?;
-        print(">> end put");
+        (*print(">> end put");*)
 
         tuple<bool, .> res = receive(s);
         return ok(res._0);
@@ -85,12 +87,12 @@ component Client {
 
     @expose
     result<bool, error> api_delete(string k){
-        print(">> start delete");
+        (*print(">> start delete");*)
         session<p_kv> s = initiate_session_with(this.p_out, this.kv);
 
         !key?bool. s = select(s, l_delete)?;
         ?bool. s = fire(s, key(k))?;
-        print(">> end delete");
+        (*print(">> end delete");*)
 
         tuple<bool, .> res = receive(s);
         return ok(res._0);
@@ -110,9 +112,9 @@ component Client {
         string ret = tmp_ret._0_;
         
         (* TODO print(f">> get success {{ret}}");*)
-        print(">> get success");
+        (* print(">> get success");
         print(ret);
-        print("");
+        print("");*)
         return ok(ret);
     }
 
@@ -125,20 +127,19 @@ component Client {
 
 (***************** Loadbalancer *******************)
 
+(*@capturable([MsgCounter])*)
 component Loadbalancer {
     list<activation_ref<KVServer>> shards = [];
     dict<session_id, !key?bool.> s_inner_delete = dict();
     dict<session_id, !key?bool.> s_inner_put = dict();
     outport custom_p_out expecting p_kv;
 
-    onstartup () {
-        print("> Loadbalancer");
-    }
+    onstartup () {}
 
     (****************************** Activation onboarding ******************************)
     @onboard([KVServer])
     bool onboard_A(activation_ref<KVServer> a, place p_of_a){
-        print("Onboarding a KVServer");
+        (*print("Onboarding a KVServer");*)
         append(this.shards, a);
         return true;
     }
@@ -147,12 +148,10 @@ component Loadbalancer {
     @sessioninterceptor(true, both)
     result<option<activation_ref<KVServer>>,error> my_session_interceptor_a(
         dict<activation_id, activation_ref<KVServer>> onboarded_activations, 
-        activation_ref<Client> from, 
-        bridge<Client, KVServer, inline p_kv> b_other_side, 
-        string requested_to_schema, 
-        blabel msg
+        activation_ref<Client> from, bridge<Client, KVServer, inline p_kv> b_other_side, 
+        string requested_to_schema, blabel msg
     ){
-        print("Intercepted session init");
+        (*print("Intercepted session init");*)
         activation_ref<KVServer> a = pick(onboarded_activations);
         bind(this.custom_p_out, b_other_side);
         return ok(some(a));
@@ -161,21 +160,19 @@ component Loadbalancer {
     (****************************** Msg interception  ******************************)
     @msginterceptor(both)
     result<!key?value.,error> intercept_ping(
-        activation_ref<Client> from, 
-        activation_ref<KVServer> to, 
-        (dual p_kv) continuation_in, 
-        p_kv continuation_out, 
+        activation_ref<Client> from, activation_ref<KVServer> to, 
+        (dual p_kv) continuation_in, p_kv continuation_out, 
         blabel msg
     ){
         branch continuation_in on msg {
             | l_get => s -> {
-                print("Intercept get branch : nothing to do");
+                (*print("Intercept get branch : nothing to do");*)
             }
             | l_delete => s -> {
-                print("Intercept delete branch selection");
+                (* print("Intercept delete branch selection"); *)
                 for(activation_ref<KVServer> shard in this.shards){
                     if( activationid(shard) != activationid(to)){
-                        print("handling another shard");
+                        (*print("handling another shard");*)
                         session<p_kv> s = initiate_session_with(this.custom_p_out, shard);
                         !key?bool. s_a = select(s, l_delete)?;
                         add2dict(this.s_inner_delete, sessionid(continuation_in), s_a);
@@ -183,10 +180,10 @@ component Loadbalancer {
                 }
             }
             | l_put => s -> {
-                print("Intercept put branch selection");
+                (*print("Intercept put branch selection");*)
                 for(activation_ref<KVServer> shard in this.shards){
                     if( activationid(shard) != activationid(to)){
-                        print("handling another shard");
+                        (*print("handling another shard");*)
                         session<p_kv> s = initiate_session_with(this.custom_p_out, shard);
                         !key?bool. s_a = select(s, l_put)?;
                         add2dict(this.s_inner_put, sessionid(continuation_in), s_a);
@@ -201,16 +198,14 @@ component Loadbalancer {
 
     @msginterceptor(both)
     result<.,error> intercept_delete(
-        activation_ref<Client> from, 
-        activation_ref<KVServer> to, 
-        ?bool. continuation_in, 
-        !bool. continuation_out, 
+        activation_ref<Client> from, activation_ref<KVServer> to, 
+        ?bool. continuation_in, !bool. continuation_out, 
         key msg
     ){
         print("Intercept bidule");
         session_id s_id = sessionid(continuation_in);
         if(exist2dict(this.s_inner_delete, s_id)){
-            print("Intercept bidule delete ");
+            (* print("Intercept bidule delete "); *)
             (* do not wait for response *)
             fire(get2dict(this.s_inner_delete, s_id), msg);
         }
@@ -219,15 +214,13 @@ component Loadbalancer {
     }
     @msginterceptor(both)
     result<.,error> intercept_put(
-        activation_ref<Client> from, 
-        activation_ref<KVServer> to, 
-        ?bool. continuation_in, 
-        !bool. continuation_out, 
+        activation_ref<Client> from, activation_ref<KVServer> to, 
+        ?bool. continuation_in, !bool. continuation_out, 
         tuple<key,value> msg
     ){
         session_id s_id = sessionid(continuation_in);
         if(exist2dict(this.s_inner_put, s_id)){
-            print("Intercept bidule put ");
+            (* print("Intercept bidule put "); *)
             (* do not wait for response *)
             fire(get2dict(this.s_inner_put, s_id), msg);
         }
@@ -235,6 +228,35 @@ component Loadbalancer {
         return ok(fire(continuation_out, msg)?);
     }
 }
+
+(*
+component MsgCounter {
+    int nbr_msg = 0;
+    onstartup () {
+        print(">MsgCounter"); 
+    }
+
+    void incr(){
+        this.nbr_msg = this.nbr_msg + 1;
+    }
+
+    @msginterceptor(both)
+    result<!key?value.,error> intercept_ping(
+        activation_ref<any> from, 
+        activation_ref<any> to, 
+        (dual p_kv) continuation_in, 
+        p_kv continuation_out, 
+        blabel msg
+    ){
+        this.incr();
+        print("request n "+int_to_string(this.nbr_msg));
+
+        !key?value. s_out = fire(continuation_out, msg)?;
+        return ok(s_out);
+    }
+}
+*)
+
 
 (***************** Entrypoint *********************)
 
@@ -257,18 +279,36 @@ component TopLevel {
             }
             return option_get(this.loadbalancer);
         }
+(*
+        option<activation_ref<any>> counter = none; 
+
+        activation_ref<MsgCounter> make_counter (
+            option<place> -> activation_ref<any> factory,
+            string intercepted_component_schema,
+            place p_of_intercepted
+        ){
+            if(is_none(this.counter)){
+                place p = current_place();
+                this.counter = some(factory(some(p)));
+            }
+            return option_get(this.counter);
+        }
+*)
+
 
         onstartup () {
-            print(">> Entering toplevel");
+            (* print(">> Entering toplevel"); *)
             bridge<Client, KVServer, p_kv> b = bridge(p_kv);
 
-            with<Loadbalancer, anonymous> this.make_interceptor{
-                activation_ref<KVServer> kv_a = spawn KVServer(b, "shard-1");
-                activation_ref<KVServer> kv_b = spawn KVServer(b, "shard-2");
-            }
+            (*with<MsgCounter> this.make_counter{*)
+                with<Loadbalancer, anonymous> this.make_interceptor{
+                    activation_ref<KVServer> kv_a = spawn KVServer(b, "shard-1");
+                    activation_ref<KVServer> kv_b = spawn KVServer(b, "shard-2");
+                }
+            (* } *)
 
             activation_ref<Client> c = spawn Client(b, kv_a);
-            print(">> Ending toplevel");
+            (* print(">> Ending toplevel"); *)
         }
     }
     onstartup () {
