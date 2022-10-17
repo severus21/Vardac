@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from execo import Host
 
-RUN_TIMEOUT = 30 # s
+RUN_TIMEOUT = 180 # s
 
 
 #setup remote

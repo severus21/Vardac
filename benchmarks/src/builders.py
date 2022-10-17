@@ -5,6 +5,7 @@ import logging
 import os
 import subprocess
 import os
+import shutil
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -204,6 +205,10 @@ class ShellBuilder(AbstractBuilder):
 class VardaBuilder(ShellBuilder):
     def __init__(self, project_dir, build_cmd, build_cwd, build_dir=Path(os.getcwd())/"compiler-build") -> None:
         super().__init__(project_dir, build_dir, build_cmd, build_cwd)
+
+    def __exit__(self, type, value, traceback):
+        shutil.rmtree(self.build_dir)
+        return super().__exit__(type, value, traceback)
 
 class AkkaBuilder(ShellBuilder):
     def __init__(self, project_dir, build_cmd, build_cwd, build_dir=Path(os.getcwd())/"compiler-build") -> None:

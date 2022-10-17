@@ -55,5 +55,5 @@ class RangeIterator:
         return self.prepare(snapshot)
 
 def logrange(start, end, base):
-    for x in numpy.logspace(start,end,base=10, num = end-start+1, dtype='int'):
+    for x in numpy.logspace(start,end,base=base,num = end-start+1, dtype='int'):
         yield x
