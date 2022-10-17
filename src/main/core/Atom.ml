@@ -298,8 +298,9 @@ module VMap = struct
   let hash_fold_t hash_fold_elem s map = 
     let l = List.of_seq (to_seq map) in
 
-    let hash_fold_item s ((k,v):key*'a) : Hash.state = failwith "" 
-        hash_fold_elem s v
+    let hash_fold_item s ((k,v):key*'a) : Hash.state = 
+      (* TODO FIXME *)
+      hash_fold_atom s k
     in 
     let s = hash_fold_list hash_fold_item s l in
     s 

@@ -67,6 +67,9 @@ type interceptor_info = {
     (* Computed *)
     intercepted_schemas: Atom.Set.t;
 
+    (* dependencies *)
+    dependencies: Atom.Set.t; (* set of other interceptor that should be built first *)
+
     (*** Not hydrated by ctx_elim ***)
     (*** Hydrated by intercept elim***)
     this_onboarded_activations: Atom.atom option;

@@ -253,6 +253,7 @@ and _stmt =
         branches: branch_stmt list 
     }
 and stmt = _stmt placed
+and stmts = stmt list
 
 and _param = main_type * expr_variable
 and param = _param placed

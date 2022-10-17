@@ -55,7 +55,7 @@ module Make () = struct
 
 
     let register_expr_type x mt : unit= 
-        logger#debug "> %s" (Atom.to_string x); 
+        logger#info "> %s" (Atom.to_string x); 
         assert(Atom.AtomHashtbl.find_opt ectx x = None);
         Atom.AtomHashtbl.add ectx x mt 
 

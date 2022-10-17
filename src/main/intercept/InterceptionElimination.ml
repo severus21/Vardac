@@ -23,6 +23,9 @@ module Make (Args: TArgs) = struct
     (******************* Shared state of the pass **************************)
     include Args
 
+
+    let resolved_dependencies = ref Atom.Set.empty
+
     (*************** Step 0 - gather intell ******************)
     let methods_of (base_interceptor : component_structure) : method0 list =
         let citems = List.filter (function {value={v=Method _}} -> true | _ -> false) base_interceptor.body in
@@ -483,12 +486,7 @@ module Make (Args: TArgs) = struct
                 | STSelect _ | STSend _ when i > 0 -> None
             in
 
-
-            match kind_of_intercepted_bridge interceptor_info tb_intercepted with
-            | 1 -> begin
-                (* stage_0 egress => in /\ stage_0 ingress => out *) 
-                let st_egress_0, st_ingress_0 = st_in, st_out in 
-
+            let aux st_egress_0 st_ingress_0 = 
                 let egress_ports = List.mapi (unroll_ports "egress") (stages_of_st st_egress_0) in
                 let ingress_ports = List.mapi (unroll_ports "ingress")  (stages_of_st st_ingress_0) in
 
@@ -512,15 +510,23 @@ module Make (Args: TArgs) = struct
                     ()
                 ) (ingress_ports@egress_ports);
                 ()
+            in
 
+
+            match kind_of_intercepted_bridge interceptor_info tb_intercepted with
+            | 1 -> begin
+                (* stage_0 egress => in /\ stage_0 ingress => out *) 
+                let st_egress_0, st_ingress_0 = st_in, st_out in 
+                aux st_egress_0 st_ingress_0
             end
             | 2 -> begin
             (* stage_0 egress => out /\ stage_0 ingress => in *) 
                 let st_egress_0, st_ingress_0 = st_out, st_in in 
-                failwith "><2" 
+                aux st_egress_0 st_ingress_0
             end
             | 3 -> begin
-                failwith "><3" 
+                aux st_out st_in;
+                aux st_in st_out
             end
         in
 
@@ -691,14 +697,14 @@ module Make (Args: TArgs) = struct
         let param_s_in, e_param_s_in = e_param_of "s_in" in
 
         logger#info "generate_skeleton_callback_msg %s" (Atom.to_string b_intercepted);
-        begin
+       (* begin
             (* Sanity check *)
             match st_continuation.value with 
             | STRecv _ | STBranch _ when flag_egress -> ()
             | _ when flag_egress -> raise (Error.DeadbranchError (Printf.sprintf "generate_skeleton_callback_msg wrong continuation type for %s: duality error" (Atom.to_string b_intercepted)))
             | _ -> ()
         end;
-
+*)
 
         let local_from, e_local_from = e_param_of "from" in
         let local_to, e_local_to = e_param_of "to" in
@@ -1591,7 +1597,7 @@ module Make (Args: TArgs) = struct
     | Component {value=ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} when Atom.hint functorname = "MakeInterceptor" && Atom.is_builtin functorname -> true 
     | _ -> false
     let makeinterceptor_rewriter program parent_opt place = function
-    | Component {value=ComponentAssign {name=interceptor_name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} -> begin
+    | Component {value=ComponentAssign {name=interceptor_name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} as term -> begin
 
         (* Ad-hoc functor since we do not have meta programming capabilities *)
         match args with
@@ -1656,6 +1662,7 @@ module Make (Args: TArgs) = struct
                         inout_bridges_info = failwith "TODO howto to compute inout_bridges_info for low level API - add this to whitepapre";
 
                         intercepted_schemas;
+                        dependencies = Atom.Set.empty;
 
                         b_onboard_state = None;
                         inout_statebridges_info = None;
@@ -1665,47 +1672,69 @@ module Make (Args: TArgs) = struct
                     }
             in
 
+            logger#error "%s > %s subset %s" (Atom.to_string interceptor_name) (Atom.Set.show interceptor_info.dependencies) (Atom.Set.show !resolved_dependencies);
+            if Atom.Set.subset interceptor_info.dependencies !resolved_dependencies then(
+                (* The dependencies have been resolved *)
+                resolved_dependencies := (Atom.Set.add interceptor_name (!resolved_dependencies));
 
-            (*** Check that intercepted_schemas can be captured by base_interceptor ***)
+                (*** Check that intercepted_schemas can be captured by base_interceptor ***)
 
-            (* schema_name -> capturable_by_schemas *)
-            let all_schemas = Hashtbl.create 16 in 
-            let _ = collect_term_program 
-                true (* recursive to collect all schemas of the AST *)
-                (function | Component _ -> true |_ -> false) 
-                (fun _ place -> function 
-                    | Component {value = ComponentStructure cstruct } -> begin 
-                        match List.filter (function | Capturable _ -> true | _ -> false) cstruct.annotations with
-                        | [] -> []
-                        | [Capturable annot] -> 
-                            Hashtbl.add all_schemas cstruct.name (Atom.Set.of_seq (List.to_seq annot.allowed_interceptors));
-                            []
-                        | _ -> Error.perror place "At most one capturable annotations per schema."
-                    end
-                    | Component {value=ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} when Atom.hint functorname = "MakeInterceptor" && Atom.is_builtin functorname -> []| Component {value=ComponentAssign _ } -> failwith "componentassign are not yet supported by InterceptionElimination"
-            ) program in
-            
-            Atom.Set.iter (function schema -> 
-                assert(Hashtbl.length all_schemas > 0);
-                let allowed_interceptors = 
-                    try
-                        Hashtbl.find all_schemas schema
-                    with Not_found -> failwith (Printf.sprintf "schema [%s] not found in [all_schemas]" (Atom.to_string schema))
-                in
-                if Bool.not (Atom.Set.mem base_interceptor_name allowed_interceptors) then    
-                    Error.perror place "%s can not be intercepted by %s. To make it capturable add ```@capturable`` annotation to %s." (Atom.value schema) (Atom.value interceptor_info.base_interceptor_name) (Atom.value schema);
-            ) interceptor_info.intercepted_schemas;
-            
-            [ generate_interceptor base_interceptor interceptor_info ]
+                (* schema_name -> capturable_by_schemas *)
+                let all_schemas = Hashtbl.create 16 in 
+                let _ = collect_term_program 
+                    true (* recursive to collect all schemas of the AST *)
+                    (function | Component _ -> true |_ -> false) 
+                    (fun _ place -> function 
+                        | Component {value = ComponentStructure cstruct } -> begin 
+                            match List.filter (function | Capturable _ -> true | _ -> false) cstruct.annotations with
+                            | [] -> []
+                            | [Capturable annot] -> 
+                                Hashtbl.add all_schemas cstruct.name (Atom.Set.of_seq (List.to_seq annot.allowed_interceptors));
+                                []
+                            | _ -> Error.perror place "At most one capturable annotations per schema."
+                        end
+                        | Component {value=ComponentAssign {name; value={value=(AppCExpr ({value=VarCExpr functorname, _}, args)), _}}} when Atom.hint functorname = "MakeInterceptor" && Atom.is_builtin functorname -> []| Component {value=ComponentAssign _ } -> failwith "componentassign are not yet supported by InterceptionElimination"
+                ) program in
+                
+                Atom.Set.iter (function schema -> 
+                    assert(Hashtbl.length all_schemas > 0);
+                    let allowed_interceptors = 
+                        try
+                            Hashtbl.find all_schemas schema
+                        with Not_found -> failwith (Printf.sprintf "schema [%s] not found in [all_schemas]" (Atom.to_string schema))
+                    in
+                    if Bool.not (Atom.Set.mem base_interceptor_name allowed_interceptors) then    
+                        Error.perror place "%s can not be intercepted by %s. To make it capturable add ```@capturable`` annotation to %s." (Atom.value schema) (Atom.value interceptor_info.base_interceptor_name) (Atom.value schema);
+                ) interceptor_info.intercepted_schemas;
+                
+                [ generate_interceptor base_interceptor interceptor_info ]
+            ) else (
+                [ term ]
+            )
+
+
         end
         | _ -> Error.perror place "Illformed MakeInterceptor functor: MakeInterceptor(BaseInterceptor, [intercepted_schemas])"
     end
 
     let intercept_elim_program program =
         (* Elimination of MakeInterceptor *)
-        let program = rewrite_term_program makeinterceptor_selector (makeinterceptor_rewriter program) program in 
+        let past_resolved_dependencies = ref Atom.Set.empty in
+        let program = ref (rewrite_term_program makeinterceptor_selector (makeinterceptor_rewriter program) program) in 
+        let max_depth = ref 2 in
+        (* Fix point on resolved_dependencies *)
+        begin
+            while Bool.not (Atom.Set.subset !resolved_dependencies !past_resolved_dependencies)  do
+                logger#debug ">> resolved_dependencies %s" (Atom.Set.show !resolved_dependencies);
+                program := rewrite_term_program makeinterceptor_selector (makeinterceptor_rewriter !program) !program;
+                past_resolved_dependencies := (!resolved_dependencies);
+                decr max_depth;
+                assert (!max_depth > 0);
+                ()
+            done
+        end;
 
-        program
+        !program
 
     (*********************************************************)
     let name = "InterceptionElimination"

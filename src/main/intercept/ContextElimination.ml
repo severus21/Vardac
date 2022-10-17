@@ -1,3 +1,4 @@
+open Ppx_hash_lib.Std
 open InterceptUtils
 open Core
 open AstUtils
@@ -231,6 +232,7 @@ module Make () = struct
         let compare (_, b) (_, d) = Atom.compare b d
     end)
 
+
     (**
         @returns set of intercepted_bridges : (bridge type:TBridge, atom) Set - 
         N.B. 
@@ -259,6 +261,7 @@ module Make () = struct
         key : (cname, set of intercepted_schemas)
     *)
     let key_of_ctx place cname stmts = 
+        logger#info "computing key_of_ctx for %s stmts_hash=%d" (Atom.to_string cname) ([%hash: stmts] stmts);
         let intercepted_schemas = intercepted_schemas_of_ctx place cname stmts in
         let key = (cname, intercepted_schemas) in
 
@@ -303,43 +306,12 @@ module Make () = struct
         let p_def_onboard = ProtocolDef (p_onboard, mtype_of_st st_onboard.value) in
         (p_onboard, st_onboard, Typedef (auto_fplace p_def_onboard))
 
-    (**
-        Register each ctx inside shared state (interceptor_parents, interceptor_makes) in order to deduplicate schemas.
-    *)
-    let ctxelim_prepare_stmt (parent_opt : Atom.atom option) place : _stmt -> unit list = function
-        | WithContextStmt (anonymous_mod, cname, e, stmts) -> 
-            let key = key_of_ctx place cname stmts in
-            let intercepted_schemas = intercepted_schemas_of_ctx place cname stmts in
-
-            logger#debug "ctxelim_prepare: %s" (show_key key);
-
-            (* Deduplicate interceptor component type *)
-            try
-                match Hashtbl.find_opt interceptor_makes key with
-                | Some _ -> begin 
-                    try
-                        Hashtbl.add interceptor_parents key (AtomOptionSet.add parent_opt (Hashtbl.find interceptor_parents key));
-                        [] 
-                    with Not_found -> failwith "key %s not found in interceptor_parents" key
-                end
-                | None -> begin
-
-                    let make_schema_stmt = generate_make_schema place cname stmts intercepted_schemas in
-                    let (p_onboard, st_onboard, p_def_onboard) = generate_onboard_typedef place cname intercepted_schemas in
-
-                    Hashtbl.add interceptor_parents key (AtomOptionSet.singleton parent_opt);
-                    Hashtbl.add interceptor_makes key (make_schema_stmt, (p_onboard, st_onboard, p_def_onboard));
-                    []
-                end
-            with Not_found ->
-                failwith "key %s not found in interceptor_parents" key
-
     (*** Step 1.C - Insert new schema in lca of intercepted_schemas ***)
     let insert_interceptor_dcl key (interceptor_dcl,_) (program:program) : program =
         let parents = 
             try
                 Hashtbl.find interceptor_parents key 
-            with Not_found -> failwith "key %s not found in interceptor_parents" key
+            with Not_found -> failwith (Printf.sprintf "key %s not found in interceptor_parents" (show_key key))
         in
 
         AtomOptionSet.iter (function opt ->
@@ -347,6 +319,9 @@ module Make () = struct
         ) parents;
 
         IRUtils.insert_terms_into_lca (List.of_seq (AtomOptionSet.to_seq parents)) [(auto_fplace (auto_plgannot (Component interceptor_dcl)))] program   
+
+
+
 
     (*************** Step 2 - Bridge handling  ******************)
 
@@ -402,7 +377,7 @@ module Make () = struct
             let parents = 
                 try 
                     Hashtbl.find interceptor_parents key 
-                with Not_found -> failwith "key %s not found in interceptor_parents" key
+                with Not_found -> failwith (Printf.sprintf "key %s not found in interceptor_parents" (show_key key))
             in
             IRUtils.insert_terms_into_lca (List.of_seq (AtomOptionSet.to_seq parents)) [auto_fplace (auto_plgannot p_onboard_def)] program   
 
@@ -510,22 +485,108 @@ module Make () = struct
         factory, auto_fplace (LetStmt(factory_signature, factory, factory_expr))
 
 
-    (*************** Step 4 - Ctx elimination  ******************)
+    (*************** Step 4.a - TODO  ******************)
+
+    (**
+        Register each ctx inside shared state (interceptor_parents, interceptor_makes) in order to deduplicate schemas.
+    *)
+    (*let rec ctxelim_prepare_stmt program (parent_opt : Atom.atom option) place : _stmt -> unit list = function
+        | WithContextStmt (anonymous_mod, cname, e, stmts) -> 
+            logger#debug "found WithContextStmt <%s,%d>" (Atom.to_string cname) ([%hash: stmts] stmts);
+
+            logger#debug "Begining processing inner ctx stmts\n";
+            (* Search and rewrite nested ctx first *)
+            ignore(List.map (collect_stmt_stmt parent_opt (function | WithContextStmt _ -> true | _ -> false) (ctxelim_prepare_stmt program)) stmts);
+            let stmts = List.flatten (List.map (rewrite_stmt_stmt false parent_opt (function | WithContextStmt _ -> true | _ -> false) (ctxelim_rewrite_stmt program)) stmts) in 
+
+            logger#debug "End processing inner ctx stmts; start processing ctx <%s,%d>\n" (Atom.to_string cname) ([%hash: stmts] stmts);
+            
+
+            (* Process the current one *)
+            let key = key_of_ctx place cname stmts in
+            let intercepted_schemas = intercepted_schemas_of_ctx place cname stmts in
+
+            logger#debug "ctxelim_prepare: %s" (show_key key);
+
+            (* Deduplicate interceptor component type *)
+            try
+                match Hashtbl.find_opt interceptor_makes key with
+                | Some _ -> begin 
+                    try
+                        Hashtbl.add interceptor_parents key (AtomOptionSet.add parent_opt (Hashtbl.find interceptor_parents key));
+                        [] 
+                    with Not_found -> failwith (Printf.sprintf "key %s not found in interceptor_parents" (show_key key))
+                end
+                | None -> begin
+
+                    let make_schema_stmt = generate_make_schema place cname stmts intercepted_schemas in
+                    let (p_onboard, st_onboard, p_def_onboard) = generate_onboard_typedef place cname intercepted_schemas in
+
+                    Hashtbl.add interceptor_parents key (AtomOptionSet.singleton parent_opt);
+                    Hashtbl.add interceptor_makes key (make_schema_stmt, (p_onboard, st_onboard, p_def_onboard));
+                    []
+                end
+            with Not_found ->
+                failwith (Printf.sprintf "key %s not found in interceptor_parents" (show_key key))
+*)
+
+    (*************** Step 4.b - Ctx elimination  ******************)
     (** 
         Get ride of ``with<Interceptor> ctx() { stmt }``
         see whitepaper for details
     *)
+    let nested_interceptor_names = ref []
 
-    let ctxelim_rewrite_stmt (program:program) parent_opt place = function 
+    let rec ctxelim_rewrite_stmt (program:program) parent_opt place = function 
         | WithContextStmt (anonymous_mod, base_interceptor_name, user_defined_policy, stmts) -> begin 
-            (*** Step a - Collect intell on ctx ***)
+            logger#debug "found WithContextStmt <%s,%d>" (Atom.to_string base_interceptor_name) ([%hash: stmts] stmts);
+
+            let tmp_nested_interceptor_names = !nested_interceptor_names in
+            nested_interceptor_names := [];
+
+            logger#debug "Begining processing inner ctx stmts\n";
+            (* Search and rewrite nested ctx first *)
+            let stmts = List.flatten (List.map (rewrite_stmt_stmt false parent_opt (function | WithContextStmt _ -> true | _ -> false) (ctxelim_rewrite_stmt program)) stmts) in 
+
+            logger#debug "End processing inner ctx stmts; start processing ctx <%s,%d> depends on %s\n" (Atom.to_string base_interceptor_name) ([%hash: stmts] stmts) (Atom.Set.show (Atom.Set.of_list !nested_interceptor_names));
+
+
+            (* Process the current one *)
+            let key = key_of_ctx place base_interceptor_name stmts in
+            let intercepted_schemas = intercepted_schemas_of_ctx place base_interceptor_name stmts in
+            logger#debug "ctxelim_rewrite: %s" (show_key key);
+
+
+            (*** Step 0 - Deduplicate interceptor component type *)
+            begin
+                try
+                match Hashtbl.find_opt interceptor_makes key with
+                | Some _ -> begin 
+                    try
+                        Hashtbl.add interceptor_parents key (AtomOptionSet.add parent_opt (Hashtbl.find interceptor_parents key));
+                        [] 
+                    with Not_found -> failwith (Printf.sprintf "key %s not found in interceptor_parents" (show_key key))
+                end
+                | None -> begin
+
+                    let make_schema_stmt = generate_make_schema place base_interceptor_name stmts intercepted_schemas in
+                    let (p_onboard, st_onboard, p_def_onboard) = generate_onboard_typedef place base_interceptor_name intercepted_schemas in
+
+                    Hashtbl.add interceptor_parents key (AtomOptionSet.singleton parent_opt);
+                    Hashtbl.add interceptor_makes key (make_schema_stmt, (p_onboard, st_onboard, p_def_onboard));
+                    []
+                end
+            with Not_found ->
+                failwith (Printf.sprintf "key %s not found in interceptor_parents" (show_key key))
+            end;
+
+            
+                (*** Step a - Collect intell on ctx ***)
 
             (* NB. key_of_ctx is called twice one in prepare and one in rewrite (i.e recompute intercepted_schemas).
                 perf: merge rewrite and prepare
                 readability: keep them split in two functions => current choice
             *)
-            let key = key_of_ctx place base_interceptor_name stmts in
-            logger#debug "ctxelim_rewrite: %s" (show_key key);
 
 
             let base_interceptor_place, base_interceptor =  get_schema program base_interceptor_name in
@@ -545,11 +606,14 @@ module Make () = struct
             let interceptor_assign, (p_onboard, st_onboard, p_def_onboard) = 
                 try 
                     Hashtbl.find interceptor_makes key
-                with Not_found -> failwith "key %s not found in interceptor_parents" key
+                with Not_found -> raise (Error.DeadbranchError (Printf.sprintf "key %s not found in interceptor_parents" (show_key key)))
             in 
             let interceptor_name = match interceptor_assign.value with
                 | ComponentAssign cassign -> cassign.name
             in
+            
+            let dependencies = Atom.Set.diff (Atom.Set.of_list !nested_interceptor_names) (Atom.Set.singleton interceptor_name) in
+            nested_interceptor_names := interceptor_name :: tmp_nested_interceptor_names;
 
             (* TODOC *)
             (* Sanity checks - i.e. detects that interception ctx is not used and raise an error *)
@@ -870,6 +934,8 @@ module Make () = struct
 
                     intercepted_schemas;
 
+                    dependencies;
+
                     (*** Not hydrated by ctx_elim ***)
                     (*** Hydrated by intercept elim***)
                     this_onboarded_activations = None;
@@ -1085,8 +1151,8 @@ module Make () = struct
         (* Hydrate interceptor_makes/parents 
             NB. could be merged but are split for readability
         *)
-        logger#debug "CtxElim: collecting info";
-        let _ = collect_stmt_program (function | WithContextStmt _ -> true | _ -> false) ctxelim_prepare_stmt program in
+        (*logger#debug "CtxElim: collecting info";
+        let _ = collect_stmt_program (function | WithContextStmt _ -> true | _ -> false) (ctxelim_prepare_stmt program) program in*)
 
         (* Apply the ctx elimination *)
         logger#debug "CtxElim: applying rewriting";
