@@ -1,0 +1,91 @@
+target akka;
+
+impl headers java:{=
+=}
+impl dependencies gradle:{=
+    implementation group: 'org.rocksdb', name: 'rocksdbjni', version: '5.8.0'
+    implementation group: 'site.ycsb', name: 'core', version: '0.17.0'
+=}
+
+impl component Client {
+    impl state kv java:{=
+        null
+    =}
+}
+
+impl component KVServer {
+
+    impl headers java:{=
+        import java.lang.IllegalArgumentException;
+        import java.util.Arrays;
+        import java.util.List;
+        import java.util.Map;
+        import java.util.ArrayList;
+
+        import org.rocksdb.*;
+        import org.rocksdb.util.SizeUnit;
+    =}
+
+    impl raw java:{=
+        RocksDB _db;
+        RocksDB getDB (){
+            if(this._db == null){
+                // Open a socket with the redis backend
+                String db_path = System.getenv("ROCKSDB_PATH");
+                org.rocksdb.Options options = new org.rocksdb.Options();
+
+                try {
+                    options.setCreateIfMissing(true);
+                } catch (final IllegalArgumentException e) {
+                    assert (false);
+                }
+
+                try{
+                    this._db = RocksDB.open(options, db_path);
+                } catch (final RocksDBException e) {
+                    System.out.format("[ERROR] caught the unexpected exception -- %s\n", e);
+                }
+            }
+            return this._db;
+        }       
+
+    =}
+
+    (* binding for the get method *)
+    impl method _get java:{=
+        // Perform the GET request on key [k]
+        try{
+            byte[] value = this.getDB().get({{%k._0_%}}.getBytes());
+            if(value == null)
+                return "Error";
+            else
+                return new String(value);
+        } catch (final RocksDBException e) {
+            System.out.format("[ERROR] caught the unexpected exception -- %s\n", e);
+            return "Error";
+        }
+    =}
+
+    impl method put java:{=
+        // Perform the PUT request on key [k]
+        try{
+            this.getDB().put({{%k._0_%}}.getBytes(), {{%v._0_%}}.getBytes());
+            return true;
+        } catch (final RocksDBException e) {
+            System.out.format("[ERROR] caught the unexpected exception -- %s\n", e);
+            return false; 
+        }
+    =}
+
+    impl method delete java:{=
+        try{
+            this.getDB().delete({{%k._0_%}}.getBytes());
+            return true;
+        } catch (final RocksDBException e) {
+            System.out.format("[ERROR] caught the unexpected exception -- %s\n", e);
+            return false; 
+        }
+    =}
+}
+
+impl component TopLevel {}

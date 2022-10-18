@@ -50,6 +50,12 @@
         ```
     * To query the redis kv directly
         docker exec -it $(docker ps -q --filter name=redis) redis-cli
+3. Scenario 3 : with RocksDB
+   1. Generate code
+        ```bash
+        make run -- compile --places benchmarks/bench-kvs/varda/places.yml --targets benchmarks/bench-kvs/varda/targets.yml --filename benchmarks/bench-kvs/varda/kv.varch --impl benchmarks/bench-kvs/varda/kv-rocksdb.vimpl --provenance 0
+        ```
+    1. export ROCKSDB_PATH=/tmp/rocksdb-kvs
 
 
 Debugbox:
@@ -57,7 +63,7 @@ Debugbox:
 * get ip : docker inspect $(docker ps -q --filter name="gateway") | grep IPAddress
 * check grpc : docker run -it --network akka_default project_name-console "./grpc_health_probe -addr=gateway:8090"
 
-3. Benchmark
+1. Benchmark
     * Test YCSB client 
     ```bash
         java com.yahoo.ycsb.CommandLine -db author.project_name.YCSBClient -p kvs.url=localhost -p kvs.port=8090 
